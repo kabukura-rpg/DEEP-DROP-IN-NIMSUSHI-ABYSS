@@ -1,0 +1,95 @@
+import type { EnemyKind } from './enemies';
+import type { AreaGimmicks, SectionPlan, WaterPhysics } from './areas';
+
+/** Every attack telegraphs before it can hurt anything. No pattern may skip the wind-up. */
+export interface BossAttack {
+  id: 'magicShot' | 'sweep';
+  /** Seconds of visible wind-up before the attack becomes dangerous. */
+  telegraph: number;
+  /** Seconds the attack is dangerous. */
+  active: number;
+  /** Seconds from the end of one use to the start of the next. */
+  cooldown: number;
+  phases: readonly number[];
+}
+export const BOSS_ATTACKS: readonly BossAttack[] = [
+  { id: 'magicShot', telegraph: 0.7, active: 0.12, cooldown: 3.0, phases: [1, 2, 3, 4] },
+  { id: 'sweep', telegraph: 1.1, active: 0.45, cooldown: 4.8, phases: [1, 2, 3, 4] },
+];
+
+export interface BossPhase {
+  id: 1 | 2 | 3 | 4;
+  name: string;
+  /** Entered once the HP ratio has fallen to this value. */
+  from: number;
+  gimmicks?: AreaGimmicks;
+  water?: WaterPhysics;
+  enemyPool: readonly EnemyKind[];
+  plan: SectionPlan;
+}
+
+/**
+ * The descent keeps going through the whole fight, so each phase is just another generation recipe
+ * plus the systems that area taught. Nothing here is boss-specific except the names.
+ */
+export const BOSS_PHASES: readonly BossPhase[] = [
+  {
+    id: 1, name: 'DESCENT OF THE KING', from: 1,
+    enemyPool: ['slime', 'bat', 'armoredSlime'],
+    plan: { platformWidth: [150, 176], gap: 240, enemyChance: 0.26, flyChance: 0.20, toughChance: 0.18, heavyChance: 0, comboBias: 0.20 },
+  },
+  {
+    id: 2, name: 'SUNKEN CURSE', from: 0.75,
+    gimmicks: { oxygen: true }, water: { gravity: 0.90, responsiveness: 11 },
+    enemyPool: ['fish', 'bubbleFish', 'jellyfish'],
+    plan: {
+      platformWidth: [142, 166], gap: 242, enemyChance: 0.22, flyChance: 0.20, toughChance: 0.20, heavyChance: 0, comboBias: 0.18,
+      bubbleChance: 0.30, airPocketChance: 0.45, maxOxygenGap: 21, bubbleOffside: 0.18,
+    },
+  },
+  {
+    id: 3, name: 'MAGMA WRATH', from: 0.5,
+    gimmicks: { heat: true },
+    enemyPool: ['fireLizard', 'magmaSlime'],
+    plan: {
+      platformWidth: [138, 160], gap: 244, enemyChance: 0.26, flyChance: 0.12, toughChance: 0.28, heavyChance: 0, comboBias: 0.14,
+      lavaPoolChance: 0.22, lavaWallChance: 0.06, ventChance: 0.12, iceChance: 0.44, iceOffside: 0.25,
+    },
+  },
+  {
+    id: 4, name: 'COLLAPSING END', from: 0.25,
+    gimmicks: { breakablePlatforms: true },
+    enemyPool: ['demon', 'wraith', 'armorGuard', 'spikeDemon'],
+    plan: {
+      platformWidth: [124, 146], gap: 246, enemyChance: 0.30, flyChance: 0.26, toughChance: 0.26, heavyChance: 0.08, comboBias: 0.28,
+      breakableChance: 0.94, breakDelay: 0.58, maxBreakableRun: 12,
+    },
+  },
+];
+
+export const BOSS = {
+  name: 'DEMON KING',
+  maxHp: 450,
+  /** The band the king holds below the player: close enough to hit, far enough to dodge. */
+  minGap: 180,
+  maxGap: 260,
+  bodyWidth: 86,
+  bodyHeight: 64,
+  /** How fast it closes on the player's column. */
+  drift: 95,
+  /**
+   * Width of the band a sweep scours. Deliberately narrower than half the shaft: leaving it takes
+   * about 0.8s at walking speed, comfortably inside the telegraph even with submerged inertia.
+   */
+  sweepWidth: 150,
+  /** Upward speed of a magic shot. */
+  shotSpeed: 330,
+  /** Below this share of HP the attacks tighten, without any new pattern appearing. */
+  climaxRatio: 0.14,
+  climaxSpeed: 0.7,
+  /** Seconds of collapse before GAME CLEAR. Short on purpose. */
+  defeatDelay: 0.9,
+} as const;
+
+export const bossPhaseAt = (ratio: number): BossPhase =>
+  [...BOSS_PHASES].reverse().find(phase => ratio <= phase.from) ?? BOSS_PHASES[0];
