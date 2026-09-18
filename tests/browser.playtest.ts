@@ -3,6 +3,7 @@ import { scene, bridge, start, pause, audio } from '../src/main';
 import type { RoutePlatform } from '../src/systems/StageGenerator';
 import { spawnEnemy, type Enemy, type EnemyKind } from '../src/data/enemies';
 import { AREAS, type SectionId } from '../src/data/areas';
+import { pickupType } from '../src/data/pickups';
 import { UPGRADES } from '../src/data/upgrades';
 import type Phaser from 'phaser';
 
@@ -333,7 +334,7 @@ button('2-1 → 3-1 を通常プレイ', async () => {
     if (!ground && model.oxygen.remaining < 7.5) {
       // Low on air: leave the safe lane for the nearest source below, exactly the AREA 2 decision.
       const air = [
-        ...model.pickups.filter(b => !b.taken && b.y > model.player.y && b.y < model.player.y + 190).map(b => ({ x: b.x, y: b.y })),
+        ...model.pickups.filter(b => !b.taken && b.kind === 'oxygenBubble' && b.y > model.player.y && b.y < model.player.y + 190).map(b => ({ x: b.x, y: b.y })),
         ...model.airPockets.filter(a => a.y + a.height > model.player.y && a.y < model.player.y + 190).map(a => ({ x: a.x + a.width / 2, y: a.y })),
       ].sort((a, b) => a.y - b.y)[0];
       if (air && Math.abs(air.x - model.player.x) < 170) target = air.x;
@@ -399,7 +400,7 @@ button('3-1 → 4-1 を通常プレイ', async () => {
     let target = ground ? ground.exitX + ground.safeSide * 3 : next?.safeX;
     if (!ground && model.heat.value > 45) {
       // Hot: take the shard even though it sits nearer the lava. That is the AREA 3 decision.
-      const shard = model.pickups.filter(p => !p.taken && p.y > model.player.y && p.y < model.player.y + 200).sort((a, b) => a.y - b.y)[0];
+      const shard = model.pickups.filter(p => !p.taken && p.kind === 'ice' && p.y > model.player.y && p.y < model.player.y + 200).sort((a, b) => a.y - b.y)[0];
       if (shard && Math.abs(shard.x - model.player.x) < 170) target = shard.x;
     }
     steer(target === undefined || Math.abs(target - model.player.x) < 3 ? 0 : Math.sign(target - model.player.x));
@@ -410,7 +411,8 @@ button('3-1 → 4-1 を通常プレイ', async () => {
   assert(rests.join(' ') === '3-1 3-2 3-3', `3-1 → 3-2 → 3-3 を通常プレイで踏破 (${rests.join(' → ')})`);
   assert(model.stage.label === '4-1', `AREA 3 クリア後に AREA 4 / 4-1 へ (${model.stage.label})`);
   assert(!model.heat.enabled && model.heat.value === 0, 'AREA 4 でHEATが無効化される');
-  assert(model.hazards.length === 0 && model.pickups.length === 0, 'AREA 4 で溶岩・噴出口・アイスが消える');
+  assert(model.hazards.length === 0 && model.pickups.filter(k => pickupType(k.kind).category === 'environment').length === 0,
+    'AREA 4 で溶岩・噴出口・アイスが消える');
   assert(model.water === undefined, 'AREA 4 は通常物理');
   assert(peak > 5 && nearMax > 0, `HEATが実際に熱源で上昇した (最大 ${peak.toFixed(0)}%, 最寄り熱源 ${nearMax.toFixed(1)}/s)`);
 });
@@ -421,9 +423,17 @@ button('4-1 → BOSS を通常プレイ', async () => {
   keepAwake(); start(); await until(() => bridge.active, 8000);
   const model = scene.model;
   model.jumpToStage(4, 1);
-  assert(!model.heat.enabled && !model.oxygen.enabled && model.hazards.length === 0 && model.pickups.length === 0,
+  // Only AREA-owned pickups have to be gone. Gun modules are run-wide and drop in every AREA,
+  // so counting them here would fail whenever a crate happens to spawn in the first chunk.
+  assert(!model.heat.enabled && !model.oxygen.enabled && model.hazards.length === 0
+    && model.pickups.filter(k => pickupType(k.kind).category === 'environment').length === 0,
     'AREA 4 に酸素・HEAT・溶岩・アイスが残っていない');
-  assert(model.platforms.some(f => f.breakable), '崩壊足場が生成されている');
+  // Sampling the 7-8 rows that exist at the instant of the jump is a coin flip: at a 45% per-row
+  // chance it shows no collapsing ledge about 7.5% of the time (measured identically on main).
+  // The recipe is asserted deterministically here; that ledges really do generate and collapse is
+  // proved behaviourally by the cracks/collapses assertion at the end of this same run.
+  assert(model.stage.config.gimmicks?.breakablePlatforms === true && (model.stage.sectionPlan?.breakableChance ?? 0) > 0,
+    `AREA 4 の生成計画に崩壊足場が含まれる (breakableChance ${model.stage.sectionPlan?.breakableChance})`);
   const deadline = performance.now() + 320000;
   let direction = 0, cracks = 0, collapses = 0, underfoot = 0, reloadsOnBreakable = 0, playingHp = model.hp;
   const rests: string[] = [];
@@ -530,11 +540,11 @@ button('UNASSISTED BOSS CHECK', async () => {
     else if (incoming.length) target = incoming[0].x < 225 ? incoming[0].x + 110 : incoming[0].x - 110;
     else if (model.ammo > 0) target = boss.x;
     if (model.oxygen.enabled && model.oxygen.remaining < 6) {
-      const air = model.pickups.filter(k => !k.taken && k.y > p.y && k.y < p.y + 220).sort((a, b) => a.y - b.y)[0];
+      const air = model.pickups.filter(k => !k.taken && k.kind === 'oxygenBubble' && k.y > p.y && k.y < p.y + 220).sort((a, b) => a.y - b.y)[0];
       if (air && Math.abs(air.x - p.x) < 180) target = air.x;
     }
     if (model.heat.enabled && model.heat.value > 55) {
-      const ice = model.pickups.filter(k => !k.taken && k.y > p.y && k.y < p.y + 220).sort((a, b) => a.y - b.y)[0];
+      const ice = model.pickups.filter(k => !k.taken && k.kind === 'ice' && k.y > p.y && k.y < p.y + 220).sort((a, b) => a.y - b.y)[0];
       if (ice && Math.abs(ice.x - p.x) < 180) target = ice.x;
     }
     steer(target === undefined || Math.abs(target - p.x) < 4 ? 0 : Math.sign(target - p.x));
@@ -618,11 +628,11 @@ button('ASSISTED BOSS CHECK', async () => {
     else if (incoming.length) target = incoming[0].x < 225 ? incoming[0].x + 110 : incoming[0].x - 110;
     else if (model.ammo > 0) target = boss.x;
     if (model.oxygen.enabled && model.oxygen.remaining < 6) {
-      const air = model.pickups.filter(k => !k.taken && k.y > p.y && k.y < p.y + 200).sort((a, b) => a.y - b.y)[0];
+      const air = model.pickups.filter(k => !k.taken && k.kind === 'oxygenBubble' && k.y > p.y && k.y < p.y + 200).sort((a, b) => a.y - b.y)[0];
       if (air && Math.abs(air.x - p.x) < 170) target = air.x;
     }
     if (model.heat.enabled && model.heat.value > 60) {
-      const ice = model.pickups.filter(k => !k.taken && k.y > p.y && k.y < p.y + 200).sort((a, b) => a.y - b.y)[0];
+      const ice = model.pickups.filter(k => !k.taken && k.kind === 'ice' && k.y > p.y && k.y < p.y + 200).sort((a, b) => a.y - b.y)[0];
       if (ice && Math.abs(ice.x - p.x) < 170) target = ice.x;
     }
     steer(target === undefined || Math.abs(target - p.x) < 4 ? 0 : Math.sign(target - p.x));
