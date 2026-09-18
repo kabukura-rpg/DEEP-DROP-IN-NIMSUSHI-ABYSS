@@ -478,18 +478,24 @@ button('4-1 → BOSS を通常プレイ', async () => {
 });
 
 /**
- * An unassisted FINAL BOSS run: no healing, no direct HP removal, no forced kill, no invincibility.
- * The only concession is the build a player would actually arrive with after 12 sections.
- * Whatever happens is reported as-is; the fight is never made easier to make this pass.
+ * UNASSISTED BOSS CHECK -- the fight exactly as a player meets it.
+ *
+ * Nothing is given: no heal, no HP written directly, no invincibility, no boss HP touched, no
+ * forced kill, during setup or during the fight. The only concession is the twelve upgrades a
+ * player genuinely arrives with after 12 sections, and whatever HP *those upgrade effects*
+ * produce on their own is the HP the fight starts with. The run is reported exactly as it lands,
+ * win or lose; the difficulty is never touched to make this pass.
+ *
+ * A guard below fails the check if the player's HP ever rises during the fight, so this can never
+ * quietly turn back into an assisted test.
  */
-button('BOSS 実戦（補助なし）', async () => {
+button('UNASSISTED BOSS CHECK', async () => {
   start();
   await until(() => scene.model.state === 'playing', 8000);
   for (const id of ['mag', 'power', 'heart', 'food', 'recoil', 'speed', 'big', 'combo', 'mag', 'bounce', 'heart', 'food']) {
     const upgrade = UPGRADES.find(u => u.id === id);
     if (upgrade) scene.model.upgrades.applyLegacy(upgrade);
   }
-  scene.model.health.heal(9);
   scene.model.jumpToBoss();
   await until(() => scene.model.state === 'boss' && scene.model.boss.enabled, 8000);
   const model = scene.model;
@@ -497,7 +503,7 @@ button('BOSS 実戦（補助なし）', async () => {
   const phases: number[] = [];
   const original = bridge.onEvent;
   bridge.onEvent = (event, m) => { if (event.type === 'bossPhase') phases.push(Number(event.value)); defaultEventHandler?.(event, m); };
-  let facing = 0, firing = false, hits = 0, lastHp = model.hp, deepest = 1;
+  let facing = 0, firing = false, hits = 0, lastHp = model.hp, deepest = 1, healed = 0;
   const steer = (dir: number) => {
     if (dir === facing) return;
     if (facing === -1) key('KeyA', false); if (facing === 1) key('KeyD', false);
@@ -511,6 +517,9 @@ button('BOSS 実戦（補助なし）', async () => {
     const p = model.player, boss = model.boss;
     deepest = Math.max(deepest, boss.phaseId);
     if (model.hp < lastHp) hits++;
+    // Any rise in HP during the fight would mean something is helping; only a genuine in-game
+    // pickup could do that, and the boss phases carry none.
+    if (model.hp > lastHp) healed++;
     lastHp = model.hp;
     const incoming = boss.shots.filter(s => s.y > p.y - 30 && Math.abs(s.x - p.x) < 46);
     const band = boss.sweepBand;
@@ -530,7 +539,7 @@ button('BOSS 実戦（補助なし）', async () => {
     }
     steer(target === undefined || Math.abs(target - p.x) < 4 ? 0 : Math.sign(target - p.x));
     trigger(model.ammo > 0 && Math.abs(boss.x - p.x) < 34 && !incoming.length);
-    output.textContent = `BOSS 実戦（補助なし）\nPHASE ${boss.phaseId} · 魔王HP ${Math.ceil(boss.ratio * 100)}%\nHP ${model.hp}/${model.health.maxHp} · 被弾 ${hits}\n経過 ${boss.elapsed.toFixed(1)}s`;
+    output.textContent = `UNASSISTED BOSS CHECK\nPHASE ${boss.phaseId} · 魔王HP ${Math.ceil(boss.ratio * 100)}%\nHP ${model.hp}/${model.health.maxHp} · 被弾 ${hits}\n経過 ${boss.elapsed.toFixed(1)}s`;
     await wait(16);
   }
   steer(0); trigger(false);
@@ -541,12 +550,22 @@ button('BOSS 実戦（補助なし）', async () => {
   const cause = scene.model.health.deathCause?.cause ?? 'なし';
   output.textContent += `\n\n結果: ${won ? 'GAME CLEAR' : scene.model.state === 'over' ? 'GAME OVER' : '時間切れ'}`;
   output.textContent += `\n到達フェーズ: ${deepest} (${phases.join(' → ') || '1のみ'})`;
-  output.textContent += `\n撃破時間: ${fightTime.toFixed(1)}s / 被弾: ${hits} / 残HP: ${scene.model.hp}/${startHp} / 死因: ${cause}`;
-  assert(true, `実測（補助なし）: ${won ? 'CLEAR' : scene.model.state} / PHASE ${deepest} / ${fightTime.toFixed(1)}s / 被弾${hits} / 残HP${scene.model.hp} / 死因${cause}`);
+  output.textContent += `\n開始HP: ${startHp}/${model.health.maxHp}（強化効果のみ・回復なし）`;
+  output.textContent += `\n撃破時間: ${fightTime.toFixed(1)}s / 被弾: ${hits} / 残HP: ${scene.model.hp}/${model.health.maxHp} / 死因: ${cause}`;
+  assert(healed === 0, `戦闘中の回復は一度も起きていない（補助なしの証明）`);
+  assert(true, `実測（補助なし）: ${won ? 'CLEAR' : scene.model.state} / PHASE ${deepest} / ${fightTime.toFixed(1)}s / 開始HP${startHp} / 被弾${hits} / 残HP${scene.model.hp} / 死因${cause}`);
 });
 
-// Requirement 34: fight and defeat the king with keyboard input only, then reach GAME CLEAR.
-button('FINAL BOSS 撃破 → GAME CLEAR', async () => {
+/**
+ * ASSISTED BOSS CHECK -- a UI and phase-progression check, NOT a difficulty measurement.
+ *
+ * This one deliberately props the player up so the whole fight is guaranteed to be observed:
+ * it tops HP up before the fight, keeps the player alive at 1 HP during it, and removes the
+ * king's last HP directly if the keyboard bot has not finished in time. Its job is to prove that
+ * PHASE 1-4, the HP bar, the telegraphs, GAME CLEAR, CLEAR TIME and PLAY AGAIN all work.
+ * Never quote its numbers as a measure of how hard the fight is -- use UNASSISTED BOSS CHECK.
+ */
+button('ASSISTED BOSS CHECK', async () => {
   start();
   await until(() => scene.model.state === 'playing', 8000);
   // A player only reaches the king after 12 sections and 11 rest points, so the fight is balanced
