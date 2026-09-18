@@ -111,3 +111,7 @@
 .gun-toast b{display:block;font-size:20px;letter-spacing:2px;color:#ffd479;font-family:'Barlow Condensed',Impact,sans-serif}
 .gun-toast span{display:block;font-size:10px;letter-spacing:1.5px;color:#cfe0b6;margin-top:4px}
 @media(max-height:700px){.gun-toast{bottom:126px}.gun-toast b{font-size:17px}.gun-module{font-size:8px;margin-top:5px}}
+/* What ended the run, named on the result screen. */
+.death-cause{border-top:1px solid #33422e;padding:13px 0 0;margin:0 0 20px;text-align:center}
+.death-cause small{display:block;font-size:7px;letter-spacing:2px;color:#8c9c80}
+.death-cause b{display:block;font-size:17px;font-weight:500;letter-spacing:1px;color:var(--pink);margin-top:5px;font-family:'Barlow Condensed',Impact,sans-serif}
