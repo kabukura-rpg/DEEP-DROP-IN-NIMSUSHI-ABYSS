@@ -4,6 +4,7 @@ import { BreakablePlatformSystem, BREAK_RULES } from '../src/systems/BreakablePl
 import { StageGenerator, START_PLATFORM, type Platform, type RoutePlatform } from '../src/systems/StageGenerator';
 import { ENEMY_TYPES, enemyType, spawnEnemy, type EnemyKind } from '../src/data/enemies';
 import { areaConfig, type SectionId } from '../src/data/areas';
+import { pickupType } from '../src/data/pickups';
 import { horizontalReach } from '../src/data/difficulty';
 import { WORLD } from '../src/data/balance';
 
@@ -291,7 +292,8 @@ describe('AREA 4 boundaries', () => {
     expect([game.heat.enabled, game.oxygen.enabled]).toEqual([false, false]);
     expect(game.heat.value).toBe(0);
     expect(game.hazards).toHaveLength(0);
-    expect(game.pickups).toHaveLength(0);
+    // Only AREA-owned pickups are swept up. Gun modules are run-wide and deliberately survive.
+    expect(game.pickups.filter(k => pickupType(k.kind).category === 'environment')).toHaveLength(0);
     expect(game.airPockets).toHaveLength(0);
     expect(game.water).toBeUndefined();
   });

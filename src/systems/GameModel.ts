@@ -4,6 +4,8 @@ import { OxygenSystem } from './OxygenSystem';
 import { HeatSystem } from './HeatSystem';
 import { BreakablePlatformSystem, BREAK_RULES } from './BreakablePlatformSystem';
 import { BossFightSystem } from './BossFightSystem';
+import { GunModuleSystem } from './GunModuleSystem';
+import { CHARGE_AMMO_BONUS, gunModule, STARTING_GUN_MODULE, volley, volleyRecoil, type GunModuleId } from '../data/gunModules';
 import { BOSS, type BossPhase } from '../data/boss';
 import { hazardBounds, ventStateAt, type Hazard } from '../data/hazards';
 import { pickupType, spawnPickup, type Pickup } from '../data/pickups';
@@ -13,8 +15,24 @@ import { StageProgressionSystem } from './StageProgressionSystem';
 import type { AreaId, SectionId } from '../data/areas';
 import { enemyType } from '../data/enemies';
 import { defaultTuning, sanitizeTuning, type PhysicsTuning } from './PhysicsTuning';
-export type GameEvent = { type: 'shot' | 'empty' | 'land' | 'kill' | 'hurt' | 'upgrade' | 'over' | 'heal' | 'boss' | 'clear' | 'oxygen' | 'airPocket' | 'section' | 'ice' | 'vent' | 'crack' | 'collapse' | 'bossHit' | 'bossTelegraph' | 'bossFire' | 'bossPhase' | 'bossDown'; x: number; y: number; value?: number; stomp?: boolean; lifeUps?: number; overflow?: number; combo?: number; stage?: string; areaCleared?: string | null; source?: { id: number; kind: Enemy['kind']; x: number; y: number } };
-export interface Bullet { x: number; y: number; previousY: number; hits: Set<number>; alive: boolean }
+export type GameEvent = { type: 'shot' | 'empty' | 'land' | 'kill' | 'hurt' | 'upgrade' | 'over' | 'heal' | 'boss' | 'clear' | 'oxygen' | 'airPocket' | 'section' | 'ice' | 'vent' | 'crack' | 'collapse' | 'bossHit' | 'bossTelegraph' | 'bossFire' | 'bossPhase' | 'bossDown' | 'gunModule'; x: number; y: number; value?: number; stomp?: boolean; lifeUps?: number; overflow?: number; combo?: number; stage?: string; areaCleared?: string | null; bonus?: 'heart' | 'charge'; source?: { id: number; kind: Enemy['kind']; x: number; y: number } };
+export interface Bullet {
+  x: number; y: number; previousY: number; previousX: number;
+  /** Velocity in px/s. Straight-down weapons simply carry vx = 0. */
+  vx: number; vy: number;
+  damage: number; size: number;
+  /** Enemies this round may pass through beyond the first. */
+  pierce: number;
+  range: number; travelled: number;
+  /** Drawn as a streak instead of a pellet; damage still uses the ordinary path. */
+  beam: boolean;
+  hits: Set<number>; alive: boolean;
+}
+/** A plain downward round, exactly as MACHINE GUN fires it. Useful for fixtures and drops. */
+export const plainBullet = (x: number, y: number, damage = 1, size = 4): Bullet => ({
+  x, y, previousY: y, previousX: x, vx: 0, vy: 850, damage, size, pierce: 0,
+  range: 900, travelled: 0, beam: false, hits: new Set(), alive: true,
+});
 export class GameModel {
   stats = initialStats();
   player = { x: 225, y: WORLD.startY, vy: 0, vx: 0, width: 22, height: 30, invincible: 0, grounded: -1 };
@@ -33,6 +51,7 @@ export class GameModel {
   readonly heat = new HeatSystem();
   readonly collapse = new BreakablePlatformSystem();
   readonly boss = new BossFightSystem();
+  readonly gun = new GunModuleSystem();
   /** True while the player is inside an air pocket: the tank refills and nothing drains. */
   sheltered = false;
   paused = false;
@@ -95,18 +114,50 @@ export class GameModel {
     if (next === p.x) p.vx = 0;
     p.x = next;
   }
+  /**
+   * Fire one volley immediately, bypassing the module's trigger rules. Direct callers (and the
+   * legacy single-shot path) use this; the held trigger goes through fireGun below.
+   */
   shoot() {
     if (!this.running || this.cooldown > 0) return;
-    this.cooldown = this.stats.shotDelay;
+    const def = this.gun.module;
+    this.cooldown = def.fireInterval;
     const p = this.player;
-    if (this.ammo <= 0) { this.emit('empty', p.x, p.y); return; }
-    this.ammo--;
-    // Recoil brakes a fall; only stomping can create upward velocity.
-    // Full recoil returns after 0.34s. Sustained fire brakes less, so bursts don't hover.
-    const recovery = Math.max(0.65, Math.min(1, 0.65 + (this.elapsed - this.lastAirShot - this.stats.shotDelay) / 0.18 * 0.35));
-    if (p.vy > 0) { p.vy = Math.max(0, p.vy - this.stats.shotRecoil * recovery); this.lastAirShot = this.elapsed; }
-    this.bullets.push({ x: p.x, y: p.y + 21, previousY: p.y + 21, hits: new Set(), alive: true });
+    if (this.ammo < def.ammoCost) { this.emit('empty', p.x, p.y); return; }
+    this.fireVolley(def.ammoCost, 0);
+  }
+  /** One trigger frame. The equipped module decides whether anything leaves the barrel. */
+  private fireGun(dt: number, direction: number, firing: boolean) {
+    const request = this.gun.update(dt, firing, this.ammo);
+    if (request.kind === 'idle') return;
+    if (request.kind === 'empty') { this.emit('empty', this.player.x, this.player.y); return; }
+    this.fireVolley(request.cost, direction);
+  }
+  /**
+   * Spend the rounds, brake the fall and spawn the projectiles the module describes.
+   * Recoil brakes a fall; only stomping can create upward velocity. Full recoil returns after
+   * 0.34s, so sustained fire brakes less and no module can hover on its own trigger.
+   */
+  private fireVolley(cost: number, aim: number) {
+    const p = this.player;
+    const def = this.gun.module;
+    this.ammo = Math.max(0, this.ammo - cost);
+    const recovery = Math.max(0.65, Math.min(1, 0.65 + (this.elapsed - this.lastAirShot - def.fireInterval) / 0.18 * 0.35));
+    if (p.vy > 0) { p.vy = Math.max(0, p.vy - volleyRecoil(def, this.stats) * recovery); this.lastAirShot = this.elapsed; }
+    for (const shot of volley(def, this.stats, aim)) {
+      this.bullets.push({
+        x: p.x, y: p.y + 21, previousY: p.y + 21, previousX: p.x,
+        vx: shot.vx, vy: shot.vy, damage: shot.damage, size: shot.size, pierce: shot.pierce,
+        range: shot.range, travelled: 0, beam: shot.beam, hits: new Set(), alive: true,
+      });
+    }
     this.emit('shot', p.x, p.y + 20);
+  }
+  /** Swap the equipped weapon and hand out the crate's bonus through the ordinary systems. */
+  equipGunModule(id: GunModuleId, bonus: 'heart' | 'charge') {
+    this.gun.equip(id);
+    if (bonus === 'heart') this.health.heal(1);
+    else { this.stats.maxAmmo += CHARGE_AMMO_BONUS; this.ammo = this.stats.maxAmmo; }
   }
   step(dt: number, direction: number, firing: boolean) {
     if (!this.running) return;
@@ -121,7 +172,7 @@ export class GameModel {
     const ground = this.platforms.find(f => f.id === p.grounded);
     if (ground && p.x + 9 > ground.x && p.x - 9 < ground.x + ground.width) p.vy = 0;
     else { p.grounded = -1; p.vy = Math.min(this.stats.maxFallSpeed, p.vy + this.stats.gravity * (this.water?.gravity ?? 1) * dt); }
-    if (firing) this.shoot();
+    this.fireGun(dt, direction, firing);
     p.y += p.vy * dt;
     for (const e of this.enemies) {
       e.flash = Math.max(0, e.flash - dt);
@@ -130,20 +181,29 @@ export class GameModel {
     }
     // Swept bullet collisions prevent fast projectiles tunneling through enemies.
     for (const b of this.bullets) {
-      b.previousY = b.y; b.y += 850 * dt;
-      if (this.boss.enabled && !this.boss.defeated && b.alive) {
+      if (!b.alive) continue;
+      b.previousY = b.y; b.previousX = b.x;
+      b.x += b.vx * dt; b.y += b.vy * dt;
+      // Reach is a weapon trait: PUNCHER dies quickly, LASER runs the length of the shaft.
+      b.travelled += Math.hypot(b.vx, b.vy) * dt;
+      if (b.travelled > b.range) { b.alive = false; continue; }
+      // Angled rounds stop at the shaft walls rather than leaving the world.
+      if (b.x < WORLD.wall || b.x > WORLD.width - WORLD.wall) { b.alive = false; continue; }
+      if (this.boss.enabled && !this.boss.defeated) {
         const body = this.boss.body;
         if (b.x > body.x && b.x < body.x + body.width && b.y >= body.y && b.previousY <= body.y + body.height) {
-          if (this.boss.damage(this.stats.power)) this.events.push({ type: 'bossDown', x: this.boss.x, y: this.boss.y });
+          if (this.boss.damage(b.damage)) this.events.push({ type: 'bossDown', x: this.boss.x, y: this.boss.y });
           this.events.push({ type: 'bossHit', x: b.x, y: body.y, value: this.boss.ratio });
+          // One hit per round, so a piercing LASER can never multi-hit the king.
           b.alive = false;
+          continue;
         }
       }
-      const targets = this.enemies.filter(e => e.alive && !b.hits.has(e.id) && Math.abs(b.x - e.x) < 15 + this.stats.bulletSize && b.previousY <= e.y + 15 && b.y >= e.y - 15).sort((a, z) => a.y - z.y);
+      const targets = this.enemies.filter(e => e.alive && !b.hits.has(e.id) && Math.abs(b.x - e.x) < 15 + b.size && b.previousY <= e.y + 15 && b.y >= e.y - 15).sort((a, z) => a.y - z.y);
       for (const e of targets) {
-        b.hits.add(e.id); e.hp -= this.stats.power; e.flash = 0.1;
+        b.hits.add(e.id); e.hp -= b.damage; e.flash = 0.1;
         if (e.hp <= 0) this.kill(e, false);
-        if (!this.stats.piercing) { b.alive = false; break; }
+        if (b.hits.size > b.pierce) { b.alive = false; break; }
       }
     }
     for (const e of this.enemies) {
@@ -284,8 +344,17 @@ export class GameModel {
       if (item.taken) continue;
       const type = pickupType(item.kind);
       if (Math.abs(item.x - p.x) > type.radius + 12 || Math.abs(item.y - p.y) > type.radius + 17) continue;
-      if (type.effect === 'oxygen' ? !this.oxygen.enabled : !this.heat.enabled) continue;
+      // An AREA's own pickup only exists while that gimmick is on. Gun modules are run-wide, so
+      // they are never gated by which AREA the player happens to be in.
+      if (type.category === 'environment' && (type.effect === 'oxygen' ? !this.oxygen.enabled : !this.heat.enabled)) continue;
       item.taken = true;
+      if (type.effect === 'gunModule') {
+        const id = item.module ?? STARTING_GUN_MODULE;
+        const bonus = item.bonus ?? 'heart';
+        this.equipGunModule(id, bonus);
+        this.events.push({ type: 'gunModule', x: item.x, y: item.y, stage: gunModule(id).name, bonus, value: bonus === 'charge' ? CHARGE_AMMO_BONUS : 1 });
+        continue;
+      }
       const restored = type.effect === 'oxygen' ? this.oxygen.add(type.value) : this.heat.relieve(type.value);
       this.events.push({ type: type.effect === 'oxygen' ? 'oxygen' : 'ice', x: item.x, y: item.y, value: restored });
     }

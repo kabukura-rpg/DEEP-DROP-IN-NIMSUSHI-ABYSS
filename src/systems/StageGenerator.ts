@@ -1,7 +1,8 @@
 import { WORLD } from '../data/balance';
 import { difficultyAt, horizontalReach } from '../data/difficulty';
 import { ENEMY_TYPES, enemyType, spawnEnemy, type Enemy, type EnemyKind } from '../data/enemies';
-import { spawnPickup, type Pickup, type PickupKind } from '../data/pickups';
+import { spawnGunModule, spawnPickup, type Pickup, type PickupKind } from '../data/pickups';
+import { GUN_MODULE_SPAWN_CHANCE, rollGunModule } from '../data/gunModules';
 import { spawnHazard, type Hazard } from '../data/hazards';
 import type { SectionPlan, WaterPhysics } from '../data/areas';
 
@@ -191,6 +192,7 @@ export class StageGenerator {
       }
       if (this.context.oxygen) this.placeAir(tuning, platform, y, start, pickups, airPockets, enemies);
       if (this.context.heat) this.placeHeat(tuning, platform, y, width, start, pickups, hazards, enemies);
+      this.placeGunModule(platform, y, start, pickups, enemies, hazards);
       this.previous = platform;
       this.nextY += tuning.gap + this.random() * 28;
     }
@@ -202,6 +204,21 @@ export class StageGenerator {
    * corridor the safe transfer flies through, so a seed can never wall the route off or force a
    * lethal touch; ice is clamped to a spot the same fall can steer to, leaning towards the hot side.
    */
+  /**
+   * A weapon crate sits on an ordinary ledge's landing spot, so reaching it is exactly as hard as
+   * reaching that ledge -- never a detour into a hazard. Collapsing ledges, occupied space and
+   * anything lethal are skipped outright rather than worked around, which also leaves the door
+   * open for a dedicated weapon room later without changing this contract.
+   */
+  private placeGunModule(platform: RoutePlatform, y: number, start: number, pickups: Pickup[], enemies: Enemy[], hazards: Hazard[]) {
+    if (y < start || this.random() >= GUN_MODULE_SPAWN_CHANCE) return;
+    if (platform.breakable) return;
+    const x = platform.safeX, cy = y - 30;
+    if (enemies.some(e => Math.abs(e.x - x) < 36 && Math.abs(e.y - cy) < 36)) return;
+    if (hazards.some(h => x > h.x - 22 && x < h.x + h.width + 22 && cy > h.y - 22 && cy < h.y + h.height + 22)) return;
+    const roll = rollGunModule(this.random);
+    pickups.push(spawnGunModule(this.id++, Math.round(x), Math.round(cy), roll.module, roll.bonus));
+  }
   private placeHeat(tuning: RowTuning, platform: RoutePlatform, y: number, width: number, start: number, pickups: Pickup[], hazards: Hazard[], enemies: Enemy[]) {
     const emit = <T extends Hazard | Pickup>(list: T[], item: T) => { if (y >= start) list.push(item); };
     // The band the player actually falls through on the safe route, widened for their body.

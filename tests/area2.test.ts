@@ -293,8 +293,9 @@ describe('AREA 2 generation safety', () => {
       const ceiling = plan(sectionId as SectionId).maxOxygenGap!;
       for (let seed = 1; seed <= 60; seed++) {
         const s = section(sectionId as SectionId, seed * 1597);
-        const sources = [START_PLATFORM.y, ...s.pickups.map(p => p.y), ...s.airPockets.map(a => a.y + a.height / 2), s.limit].sort((a, b) => a - b);
-        expect(s.pickups.length + s.airPockets.length).toBeGreaterThan(3);
+        const air = s.pickups.filter(p => PICKUP_TYPES[p.kind].effect === 'oxygen');
+        const sources = [START_PLATFORM.y, ...air.map(p => p.y), ...s.airPockets.map(a => a.y + a.height / 2), s.limit].sort((a, b) => a - b);
+        expect(air.length + s.airPockets.length).toBeGreaterThan(3);
         for (let i = 1; i < sources.length; i++) {
           const gap = (sources[i] - sources[i - 1]) / WORLD.pixelsPerMeter;
           expect(gap, `section 2-${sectionId} seed ${seed}`).toBeLessThanOrEqual(ceiling);
@@ -376,7 +377,9 @@ describe('AREA 2 submerged physics', () => {
     game.player.y = 200; game.player.vy = 0; game.player.grounded = -1;
     let lowest = Infinity;
     // Clear the shaft each step: this is about recoil, not about bouncing off a passing fish.
-    for (let i = 0; i < 900; i++) { game.oxygen.remaining = OXYGEN_RULES.max; game.player.invincible = 99; game.enemies = []; game.platforms = []; game.step(1 / 120, 0, true); lowest = Math.min(lowest, game.player.vy); }
+    // Gun modules are cleared alongside the enemies: swapping weapons mid-measurement would be
+    // testing the crate, not the recoil.
+    for (let i = 0; i < 900; i++) { game.oxygen.remaining = OXYGEN_RULES.max; game.player.invincible = 99; game.enemies = []; game.platforms = []; game.pickups = []; game.step(1 / 120, 0, true); lowest = Math.min(lowest, game.player.vy); }
     expect(lowest).toBeGreaterThanOrEqual(0);
     expect(game.ammo).toBe(0);
     expect(game.player.y).toBeGreaterThan(200);

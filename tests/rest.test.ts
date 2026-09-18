@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { GameModel } from '../src/systems/GameModel';
+import { GameModel , plainBullet } from '../src/systems/GameModel';
 import { HealthSystem, HEALTH_RULES } from '../src/systems/HealthSystem';
 import { UpgradeSystem } from '../src/systems/UpgradeSystem';
 import { UPGRADES, chooseUpgrades } from '../src/data/upgrades';
@@ -9,7 +9,7 @@ const upgrade = (id: string) => UPGRADES.find(u => u.id === id)!;
 function killOne(game: GameModel) {
   game.platforms = []; game.player.x = 225; game.player.y = 180; game.player.vy = 0;
   const target = spawnEnemy('slime', game.kills + 100, 225, 250);
-  game.enemies = [target]; game.bullets = [{ x: 225, y: 240, previousY: 240, hits: new Set(), alive: true }];
+  game.enemies = [target]; game.bullets = [plainBullet(225, 240)];
   game.step(1 / 120, 0, false);
 }
 

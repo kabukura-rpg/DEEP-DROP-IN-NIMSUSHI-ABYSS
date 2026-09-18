@@ -6,6 +6,7 @@ import { comboFeedback } from '../systems/ComboFeedback';
 import { InputBuffer } from '../systems/InputBuffer';
 import { enemyType } from '../data/enemies';
 import { pickupType } from '../data/pickups';
+import { gunModule } from '../data/gunModules';
 import { hazardBounds, type Hazard } from '../data/hazards';
 export interface GameBridge {
   direction: number; firing: boolean; active: boolean;
@@ -191,6 +192,16 @@ export class GameScene extends Phaser.Scene {
       if (y < -30 || y > 830) continue;
       const bob = Math.sin(this.model.elapsed * 2.2 + item.phase) * 3;
       const x = Math.round(item.x);
+      if (type.silhouette === 'module') {
+        const label = item.module ? gunModule(item.module).short : '';
+        this.rect(x - 17, y + bob - 13, 34, 26, 0x2a2438, 0.95);
+        this.rect(x - 17, y + bob - 13, 34, 26, type.color, 0.22);
+        this.graphics.lineStyle(2, type.color, 0.95).strokeRect(x - 17, y + bob - 13, 34, 26);
+        // A pip in the corner says which bonus rides along: a heart or a charge.
+        this.rect(x + 10, y + bob - 16, 6, 6, item.bonus === 'charge' ? 0x9fe8f5 : 0xff8fa8, 0.95);
+        this.label2(x, y + bob, label);
+        continue;
+      }
       if (type.silhouette === 'shard') {
         this.graphics.fillStyle(type.color, 0.95).fillTriangle(x, y + bob - 15, x - 10, y + bob + 4, x + 10, y + bob + 4);
         this.graphics.fillStyle(0xe8fbff, 0.95).fillTriangle(x, y + bob - 8, x - 5, y + bob + 3, x + 5, y + bob + 3);
@@ -204,7 +215,16 @@ export class GameScene extends Phaser.Scene {
     }
     this.boss(cam);
     for (const enemy of m.enemies) if (enemy.alive) this.enemy(enemy, cam);
-    for (const b of m.bullets) { this.rect(b.x - m.stats.bulletSize, b.y - cam - 19, m.stats.bulletSize * 2, 22, 0xb9ef70, 0.12); this.rect(b.x - m.stats.bulletSize / 2, b.y - cam - 7, m.stats.bulletSize, 12, 0xeaffaf); }
+    for (const b of m.bullets) {
+      const speed = Math.hypot(b.vx, b.vy) || 1;
+      const ux = b.vx / speed, uy = b.vy / speed;
+      // A beam reads as one long streak; an ordinary round gets a short tail behind its heading.
+      const steps = b.beam ? 10 : 3, stride = b.beam ? 18 : 8;
+      for (let i = steps; i >= 1; i--) {
+        this.rect(b.x - b.size - ux * stride * i, b.y - cam - 5 - uy * stride * i, b.size * 2, 10, 0xb9ef70, 0.08 + (steps - i) / steps * 0.14);
+      }
+      this.rect(b.x - b.size / 2, b.y - cam - 7, b.size, b.beam ? 18 : 12, 0xeaffaf);
+    }
     const p = m.player, x = Math.round(p.x), y = Math.round(p.y - cam);
     if (p.invincible > 0) {
       g.lineStyle(1.5, 0xfba4b9, 0.55).strokeRoundedRect(x - 20, y - 25, 40, 50, 5);

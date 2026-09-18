@@ -18,7 +18,7 @@ app.innerHTML = `
     <div class="cabinet-top"><span><i></i> SHAFT_01</span><span id="zone">SURFACE ZONE</span></div>
     <div id="game-frame">
       <div id="game" aria-label="縦落下アクションのプレイ画面"></div>
-      <div id="hud" class="hud"><div id="boss-bar" class="boss-bar" hidden><span class="boss-name">DEMON KING <b id="boss-phase"></b></span><div class="boss-track"><i id="boss-fill"></i></div><small id="boss-percent">100%</small></div><div class="hud-top"><div><span class="hud-label"><b id="stage-label">1-1</b>DEPTH</span><div class="depth-number"><span id="depth">000</span><small id="depth-goal">/ 200m</small></div></div><button id="pause" class="pause-button" aria-label="ポーズ" disabled>Ⅱ</button></div><div class="hud-status"><div><div id="hearts" aria-label="HP 4">♥ ♥ ♥ ♥</div><small id="life-gauge"></small></div><div class="ammo-group"><span id="ammo-label">AMMO</span><div id="ammo"></div></div></div><div id="oxygen" class="oxygen" hidden><span class="oxygen-label">OXYGEN <b id="oxygen-state"></b></span><div class="oxygen-bar"><i id="oxygen-fill"></i></div><small id="oxygen-seconds">12.0s</small></div><div id="heat" class="heat" hidden><span class="heat-label">HEAT <b id="heat-state"></b></span><div class="heat-bar"><i id="heat-fill"></i></div><small id="heat-percent">0%</small></div><div id="stage-intro" class="stage-intro" hidden aria-live="polite"></div><div id="combo" class="combo" hidden></div><div id="practice-label" hidden>CONTROL LAB <span>落下 → 射撃 → 着地</span></div><div class="depth-progress"><div id="progress"></div></div></div>
+      <div id="hud" class="hud"><div id="boss-bar" class="boss-bar" hidden><span class="boss-name">DEMON KING <b id="boss-phase"></b></span><div class="boss-track"><i id="boss-fill"></i></div><small id="boss-percent">100%</small></div><div class="hud-top"><div><span class="hud-label"><b id="stage-label">1-1</b>DEPTH</span><div class="depth-number"><span id="depth">000</span><small id="depth-goal">/ 200m</small></div></div><button id="pause" class="pause-button" aria-label="ポーズ" disabled>Ⅱ</button></div><div class="hud-status"><div><div id="hearts" aria-label="HP 4">♥ ♥ ♥ ♥</div><small id="life-gauge"></small></div><div class="ammo-group"><span id="ammo-label">AMMO</span><div id="ammo"></div><b id="gun-module" class="gun-module">MG</b></div></div><div id="oxygen" class="oxygen" hidden><span class="oxygen-label">OXYGEN <b id="oxygen-state"></b></span><div class="oxygen-bar"><i id="oxygen-fill"></i></div><small id="oxygen-seconds">12.0s</small></div><div id="heat" class="heat" hidden><span class="heat-label">HEAT <b id="heat-state"></b></span><div class="heat-bar"><i id="heat-fill"></i></div><small id="heat-percent">0%</small></div><div id="stage-intro" class="stage-intro" hidden aria-live="polite"></div><div id="combo" class="combo" hidden></div><div id="gun-toast" class="gun-toast" hidden aria-live="polite"></div><div id="practice-label" hidden>CONTROL LAB <span>落下 → 射撃 → 着地</span></div><div class="depth-progress"><div id="progress"></div></div></div>
       <div id="overlay" class="overlay"></div>
       <div id="touch-controls"><button id="left-control" aria-label="左移動">←</button><button id="fire-control" aria-label="射撃">FIRE<span>↓</span></button><button id="right-control" aria-label="右移動">→</button></div>
     </div>
@@ -51,6 +51,7 @@ const bridge: GameBridge = {
     }
     if (event.type === 'land' || event.type === 'hurt') comboAnimation?.cancel();
     if (event.type === 'section') showStageIntro(model);
+    if (event.type === 'gunModule') showGunToast(String(event.stage), event.bonus === 'charge' ? `AMMO MAX +${event.value}` : `HP +${event.value}`);
     if (event.type === 'bossPhase') showBossPhase(Number(event.value), String(event.stage));
     if (event.type === 'upgrade') showSectionClear(model, event.stage || model.stage.label, event.areaCleared || null);
     if (event.type === 'boss') showBoss(model);
@@ -171,6 +172,17 @@ function nextSectionLabel(model: GameModel) {
   return `${progress.area}-${progress.section + 1}`;
 }
 /** Short, non-blocking phase card. Play continues underneath exactly as the SECTION card does. */
+let gunToastAnimation: Animation | undefined;
+/** Names the new weapon and its bonus for a moment. Never blocks input. */
+function showGunToast(name: string, bonus: string) {
+  const toast = $('gun-toast');
+  gunToastAnimation?.cancel();
+  toast.innerHTML = `<b>${name}</b><span>${bonus}</span>`;
+  toast.hidden = false;
+  if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) { window.setTimeout(() => { toast.hidden = true; }, 1100); return; }
+  gunToastAnimation = toast.animate([{ opacity: 0, transform: 'translateY(6px)' }, { opacity: 1, transform: 'translateY(0)', offset: 0.18 }, { opacity: 1, offset: 0.72 }, { opacity: 0 }], { duration: 1250, easing: 'ease-out' });
+  gunToastAnimation.onfinish = () => { toast.hidden = true; };
+}
 function showBossPhase(phase: number, name: string) {
   const intro = $('stage-intro');
   introAnimation?.cancel();
@@ -222,7 +234,7 @@ function showResult(model: GameModel) {
 }
 function updateHud(model: GameModel) {
   physicsPanel?.updateTelemetry();
-  const key = [Math.floor(model.sectionDepth), model.stage.label, model.oxygen.enabled ? model.oxygen.remaining.toFixed(1) : '-', model.sheltered, model.heat.enabled ? model.heat.value.toFixed(1) : '-', model.boss.enabled ? `${Math.ceil(model.boss.ratio * 100)}|${model.boss.phaseId}` : '-', model.hp, model.health.overflowHealing, model.stats.maxHp, model.ammo, model.stats.maxAmmo, model.combo, model.multiplier, model.practice].join('|');
+  const key = [Math.floor(model.sectionDepth), model.stage.label, model.oxygen.enabled ? model.oxygen.remaining.toFixed(1) : '-', model.sheltered, model.heat.enabled ? model.heat.value.toFixed(1) : '-', model.boss.enabled ? `${Math.ceil(model.boss.ratio * 100)}|${model.boss.phaseId}` : '-', model.hp, model.health.overflowHealing, model.stats.maxHp, model.ammo, model.stats.maxAmmo, model.gun.id, model.combo, model.multiplier, model.practice].join('|');
   if (key === lastHud) return; lastHud = key;
   $('depth').textContent = String(Math.floor(model.sectionDepth)).padStart(3, '0');
   $('stage-label').textContent = model.stage.label;
@@ -234,6 +246,8 @@ function updateHud(model: GameModel) {
   $('ammo').innerHTML = Array.from({ length: model.stats.maxAmmo }, (_, i) => `<i class="${i < model.ammo ? 'loaded' : ''}"></i>`).join('');
   $('ammo-label').textContent = model.ammo ? 'AMMO' : 'EMPTY / 着地で補充';
   $('ammo').setAttribute('aria-label', `残弾 ${model.ammo} / ${model.stats.maxAmmo}`);
+  $('gun-module').textContent = model.gun.short;
+  $('gun-module').setAttribute('aria-label', `装備中 ${model.gun.name}（1射 ${model.gun.ammoCost}発）`);
   const oxygen = $('oxygen');
   oxygen.hidden = !model.oxygen.enabled;
   if (model.oxygen.enabled) {

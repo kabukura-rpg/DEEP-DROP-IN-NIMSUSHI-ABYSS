@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest';
+import { pickupType } from '../src/data/pickups';
 import { GameModel } from '../src/systems/GameModel';
 import { HeatSystem, HEAT_RULES } from '../src/systems/HeatSystem';
 import { StageGenerator, START_PLATFORM, type RoutePlatform } from '../src/systems/StageGenerator';
@@ -397,7 +398,8 @@ describe('AREA 3 boundaries', () => {
     expect(game.stage.label).toBe('3-1');
     expect([game.oxygen.enabled, game.heat.enabled]).toEqual([false, true]);
     expect(game.airPockets).toHaveLength(0);
-    expect(game.pickups.every(p => p.kind === 'ice')).toBe(true);
+    // Gun modules are run-wide, so only AREA-owned pickups have to be gone.
+    expect(game.pickups.every(p => pickupType(p.kind).category !== 'environment' || p.kind === 'ice')).toBe(true);
     expect(game.water).toBeUndefined();
   });
   it('leaves AREA 3 behind completely when AREA 4 starts', () => {
@@ -408,7 +410,7 @@ describe('AREA 3 boundaries', () => {
     expect(game.stage.label).toBe('4-1');
     expect([game.heat.enabled, game.heat.value]).toEqual([false, 0]);
     expect(game.hazards).toHaveLength(0);
-    expect(game.pickups).toHaveLength(0);
+    expect(game.pickups.filter(p => pickupType(p.kind).category === 'environment')).toHaveLength(0);
     expect(game.water).toBeUndefined();
     game.player.invincible = 99;
     tick(game, 4);
