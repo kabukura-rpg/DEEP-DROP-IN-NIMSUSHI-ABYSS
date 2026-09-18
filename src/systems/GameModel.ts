@@ -26,7 +26,7 @@ export class GameModel {
   bullets: Bullet[] = [];
   events: GameEvent[] = [];
   ammo = this.stats.maxAmmo;
-  readonly health = new HealthSystem(this.stats.maxHp, () => this.running, () => this.finish());
+  readonly health = new HealthSystem(this.stats.maxHp, () => this.running && !this.victorySealed, () => this.finish());
   readonly upgrades: UpgradeSystem;
   readonly stage: StageProgressionSystem;
   readonly oxygen = new OxygenSystem();
@@ -38,6 +38,13 @@ export class GameModel {
   paused = false;
   /** True while the world is actually simulating: normal play and the boss fight alike. */
   get running() { return (this.state === 'playing' || this.state === 'boss') && !this.paused; }
+  /**
+   * The run is already won. The moment the king's HP reaches zero the fight is decided, so nothing
+   * during the short collapse -- a stray demon, lava, drowning, overheating, a shot already in the
+   * air -- may turn that victory into a GAME OVER. Routed through HealthSystem's own damage gate,
+   * so every source is covered by this one predicate.
+   */
+  get victorySealed() { return this.state === 'clear' || (this.boss.enabled && this.boss.defeated); }
   get hp() { return this.health.currentHp; }
   set hp(value: number) { this.health.currentHp = value; }
   /** Depth inside the current SECTION; the only value SECTION CLEAR is judged on. */
@@ -234,11 +241,11 @@ export class GameModel {
     if (this.boss.defeated) return;
     // Contact with the king costs a heart; it is never stompable and never lethal on its own.
     const body = this.boss.body;
-    if (p.x + 9 > body.x && p.x - 9 < body.x + body.width && p.y + 15 > body.y && p.y - 15 < body.y + body.height) this.damage(1, 'enemy');
+    if (p.x + 9 > body.x && p.x - 9 < body.x + body.width && p.y + 15 > body.y && p.y - 15 < body.y + body.height) this.damage(1, 'bossContact');
     for (const shot of this.boss.shots) {
-      if (Math.abs(shot.x - p.x) < 14 && Math.abs(shot.y - p.y) < 20) { this.damage(1, 'enemy'); shot.y = -Infinity; }
+      if (Math.abs(shot.x - p.x) < 14 && Math.abs(shot.y - p.y) < 20) { this.damage(1, 'bossShot'); shot.y = -Infinity; }
     }
-    if (this.boss.danger !== null && this.boss.dangerousAt(p.x)) this.damage(1, 'enemy');
+    if (this.boss.danger !== null && this.boss.dangerousAt(p.x)) this.damage(1, 'bossSweep');
     this.boss.shots = this.boss.shots.filter(shot => Number.isFinite(shot.y));
   }
   /**

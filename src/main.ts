@@ -2,7 +2,8 @@ import Phaser from 'phaser';
 import './style.css';
 import { GameScene, type GameBridge } from './scenes/GameScene';
 import { GameModel } from './systems/GameModel';
-import { GameAudio } from './systems/Audio';
+import { GameAudio, eventSound } from './systems/Audio';
+import { damageLabel } from './data/damage';
 import { UPGRADES } from './data/upgrades';
 import { HEALTH_RULES } from './systems/HealthSystem';
 import { PhysicsPanel } from './ui/PhysicsPanel';
@@ -29,11 +30,19 @@ app.innerHTML = `
 </main><footer class="site-footer"><span>DEEP DROP <span class="footer-slash">/</span> A SMALL GAME ABOUT GOING DEEPER.</span><span>PROTOTYPE V0.1 <span class="footer-dot">●</span></span></footer>`;
 
 const $ = <T extends HTMLElement = HTMLElement>(id: string) => document.getElementById(id) as T;
-const audio = new GameAudio();
+export const audio = new GameAudio();
 let best = 0;
 try { best = Number(localStorage.getItem('deep-drop-best') || 0); if (!Number.isFinite(best)) best = 0; } catch { /* Storage is optional in private browsing. */ }
-let mode: 'title' | 'playing' | 'paused' | 'upgrade' | 'boss' | 'over' | 'clear' = 'title';
+type Mode = 'title' | 'playing' | 'paused' | 'upgrade' | 'boss' | 'over' | 'clear';
+let mode: Mode = 'title';
 let lastHud = '';
+/**
+ * The modes that accept gameplay input. The FINAL BOSS is ordinary play with a king in it, so it
+ * must answer to exactly the same controls -- this mirrors GameModel.running, which is what the
+ * scene uses to decide whether to step the simulation.
+ */
+const isPlayMode = (m: Mode): m is 'playing' | 'boss' => m === 'playing' || m === 'boss';
+const inPlay = () => isPlayMode(mode);
 let ready = false;
 let physicsPanel: PhysicsPanel | undefined;
 let comboAnimation: Animation | undefined;
@@ -41,8 +50,10 @@ const bridge: GameBridge = {
   direction: 0, firing: false, active: false,
   onFrame: updateHud,
   onEvent(event, model) {
-    const sound = { heal: 'upgrade', boss: 'upgrade', clear: 'upgrade', oxygen: 'land', airPocket: 'upgrade' } as const;
-    audio.play(sound[event.type as keyof typeof sound] ?? event.type as 'shot', event.combo, event.stomp);
+    // Events that have no sound simply make none. No cast, so a mismatch is a build error here
+    // rather than a crash inside the audio engine.
+    const sound = eventSound(event.type);
+    if (sound) audio.play(sound, event.combo, event.stomp);
     if (event.type === 'kill') {
       updateHud(model);
       const feedback = comboFeedback(event.combo || 0);
@@ -67,8 +78,8 @@ function setOverlay(content: string) {
   $('overlay').innerHTML = content;
   $('overlay').hidden = !content;
   $('overlay').classList.toggle('rest-overlay', mode === 'upgrade');
-  $('game-frame').classList.toggle('in-play', mode === 'playing' || mode === 'boss');
-  $('pause').toggleAttribute('disabled', mode !== 'playing' && mode !== 'boss');
+  $('game-frame').classList.toggle('in-play', inPlay());
+  $('pause').toggleAttribute('disabled', !inPlay());
   $('touch-controls').hidden = !!content;
   physicsPanel?.show(mode);
   if (content) window.setTimeout(() => $('overlay').querySelector<HTMLButtonElement>('button')?.focus({ preventScroll: true }), 60);
@@ -116,7 +127,7 @@ function showTitle() {
 }
 let pausedFrom: 'playing' | 'boss' = 'playing';
 function pause() {
-  if (mode !== 'playing' && mode !== 'boss') return;
+  if (!isPlayMode(mode)) return;
   pausedFrom = mode;
   mode = 'paused'; scene.model.paused = true; bridge.active = false; clearInput();
   setOverlay(`<div class="panel-content"><div class="eyebrow">TAKE A BREATH</div><h2>PAUSED<span>ひと休み。</span></h2><p>深淵は、逃げない。</p><button id="resume" class="primary-button">つづける <span>↓</span></button><button id="restart" class="secondary-button">最初から</button><button id="home" class="text-button">タイトルへ</button></div>`);
@@ -198,9 +209,11 @@ function showClear(model: GameModel) {
   $('side-best').textContent = String(best).padStart(3, '0');
   $('run-status').textContent = 'DEMON KING DEFEATED';
   const upgrades = Object.values(model.upgrades.stacks).reduce((sum, n) => sum + n, 0);
-  const seconds = model.bossTime;
-  const clearTime = `${Math.floor(seconds / 60)}:${String(Math.floor(seconds % 60)).padStart(2, '0')}`;
-  setOverlay(`<div class="panel-content result-content clear-content"><div class="eyebrow">RUN COMPLETE</div><h2>GAME CLEAR.<span>DEMON KING DEFEATED</span></h2><div class="result-depth"><small>TOTAL DEPTH</small><strong>${depth}<span>m</span></strong></div><div class="result-stats"><div><span>TOTAL KILLS</span><b>${model.kills}</b></div><div><span>MAX COMBO</span><b>${model.maxCombo}</b></div><div><span>UPGRADES</span><b>${upgrades}</b></div><div><span>SCORE</span><b>${model.score.toLocaleString()}</b></div><div><span>CLEAR TIME</span><b>${clearTime}</b></div></div><button id="play-again" class="primary-button">PLAY AGAIN <span>↻</span></button><button id="clear-home" class="text-button">タイトルへ</button></div>`);
+  // model.elapsed only advances inside a running step, so it is play time: title screens, PAUSE
+  // and rest/upgrade selection are all already excluded. BOSS TIME is the fight on its own.
+  const mmss = (seconds: number) => `${Math.floor(seconds / 60)}:${String(Math.floor(seconds % 60)).padStart(2, '0')}`;
+  const clearTime = mmss(model.elapsed), bossTime = mmss(model.bossTime);
+  setOverlay(`<div class="panel-content result-content clear-content"><div class="eyebrow">RUN COMPLETE</div><h2>GAME CLEAR.<span>DEMON KING DEFEATED</span></h2><div class="result-depth"><small>TOTAL DEPTH</small><strong>${depth}<span>m</span></strong></div><div class="result-stats"><div><span>TOTAL KILLS</span><b>${model.kills}</b></div><div><span>MAX COMBO</span><b>${model.maxCombo}</b></div><div><span>UPGRADES</span><b>${upgrades}</b></div><div><span>SCORE</span><b>${model.score.toLocaleString()}</b></div><div><span>CLEAR TIME</span><b>${clearTime}</b></div><div><span>BOSS TIME</span><b>${bossTime}</b></div></div><button id="play-again" class="primary-button">PLAY AGAIN <span>↻</span></button><button id="clear-home" class="text-button">タイトルへ</button></div>`);
   $('play-again').onclick = () => start();
   $('clear-home').onclick = showTitle;
 }
@@ -211,7 +224,7 @@ function showResult(model: GameModel) {
   try { localStorage.setItem('deep-drop-best', String(best)); } catch { /* Keep a session best if storage is unavailable. */ }
   $('side-best').textContent = String(best).padStart(3, '0');
   $('run-status').textContent = 'SIGNAL LOST';
-  setOverlay(`<div class="panel-content result-content"><div class="eyebrow">SIGNAL LOST / GAME OVER</div><h2>NICE DIVE.<span>まだ、深くへ行ける。</span></h2><div class="result-depth"><small>DEPTH REACHED</small><strong>${depth}<span>m</span></strong>${newBest ? '<b>↗ NEW PERSONAL BEST</b>' : ''}</div><div class="result-stats"><div><span>KILLS</span><b>${model.kills}</b></div><div><span>MAX COMBO</span><b>${model.maxCombo}</b></div><div><span>SCORE</span><b>${model.score.toLocaleString()}</b></div><div><span>REACHED</span><b>${model.stage.label}</b></div></div><button id="retry" class="primary-button">もう一度潜る <span>↻</span></button><button id="share" class="secondary-button">結果をシェア ↗</button><button id="home" class="text-button">タイトルへ</button></div>`);
+  setOverlay(`<div class="panel-content result-content"><div class="eyebrow">SIGNAL LOST / GAME OVER</div><h2>NICE DIVE.<span>まだ、深くへ行ける。</span></h2><div class="result-depth"><small>DEPTH REACHED</small><strong>${depth}<span>m</span></strong>${newBest ? '<b>↗ NEW PERSONAL BEST</b>' : ''}</div><div class="result-stats"><div><span>KILLS</span><b>${model.kills}</b></div><div><span>MAX COMBO</span><b>${model.maxCombo}</b></div><div><span>SCORE</span><b>${model.score.toLocaleString()}</b></div><div><span>REACHED</span><b>${model.stage.label}</b></div></div><div class="death-cause"><small>DEFEATED BY</small><b>${damageLabel(model.health.deathCause?.cause)}</b></div><button id="retry" class="primary-button">もう一度潜る <span>↻</span></button><button id="share" class="secondary-button">結果をシェア ↗</button><button id="home" class="text-button">タイトルへ</button></div>`);
   $('retry').onclick = () => start(); $('home').onclick = showTitle;
   $('share').onclick = async () => {
     const text = `${depth}mまで潜った！\n\nKILLS：${model.kills}\nMAX COMBO：${model.maxCombo}\n\n#DEEPDROP`;
@@ -222,12 +235,15 @@ function showResult(model: GameModel) {
 }
 function updateHud(model: GameModel) {
   physicsPanel?.updateTelemetry();
-  const key = [Math.floor(model.sectionDepth), model.stage.label, model.oxygen.enabled ? model.oxygen.remaining.toFixed(1) : '-', model.sheltered, model.heat.enabled ? model.heat.value.toFixed(1) : '-', model.boss.enabled ? `${Math.ceil(model.boss.ratio * 100)}|${model.boss.phaseId}` : '-', model.hp, model.health.overflowHealing, model.stats.maxHp, model.ammo, model.stats.maxAmmo, model.combo, model.multiplier, model.practice].join('|');
+  const key = [Math.floor(model.sectionDepth), Math.floor(model.totalDepth), model.state, model.stage.label, model.oxygen.enabled ? model.oxygen.remaining.toFixed(1) : '-', model.sheltered, model.heat.enabled ? model.heat.value.toFixed(1) : '-', model.boss.enabled ? `${Math.ceil(model.boss.ratio * 100)}|${model.boss.phaseId}` : '-', model.hp, model.health.overflowHealing, model.stats.maxHp, model.ammo, model.stats.maxAmmo, model.combo, model.multiplier, model.practice].join('|');
   if (key === lastHud) return; lastHud = key;
-  $('depth').textContent = String(Math.floor(model.sectionDepth)).padStart(3, '0');
+  // The FINAL BOSS banks no section metres, so showing sectionDepth there reads a flat 000m.
+  // The run's completed total is the meaningful number, and the fight never adds to it.
+  const shownDepth = model.state === 'boss' ? model.totalDepth : model.sectionDepth;
+  $('depth').textContent = String(Math.floor(shownDepth)).padStart(3, '0');
   $('stage-label').textContent = model.stage.label;
   $('stage-label').hidden = model.practice;
-  $('depth-goal').textContent = model.practice || model.stage.boss ? 'm' : `/ ${model.sectionLength}m`;
+  $('depth-goal').textContent = model.stage.boss ? 'm TOTAL' : model.practice ? 'm' : `/ ${model.sectionLength}m`;
   $('hearts').innerHTML = model.stats.maxHp > 8 ? `♥ ${model.hp} / ${model.stats.maxHp}` : Array.from({ length: model.stats.maxHp }, (_, i) => `<span class="${i < model.hp ? '' : 'lost'}">♥</span>`).join(' ');
   $('life-gauge').textContent = `LIFE UP ${model.health.overflowHealing}/${HEALTH_RULES.overflowPerLife}`;
   $('hearts').setAttribute('aria-label', `HP ${model.hp} / ${model.stats.maxHp}`);
@@ -274,22 +290,22 @@ function updateHud(model: GameModel) {
 
 $('pause').onclick = pause;
 $('sound').onclick = () => { audio.unlock(); audio.muted = !audio.muted; $('sound').textContent = audio.muted ? '♪̸' : '♪'; $('sound').setAttribute('aria-label', audio.muted ? 'サウンドをオンにする' : 'サウンドをオフにする'); $('sound').setAttribute('aria-pressed', String(audio.muted)); };
-window.addEventListener('keydown', e => { if ((mode === 'playing' || mode === 'boss') && ['Space', 'ArrowLeft', 'ArrowRight'].includes(e.code)) e.preventDefault(); if (e.code === 'Escape') { e.preventDefault(); if (mode === 'playing' || mode === 'boss') pause(); else if (mode === 'paused') resume(); } });
-window.addEventListener('blur', () => { if (mode === 'playing' || mode === 'boss') pause(); });
-document.addEventListener('visibilitychange', () => { if (document.hidden && (mode === 'playing' || mode === 'boss')) pause(); });
+window.addEventListener('keydown', e => { if (inPlay() && ['Space', 'ArrowLeft', 'ArrowRight'].includes(e.code)) e.preventDefault(); if (e.code === 'Escape') { e.preventDefault(); if (inPlay()) pause(); else if (mode === 'paused') resume(); } });
+window.addEventListener('blur', () => { if (inPlay()) pause(); });
+document.addEventListener('visibilitychange', () => { if (document.hidden && inPlay()) pause(); });
 
 const movementPointers = new Map<number, number>();
 const firePointers = new Set<number>();
 function syncPointers() { bridge.direction = Math.sign([...movementPointers.values()].reduce((sum, value) => sum + value, 0)); bridge.firing = firePointers.size > 0; }
 for (const [id, direction] of [['left-control', -1], ['right-control', 1], ['fire-control', 0]] as const) {
   const button = $(id);
-  button.addEventListener('pointerdown', e => { if (mode !== 'playing' && mode !== 'boss') return; e.preventDefault(); audio.unlock(); button.setPointerCapture(e.pointerId); if (direction) movementPointers.set(e.pointerId, direction); else { firePointers.add(e.pointerId); scene.requestShot(); } syncPointers(); });
+  button.addEventListener('pointerdown', e => { if (!inPlay()) return; e.preventDefault(); audio.unlock(); button.setPointerCapture(e.pointerId); if (direction) movementPointers.set(e.pointerId, direction); else { firePointers.add(e.pointerId); scene.requestShot(); } syncPointers(); });
   const release = (e: PointerEvent) => { movementPointers.delete(e.pointerId); firePointers.delete(e.pointerId); syncPointers(); };
   button.addEventListener('pointerup', release); button.addEventListener('pointercancel', release); button.addEventListener('lostpointercapture', release);
 }
 const frame = $('game-frame');
 frame.addEventListener('pointerdown', e => {
-  if (mode !== 'playing' || (e.target as HTMLElement).closest('button')) return;
+  if (!inPlay() || (e.target as HTMLElement).closest('button')) return;
   e.preventDefault(); audio.unlock(); frame.setPointerCapture(e.pointerId);
   if (e.pointerType !== 'mouse') { const bounds = frame.getBoundingClientRect(); movementPointers.set(e.pointerId, e.clientX < bounds.left + bounds.width / 2 ? -1 : 1); syncPointers(); }
   scene.requestShot();

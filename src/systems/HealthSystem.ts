@@ -1,5 +1,8 @@
 export const HEALTH_RULES = { overflowPerLife: 4, fillNewHeart: true, invincibilitySeconds: 1, comboRewardAt: 25, comboHealing: 1 } as const;
-export type DamageCause = 'enemy' | 'spike' | 'tank' | 'oxygen' | 'heat' | 'lava' | 'fall';
+export type DamageCause =
+  | 'enemy' | 'spike' | 'tank' | 'oxygen' | 'heat' | 'lava' | 'fall'
+  /** The FINAL BOSS hurts in three distinguishable ways, so a death report can name which. */
+  | 'bossContact' | 'bossShot' | 'bossSweep';
 export interface HealthLoss { cause: DamageCause; instant: boolean; amount: number }
 export interface HealingResult { restored: number; overflow: number; lifeUps: number }
 

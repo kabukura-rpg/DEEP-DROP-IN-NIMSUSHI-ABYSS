@@ -104,3 +104,8 @@
 @keyframes boss-alarm{50%{opacity:.5}}
 @media(prefers-reduced-motion:reduce){.boss-bar[data-state=climax]{animation:none;opacity:1}}
 @media(max-width:650px) and (max-height:730px){.boss-bar{margin-bottom:7px}.boss-track{height:7px}}
+
+/* What ended the run, named on the result screen. */
+.death-cause{border-top:1px solid #33422e;padding:13px 0 0;margin:0 0 20px;text-align:center}
+.death-cause small{display:block;font-size:7px;letter-spacing:2px;color:#8c9c80}
+.death-cause b{display:block;font-size:17px;font-weight:500;letter-spacing:1px;color:var(--pink);margin-top:5px;font-family:'Barlow Condensed',Impact,sans-serif}

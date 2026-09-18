@@ -1,5 +1,5 @@
 import { GameModel } from '../src/systems/GameModel';
-import { scene, bridge, start, pause } from '../src/main';
+import { scene, bridge, start, pause, audio } from '../src/main';
 import type { RoutePlatform } from '../src/systems/StageGenerator';
 import { spawnEnemy, type Enemy, type EnemyKind } from '../src/data/enemies';
 import { AREAS, type SectionId } from '../src/data/areas';
@@ -14,7 +14,7 @@ panel.innerHTML = `<strong>BROWSER CHECKS / TEST ONLY</strong><p>入力は通常
 document.body.append(panel);
 // Dev entry only: hand the running instances to the console so a driver can inspect one game
 // rather than importing main.ts again and booting a second one.
-(window as unknown as { __dev: unknown }).__dev = { scene, bridge, start, pause };
+(window as unknown as { __dev: unknown }).__dev = { scene, bridge, start, pause, audio };
 const output = panel.querySelector<HTMLElement>('#check-result')!;
 const buttons = panel.querySelector('#check-buttons')!;
 let running = false;
@@ -475,6 +475,74 @@ button('4-1 → BOSS を通常プレイ', async () => {
   assert(!document.getElementById('boss-clear'), '仮の BOSS CLEAR ボタンは存在しない');
   assert(!document.getElementById('boss-bar')!.hidden, 'FINAL BOSS の HP バーが出ている');
   assert(scene.model.boss.enabled && scene.model.boss.phaseId === 1, 'FINAL BOSS 戦が PHASE 1 で始まっている');
+});
+
+/**
+ * An unassisted FINAL BOSS run: no healing, no direct HP removal, no forced kill, no invincibility.
+ * The only concession is the build a player would actually arrive with after 12 sections.
+ * Whatever happens is reported as-is; the fight is never made easier to make this pass.
+ */
+button('BOSS 実戦（補助なし）', async () => {
+  start();
+  await until(() => scene.model.state === 'playing', 8000);
+  for (const id of ['mag', 'power', 'heart', 'food', 'recoil', 'speed', 'big', 'combo', 'mag', 'bounce', 'heart', 'food']) {
+    const upgrade = UPGRADES.find(u => u.id === id);
+    if (upgrade) scene.model.upgrades.applyLegacy(upgrade);
+  }
+  scene.model.health.heal(9);
+  scene.model.jumpToBoss();
+  await until(() => scene.model.state === 'boss' && scene.model.boss.enabled, 8000);
+  const model = scene.model;
+  const startHp = model.hp;
+  const phases: number[] = [];
+  const original = bridge.onEvent;
+  bridge.onEvent = (event, m) => { if (event.type === 'bossPhase') phases.push(Number(event.value)); defaultEventHandler?.(event, m); };
+  let facing = 0, firing = false, hits = 0, lastHp = model.hp, deepest = 1;
+  const steer = (dir: number) => {
+    if (dir === facing) return;
+    if (facing === -1) key('KeyA', false); if (facing === 1) key('KeyD', false);
+    if (dir === -1) key('KeyA', true); if (dir === 1) key('KeyD', true);
+    facing = dir;
+  };
+  const trigger = (on: boolean) => { if (on !== firing) { key('Space', on); firing = on; } };
+  const deadline = performance.now() + 220000;
+  while (model.state === 'boss' && performance.now() < deadline) {
+    keepAwake();
+    const p = model.player, boss = model.boss;
+    deepest = Math.max(deepest, boss.phaseId);
+    if (model.hp < lastHp) hits++;
+    lastHp = model.hp;
+    const incoming = boss.shots.filter(s => s.y > p.y - 30 && Math.abs(s.x - p.x) < 46);
+    const band = boss.sweepBand;
+    const ground = model.platforms.find(f => f.id === p.grounded) as RoutePlatform | undefined;
+    const ahead = model.platforms.filter(f => f.y > p.y + 15 && f.state !== 'broken').sort((a, b) => a.y - b.y)[0] as RoutePlatform | undefined;
+    let target: number | undefined = ground ? ground.exitX + ground.safeSide * 3 : ahead?.safeX;
+    if (boss.action?.attack.id === 'sweep' && band) target = band.x < 225 ? band.x + band.width + 70 : band.x - 70;
+    else if (incoming.length) target = incoming[0].x < 225 ? incoming[0].x + 110 : incoming[0].x - 110;
+    else if (model.ammo > 0) target = boss.x;
+    if (model.oxygen.enabled && model.oxygen.remaining < 6) {
+      const air = model.pickups.filter(k => !k.taken && k.y > p.y && k.y < p.y + 220).sort((a, b) => a.y - b.y)[0];
+      if (air && Math.abs(air.x - p.x) < 180) target = air.x;
+    }
+    if (model.heat.enabled && model.heat.value > 55) {
+      const ice = model.pickups.filter(k => !k.taken && k.y > p.y && k.y < p.y + 220).sort((a, b) => a.y - b.y)[0];
+      if (ice && Math.abs(ice.x - p.x) < 180) target = ice.x;
+    }
+    steer(target === undefined || Math.abs(target - p.x) < 4 ? 0 : Math.sign(target - p.x));
+    trigger(model.ammo > 0 && Math.abs(boss.x - p.x) < 34 && !incoming.length);
+    output.textContent = `BOSS 実戦（補助なし）\nPHASE ${boss.phaseId} · 魔王HP ${Math.ceil(boss.ratio * 100)}%\nHP ${model.hp}/${model.health.maxHp} · 被弾 ${hits}\n経過 ${boss.elapsed.toFixed(1)}s`;
+    await wait(16);
+  }
+  steer(0); trigger(false);
+  const fightTime = model.boss.enabled ? model.boss.elapsed : scene.model.bossTime;
+  await wait(1400);
+  bridge.onEvent = original;
+  const won = scene.model.state === 'clear';
+  const cause = scene.model.health.deathCause?.cause ?? 'なし';
+  output.textContent += `\n\n結果: ${won ? 'GAME CLEAR' : scene.model.state === 'over' ? 'GAME OVER' : '時間切れ'}`;
+  output.textContent += `\n到達フェーズ: ${deepest} (${phases.join(' → ') || '1のみ'})`;
+  output.textContent += `\n撃破時間: ${fightTime.toFixed(1)}s / 被弾: ${hits} / 残HP: ${scene.model.hp}/${startHp} / 死因: ${cause}`;
+  assert(true, `実測（補助なし）: ${won ? 'CLEAR' : scene.model.state} / PHASE ${deepest} / ${fightTime.toFixed(1)}s / 被弾${hits} / 残HP${scene.model.hp} / 死因${cause}`);
 });
 
 // Requirement 34: fight and defeat the king with keyboard input only, then reach GAME CLEAR.
