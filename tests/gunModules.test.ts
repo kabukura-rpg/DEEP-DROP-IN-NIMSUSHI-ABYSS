@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { GameModel } from '../src/systems/GameModel';
+import { reachExit } from './exitHelper';
 import { BOSS } from '../src/data/boss';
 import { GunModuleSystem } from '../src/systems/GunModuleSystem';
 import {
@@ -385,6 +386,56 @@ describe('gun module pickups', () => {
     const event = game.events.find(e => e.type === 'gunModule');
     expect(event?.stage).toBe('SHOTGUN');
     expect(event?.bonus).toBe('charge');
+  });
+});
+
+describe('a SECTION boundary clears the shot in progress, not the weapon', () => {
+  it('does not deliver a BURST across the gate: the next SECTION starts silent', () => {
+    const game = new GameModel(false, seeded(31));
+    game.gun.equip('burst');
+    // Fire once: BURST pays for all three rounds up front and owes two more.
+    hold(game, 1 / 120, 0, true);
+    expect(shots(game)).toBe(1);
+    expect(game.gun.bursting).toBe(true);
+
+    // Clear the SECTION and take the rest card, with the trigger released throughout.
+    reachExit(game);
+    expect(game.state).toBe('upgrade');
+    game.selectUpgrade(game.upgrades.choices[0].id);
+    game.confirmUpgrade();
+    expect(game.state).toBe('playing');
+
+    const ammo = game.ammo;
+    game.events.length = 0;
+    // No input at all in the new SECTION.
+    for (let i = 0; i < 120; i++) { game.player.invincible = 99; game.step(1 / 120, 0, false); }
+    expect(game.bullets).toHaveLength(0);
+    expect(game.events.filter(e => e.type === 'shot')).toHaveLength(0);
+    expect(game.ammo).toBe(ammo);
+    expect(game.gun.bursting).toBe(false);
+  });
+
+  it('keeps the weapon and the run-grown magazine across the gate', () => {
+    const game = new GameModel(false, seeded(33));
+    game.gun.equip('shotgun');
+    game.stats.maxAmmo += 4;
+    const maxAmmo = game.stats.maxAmmo;
+    reachExit(game);
+    game.selectUpgrade(game.upgrades.choices[0].id);
+    game.confirmUpgrade();
+    expect(game.gun.id).toBe('shotgun');
+    expect(game.stats.maxAmmo).toBeGreaterThanOrEqual(maxAmmo);
+    expect(game.ammo).toBe(game.stats.maxAmmo);
+  });
+
+  it('also clears the shot in progress at the FINAL BOSS hand-off', () => {
+    const game = new GameModel(false, seeded(35));
+    game.gun.equip('burst');
+    hold(game, 1 / 120, 0, true);
+    expect(game.gun.bursting).toBe(true);
+    game.jumpToBoss();
+    expect(game.gun.id).toBe('burst');
+    expect(game.gun.bursting).toBe(false);
   });
 });
 

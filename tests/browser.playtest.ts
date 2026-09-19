@@ -534,6 +534,52 @@ button('4-1 → BOSS を通常プレイ', async () => {
 
 
 /**
+ * Proof that a check did not cheat.
+ *
+ * The old test asked "did HP go up?", which is the wrong question: picking up a HEART crate that
+ * the shaft generated and walking into it is ordinary play, and so is any future in-game reward.
+ * What actually makes a run assisted is THIS FILE calling an API that hands the player something
+ * the game would not have. So each of those APIs is wrapped for the duration of the check and only
+ * records a violation when the call came from the harness -- the game calling heal() because the
+ * player collected a HEART does not appear, because that stack has no harness frame in it.
+ */
+function watchForAssists(model: GameModel) {
+  const used: string[] = [];
+  const fromHarness = () => (new Error().stack ?? '').split('\n').slice(2).some(line => line.includes('browser.playtest'));
+  const undo: (() => void)[] = [];
+  const patch = (owner: object, key: string, label: string) => {
+    const target = owner as Record<string, unknown>;
+    const original = target[key] as (...args: unknown[]) => unknown;
+    if (typeof original !== 'function') return;
+    target[key] = function (this: unknown, ...args: unknown[]) {
+      if (fromHarness()) used.push(label);
+      return original.apply(this ?? owner, args);
+    };
+    undo.push(() => { target[key] = original; });
+  };
+  patch(model, 'heal', 'model.heal');
+  patch(model.health, 'heal', 'health.heal');
+  patch(model.health, 'lifeUp', 'health.lifeUp');
+  patch(model.health, 'killInstantly', 'health.killInstantly');
+  patch(model, 'killInstantly', 'model.killInstantly');
+  patch(model.boss, 'damage', 'boss.damage');
+  patch(model, 'clearBoss', 'clearBoss');
+  // Invincibility is a plain field, so it needs a property trap rather than a wrapper.
+  const player = model.player as unknown as Record<string, unknown>;
+  let invincible = player.invincible as number;
+  Object.defineProperty(player, 'invincible', {
+    configurable: true,
+    get: () => invincible,
+    set: (value: number) => { if (fromHarness()) used.push('player.invincible'); invincible = value; },
+  });
+  undo.push(() => {
+    delete player.invincible;
+    player.invincible = invincible;
+  });
+  return { used, stop: () => { for (const restore of undo) restore(); } };
+}
+
+/**
  * Heading for the gate. While a ledge is still underfoot the player has to step off its edge --
  * but a ledge flush against a wall has no edge on that side, and walking into the wall forever is
  * how a bot gets stuck. Pick the side that is actually open, preferring the one toward the gate.
@@ -791,6 +837,7 @@ button('UNASSISTED BOSS CHECK', async () => {
   scene.model.jumpToBoss();
   await until(() => scene.model.state === 'boss' && scene.model.boss.enabled, 8000);
   const model = scene.model;
+  const watch = watchForAssists(model);
   const startHp = model.hp;
   const phases: number[] = [];
   const original = bridge.onEvent;
@@ -809,8 +856,8 @@ button('UNASSISTED BOSS CHECK', async () => {
     const p = model.player, boss = model.boss;
     deepest = Math.max(deepest, boss.phaseId);
     if (model.hp < lastHp) hits++;
-    // Any rise in HP during the fight would mean something is helping; only a genuine in-game
-    // pickup could do that, and the boss phases carry none.
+    // HP going up is NOT evidence of cheating: a HEART crate the shaft generated is ordinary
+    // play. It is recorded only so the result can say where the HP came from.
     if (model.hp > lastHp) healed++;
     lastHp = model.hp;
     const incoming = boss.shots.filter(s => s.y > p.y - 30 && Math.abs(s.x - p.x) < 46);
@@ -849,7 +896,9 @@ button('UNASSISTED BOSS CHECK', async () => {
   output.textContent += `\n到達フェーズ: ${deepest} (${phases.join(' → ') || '1のみ'})`;
   output.textContent += `\n開始HP: ${startHp}/${model.health.maxHp}（強化効果のみ・回復なし）`;
   output.textContent += `\n撃破時間: ${fightTime.toFixed(1)}s / 被弾: ${hits} / 残HP: ${scene.model.hp}/${model.health.maxHp} / 死因: ${cause}`;
-  assert(healed === 0, `戦闘中の回復は一度も起きていない（補助なしの証明）`);
+  watch.stop();
+  assert(watch.used.length === 0, `補助APIをテストから一度も呼んでいない（検出: ${watch.used.join(', ') || 'なし'}）`);
+  output.textContent += `\n戦闘中のHP上昇: ${healed} 回（ゲーム内取得によるものは正当）`;
   assert(true, `実測（補助なし）: ${won ? 'CLEAR' : scene.model.state} / PHASE ${deepest} / ${fightTime.toFixed(1)}s / 開始HP${startHp} / 被弾${hits} / 残HP${scene.model.hp} / 死因${cause}`);
 });
 

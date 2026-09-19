@@ -228,7 +228,9 @@ export class GameModel {
       if (b.x < WORLD.wall || b.x > WORLD.width - WORLD.wall) { b.alive = false; continue; }
       if (this.boss.enabled && !this.boss.defeated) {
         const body = this.boss.body;
-        if (b.x > body.x && b.x < body.x + body.width && b.y >= body.y && b.previousY <= body.y + body.height) {
+        // Measured against the round's real width, the same way enemies are: a wide PUNCHER or a
+        // BIG BULLET that visibly overlaps the king must not read as a miss.
+        if (b.x + b.size > body.x && b.x - b.size < body.x + body.width && b.y >= body.y && b.previousY <= body.y + body.height) {
           if (this.boss.damage(b.damage)) this.events.push({ type: 'bossDown', x: this.boss.x, y: this.boss.y });
           this.events.push({ type: 'bossHit', x: b.x, y: body.y, value: this.boss.ratio });
           // One hit per round, so a piercing LASER can never multi-hit the king.
@@ -592,7 +594,10 @@ export class GameModel {
     this.shop.reset();
     if (!this.practice && this.state !== 'boss') this.shop.rollForSection(this.random);
     // A full tank and a cold gauge at every SECTION start. Both are environment, not health: HP
-    // carries over untouched.
+    // carries over untouched. The gun keeps its module and its grown magazine, but forgets the
+    // shot it was in the middle of -- a burst owes its remaining rounds to the SECTION that paid
+    // for them, not to the next one.
+    this.gun.rearm();
     if (this.state !== 'boss') this.boss.reset();
     this.oxygen.reset(!this.practice && this.stage.config.gimmicks?.oxygen === true);
     this.heat.reset(!this.practice && this.stage.config.gimmicks?.heat === true);

@@ -285,8 +285,10 @@ function updateHud(model: GameModel) {
   const key = [Math.floor(model.sectionDepth), Math.floor(model.totalDepth), model.state, model.stage.label, model.coins.walletCoins, model.coins.scoreCoins, !!model.exit, model.oxygen.enabled ? model.oxygen.remaining.toFixed(1) : '-', model.sheltered, model.heat.enabled ? model.heat.value.toFixed(1) : '-', model.boss.enabled ? `${Math.ceil(model.boss.ratio * 100)}|${model.boss.phaseId}` : '-', model.hp, model.health.overflowHealing, model.stats.maxHp, model.ammo, model.stats.maxAmmo, model.gun.id, model.combo, model.multiplier, model.practice].join('|');
   if (key === lastHud) return; lastHud = key;
   // The FINAL BOSS banks no section metres, so showing sectionDepth there reads a flat 000m.
-  // The run's completed total is the meaningful number, and the fight never adds to it.
-  const shownDepth = model.state === 'boss' ? model.totalDepth : model.sectionDepth;
+  // The run's completed total is the meaningful number, and the fight never adds to it. Keyed on
+  // the stage rather than the state, so the read-out stays right after the king falls too --
+  // state becomes 'clear' while the run is still, and always will be, at the FINAL BOSS.
+  const shownDepth = model.stage.boss ? model.totalDepth : model.sectionDepth;
   $('depth').textContent = String(Math.floor(shownDepth)).padStart(3, '0');
   $('stage-label').textContent = model.stage.label;
   $('stage-label').hidden = model.practice;

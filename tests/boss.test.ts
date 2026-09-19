@@ -4,7 +4,7 @@ import { GameModel } from '../src/systems/GameModel';
 import { BossFightSystem } from '../src/systems/BossFightSystem';
 import { BOSS, BOSS_ATTACKS, BOSS_PHASES, bossPhaseAt } from '../src/data/boss';
 import { WORLD } from '../src/data/balance';
-import { ENEMY_TYPES } from '../src/data/enemies';
+import { ENEMY_TYPES, spawnEnemy } from '../src/data/enemies';
 
 const seeded = (seed: number) => () => { seed = (Math.imul(seed, 1664525) + 1013904223) >>> 0; return seed / 4294967296; };
 const tick = (game: GameModel, seconds: number, direction = 0, fire = false) => {
@@ -122,6 +122,52 @@ describe('FINAL BOSS damage', () => {
         && game.player.y + 15 > body.y && game.player.y - 15 < body.y + body.height;
       expect(overlap).toBe(false);
     }
+  });
+});
+
+describe('FINAL BOSS hit detection matches the rest of the game', () => {
+  it('is hit by the round its width covers, not only by its centre', () => {
+    const game = atBoss(41);
+    game.gun.equip('puncher');
+    game.stats.bulletSize *= 1.5;            // BIG BULLET
+    game.stats.maxAmmo = 40; game.ammo = 40;
+    const size = 11 * (game.stats.bulletSize / 4);
+    const before = game.boss.hp;
+    for (let i = 0; i < 600 && game.boss.hp === before; i++) {
+      game.player.invincible = 99;
+      // Close in, because PUNCHER's reach is far shorter than the king's resting distance, and
+      // sit with the round's CENTRE outside the body so only its width can connect.
+      game.player.y = game.boss.y - 150;
+      game.player.x = game.boss.body.x - size * 0.5;
+      game.step(1 / 120, 0, true);
+    }
+    expect(game.boss.hp).toBeLessThan(before);
+  });
+
+  it('uses the same widened test an ordinary enemy gets', () => {
+    // A round whose centre is outside an enemy but whose width overlaps it also connects, so the
+    // king and a slime agree about what a hit is.
+    const game = atBoss(43);
+    game.gun.equip('puncher');
+    game.boss.reset();
+    game.enemies = [spawnEnemy('slime', 1, 225, game.player.y + 200)];
+    const size = 11;
+    game.player.x = 225 - (15 + size) + 2;
+    game.shoot();
+    for (let i = 0; i < 90 && game.kills === 0; i++) { game.player.invincible = 99; game.step(1 / 120, 0, false); }
+    expect(game.kills).toBe(1);
+  });
+
+  it('keeps the run at the FINAL BOSS after GAME CLEAR, so the HUD can still show the total', () => {
+    const game = atBoss(45);
+    expect(game.stage.boss).toBe(true);
+    game.boss.damage(BOSS.maxHp);
+    tick(game, BOSS.defeatDelay + 0.3);
+    expect(game.state).toBe('clear');
+    // The HUD keys its TOTAL DEPTH read-out off this, not off the state, which is why 000m
+    // appeared behind the result screen before.
+    expect(game.stage.boss).toBe(true);
+    expect(Math.round(game.totalDepth)).toBe(PLANNED_TOTAL_DEPTH);
   });
 });
 

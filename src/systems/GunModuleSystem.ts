@@ -45,9 +45,19 @@ export class GunModuleSystem {
     return changed;
   }
 
+  /**
+   * Drop everything about the shot in progress, keeping the weapon itself. A SECTION boundary
+   * has to do this: a burst is paid for up front and keeps firing on its own, so without it the
+   * rounds still owed would arrive in the NEXT SECTION with the player pressing nothing. The
+   * equipped module and the run's grown magazine are deliberately untouched.
+   */
+  rearm() {
+    this.cooldown = 0; this.burstLeft = 0; this.burstTimer = 0; this.wasFiring = false; this.pressBuffer = 0;
+  }
+  /** A new run: back to the starting weapon as well. */
   reset() {
     this.id = STARTING_GUN_MODULE;
-    this.cooldown = 0; this.burstLeft = 0; this.burstTimer = 0; this.wasFiring = false; this.pressBuffer = 0;
+    this.rearm();
   }
 
   /**

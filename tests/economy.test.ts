@@ -9,6 +9,7 @@ import { AIR_CONTAINER_RULES, EXIT_RULES } from '../src/data/structures';
 import { CHARGE_AMMO_BONUS } from '../src/data/gunModules';
 import { HEALTH_RULES } from '../src/systems/HealthSystem';
 import { spawnEnemy } from '../src/data/enemies';
+import { spawnGunModule } from '../src/data/pickups';
 import { WORLD } from '../src/data/balance';
 import { reachExit } from './exitHelper';
 
@@ -251,6 +252,32 @@ describe('SHOP', () => {
     game.closeShop();
     tick(game, 0.3);
     expect(game.state).toBe('playing');
+  });
+});
+
+describe('an in-game HEART is ordinary play, not assistance', () => {
+  it('heals 3/4 back to 4/4 from a crate the shaft generated, with no test API involved', () => {
+    const game = bare();
+    game.player.invincible = 0;
+    game.damage(1, 'enemy');
+    expect(game.hp).toBe(game.stats.maxHp - 1);
+    game.player.invincible = 99;
+    // A crate placed the way the generator places one, collected by walking into it.
+    game.pickups = [spawnGunModule(4242, game.player.x, game.player.y, 'machine', 'heart')];
+    tick(game, 0.2);
+    expect(game.hp).toBe(game.stats.maxHp);
+    // The heal came from the pickup path, so it is the game healing the player, not a harness.
+    expect(game.events.some(e => e.type === 'gunModule' && e.bonus === 'heart')).toBe(true);
+  });
+
+  it('rolls a full-health HEART into the existing overflow rather than wasting it', () => {
+    const game = bare();
+    expect(game.hp).toBe(game.stats.maxHp);
+    const overflow = game.health.overflowHealing;
+    game.pickups = [spawnGunModule(4243, game.player.x, game.player.y, 'machine', 'heart')];
+    tick(game, 0.2);
+    expect(game.hp).toBe(game.stats.maxHp);
+    expect(game.health.overflowHealing).toBe(overflow + 1);
   });
 });
 
