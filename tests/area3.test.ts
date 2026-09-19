@@ -398,7 +398,7 @@ describe('AREA 3 boundaries', () => {
     game.selectUpgrade(game.upgrades.choices[0].id); game.confirmUpgrade();
     expect(game.stage.label).toBe('3-1');
     expect([game.oxygen.enabled, game.heat.enabled]).toEqual([false, true]);
-    expect(game.airPockets).toHaveLength(0);
+    expect([game.containers.length, game.bubbles.length]).toEqual([0, 0]);
     // Gun modules are run-wide, so only AREA-owned pickups have to be gone.
     expect(game.pickups.every(p => pickupType(p.kind).category !== 'environment' || p.kind === 'ice')).toBe(true);
     expect(game.water).toBeUndefined();

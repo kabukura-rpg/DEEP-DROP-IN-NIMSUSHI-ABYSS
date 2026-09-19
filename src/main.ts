@@ -282,7 +282,7 @@ function showResult(model: GameModel) {
 }
 function updateHud(model: GameModel) {
   physicsPanel?.updateTelemetry();
-  const key = [Math.floor(model.sectionDepth), Math.floor(model.totalDepth), model.state, model.stage.label, model.coins.walletCoins, model.coins.scoreCoins, !!model.exit, model.oxygen.enabled ? model.oxygen.remaining.toFixed(1) : '-', model.sheltered, model.heat.enabled ? model.heat.value.toFixed(1) : '-', model.boss.enabled ? `${Math.ceil(model.boss.ratio * 100)}|${model.boss.phaseId}` : '-', model.hp, model.health.overflowHealing, model.stats.maxHp, model.ammo, model.stats.maxAmmo, model.gun.id, model.combo, model.multiplier, model.practice].join('|');
+  const key = [Math.floor(model.sectionDepth), Math.floor(model.totalDepth), model.state, model.stage.label, model.coins.walletCoins, model.coins.scoreCoins, !!model.exit, model.oxygen.enabled ? model.oxygen.remaining.toFixed(1) : '-', model.heat.enabled ? model.heat.value.toFixed(1) : '-', model.boss.enabled ? `${Math.ceil(model.boss.ratio * 100)}|${model.boss.phaseId}` : '-', model.hp, model.health.overflowHealing, model.stats.maxHp, model.ammo, model.stats.maxAmmo, model.gun.id, model.combo, model.multiplier, model.practice].join('|');
   if (key === lastHud) return; lastHud = key;
   // The FINAL BOSS banks no section metres, so showing sectionDepth there reads a flat 000m.
   // The run's completed total is the meaningful number, and the fight never adds to it. Keyed on
@@ -311,8 +311,9 @@ function updateHud(model: GameModel) {
     $('oxygen-fill').style.width = `${Math.round(model.oxygen.ratio * 100)}%`;
     $('oxygen-seconds').textContent = `${model.oxygen.remaining.toFixed(1)}s`;
     // Never colour alone: the state word and the blink carry the same warning.
-    $('oxygen-state').textContent = model.sheltered ? '● AIR POCKET' : warning === 'critical' ? '!! NO AIR' : warning === 'low' ? '! LOW' : '';
-    oxygen.dataset.state = model.sheltered ? 'air' : warning;
+    // No shelter exists any more, so the read-out is purely how much air is left.
+    $('oxygen-state').textContent = warning === 'critical' ? '!! NO AIR' : warning === 'low' ? '! LOW' : '';
+    oxygen.dataset.state = warning;
     oxygen.setAttribute('aria-label', `酸素 ${model.oxygen.remaining.toFixed(1)}秒 / ${model.oxygen.max}秒`);
   }
   const bossBar = $('boss-bar');

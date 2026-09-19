@@ -1,5 +1,5 @@
 import { WORLD, initialStats } from '../data/balance';
-import { StageGenerator, START_PLATFORM, type AirPocket, type Enemy, type Platform, type RoutePlatform } from './StageGenerator';
+import { StageGenerator, START_PLATFORM, type Enemy, type Platform, type RoutePlatform } from './StageGenerator';
 import { OxygenSystem } from './OxygenSystem';
 import { HeatSystem } from './HeatSystem';
 import { BreakablePlatformSystem, BREAK_RULES } from './BreakablePlatformSystem';
@@ -8,7 +8,7 @@ import { GunModuleSystem } from './GunModuleSystem';
 import { CoinSystem } from './CoinSystem';
 import { ShopSystem } from './ShopSystem';
 import { coinsFor } from '../data/coins';
-import { AIR_CONTAINER_RULES, BREAK_FLOOR_RULES, EXIT_RULES, type AirBubble, type AirContainer, type StageExit } from '../data/structures';
+import { AIR_CONTAINER_RULES, BREAK_BLOCK_RULES, EXIT_RULES, type AirBubble, type AirContainer, type StageExit } from '../data/structures';
 import type { ShopOffer } from '../data/shop';
 import { CHARGE_AMMO_BONUS, gunModule, STARTING_GUN_MODULE, volley, volleyRecoil, type GunModuleId } from '../data/gunModules';
 import { BOSS, type BossPhase } from '../data/boss';
@@ -21,7 +21,7 @@ import { StageProgressionSystem } from './StageProgressionSystem';
 import type { AreaId, SectionId } from '../data/areas';
 import { enemyType } from '../data/enemies';
 import { defaultTuning, sanitizeTuning, type PhysicsTuning } from './PhysicsTuning';
-export type GameEvent = { type: 'shot' | 'empty' | 'land' | 'kill' | 'hurt' | 'upgrade' | 'over' | 'heal' | 'boss' | 'clear' | 'oxygen' | 'airPocket' | 'section' | 'ice' | 'vent' | 'crack' | 'collapse' | 'bossHit' | 'bossTelegraph' | 'bossFire' | 'bossPhase' | 'bossDown' | 'gunModule' | 'coin' | 'shopOpen' | 'shopBuy' | 'exitReady' | 'exit' | 'containerBreak' | 'floorCrack' | 'floorBreak' | 'comboReward'; x: number; y: number; value?: number; stomp?: boolean; lifeUps?: number; overflow?: number; combo?: number; stage?: string; areaCleared?: string | null; bonus?: 'heart' | 'charge'; source?: { id: number; kind: Enemy['kind']; x: number; y: number } };
+export type GameEvent = { type: 'shot' | 'empty' | 'land' | 'kill' | 'hurt' | 'upgrade' | 'over' | 'heal' | 'boss' | 'clear' | 'oxygen' | 'section' | 'ice' | 'vent' | 'crack' | 'collapse' | 'bossHit' | 'bossTelegraph' | 'bossFire' | 'bossPhase' | 'bossDown' | 'gunModule' | 'coin' | 'shopOpen' | 'shopBuy' | 'exitReady' | 'exit' | 'containerBreak' | 'blockCrack' | 'blockBreak' | 'comboReward'; x: number; y: number; value?: number; stomp?: boolean; lifeUps?: number; overflow?: number; combo?: number; stage?: string; areaCleared?: string | null; bonus?: 'heart' | 'charge'; source?: { id: number; kind: Enemy['kind']; x: number; y: number } };
 export interface Bullet {
   x: number; y: number; previousY: number; previousX: number;
   /** Velocity in px/s. Straight-down weapons simply carry vx = 0. */
@@ -45,7 +45,6 @@ export class GameModel {
   platforms: Platform[] = [{ ...START_PLATFORM }];
   enemies: Enemy[] = [];
   pickups: Pickup[] = [];
-  airPockets: AirPocket[] = [];
   hazards: Hazard[] = [];
   bullets: Bullet[] = [];
   events: GameEvent[] = [];
@@ -66,8 +65,6 @@ export class GameModel {
   /** The way out of this SECTION, once the shaft has bottomed out. Null until then. */
   exit: StageExit | null = null;
   private nextBubbleId = 1;
-  /** True while the player is inside an air pocket: the tank refills and nothing drains. */
-  sheltered = false;
   paused = false;
   /** True while the world is actually simulating: normal play and the boss fight alike. */
   get running() { return (this.state === 'playing' || this.state === 'boss') && !this.paused && !this.shop.open; }
@@ -212,14 +209,10 @@ export class GameModel {
     const ground = this.platforms.find(f => f.id === p.grounded);
     if (ground && p.x + 9 > ground.x && p.x - 9 < ground.x + ground.width) p.vy = 0;
     else { p.grounded = -1; p.vy = Math.min(this.stats.maxFallSpeed, p.vy + this.stats.gravity * (this.water?.gravity ?? 1) * dt); }
-    // A gate spans the shaft, so there is no edge to step off and no way to earn a reload the
-    // ordinary way. Without this, landing on a 3-round AREA 3 gate holding the LASER -- four rounds
-    // a shot against a six-round magazine -- leaves the run standing on a floor it can no longer
-    // open, forever. A gate therefore always supplies the rounds needed to get through it.
-    if (ground?.breakFloor && ground.state !== 'broken' && this.ammo < this.gun.module.ammoCost && this.ammo < this.stats.maxAmmo) {
-      this.ammo = this.stats.maxAmmo;
-      this.emit('land', p.x, ground.y);
-    }
+    // Nothing special is needed to keep a gate row openable. A row is several blocks edge to edge,
+    // so stepping off one onto its neighbour is an ordinary landing and reloads in full, exactly as
+    // stepping between ledges does everywhere else. A player who runs dry against a block walks one
+    // block over and comes back with a full magazine; the block keeps the hits it has already taken.
     this.fireGun(dt, direction, firing);
     p.y += p.vy * dt;
     for (const e of this.enemies) {
@@ -249,13 +242,15 @@ export class GameModel {
           continue;
         }
       }
-      // A gate is a wall: it stops the round and takes one hit off its durability. Checked before
-      // anything else in the shaft, so nothing can be shot through a floor that is still standing.
-      for (const gate of this.platforms) {
-        if (!gate.breakFloor || gate.state === 'broken') continue;
-        if (b.x + b.size < gate.x || b.x - b.size > gate.x + gate.width) continue;
-        if (b.y < gate.y || b.previousY > gate.y + BREAK_FLOOR_RULES.thickness) continue;
-        this.hitBreakFloor(gate); b.alive = false; break;
+      // A block is a wall: it stops the round and takes one hit off its own durability. Checked
+      // before anything else in the shaft, so nothing is shot through a block still standing. Which
+      // block a round meets is decided by its width, so a wide or angled weapon covers more of the
+      // row per volley and a narrow one picks a single slot.
+      for (const block of this.platforms) {
+        if (!block.breakBlock || block.state === 'broken') continue;
+        if (b.x + b.size < block.x || b.x - b.size > block.x + block.width) continue;
+        if (b.y < block.y || b.previousY > block.y + BREAK_BLOCK_RULES.thickness) continue;
+        this.hitBreakBlock(block); b.alive = false; break;
       }
       if (!b.alive) continue;
       for (const box of this.containers) {
@@ -298,12 +293,11 @@ export class GameModel {
     this.tickBubbles(dt);
     if (this.coins.tick(dt, p, this.cameraY) > 0) this.events.push({ type: 'coin', x: p.x, y: p.y, value: this.coins.walletCoins });
     this.collectPickups();
-    this.sheltered = this.airPockets.some(a => p.x > a.x && p.x < a.x + a.width && p.y + 15 > a.y && p.y - 15 < a.y + a.height);
     if (this.heat.enabled) this.tickHeat(dt);
     this.tickLethalTerrain();
     // Invulnerability delays a drowning hit but can never cancel it: the debt is only cleared once
     // HealthSystem actually accepts the damage.
-    if (this.oxygen.tick(dt, this.sheltered) && this.damage(1, 'oxygen')) this.oxygen.consumeDamage();
+    if (this.oxygen.tick(dt) && this.damage(1, 'oxygen')) this.oxygen.consumeDamage();
     if (this.practice) {
       if (p.y > 840) { p.x = 225; p.y = 120; p.vy = 0; p.grounded = -1; this.ammo = this.stats.maxAmmo; this.lastAirShot = -Infinity; }
     } else {
@@ -326,7 +320,6 @@ export class GameModel {
     this.platforms = this.platforms.filter(f => f.y > this.cameraY - 180);
     this.enemies = this.enemies.filter(e => e.alive && e.y > this.cameraY - 180);
     this.pickups = this.pickups.filter(item => !item.taken && item.y > this.cameraY - 180);
-    this.airPockets = this.airPockets.filter(a => a.y + a.height > this.cameraY - 180);
     this.hazards = this.hazards.filter(h => h.y + h.height > this.cameraY - 180);
   }
   /**
@@ -365,21 +358,27 @@ export class GameModel {
     }
   }
   /**
-   * One round into a BREAK FLOOR gate. Opening a gate is terrain work, not a kill: it adds nothing
-   * to COMBO, drops no COIN, counts as no defeated enemy, and never calls gun.rearm() -- forgetting
-   * a shot in progress belongs to a SECTION boundary and to nothing else.
+   * One round into one BREAK BLOCK. Opening a block is terrain work, not a kill: it adds nothing to
+   * COMBO, counts as no defeated enemy, raises no kill event, and never calls gun.rearm() --
+   * forgetting a shot in progress belongs to a SECTION boundary and to nothing else.
+   *
+   * It may leave money, and that goes out through CoinSystem exactly as a corpse's does, so the
+   * coins behave identically on the way to the wallet: they scatter, they can be missed, and
+   * catching one is what raises walletCoins and scoreCoins.
    */
-  private hitBreakFloor(gate: Platform) {
-    const floor = gate.breakFloor;
-    if (!floor || gate.state === 'broken') return;
-    floor.hits++;
-    if (floor.hits < floor.durability) {
-      this.events.push({ type: 'floorCrack', x: this.player.x, y: gate.y, value: floor.durability - floor.hits });
+  private hitBreakBlock(block: Platform) {
+    const state = block.breakBlock;
+    if (!state || block.state === 'broken') return;
+    state.hits++;
+    const centre = block.x + block.width / 2;
+    if (state.hits < state.durability) {
+      this.events.push({ type: 'blockCrack', x: centre, y: block.y, value: state.durability - state.hits });
       return;
     }
-    gate.state = 'broken';
-    if (this.player.grounded === gate.id) this.player.grounded = -1;
-    this.events.push({ type: 'floorBreak', x: gate.x + gate.width / 2, y: gate.y, value: gate.width });
+    block.state = 'broken';
+    if (this.player.grounded === block.id) this.player.grounded = -1;
+    if (this.random() < BREAK_BLOCK_RULES.coinChance) this.coins.burst(centre, block.y, BREAK_BLOCK_RULES.coins, this.random);
+    this.events.push({ type: 'blockBreak', x: centre, y: block.y, value: block.width });
   }
   /**
    * The FINAL BOSS, inside the ordinary simulation step. Its attacks only ever reach the player
@@ -413,10 +412,10 @@ export class GameModel {
     this.oxygen.reset(phase.gimmicks?.oxygen === true);
     this.heat.reset(phase.gimmicks?.heat === true);
     this.collapse.reset(phase.plan.breakDelay ?? BREAK_RULES.delay);
-    if (!this.oxygen.enabled) { this.airPockets = []; this.pickups = this.pickups.filter(item => item.kind !== 'oxygenBubble'); }
+    if (!this.oxygen.enabled) { this.containers = []; this.bubbles = []; this.pickups = this.pickups.filter(item => item.kind !== 'oxygenBubble'); }
     if (!this.heat.enabled) { this.hazards = []; this.pickups = this.pickups.filter(item => item.kind !== 'ice'); }
     if (!phase.gimmicks?.breakablePlatforms) for (const platform of this.platforms) { platform.breakable = false; platform.state = 'stable'; }
-    this.sheltered = false; p.vx = 0;
+    p.vx = 0;
     // The shaft is generated a screen and a half ahead, so simply switching recipes would leave the
     // player falling through ~12s of the OLD phase's terrain while the NEW phase's gauge is already
     // draining -- long enough that PHASE 2 could strand them with no air in reach at all. Cut the
@@ -426,7 +425,6 @@ export class GameModel {
     this.platforms = this.platforms.filter(row => row.y <= cut);
     this.enemies = this.enemies.filter(e => e.y <= cut);
     this.pickups = this.pickups.filter(item => item.y <= cut);
-    this.airPockets = this.airPockets.filter(pocket => pocket.y <= cut);
     this.hazards = this.hazards.filter(h => h.y <= cut);
     const rows = this.platforms.filter((row): row is RoutePlatform => 'safeX' in row);
     const deepest = rows.reduce((low, row) => (row.y > low.y ? row : low), rows[0] ?? this.generator.lastRow);
@@ -496,7 +494,6 @@ export class GameModel {
     this.platforms = this.platforms.filter(row => row.y <= cut);
     this.enemies = this.enemies.filter(e => e.y <= cut);
     this.pickups = this.pickups.filter(item => item.y <= cut);
-    this.airPockets = this.airPockets.filter(a => a.y <= cut);
     this.hazards = this.hazards.filter(h => h.y <= cut);
     this.containers = this.containers.filter(box => box.y <= cut);
     const rows = this.platforms.filter((row): row is RoutePlatform => 'safeX' in row);
@@ -636,7 +633,7 @@ export class GameModel {
     p.x = 225; p.y = WORLD.startY; p.vy = 0; p.grounded = -1;
     this.sectionDepth = 0; this.cameraY = 0; this.cooldown = 0; this.lastAirShot = -Infinity;
     this.platforms = [{ ...START_PLATFORM }]; this.enemies = []; this.bullets = []; this.nextChunk = 0;
-    this.pickups = []; this.airPockets = []; this.hazards = []; this.sheltered = false; p.vx = 0;
+    this.pickups = []; this.hazards = []; p.vx = 0;
     this.containers = []; this.bubbles = []; this.exit = null;
     // Coins already banked stay banked; only the ones still lying on the floor are swept up.
     this.coins.clearLoose();
@@ -712,7 +709,7 @@ export class GameModel {
     while (!this.generator.finished && this.nextChunk * WORLD.chunkHeight < this.cameraY + WORLD.height + WORLD.chunkHeight) {
       const chunk = this.generator.chunk(this.nextChunk++);
       this.platforms.push(...chunk.platforms); this.enemies.push(...chunk.enemies);
-      this.pickups.push(...chunk.pickups); this.airPockets.push(...chunk.airPockets); this.hazards.push(...chunk.hazards);
+      this.pickups.push(...chunk.pickups); this.hazards.push(...chunk.hazards);
       this.containers.push(...chunk.containers);
       if (chunk.shopDoor) this.shop.placeEntrance(chunk.shopDoor.x, chunk.shopDoor.y, chunk.shopDoor.width, chunk.shopDoor.height);
     }

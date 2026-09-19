@@ -17,10 +17,10 @@ const SOUNDS: Record<SoundId, readonly [number, number, number]> = {
 export const EVENT_SOUNDS: Record<GameEvent['type'], SoundId | null> = {
   shot: 'shot', land: 'land', kill: 'kill', hurt: 'hurt', empty: 'empty', over: 'over',
   upgrade: 'upgrade', heal: 'upgrade', boss: 'upgrade', clear: 'upgrade',
-  oxygen: 'land', airPocket: 'upgrade',
+  oxygen: 'land',
   section: null, ice: null, vent: null, crack: null, collapse: null,
-  // A BREAK FLOOR gate: a dull knock while it holds, the heavier landing voice when it gives way.
-  floorCrack: 'empty', floorBreak: 'land',
+  // A BREAK BLOCK: a dull knock while it holds, the heavier landing voice when it gives way.
+  blockCrack: 'empty', blockBreak: 'land',
   // The COMBO payout reuses the reward voice rather than inventing one.
   comboReward: 'upgrade',
   // Picking up a weapon has no sound of its own yet; the swap card carries the feedback.

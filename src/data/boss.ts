@@ -44,7 +44,9 @@ export const BOSS_PHASES: readonly BossPhase[] = [
     enemyPool: ['fish', 'bubbleFish', 'jellyfish'],
     plan: {
       platformWidth: [142, 166], gap: 242, enemyChance: 0.22, flyChance: 0.20, toughChance: 0.20, heavyChance: 0, comboBias: 0.18,
-      containerChance: 0.34, airPocketChance: 0.45, maxOxygenGap: 21, bubbleOffside: 0.18,
+      // The alcove's share of the air roll folded into the container roll: PHASE 2 lays exactly as
+      // many air sources as it always did, and every one of them is now something to break.
+      containerChance: 0.79, maxOxygenGap: 21, bubbleOffside: 0.18,
     },
   },
   {

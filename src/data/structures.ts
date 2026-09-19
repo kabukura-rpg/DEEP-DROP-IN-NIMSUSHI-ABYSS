@@ -58,22 +58,34 @@ export interface AirBubble {
 }
 
 /**
- * BREAK FLOOR: a slab spanning the whole shaft, laid a few times per SECTION as a gate between
+ * BREAK BLOCK: a row of separately destructible blocks laid across the shaft as a gate between
  * fall zones. It is NOT an AREA 4 collapsing ledge and shares none of its code:
  *
- *   - landing on it is an ordinary landing -- AMMO FULL RELOAD, COMBO RESET -- and it does not
- *     start any timer, so standing on it is safe indefinitely;
- *   - the only way past it is to shoot it, downward, until its durability runs out;
- *   - breaking it is terrain work, not a kill: no COMBO, no COIN, no enemy defeat, and no rearm.
+ *   - each block is landed on like any other floor -- AMMO FULL RELOAD, COMBO RESET -- and none of
+ *     them starts a timer, so standing on the row is safe indefinitely;
+ *   - the way on is to shoot a hole. ONE block is enough: the player fits through a single gap, so
+ *     the row rewards aiming rather than grinding the whole thing down;
+ *   - breaking one is terrain work, not a kill: no COMBO, no enemy defeat, no kill event. A block
+ *     may leave COIN, and that goes through the ordinary CoinSystem drop the same way a corpse does.
  *
- * Durability is counted in rounds that connect rather than in damage, so every one of the seven
- * gun modules can open it and a damage upgrade never trivialises the gate.
+ * Durability is counted in rounds that connect rather than in damage, so every one of the seven gun
+ * modules can open a block and a damage upgrade never trivialises a gate. Running dry needs no
+ * special case: the blocks sit edge to edge, so stepping from one to its neighbour is an ordinary
+ * landing and reloads in full, exactly as stepping between ledges does everywhere else.
  */
-export const BREAK_FLOOR_RULES = {
-  /** Collision thickness for rounds. Deep enough that a shot fired while standing on it registers. */
+export const BREAK_BLOCK_RULES = {
+  /** Blocks across the shaft. Their width is the shaft divided by this. */
+  count: 5,
+  /** Collision thickness for rounds. Deep enough that a shot fired while standing on one registers. */
   thickness: 16,
-  /** Hits taken before it gives way, when a SECTION plan does not say otherwise. */
+  /** Hits one block takes before it gives way, when a SECTION plan does not say otherwise. */
   durability: 2,
+  /** Chance that breaking one block leaves money behind, and how many coins that is. */
+  coinChance: 0.25,
+  coins: 1,
 } as const;
 
+/** The width of one block, so generation, collision and drawing never disagree about it. */
+export const breakBlockWidth = (rules: { count: number } = BREAK_BLOCK_RULES) =>
+  (WORLD.width - WORLD.wall * 2) / rules.count;
 export const shaftCentre = WORLD.width / 2;

@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { GameModel } from '../src/systems/GameModel';
 import { OxygenSystem, OXYGEN_RULES } from '../src/systems/OxygenSystem';
-import { StageGenerator, START_PLATFORM, type AirPocket, type RoutePlatform } from '../src/systems/StageGenerator';
+import { StageGenerator, START_PLATFORM, type RoutePlatform } from '../src/systems/StageGenerator';
 import { ENEMY_TYPES, enemyType, spawnEnemy, type Enemy, type EnemyKind } from '../src/data/enemies';
 import { PICKUP_TYPES, type Pickup } from '../src/data/pickups';
 import { areaConfig, type SectionId } from '../src/data/areas';
@@ -23,7 +23,7 @@ function inWater(section: SectionId = 1, random = Math.random) {
 }
 function bare(section: SectionId = 1) {
   const game = inWater(section);
-  game.platforms = []; game.enemies = []; game.pickups = []; game.airPockets = []; game.hazards = [];
+  game.platforms = []; game.enemies = []; game.pickups = []; game.hazards = [];
   game.player.invincible = 0;
   return game;
 }
@@ -51,18 +51,21 @@ const hold = (game: GameModel, seconds: number) => {
 
 /** Regenerate one SECTION the way GameModel does and hand back everything it produced. */
 function section(sectionId: SectionId, seed: number) {
-  const generator = new StageGenerator(seeded(seed), { plan: plan(sectionId), enemyPool: area2.enemyPool, water: area2.water, oxygen: true });
-  const platforms: RoutePlatform[] = [], enemies: Enemy[] = [], pickups: Pickup[] = [], airPockets: AirPocket[] = [];
+  const generator = new StageGenerator(seeded(seed), { plan: plan(sectionId), enemyPool: area2.enemyPool, water: area2.water, oxygen: true, sectionLength: area2.sectionLength });
+  const platforms: RoutePlatform[] = [], enemies: Enemy[] = [], pickups: Pickup[] = [];
   const containers: AirContainer[] = [];
   for (let chunk = 0; chunk < CHUNKS; chunk++) {
     const result = generator.chunk(chunk);
     platforms.push(...result.platforms); enemies.push(...result.enemies);
-    pickups.push(...result.pickups); airPockets.push(...result.airPockets); containers.push(...result.containers);
+    pickups.push(...result.pickups); containers.push(...result.containers);
   }
   const limit = WORLD.startY + SECTION_PIXELS;
   return {
-    platforms: platforms.filter(p => p.y <= limit), enemies: enemies.filter(e => e.y <= limit),
-    pickups: pickups.filter(p => p.y <= limit), airPockets: airPockets.filter(a => a.y <= limit),
+    // Ordinary ledges and gate-row blocks are different things; most checks below want the ledges.
+    platforms: platforms.filter(p => p.y <= limit && !p.breakBlock),
+    blocks: platforms.filter(p => p.y <= limit && p.breakBlock),
+    enemies: enemies.filter(e => e.y <= limit),
+    pickups: pickups.filter(p => p.y <= limit),
     containers: containers.filter(c => c.y <= limit), limit,
   };
 }
@@ -114,11 +117,11 @@ describe('AREA 2 oxygen supply', () => {
   it('lets invulnerability delay a drowning hit but never cancel it', () => {
     const oxygen = new OxygenSystem(true);
     oxygen.remaining = 0;
-    expect(oxygen.tick(OXYGEN_RULES.damageInterval, false)).toBe(true);
+    expect(oxygen.tick(OXYGEN_RULES.damageInterval)).toBe(true);
     // The hit was refused: the debt survives and lands on the next step instead of being lost.
-    expect(oxygen.tick(1 / 120, false)).toBe(true);
+    expect(oxygen.tick(1 / 120)).toBe(true);
     oxygen.consumeDamage();
-    expect(oxygen.tick(1 / 120, false)).toBe(false);
+    expect(oxygen.tick(1 / 120)).toBe(false);
     const game = bare(1);
     hold(game, OXYGEN_RULES.max);
     game.player.invincible = 3;
@@ -161,12 +164,12 @@ describe('AREA 2 oxygen supply', () => {
     expect(game.oxygen.remaining).toBe(OXYGEN_RULES.max);
     // AREA 3 brings its own pickups; what must be gone is every air source.
     expect(game.pickups.filter(p => PICKUP_TYPES[p.kind].effect === 'oxygen')).toHaveLength(0);
-    expect(game.airPockets).toHaveLength(0);
+    expect([game.containers.length, game.bubbles.length]).toEqual([0, 0]);
     expect(game.water).toBeUndefined();
   });
 });
 
-describe('AREA 2 bubbles and air pockets', () => {
+describe('AREA 2 bubbles', () => {
   it('gives a bubble its configured seconds, capped at the tank', () => {
     const game = bare(1);
     hold(game, 7);
@@ -199,19 +202,22 @@ describe('AREA 2 bubbles and air pockets', () => {
     expect(game.kills).toBe(1);
     expect(game.pickups.filter(p => p.kind === 'oxygenBubble')).toHaveLength(1);
   });
-  it('fills the tank inside an air pocket, holds it there, and drains again outside', () => {
+  it('has no shelter anywhere: nothing in the shaft stops the drain by being stood in', () => {
+    // The sheltering alcove is gone, along with the state it set. Standing still anywhere in AREA 2
+    // now costs air at exactly the same rate as moving, so the only way up is a bubble.
+    expect('sheltered' in (bare(1) as object)).toBe(false);
+    expect('airPockets' in (bare(1) as object)).toBe(false);
     const game = bare(1);
-    hold(game, 6);
-    expect(game.oxygen.remaining).toBeLessThan(7);
-    game.airPockets = [{ id: 9, x: game.player.x - 50, y: game.player.y - 40, width: 100, height: 120 }];
-    game.step(1 / 120, 0, false);
-    expect([game.sheltered, game.oxygen.remaining]).toEqual([true, OXYGEN_RULES.max]);
-    hold(game, 3);
-    expect([game.sheltered, game.oxygen.remaining]).toEqual([true, OXYGEN_RULES.max]);
-    game.airPockets = [];
-    hold(game, 2);
-    expect(game.sheltered).toBe(false);
-    expect(game.oxygen.remaining).toBeCloseTo(OXYGEN_RULES.max - 2, 1);
+    const before = game.oxygen.remaining;
+    hold(game, 4);
+    expect(game.oxygen.remaining).toBeCloseTo(before - 4, 1);
+    // The generator cannot produce one either, in any SECTION, on any seed.
+    for (const sectionId of [1, 2, 3] as const) {
+      for (let seed = 1; seed <= 20; seed++) {
+        const built = section(sectionId, seed * 811) as Record<string, unknown>;
+        expect(built.airPockets).toBeUndefined();
+      }
+    }
   });
   it('keeps one pickup table driving spawn, effect and drawing', () => {
     expect(PICKUP_TYPES.oxygenBubble).toMatchObject({ effect: 'oxygen', value: OXYGEN_RULES.bubbleRecovery, silhouette: 'bubble' });
@@ -265,20 +271,20 @@ describe('AREA 2 section pacing', () => {
   // bound written against one 40-seed draw measures that draw rather than the plan.
   const SEEDS = 200;
   const stats = (sectionId: SectionId) => {
-    let bubbles = 0, pockets = 0, enemies = 0, tough = 0, rows = 0;
+    let containers = 0, enemies = 0, tough = 0, rows = 0;
     for (let seed = 1; seed <= SEEDS; seed++) {
       const s = section(sectionId, seed * 311);
       // Air now arrives as sealed containers; breaking one releases the bubbles.
-      bubbles += s.containers.length; pockets += s.airPockets.length; rows += s.platforms.length;
+      containers += s.containers.length; rows += s.platforms.length;
       enemies += s.enemies.length; tough += s.enemies.filter(e => !e.stompable).length;
     }
-    return { bubbles: bubbles / SEEDS, pockets: pockets / SEEDS, enemies: enemies / SEEDS, toughPerRow: tough / rows, enemiesPerRow: enemies / rows };
+    return { containers: containers / SEEDS, rows: rows / SEEDS, enemies: enemies / SEEDS, toughPerRow: tough / rows, enemiesPerRow: enemies / rows };
   };
   it('moves from plentiful, close air to sparse, off-route air', () => {
     const [one, two, three] = [1, 2, 3].map(s => stats(s as SectionId));
-    expect(one.pockets).toBeGreaterThan(two.pockets);
-    expect(two.pockets).toBeGreaterThan(three.pockets);
-    expect(one.bubbles).toBeGreaterThan(three.bubbles);
+    // Containers are the whole supply now, so this one series carries what two used to.
+    expect(one.containers).toBeGreaterThan(two.containers);
+    expect(two.containers).toBeGreaterThan(three.containers);
     expect(plan(1).containerChance!).toBeGreaterThan(plan(3).containerChance!);
     expect(plan(1).bubbleOffside!).toBeLessThan(plan(2).bubbleOffside!);
     expect(plan(2).bubbleOffside!).toBeLessThan(plan(3).bubbleOffside!);
@@ -290,13 +296,18 @@ describe('AREA 2 section pacing', () => {
     // 2-3 is meant to sit near "a handful of containers and maybe one pocket", not a corridor of
     // air. SECTION lengths differ per AREA now, so scarcity has to be read as a density.
     const per100 = (n: number) => n / (area2.sectionLength / 100);
-    expect(per100(three.bubbles)).toBeLessThan(3);
-    // Read as a density, like the line above. The old form compared a 40-seed count against 1.6
-    // while the plan's own value is ~1.75 per SECTION (0.58 per 100m), so it was passing on the
-    // draw and not on the design. airPocketChance itself is untouched.
-    expect(per100(three.pockets)).toBeLessThan(1);
-    expect(one.bubbles).toBeGreaterThan(three.bubbles);
-    expect(two.bubbles).toBeGreaterThan(three.bubbles);
+    expect(per100(three.containers)).toBeLessThan(3);
+    expect(one.containers).toBeGreaterThan(three.containers);
+    expect(two.containers).toBeGreaterThan(three.containers);
+    // The density is the plan's own, not a number somebody liked: the roll happens once per
+    // ordinary row, and the ceiling below only ever forces MORE. Anything far above that means the
+    // forcing has taken over and the plan is no longer deciding how much air a SECTION has.
+    for (const sectionId of [1, 2, 3] as const) {
+      const measured = stats(sectionId).containers, rows = stats(sectionId).rows;
+      const fromPlan = rows * plan(sectionId).containerChance!;
+      expect(measured, `section 2-${sectionId}`).toBeGreaterThan(fromPlan * 0.9);
+      expect(measured, `section 2-${sectionId}`).toBeLessThan(fromPlan * 2);
+    }
     // A full tank must still cover the worst planned dry stretch with room to spare.
     for (const sectionId of [1, 2, 3] as const) expect(plan(sectionId).maxOxygenGap!).toBeLessThan(60);
   });
@@ -314,15 +325,30 @@ describe('AREA 2 generation safety', () => {
       const ceiling = plan(sectionId as SectionId).maxOxygenGap!;
       for (let seed = 1; seed <= 60; seed++) {
         const s = section(sectionId as SectionId, seed * 1597);
-        // Every air source counts: a container the player can break, or an alcove to shelter in.
+        // There is one kind of air source now, so this is the whole supply for the SECTION.
         const air = s.containers;
-        const sources = [START_PLATFORM.y, ...air.map(c => c.y + c.height / 2), ...s.airPockets.map(a => a.y + a.height / 2), s.limit].sort((a, b) => a - b);
-        expect(air.length + s.airPockets.length).toBeGreaterThan(3);
+        // START_PLATFORM.y is where the generator's own bookkeeping starts, so the first stretch
+        // is measured from the same place it is planned from.
+        const sources = [START_PLATFORM.y, ...air.map(c => c.y + c.height / 2), s.limit].sort((a, b) => a - b);
+        expect(air.length, `section 2-${sectionId} seed ${seed}`).toBeGreaterThan(3);
         for (let i = 1; i < sources.length; i++) {
           const gap = (sources[i] - sources[i - 1]) / WORLD.pixelsPerMeter;
           expect(gap, `section 2-${sectionId} seed ${seed}`).toBeLessThanOrEqual(ceiling);
         }
       }
+    }
+  });
+  it('never builds a SECTION with no air in it at all', () => {
+    // With the sheltering alcove gone, a SECTION whose seed happened to roll no container would be
+    // an unwinnable run rather than a hard one. The plan's ceiling forces placement, so this is a
+    // floor on the whole AREA, checked on the shaft the game actually builds -- gate rows included.
+    for (const sectionId of [1, 2, 3] as const) {
+      let fewest = Infinity;
+      for (let seed = 1; seed <= 200; seed++) fewest = Math.min(fewest, section(sectionId, seed * 311).containers.length);
+      expect({ section: `2-${sectionId}`, fewest }).toEqual({ section: `2-${sectionId}`, fewest: expect.any(Number) });
+      // A full tank is 12s and a bubble is 5s, so a handful of containers is the least that can
+      // carry a SECTION. Nothing near zero may ever come out of the generator.
+      expect(fewest, `section 2-${sectionId}`).toBeGreaterThanOrEqual(5);
     }
   });
   it('keeps every air source inside the shaft and within reach of the fall that leads to it', () => {
@@ -350,7 +376,6 @@ describe('AREA 2 generation safety', () => {
           sourceAt(centre, middle, box.width / 2);
           for (const e of s.enemies) if (Math.abs(e.y - middle) < 40) expect(Math.abs(e.originX - centre)).toBeGreaterThan(e.range + 20);
         }
-        for (const pocket of s.airPockets) sourceAt(pocket.x + pocket.width / 2, pocket.y + pocket.height / 2, pocket.width / 2);
       }
     }
   });

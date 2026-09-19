@@ -258,7 +258,7 @@ describe('FINAL BOSS phases', () => {
     expect(game.oxygen.enabled).toBe(false);
     expect(game.heat.enabled).toBe(true);
     expect(game.pickups.some(k => k.kind === 'oxygenBubble')).toBe(false);
-    expect(game.airPockets).toHaveLength(0);
+    expect([game.containers.length, game.bubbles.length]).toEqual([0, 0]);
 
     game.boss.damage(BOSS.maxHp * 0.25);
     until(game, () => game.boss.phaseId === 4, 20);
@@ -275,9 +275,11 @@ describe('FINAL BOSS phases', () => {
     const game = atBoss(11);
     game.boss.damage(BOSS.maxHp * 0.3);
     until(game, () => game.boss.phaseId === 2, 20);
+    // PHASE 2's air is AIR CONTAINERS: the sheltering alcove is gone from the whole game, so a
+    // container below the player is the only thing that can save a drowning run.
     const air = [
+      ...game.containers.filter(c => !c.broken).map(c => c.y),
       ...game.pickups.filter(k => !k.taken && k.kind === 'oxygenBubble').map(k => k.y),
-      ...game.airPockets.map(a => a.y),
     ].filter(y => y > game.player.y);
     expect(air.length).toBeGreaterThan(0);
     expect(Math.min(...air) - game.player.y).toBeLessThan(WORLD.height * 2);

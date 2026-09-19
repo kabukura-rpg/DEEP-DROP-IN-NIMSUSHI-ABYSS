@@ -8,7 +8,7 @@ import { pickupType } from '../src/data/pickups';
 import { UPGRADES } from '../src/data/upgrades';
 import { COMBO_RULES, comboRewardFor } from '../src/data/combo';
 import { isSpike } from '../src/data/hazards';
-import { BREAK_FLOOR_RULES } from '../src/data/structures';
+import { BREAK_BLOCK_RULES } from '../src/data/structures';
 import type Phaser from 'phaser';
 
 // A development-only HTML entry, not imported by index.html or emitted in dist.
@@ -303,47 +303,67 @@ button('SPIKE 即死（AREA 1-3 / AREA 2-3）', async () => {
     assert(document.body.innerText.includes('SPIKES'), `AREA ${area}：結果画面が SPIKES と表示する`);
   }
 });
-// BREAK FLOOR: landed on like any floor, opened only by shooting it.
-button('BREAK FLOOR 着地 → 射撃で開通', async () => {
+// BREAK BLOCK: a row of separate blocks, landed on like any floor and opened only by shooting.
+button('BREAK BLOCK 着地 → 1個開けて通過', async () => {
   start(); scene.model.jumpToStage(1, 2);
   await wait(60);
   const model = scene.model;
-  let armed = false, gate: RoutePlatform | undefined;
-  for (let i = 0; i < 2600 && !gate; i++) {
+  let armed = false, standing: RoutePlatform | undefined, ended = '';
+  for (let i = 0; i < 3400 && !standing; i++) {
     keepAwake();
+    // A run that ended on the way down would otherwise fail this check with no reason given.
+    if (model.state !== 'playing') { ended = `${model.state} (${model.health.deathCause?.cause ?? '-'}) ${Math.floor(model.sectionDepth)}m`; break; }
     model.player.invincible = 99; model.hazards = [];
-    const standing = model.platforms.find(f => f.id === model.player.grounded) as RoutePlatform | undefined;
-    if (standing?.breakFloor) { gate = standing; break; }
+    const under = model.platforms.find(f => f.id === model.player.grounded) as RoutePlatform | undefined;
+    if (under?.breakBlock) { standing = under; break; }
     const next = model.platforms.filter(f => f.y > model.player.y + 15 && f.state !== 'broken').sort((a, b) => a.y - b.y)[0];
-    // Arrive at the gate spent and mid-chain, so the landing itself is what gets measured.
-    if (!armed && !standing && next?.breakFloor) { armed = true; model.combo = 5; model.ammo = 0; }
-    bridge.direction = standing ? Math.sign(standing.exitX - model.player.x) : 0;
+    // Arrive at the row spent and mid-chain, so the landing itself is what gets measured.
+    if (!armed && !under && next?.breakBlock) { armed = true; model.combo = 5; model.ammo = 0; }
+    bridge.direction = under ? Math.sign(under.exitX - model.player.x) : 0;
     await wait(16);
   }
   bridge.direction = 0;
-  assert(!!gate && armed, '通常の落下で BREAK FLOOR まで到達し、空中で弾切れ・COMBO 5 にした');
+  assert(!!standing && armed, `通常の落下で BREAK BLOCK まで到達し、空中で弾切れ・COMBO 5 にした${ended ? ` — 到達前に終了: ${ended}` : ''}`);
   await wait(120);
+  const row = model.platforms.filter(f => f.breakBlock && f.y === standing!.y);
+  output.textContent += `\n1列 ${row.length} 個 / 1個の幅 ${Math.round(standing!.width)}px / 耐久 ${standing!.breakBlock!.durability} / 厚み ${BREAK_BLOCK_RULES.thickness}px`;
+  assert(row.length === BREAK_BLOCK_RULES.count, `1列が ${BREAK_BLOCK_RULES.count} 個のブロックで構成されている`);
+  assert(standing!.width < WORLD.width - WORLD.wall * 2, '1個は全幅ではない（横に並んでいる）');
   assert(model.ammo === model.stats.maxAmmo, '着地で AMMO FULL RELOAD');
   assert(model.combo === 0, '着地で COMBO RESET');
-  assert(gate!.width === WORLD.width - WORLD.wall * 2, 'シャフト全幅を塞ぐゲートである');
-  assert(gate!.breakable !== true && model.collapse.counting === 0, 'AREA 4 の崩落足場とは別物：タイマーは動かない');
+  assert(standing!.breakable !== true && model.collapse.counting === 0, 'AREA 4 の崩落足場とは別物：タイマーは動かない');
   await wait(800);
-  assert(model.platforms.includes(gate!), '乗っているだけでは壊れない');
-  const kills = model.kills, coins = model.coins.walletCoins, cracks: number[] = [];
-  let broke = false;
+  assert(model.platforms.includes(standing!), '乗っているだけでは壊れない');
+  const kills = model.kills, cracks: number[] = [];
+  let broke = 0;
   const original = bridge.onEvent;
-  bridge.onEvent = (event, game) => { original(event, game); if (event.type === 'floorCrack') cracks.push(event.value ?? 0); if (event.type === 'floorBreak') broke = true; };
-  for (let i = 0; i < 30 && !broke; i++) { keepAwake(); model.player.invincible = 99; key('Space', true); await wait(110); key('Space', false); await wait(110); }
+  bridge.onEvent = (event, game) => { original(event, game); if (event.type === 'blockCrack') cracks.push(event.value ?? 0); if (event.type === 'blockBreak') broke++; };
+  for (let i = 0; i < 40 && !broke; i++) { keepAwake(); model.player.invincible = 99; key('Space', true); await wait(110); key('Space', false); await wait(110); }
   bridge.onEvent = original;
-  output.textContent += `\n耐久 ${gate!.breakFloor!.durability} / ヒビ ${cracks.join(',') || 'なし'} / 厚み ${BREAK_FLOOR_RULES.thickness}px`;
-  assert(broke, '真下へ撃つと割れて開通する');
-  assert(cracks.length === gate!.breakFloor!.durability - 1, 'ヒビは耐久-1回、残弾数つきで出る');
-  assert(model.combo === 0 && model.kills === kills && model.coins.walletCoins === coins, '破壊は COMBO も COIN も撃破数も増やさない');
-  await wait(500);
-  assert(model.player.y > gate!.y + 30, '開通後は下へ落ちていく');
+  output.textContent += `\nヒビ ${cracks.join(',') || 'なし'} / 破壊 ${broke} 個`;
+  assert(broke === 1, '真下へ撃つと、その1個だけが割れる');
+  assert(cracks.length === standing!.breakBlock!.durability - 1, 'ヒビは耐久-1回、残弾数つきで出る');
+  const left = model.platforms.filter(f => f.breakBlock && f.y === standing!.y);
+  assert(left.length === BREAK_BLOCK_RULES.count - 1, '隣のブロックは無傷のまま残る');
+  assert(left.every(f => f.breakBlock!.hits === 0), '隣のブロックの耐久は減っていない');
+  assert(model.combo === 0 && model.kills === kills, '破壊は COMBO も撃破数も増やさない');
+  // Breaking the block underfoot does not always drop you on its own: a body straddling the seam
+  // catches on the neighbour, which is correct -- the hole is one block wide, not the whole row.
+  // Walk into the gap the way a player does and confirm it really is a way through.
+  const hole = { left: standing!.x, right: standing!.x + standing!.width };
+  output.textContent += `\n穴 ${Math.round(hole.left)}〜${Math.round(hole.right)}px / 破壊直後の足元 ${model.player.grounded === -1 ? 'なし（即落下）' : '隣のブロック'} / x=${Math.round(model.player.x)}`;
+  const centre = (hole.left + hole.right) / 2;
+  for (let i = 0; i < 160 && model.player.y < standing!.y + 40; i++) {
+    keepAwake();
+    model.player.invincible = 99;
+    bridge.direction = Math.abs(centre - model.player.x) < 4 ? 0 : Math.sign(centre - model.player.x);
+    await wait(16);
+  }
+  bridge.direction = 0;
+  assert(model.player.y > standing!.y + 40, '開いた1個分の穴を通過して落下する');
+  assert(model.player.x > hole.left && model.player.x < hole.right, '通過したのは開けた穴の位置である');
   pause();
 });
-
 const checkStyle = document.createElement('style'); checkStyle.textContent = '@media(max-width:650px){body>aside{position:relative!important;right:auto!important;top:auto!important;width:100%!important}}'; document.head.append(checkStyle);
 
 // Layout regression: the rest panel must fit without scrolling on short phones, even with a long
@@ -410,7 +430,7 @@ button('2-1 → 3-1 を通常プレイ', async () => {
   assert(model.oxygen.enabled && model.oxygen.remaining === model.oxygen.max, `2-1 開始で酸素満タン (${model.oxygen.remaining.toFixed(1)}s)`);
   await wait(60);
   const deadline = performance.now() + 320000;
-  let direction = 0, lowest = model.oxygen.max, collected = 0, sheltered = 0, playingHp = model.hp, lastAir = model.oxygen.max;
+  let direction = 0, lowest = model.oxygen.max, collected = 0, playingHp = model.hp, lastAir = model.oxygen.max;
   const rests: string[] = [];
   let shopsSeen = 0;
   const steer = (next: number) => {
@@ -451,7 +471,6 @@ button('2-1 → 3-1 を通常プレイ', async () => {
     lowest = Math.min(lowest, model.oxygen.remaining);
     if (model.oxygen.remaining > lastAir + 0.01) collected++;
     lastAir = model.oxygen.remaining;
-    if (model.sheltered) sheltered++;
     const ground = model.platforms.find(p => p.id === model.player.grounded) as RoutePlatform | undefined;
     const next = model.platforms.filter(p => p.y > model.player.y + 15).sort((a, b) => a.y - b.y)[0] as RoutePlatform | undefined;
     let target = ground ? ground.exitX + ground.safeSide * 3 : next?.safeX;
@@ -464,17 +483,18 @@ button('2-1 → 3-1 を通常プレイ', async () => {
     const gate = model.exit ? gateHeading(model, ground) : undefined;
     const heading = gate ?? target;
     steer(heading === undefined || Math.abs(heading - model.player.x) < 3 ? 0 : Math.sign(heading - model.player.x));
-    output.textContent = `AREA 2 をキーボード入力のみで通常プレイ\n${model.stage.label} ${Math.floor(model.sectionDepth)} / ${model.sectionLength}m\nOXYGEN ${model.oxygen.remaining.toFixed(1)}s (最低 ${lowest.toFixed(1)}s) ${model.sheltered ? '· AIR POCKET' : ''}\nHP ${model.hp}/${model.health.maxHp} · 取得 ${collected} · 休憩 ${rests.join(' → ') || 'なし'}`;
+    output.textContent = `AREA 2 をキーボード入力のみで通常プレイ\n${model.stage.label} ${Math.floor(model.sectionDepth)} / ${model.sectionLength}m\nOXYGEN ${model.oxygen.remaining.toFixed(1)}s (最低 ${lowest.toFixed(1)}s)\nHP ${model.hp}/${model.health.maxHp} · 取得 ${collected} · 休憩 ${rests.join(' → ') || 'なし'}`;
     await wait(20);
   }
   steer(0); pause();
   assert(rests.join(' ') === '2-1 2-2 2-3', `2-1 → 2-2 → 2-3 を通常プレイで踏破 (${rests.join(' → ')})`);
   assert(model.stage.label === '3-1', `AREA 2 クリア後に AREA 3 / 3-1 へ (${model.stage.label})`);
   // AREA 3 brings its own pickups; what must be gone is every air source.
-  assert(!model.oxygen.enabled && model.pickups.every(p => p.kind !== 'oxygenBubble') && model.airPockets.length === 0, 'AREA 3 では酸素・泡・エアポケットが消える');
+  assert(!model.oxygen.enabled && model.pickups.every(p => p.kind !== 'oxygenBubble') && model.containers.length === 0 && model.bubbles.length === 0, 'AREA 3 では酸素・コンテナ・泡が消える');
   assert(model.water === undefined, 'AREA 3 では水中物理が解除される');
   // Air pockets are deliberately rare late in the area, so only the refills themselves are required.
-  assert(collected > 0, `酸素源を ${collected} 回補給 (エアポケット滞在 ${sheltered} フレーム)`);
+  assert(collected > 0, `酸素を ${collected} 回補給（すべてコンテナ由来の泡）`);
+  assert(!('sheltered' in (model as object)) && !('airPockets' in (model as object)), '固定AIRスペースと sheltered 依存が残っていない');
   assert(lowest < model.oxygen.max, `酸素が実際に消費された (最低 ${lowest.toFixed(1)}s)`);
 });
 
@@ -485,7 +505,7 @@ button('3-1 → 4-1 を通常プレイ', async () => {
   const model = scene.model;
   model.jumpToStage(3, 1);
   assert(model.heat.enabled && model.heat.value === 0, `3-1 開始でHEAT 0% (${model.heat.value.toFixed(0)}%)`);
-  assert(!model.oxygen.enabled && model.airPockets.length === 0 && model.water === undefined, 'AREA 2 の酸素・エアポケット・水中物理は無効');
+  assert(!model.oxygen.enabled && model.containers.length === 0 && model.water === undefined, 'AREA 2 の酸素・コンテナ・水中物理は無効');
   const deadline = performance.now() + 320000;
   let direction = 0, peak = 0, ice = 0, lastHeat = 0, nearMax = 0, playingHp = model.hp, vents = 0;
   const rests: string[] = [];
@@ -770,9 +790,14 @@ function descendPlan(model: GameModel): { target: number | undefined; fire: bool
 
   if (model.exit) target = gateHeading(model, ground);
 
-  // A BREAK FLOOR gate spans the shaft: there is no edge to step off and no way round it. Standing
-  // on one, the only move is to shoot straight down until it opens, so hold position and fire.
-  if (ground?.breakFloor) return { target: p.x, fire: true };
+  // A BREAK BLOCK row spans the shaft: there is no way round it, only through it. Standing on a
+  // block, shoot straight down to open THAT one -- and when the magazine runs dry, step onto the
+  // neighbour and back, which is an ordinary landing and reloads in full.
+  if (ground?.breakBlock) {
+    if (model.ammo >= model.gun.module.ammoCost) return { target: p.x, fire: true };
+    const room = ground.x + ground.width < WORLD.width - WORLD.wall - 4;
+    return { target: room ? ground.x + ground.width + 14 : ground.x - 14, fire: false };
+  }
 
   // The core of the game: shoot what is under you, and use the recoil to brake a long fall.
   const threat = model.enemies.some(e => e.alive && Math.abs(e.x - p.x) < 34 && e.y > p.y && e.y < p.y + 430);

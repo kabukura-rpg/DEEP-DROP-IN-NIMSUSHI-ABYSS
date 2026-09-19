@@ -30,7 +30,7 @@ export class OxygenSystem {
     if (!this.enabled) return 'none';
     return this.remaining <= this.rules.critical ? 'critical' : this.remaining <= this.rules.warning ? 'low' : 'none';
   }
-  /** SECTION start and air pockets both hand back a full tank. This is never an HP change. */
+  /** A SECTION start hands back a full tank. This is never an HP change. */
   fill() { this.remaining = this.rules.max; this.starved = 0; }
   /** Adds a bubble's worth of air, capped at the tank size. */
   add(seconds: number) {
@@ -42,13 +42,13 @@ export class OxygenSystem {
   }
   /**
    * Advances the supply by one simulation step and reports whether a drowning hit is now due.
-   * Sheltered means standing in an air pocket: the tank refills and nothing drains.
+   * There is no sheltered state any more: nowhere in the shaft stops the drain, so the tank only
+   * ever goes back up by catching a bubble a broken AIR CONTAINER released.
    * The caller consumes the hit only once the damage actually landed, so invulnerability frames
    * delay a hit rather than cancelling it forever.
    */
-  tick(dt: number, sheltered: boolean) {
+  tick(dt: number) {
     if (!this.enabled || !Number.isFinite(dt) || dt <= 0) return false;
-    if (sheltered) { this.fill(); return false; }
     this.remaining = Math.max(0, this.remaining - dt);
     if (this.remaining > 0) { this.starved = 0; return false; }
     this.starved += dt;

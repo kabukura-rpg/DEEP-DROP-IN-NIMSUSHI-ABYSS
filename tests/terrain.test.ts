@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest';
 import { GameModel } from '../src/systems/GameModel';
 import { StageGenerator, type Platform, type RoutePlatform } from '../src/systems/StageGenerator';
 import { areaConfig, AREAS, type AreaId, type SectionId } from '../src/data/areas';
-import { BREAK_FLOOR_RULES } from '../src/data/structures';
+import { BREAK_BLOCK_RULES, breakBlockWidth } from '../src/data/structures';
 import { HAZARD_TYPES, SPIKE_KINDS, isSpike, type Hazard } from '../src/data/hazards';
 import { GUN_MODULES, type GunModuleId } from '../src/data/gunModules';
 import { spawnEnemy } from '../src/data/enemies';
@@ -23,18 +23,17 @@ function build(area: AreaId, section: SectionId, seed: number) {
     breakable: config.gimmicks?.breakablePlatforms === true, sectionLength: config.sectionLength,
   });
   const platforms: RoutePlatform[] = [], hazards: Hazard[] = [], containers = [] as { x: number; y: number; width: number; height: number }[];
-  const airPockets = [] as { x: number; y: number; width: number; height: number }[];
   for (let chunk = 0; chunk < chunks; chunk++) {
     const result = generator.chunk(chunk);
     platforms.push(...result.platforms); hazards.push(...result.hazards);
-    containers.push(...result.containers); airPockets.push(...result.airPockets);
+    containers.push(...result.containers);
   }
   const limit = WORLD.startY + pixels;
   return {
     limit, platforms: platforms.filter(p => p.y <= limit), hazards: hazards.filter(h => h.y <= limit),
-    containers: containers.filter(c => c.y <= limit), airPockets: airPockets.filter(a => a.y <= limit),
+    containers: containers.filter(c => c.y <= limit),
     spikes: hazards.filter(h => h.y <= limit && isSpike(h.kind)),
-    gates: platforms.filter(p => p.y <= limit && p.breakFloor),
+    gates: platforms.filter(p => p.y <= limit && p.breakBlock),
   };
 }
 const spikeDensity = (area: AreaId, section: SectionId, seeds = 40) => {
@@ -47,7 +46,7 @@ function bare(area: AreaId, section: SectionId) {
   const game = new GameModel(false, Math.random);
   game.jumpToStage(area, section);
   game.platforms = []; game.enemies = []; game.pickups = []; game.hazards = [];
-  game.containers = []; game.bubbles = []; game.airPockets = [];
+  game.containers = []; game.bubbles = [];
   game.player.invincible = 0;
   return game;
 }
@@ -157,7 +156,7 @@ describe('SPIKE never sits where the route has to go', () => {
   it('never puts SPIKE in front of an AREA 2 air source', () => {
     for (const s of [1, 2, 3] as const) for (let seed = 1; seed <= 60; seed++) {
       const shaft = build(2, s, seed * 271);
-      const sources = [...shaft.containers, ...shaft.airPockets];
+      const sources = shaft.containers;
       for (const spike of shaft.spikes) for (const air of sources) {
         // A spike within reach of the column an air source is collected from is not laid at all,
         // so no seed can make touching SPIKE the price of a breath.
@@ -174,203 +173,271 @@ describe('SPIKE never sits where the route has to go', () => {
       game.player.invincible = 99;
       game.step(1 / 120, 0, false);
       expect(game.hazards.filter(h => isSpike(h.kind))).toEqual([]);
-      expect(game.platforms.filter(p => p.breakFloor)).toEqual([]);
+      expect(game.platforms.filter(p => p.breakBlock)).toEqual([]);
     }
   });
 });
 
-describe('BREAK FLOOR is a gate, not an AREA 4 collapsing ledge', () => {
-  /** One gate laid directly under the player, at the SECTION's own durability. */
-  const withGate = (area: AreaId, section: SectionId) => {
+describe('BREAK BLOCK: a row of separate blocks, not one slab', () => {
+  /** A real generated gate row, with the model parked on top of it. */
+  const withRow = (area: AreaId, section: SectionId) => {
     const game = bare(area, section);
-    const durability = plan(area, section).breakFloorDurability ?? BREAK_FLOOR_RULES.durability;
-    const gate: Platform = { id: 77, x: WORLD.wall, y: game.player.y + 40, width: WORLD.width - WORLD.wall * 2, breakable: false, state: 'stable', breakFloor: { hits: 0, durability } };
-    game.platforms = [gate];
+    const durability = plan(area, section).breakBlockDurability ?? BREAK_BLOCK_RULES.durability;
+    const y = game.player.y + 40;
+    const width = breakBlockWidth();
+    const row: Platform[] = Array.from({ length: BREAK_BLOCK_RULES.count }, (_, slot) => {
+      const left = Math.floor(WORLD.wall + slot * width), right = Math.ceil(WORLD.wall + (slot + 1) * width);
+      return { id: 700 + slot, x: left, y, width: right - left, breakable: false, state: 'stable', breakBlock: { hits: 0, durability, slot } };
+    });
+    game.platforms = row;
     game.player.vy = 240;
-    return { game, gate, durability };
+    return { game, row, durability, y, width };
   };
-  it('is landed on like any other floor: full reload, COMBO reset, and no timer started', () => {
-    const { game, gate } = withGate(1, 2);
-    game.ammo = 0; game.combo = 7;
-    tick(game, 0.6);
-    expect(game.player.grounded).toBe(gate.id);
-    expect(game.ammo).toBe(game.stats.maxAmmo);
-    expect(game.combo).toBe(0);
-    expect(game.collapse.counting).toBe(0);
-  });
-  it('does not give way under the player, however long they stand on it', () => {
-    const { game, gate } = withGate(1, 2);
-    tick(game, 12);
-    expect(game.platforms).toContain(gate);
-    expect(gate.state).toBe('stable');
-    expect(gate.breakFloor!.hits).toBe(0);
-    expect(game.player.grounded).toBe(gate.id);
-  });
-  it('cracks on the way to breaking, taking exactly the SECTION plan durability in rounds', () => {
-    const { game, gate, durability } = withGate(2, 1);
-    expect(durability).toBeGreaterThan(1);
-    tick(game, 0.6);
-    let shots = 0;
-    for (let i = 0; i < durability * 6 && game.platforms.includes(gate); i++) {
-      game.events.length = 0;
-      game.cooldown = 0; game.shoot(); shots++;
-      tick(game, 0.25);
-    }
-    expect(shots).toBe(durability);
-    expect(gate.breakFloor!.hits).toBe(durability);
-    expect(game.platforms).not.toContain(gate);
-  });
-  it('lets the player fall through the moment it goes', () => {
-    const { game, gate, durability } = withGate(1, 1);
-    tick(game, 0.6);
-    const standing = game.player.y;
-    for (let i = 0; i < durability; i++) { game.cooldown = 0; game.shoot(); tick(game, 0.25); }
-    expect(game.platforms).not.toContain(gate);
-    expect(game.player.grounded).toBe(-1);
-    tick(game, 0.5);
-    expect(game.player.y).toBeGreaterThan(standing + 40);
-  });
-  it('can be opened by every one of the seven gun modules', () => {
-    const modules = Object.keys(GUN_MODULES) as GunModuleId[];
-    expect(modules.length).toBe(7);
-    for (const id of modules) {
-      const { game, gate } = withGate(3, 3);              // the toughest gate the game lays
-      game.gun.equip(id);
-      tick(game, 0.6);
-      expect(game.player.grounded).toBe(gate.id);
-      // BURST and LASER are one volley per press, so the trigger is released between shots the
-      // way a player does -- holding it down would test nothing but `automatic`.
-      for (let i = 0; i < 40 && game.platforms.includes(gate); i++) {
-        game.ammo = game.stats.maxAmmo;
-        tick(game, 0.12, 0, true); tick(game, 0.12, 0, false);
+  /** Shoot straight down until whatever is underfoot gives way, playing as a player would. */
+  const openUnderfoot = (game: GameModel, limitSeconds = 40) => {
+    let seek = 1;
+    for (let i = 0; i < 120 * limitSeconds; i++) {
+      const standing = game.platforms.find(f => f.id === game.player.grounded);
+      if (!standing) return true;                                   // through the hole
+      const spent = game.ammo < game.gun.module.ammoCost;
+      if (spent) {
+        // Out of rounds: step onto the neighbouring block and back. That is an ordinary landing,
+        // so it reloads in full -- no special case exists for gates any more.
+        const before = game.player.grounded;
+        game.step(1 / 120, seek, false);
+        if (game.player.grounded !== before && game.player.grounded !== -1) seek = -seek;
+        continue;
       }
-      expect({ id, broken: !game.platforms.includes(gate) }).toEqual({ id, broken: true });
+      game.step(1 / 120, 0, i % 20 < 10);
     }
-  });
-  it('can never strand a run: a gate always supplies the rounds it takes to open it', () => {
-    // The worst case in the game: the toughest gate, the most expensive module, and the smallest
-    // magazine a run ever carries. A full-width gate has no edge to step off, so without a
-    // guarantee here the run would stand on a floor it could not open and never fall again.
-    for (const id of Object.keys(GUN_MODULES) as GunModuleId[]) {
-      const { game, gate } = withGate(3, 3);
-      game.gun.equip(id);
-      tick(game, 0.6);
-      expect(game.player.grounded).toBe(gate.id);
-      game.ammo = 0;                                   // arrive spent, the way a fight leaves you
-      let frames = 0;
-      for (; frames < 120 * 20 && game.platforms.includes(gate); frames++) {
-        game.step(1 / 120, 0, frames % 24 < 12);       // press and release, as a player does
-      }
-      expect({ id, opened: !game.platforms.includes(gate) }).toEqual({ id, opened: true });
-    }
-  });
-  it('is terrain work: no COMBO, no COIN, no kill, and no weapon rearm', () => {
-    const { game, gate, durability } = withGate(1, 3);
-    tick(game, 0.6);
-    game.gun.equip('burst');
-    const coins = game.coins.walletCoins, kills = game.kills;
-    game.events.length = 0;
-    let combo = 0, coinEvents = 0, killEvents = 0;
-    for (let i = 0; i < 40 && game.platforms.includes(gate); i++) {
-      game.ammo = game.stats.maxAmmo;
-      tick(game, 0.1, 0, true); tick(game, 0.1, 0, false);
-      combo = Math.max(combo, game.combo);
-      coinEvents += game.events.filter(e => e.type === 'coin').length;
-      killEvents += game.events.filter(e => e.type === 'kill').length;
-      game.events.length = 0;
-    }
-    expect(game.platforms).not.toContain(gate);
-    expect([combo, killEvents, coinEvents]).toEqual([0, 0, 0]);
-    expect(game.kills).toBe(kills);
-    expect(game.coins.walletCoins).toBe(coins);
-    expect(durability).toBeGreaterThan(0);
-  });
-  it('never calls rearm(): a BURST already paid for finishes its rounds through the break', () => {
-    const game = bare(1, 3);
-    const gate: Platform = { id: 88, x: WORLD.wall, y: game.player.y + 40, width: WORLD.width - WORLD.wall * 2, breakable: false, state: 'stable', breakFloor: { hits: 0, durability: 1 } };
-    game.platforms = [gate]; game.player.vy = 240;
-    tick(game, 0.6);
-    game.gun.equip('burst');
-    game.stats.maxAmmo = 20; game.ammo = 20;
-    // One press starts the burst; the first round opens the gate.
-    game.step(1 / 120, 0, true);
-    expect(game.gun.bursting).toBe(true);
-    game.step(1 / 120, 0, false);
-    expect(game.platforms).not.toContain(gate);
-    // The rounds the press already paid for are still owed, because a break is not a boundary.
-    expect(game.gun.bursting).toBe(true);
-  });
-  it('lands exactly once, like any ledge: standing on it is not a landing every frame', () => {
-    // The landing path reloads, resets COMBO and plays a sound. A grounded player sits exactly on
-    // the crossing line the landing test uses, so anything that clears `grounded` while they are
-    // standing still turns holding position into a reload every frame.
-    const { game, gate } = withGate(1, 2);
-    tick(game, 0.6);
-    expect(game.player.grounded).toBe(gate.id);
-    game.events.length = 0;
-    tick(game, 3);
-    expect(game.events.filter(e => e.type === 'land').length).toBe(0);
-    expect(game.player.grounded).toBe(gate.id);
-  });
-  it('shares nothing with the AREA 4 collapse system', () => {
-    const { game, gate } = withGate(1, 2);
-    tick(game, 0.6);
-    expect(gate.breakable).toBe(false);
-    expect(game.collapse.land(gate)).toBe(false);
-    expect(game.collapse.shatter([gate], gate.x + 10, gate.y)).toEqual([]);
-  });
-});
+    return false;
+  };
 
-describe('BREAK FLOOR placement', () => {
-  it('lays the number of gates the SECTION plan asks for, spanning the shaft', () => {
-    for (const area of AREAS) for (let n = 1; n <= area.sections; n++) {
-      const section = n as SectionId, want = plan(area.id, section).breakFloorCount ?? 0;
-      for (let seed = 1; seed <= 8; seed++) {
-        const shaft = build(area.id, section, seed * 311);
-        expect({ area: area.id, section, gates: shaft.gates.length }).toEqual({ area: area.id, section, gates: want });
-        for (const gate of shaft.gates) {
-          expect(gate.x).toBe(WORLD.wall);
-          expect(gate.width).toBe(WORLD.width - WORLD.wall * 2);
-          expect(gate.breakable).toBe(false);
-          expect(gate.breakFloor!.durability).toBe(plan(area.id, section).breakFloorDurability ?? BREAK_FLOOR_RULES.durability);
+  it('lays several blocks side by side, edge to edge, spanning the shaft', () => {
+    for (const area of [1, 2, 3] as const) for (const s of [2, 3] as const) {
+      for (let seed = 1; seed <= 10; seed++) {
+        const shaft = build(area, s, seed * 613);
+        const rows = new Map<number, typeof shaft.gates>();
+        for (const block of shaft.gates) rows.set(block.y, [...(rows.get(block.y) ?? []), block]);
+        expect(rows.size).toBe(plan(area, s).breakBlockRows ?? 0);
+        for (const blocks of rows.values()) {
+          expect(blocks.length).toBe(BREAK_BLOCK_RULES.count);
+          const sorted = [...blocks].sort((a, b) => a.x - b.x);
+          expect(sorted[0].x).toBe(WORLD.wall);
+          expect(sorted[sorted.length - 1].x + sorted[sorted.length - 1].width).toBe(WORLD.width - WORLD.wall);
+          // Edge to edge: no seam a player could fall through before opening one.
+          for (let i = 1; i < sorted.length; i++) expect(sorted[i].x).toBe(sorted[i - 1].x + sorted[i - 1].width);
+          // Each block owns its own durability counter, not the row's.
+          expect(new Set(blocks.map(b => b.breakBlock)).size).toBe(blocks.length);
+          expect(blocks.every(b => b.breakBlock!.hits === 0)).toBe(true);
         }
       }
     }
   });
-  it('spaces the gates through the SECTION instead of clustering them', () => {
+  it('is landed on like any ledge: full reload and COMBO reset, on every block in the row', () => {
+    const { game, row, y } = withRow(1, 2);
+    for (const block of row) {
+      game.player.x = block.x + block.width / 2;
+      game.player.y = y - 60; game.player.vy = 240; game.player.grounded = -1;
+      game.ammo = 0; game.combo = 7;
+      tick(game, 0.6);
+      expect({ slot: block.breakBlock!.slot, grounded: game.player.grounded }).toEqual({ slot: block.breakBlock!.slot, grounded: block.id });
+      expect(game.ammo).toBe(game.stats.maxAmmo);
+      expect(game.combo).toBe(0);
+      expect(game.collapse.counting).toBe(0);
+    }
+  });
+  it('does not give way under the player, however long they stand on one', () => {
+    const { game, row } = withRow(1, 2);
+    tick(game, 12);
+    expect(game.platforms.length).toBe(row.length);
+    expect(row.every(b => b.breakBlock!.hits === 0 && b.state === 'stable')).toBe(true);
+  });
+  it('breaks one block at a time, leaving its neighbours untouched', () => {
+    const { game, row, durability } = withRow(2, 1);
+    tick(game, 0.6);
+    const standing = game.platforms.find(f => f.id === game.player.grounded) as Platform;
+    expect(standing.breakBlock).toBeDefined();
+    expect(openUnderfoot(game)).toBe(true);
+    expect(game.platforms).not.toContain(standing);
+    expect(standing.breakBlock!.hits).toBe(durability);
+    // Every other block is exactly as it was: no shared counter, no chain reaction.
+    for (const block of row) {
+      if (block === standing) continue;
+      expect({ slot: block.breakBlock!.slot, hits: block.breakBlock!.hits }).toEqual({ slot: block.breakBlock!.slot, hits: 0 });
+      expect(game.platforms).toContain(block);
+    }
+  });
+  it('one hole is enough: the player falls through a single opened block', () => {
+    const { game, row, y } = withRow(1, 3);
+    tick(game, 0.6);
+    const standing = game.platforms.find(f => f.id === game.player.grounded) as Platform;
+    expect(openUnderfoot(game)).toBe(true);
+    expect(game.platforms.filter(b => b.breakBlock).length).toBe(row.length - 1);
+    // The gap is wider than the player, so nothing is scraping through on a pixel.
+    expect(standing.width).toBeGreaterThan(22);
+    tick(game, 0.6);
+    expect(game.player.y).toBeGreaterThan(y + 60);
+    expect(game.player.grounded).toBe(-1);
+  });
+  it('can be opened by every one of the seven gun modules, with no special resupply', () => {
+    const modules = Object.keys(GUN_MODULES) as GunModuleId[];
+    expect(modules.length).toBe(7);
+    for (const id of modules) {
+      const { game, y } = withRow(3, 3);                 // the toughest row the game lays
+      tick(game, 0.6);
+      expect(game.player.grounded).not.toBe(-1);
+      game.gun.equip(id);
+      game.ammo = 0;                                     // arrive spent, the way a fight leaves you
+      const through = openUnderfoot(game);
+      tick(game, 0.6);
+      expect({ id, through, below: game.player.y > y + 40 }).toEqual({ id, through: true, below: true });
+    }
+  });
+  it('is terrain work: no COMBO, no kill, no kill event, and no weapon rearm', () => {
+    const { game } = withRow(1, 3);
+    tick(game, 0.6);
+    const kills = game.kills;
+    game.events.length = 0;
+    let combo = 0, killEvents = 0, breaks = 0;
+    const watch = () => {
+      combo = Math.max(combo, game.combo);
+      killEvents += game.events.filter(e => e.type === 'kill').length;
+      breaks += game.events.filter(e => e.type === 'blockBreak').length;
+      game.events.length = 0;
+    };
+    for (let i = 0; i < 120 * 30 && breaks === 0; i++) { game.step(1 / 120, 0, i % 20 < 10); watch(); }
+    expect(breaks).toBe(1);
+    expect([combo, killEvents, game.kills]).toEqual([0, 0, kills]);
+  });
+  it('never calls rearm(): a BURST already paid for finishes its rounds through the break', () => {
+    const game = bare(1, 3);
+    const block: Platform = { id: 88, x: WORLD.wall, y: game.player.y + 40, width: 120, breakable: false, state: 'stable', breakBlock: { hits: 0, durability: 1, slot: 0 } };
+    game.platforms = [block]; game.player.x = block.x + 40; game.player.vy = 240;
+    tick(game, 0.6);
+    game.gun.equip('burst');
+    game.stats.maxAmmo = 20; game.ammo = 20;
+    game.step(1 / 120, 0, true);
+    expect(game.gun.bursting).toBe(true);
+    game.step(1 / 120, 0, false);
+    expect(game.platforms).not.toContain(block);
+    expect(game.gun.bursting).toBe(true);
+  });
+  it('shares nothing with the AREA 4 collapse system', () => {
+    const { game, row } = withRow(1, 2);
+    tick(game, 0.6);
+    expect(row.every(b => b.breakable === false)).toBe(true);
+    expect(game.collapse.land(row[0])).toBe(false);
+    expect(game.collapse.shatter(row, row[0].x + 10, row[0].y)).toEqual([]);
+  });
+});
+
+describe('BREAK BLOCK drops COIN through the ordinary money path', () => {
+  /** Practice mode so no shaft is generated and the RNG can be pinned to one value. */
+  const oneBlock = (random: () => number) => {
+    const game = new GameModel(true, random);
+    const block: Platform = { id: 51, x: WORLD.wall, y: game.player.y + 40, width: 160, breakable: false, state: 'stable', breakBlock: { hits: 0, durability: 1, slot: 0 } };
+    game.platforms = [block]; game.player.x = block.x + 80; game.player.vy = 240;
+    for (let i = 0; i < 120 && game.player.grounded !== block.id; i++) game.step(1 / 120, 0, false);
+    return { game, block };
+  };
+  it('reads its chance from data, not from a branch in the model', () => {
+    expect(BREAK_BLOCK_RULES.coinChance).toBeGreaterThan(0);
+    expect(BREAK_BLOCK_RULES.coinChance).toBeLessThan(1);
+    expect(BREAK_BLOCK_RULES.coins).toBeGreaterThan(0);
+  });
+  /** Money that came out of the block, whether it is still on the floor or already swept up. */
+  const dropped = (game: GameModel) => game.coins.coins.length + game.coins.scoreCoins;
+  it('drops below the chance and stays empty above it', () => {
+    const lucky = oneBlock(() => BREAK_BLOCK_RULES.coinChance / 2);
+    for (let i = 0; i < 120 && lucky.game.platforms.includes(lucky.block); i++) lucky.game.step(1 / 120, 0, i % 20 < 10);
+    expect(lucky.game.platforms).not.toContain(lucky.block);
+    expect(dropped(lucky.game)).toBe(BREAK_BLOCK_RULES.coins);
+
+    const unlucky = oneBlock(() => Math.min(0.999, BREAK_BLOCK_RULES.coinChance + (1 - BREAK_BLOCK_RULES.coinChance) / 2));
+    for (let i = 0; i < 120 && unlucky.game.platforms.includes(unlucky.block); i++) unlucky.game.step(1 / 120, 0, i % 20 < 10);
+    expect(unlucky.game.platforms).not.toContain(unlucky.block);
+    expect(dropped(unlucky.game)).toBe(0);
+  });
+  it('lands near the configured rate over many breaks', () => {
+    let seed = 20250920;
+    const random = () => { seed = (Math.imul(seed, 1664525) + 1013904223) >>> 0; return seed / 4294967296; };
+    let drops = 0;
+    const runs = 600;
+    for (let n = 0; n < runs; n++) {
+      const game = new GameModel(true, random);
+      const block: Platform = { id: 60, x: WORLD.wall, y: game.player.y + 40, width: 160, breakable: false, state: 'stable', breakBlock: { hits: 0, durability: 1, slot: 0 } };
+      game.platforms = [block]; game.player.x = block.x + 80; game.player.vy = 240;
+      for (let i = 0; i < 240 && game.platforms.includes(block); i++) game.step(1 / 120, 0, game.player.grounded === block.id && i % 20 < 10);
+      if (game.coins.coins.length + game.coins.scoreCoins) drops++;
+    }
+    expect(Math.abs(drops / runs - BREAK_BLOCK_RULES.coinChance)).toBeLessThan(0.06);
+  });
+  it('pays into walletCoins and scoreCoins through the existing pickup path', () => {
+    const { game, block } = oneBlock(() => BREAK_BLOCK_RULES.coinChance / 2);
+    expect([game.coins.walletCoins, game.coins.scoreCoins]).toEqual([0, 0]);
+    game.events.length = 0;
+    for (let i = 0; i < 120 && game.platforms.includes(block); i++) game.step(1 / 120, 0, i % 20 < 10);
+    // The coin pops out where the player is standing, so CoinSystem sweeps it up on its own; keep
+    // stepping in case it scattered first.
+    for (let i = 0; i < 240 && game.coins.walletCoins === 0; i++) game.step(1 / 120, 0, false);
+    expect(game.coins.walletCoins).toBeGreaterThan(0);
+    expect(game.coins.scoreCoins).toBe(game.coins.walletCoins);
+    expect(game.events.some(e => e.type === 'coin')).toBe(true);
+    // Still not a kill, however the money arrived.
+    expect([game.kills, game.combo]).toEqual([0, 0]);
+  });
+});
+
+describe('BREAK BLOCK placement', () => {
+  it('lays the number of rows the SECTION plan asks for, at the configured durability', () => {
+    for (const area of AREAS) for (let n = 1; n <= area.sections; n++) {
+      const section = n as SectionId, want = plan(area.id, section).breakBlockRows ?? 0;
+      for (let seed = 1; seed <= 8; seed++) {
+        const shaft = build(area.id, section, seed * 311);
+        const rows = new Set(shaft.gates.map(b => b.y));
+        expect({ area: area.id, section, rows: rows.size }).toEqual({ area: area.id, section, rows: want });
+        for (const block of shaft.gates) {
+          expect(block.breakable).toBe(false);
+          expect(block.breakBlock!.durability).toBe(plan(area.id, section).breakBlockDurability ?? BREAK_BLOCK_RULES.durability);
+        }
+      }
+    }
+  });
+  it('spaces the rows through the SECTION instead of clustering them', () => {
     for (const area of [1, 2, 3] as const) for (const s of [2, 3] as const) {
       const length = areaConfig(area).sectionLength;
       for (let seed = 1; seed <= 20; seed++) {
-        const depths = build(area, s, seed * 907).gates.map(g => (g.y - WORLD.startY) / WORLD.pixelsPerMeter);
+        const depths = [...new Set(build(area, s, seed * 907).gates.map(g => g.y))].sort((a, b) => a - b)
+          .map(y => (y - WORLD.startY) / WORLD.pixelsPerMeter);
         expect(depths.length).toBeGreaterThan(1);
-        // Nowhere near the opening, nowhere near the exit, and never two in a row.
         for (const depth of depths) { expect(depth).toBeGreaterThan(length * 0.1); expect(depth).toBeLessThan(length * 0.9); }
         for (let i = 1; i < depths.length; i++) expect(depths[i] - depths[i - 1]).toBeGreaterThan(length * 0.15);
       }
     }
   });
-  it('AREA 4 keeps its own identity: collapsing ledges, no gates and no SPIKE', () => {
+  it('AREA 4 keeps its own identity: collapsing ledges, no gate rows and no SPIKE', () => {
     for (const s of [1, 2, 3] as const) {
-      expect(plan(4, s).breakFloorCount ?? 0).toBe(0);
+      expect(plan(4, s).breakBlockRows ?? 0).toBe(0);
       expect(plan(4, s).spikeChance ?? 0).toBe(0);
     }
   });
-  it('still lets every SECTION reach its EXIT with gates in the shaft', () => {
+  it('still lets every SECTION reach its EXIT with gate rows in the shaft', () => {
     for (const area of [1, 2, 3] as const) for (const s of [1, 2, 3] as const) {
       const game = new GameModel(false, Math.random);
       game.jumpToStage(area, s as SectionId);
       const gate = reachExit(game);
       expect(game.state).toBe('upgrade');
-      // Nothing is generated past the exit floor, so no gate can ever stand below the way out.
-      expect(game.platforms.filter(p => p.breakFloor && p.y > gate.y)).toEqual([]);
+      expect(game.platforms.filter(p => p.breakBlock && p.y > gate.y)).toEqual([]);
     }
   });
 });
 
 describe('COMBO counts kills between touchdowns', () => {
-  it('is reset by a BREAK FLOOR landing exactly as by any other', () => {
+  it('is reset by a BREAK BLOCK landing exactly as by any other', () => {
     const game = bare(1, 2);
-    game.platforms = [{ id: 91, x: WORLD.wall, y: game.player.y + 40, width: WORLD.width - WORLD.wall * 2, breakable: false, state: 'stable', breakFloor: { hits: 0, durability: 2 } }];
+    game.platforms = [{ id: 91, x: WORLD.wall, y: game.player.y + 40, width: 120, breakable: false, state: 'stable', breakBlock: { hits: 0, durability: 2, slot: 0 } }];
+    game.player.x = WORLD.wall + 60;
     game.player.vy = 240; game.combo = 6; game.ammo = 0;
     tick(game, 0.6);
     expect(game.player.grounded).toBe(91);

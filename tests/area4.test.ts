@@ -310,7 +310,7 @@ describe('AREA 4 boundaries', () => {
     expect(game.hazards).toHaveLength(0);
     // Only AREA-owned pickups are swept up. Gun modules are run-wide and deliberately survive.
     expect(game.pickups.filter(k => pickupType(k.kind).category === 'environment')).toHaveLength(0);
-    expect(game.airPockets).toHaveLength(0);
+    expect([game.containers.length, game.bubbles.length]).toEqual([0, 0]);
     expect(game.water).toBeUndefined();
   });
   it('hands 4-3 to the rest and then to the FINAL BOSS with the run intact', () => {

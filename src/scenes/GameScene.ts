@@ -8,7 +8,7 @@ import { InputBuffer } from '../systems/InputBuffer';
 import { enemyType } from '../data/enemies';
 import { pickupType } from '../data/pickups';
 import { gunModule } from '../data/gunModules';
-import { AIR_CONTAINER_RULES, BREAK_FLOOR_RULES } from '../data/structures';
+import { AIR_CONTAINER_RULES, BREAK_BLOCK_RULES } from '../data/structures';
 import { hazardBounds, hazardType, type Hazard } from '../data/hazards';
 export interface GameBridge {
   direction: number; firing: boolean; active: boolean;
@@ -92,9 +92,9 @@ export class GameScene extends Phaser.Scene {
     if (event.type === 'empty') this.label(event.x, event.y - 30, '弾切れ / 足場へ', '#f99bae', 11);
     if (event.type === 'crack') { this.burst(event.x, event.y, 0xe8d48a, 7); if (event.value) this.label(event.x, event.y - 22, 'CRACK!', '#e8d48a', 11); }
     if (event.type === 'collapse') { this.shake = Math.max(this.shake, 2.4); this.burst(event.x, event.y, 0x8f7ac4, 16); }
-    // A gate that held: say how many more rounds it needs, so the durability is never a guess.
-    if (event.type === 'floorCrack') { this.shake = Math.max(this.shake, 1.6); this.burst(event.x, event.y, 0xffc27a, 9); this.label(event.x, event.y - 26, `あと${event.value}発`, '#ffc27a', 12); }
-    if (event.type === 'floorBreak') { this.shake = Math.max(this.shake, 3.4); this.burst(event.x, event.y, 0xffd2a0, 26); this.label(event.x, event.y - 26, 'FLOOR BROKEN', '#ffd2a0', 15); }
+    // A block that held: say how many more rounds THIS one needs, so durability is never a guess.
+    if (event.type === 'blockCrack') { this.shake = Math.max(this.shake, 1.4); this.burst(event.x, event.y, 0xffc27a, 8); this.label(event.x, event.y - 24, `あと${event.value}発`, '#ffc27a', 12); }
+    if (event.type === 'blockBreak') { this.shake = Math.max(this.shake, 2.8); this.burst(event.x, event.y, 0xffd2a0, 22); this.label(event.x, event.y - 24, 'OPEN!', '#ffd2a0', 15); }
     // The COMBO payout never opens a screen, so the shaft itself has to carry it.
     if (event.type === 'comboReward') { this.flash = Math.max(this.flash, 0.08); this.burst(event.x, event.y, 0xf4e9ad, 24); this.label(event.x, event.y - 62, `${event.value} COMBO · ${event.stage ?? ''}`, '#f4e9ad', 16); }
     if (event.type === 'bossHit') { this.burst(event.x, event.y, 0xd9a0ff, 6); this.shake = Math.max(this.shake, 1.4); }
@@ -160,7 +160,7 @@ export class GameScene extends Phaser.Scene {
     for (const f of m.platforms) {
       const y = f.y - cam;
       if (y < -20 || y > 820) continue;
-      if (f.breakFloor) { this.breakFloor(f.x, y, f.width, f.breakFloor.hits, f.breakFloor.durability); continue; }
+      if (f.breakBlock) { this.breakBlock(f.x, y, f.width, f.breakBlock.hits, f.breakBlock.durability); continue; }
       const cracking = f.state === 'cracking', critical = f.state === 'critical';
       // Shape carries the warning: a doomed ledge loses its top rail and splits into shards.
       const top = critical ? 0xf0a0b4 : cracking ? 0xe8d48a : f.breakable ? 0x9ad6c0 : 0xb9ef70;
@@ -184,16 +184,6 @@ export class GameScene extends Phaser.Scene {
       if (!critical) { this.rect(f.x + 8, y + 16, 6, 5, 0x253331); this.rect(f.x + f.width - 14, y + 16, 6, 5, 0x253331); }
     }
     for (const hazard of m.hazards) this.hazard(hazard, cam);
-    for (const pocket of m.airPockets) {
-      const y = pocket.y - cam;
-      if (y > 820 || y + pocket.height < -20) continue;
-      const inside = m.sheltered && m.player.x > pocket.x && m.player.x < pocket.x + pocket.width;
-      this.rect(pocket.x, y, pocket.width, pocket.height, 0x9fe8f5, inside ? 0.2 : 0.12);
-      this.rect(pocket.x, y, pocket.width, 3, 0x9fe8f5, 0.75);
-      this.rect(pocket.x, y + pocket.height - 2, pocket.width, 2, 0x9fe8f5, 0.4);
-      for (let i = 0; i < 5; i++) this.rect(pocket.x + 10 + i * 21, y + 8 + (i % 2) * 7, 3, 3, 0xdff7fc, 0.6);
-      this.label2(pocket.x + pocket.width / 2, y + pocket.height / 2, 'AIR');
-    }
     for (const item of m.pickups) {
       if (item.taken) continue;
       const type = pickupType(item.kind), y = item.y - cam;
@@ -380,33 +370,33 @@ export class GameScene extends Phaser.Scene {
     }
   }
   /**
-   * A BREAK FLOOR gate. It reads as a wall rather than a ledge -- a banded slab spanning the shaft,
-   * with rivets and a solid underside -- and every round taken opens a fracture across it, so the
-   * remaining durability is visible without reading the HUD. Deliberately nothing like an AREA 4
-   * collapsing ledge, which loses its rail and shakes.
+   * One BREAK BLOCK. The row reads as masonry rather than as a ledge -- separate stones with a
+   * visible seam between them, so it is obvious that they come apart one at a time and that a
+   * single gap is a way through. Every round taken opens another fracture across that one stone,
+   * so its remaining durability is readable without looking at the HUD. Deliberately nothing like
+   * an AREA 4 collapsing ledge, which keeps its rail and shakes.
    */
-  private breakFloor(x: number, y: number, width: number, hits: number, durability: number) {
+  private breakBlock(x: number, y: number, width: number, hits: number, durability: number) {
     const wear = Math.min(1, hits / Math.max(1, durability));
-    const glow = 0.18 + wear * 0.5;
-    this.rect(x, y - 3, width, 3, 0xffc27a, 0.2 + wear * 0.4);
-    this.rect(x, y, width, BREAK_FLOOR_RULES.thickness, 0x5d4a3a);
-    this.rect(x, y, width, 4, hits ? 0xffb066 : 0xc8a882);
-    this.rect(x, y + BREAK_FLOOR_RULES.thickness - 3, width, 3, 0x3a2c22);
-    // Rivets along the slab; they read as a built gate rather than as terrain.
-    for (let i = x + 9; i < x + width - 6; i += 26) this.rect(i, y + 6, 4, 4, 0x2b211a);
-    // Fractures: one more opens for every round it has taken.
+    const thickness = BREAK_BLOCK_RULES.thickness;
+    // The seam: one pixel of shadow either side so neighbours never read as one long slab.
+    this.rect(x, y, width, thickness, 0x241b14);
+    this.rect(x + 1, y, width - 2, thickness, 0x5d4a3a);
+    this.rect(x + 1, y, width - 2, 4, hits ? 0xffb066 : 0xc8a882);
+    this.rect(x + 1, y + thickness - 3, width - 2, 3, 0x3a2c22);
+    // A rivet at each end marks the stone as built rather than grown.
+    this.rect(x + 5, y + 6, 4, 4, 0x2b211a);
+    this.rect(x + width - 9, y + 6, 4, 4, 0x2b211a);
+    // Fractures: one more opens for every round this stone has taken.
     for (let i = 0; i < hits; i++) {
       const at = x + ((i + 1) * width) / (durability + 1);
-      this.graphics.fillStyle(0x1b1410, 0.9).fillTriangle(at, y, at + 7, y + BREAK_FLOOR_RULES.thickness, at - 6, y + BREAK_FLOOR_RULES.thickness);
-      this.rect(at - 1, y - 6, 2, 6, 0xffd2a0, glow);
+      this.graphics.fillStyle(0x1b1410, 0.9).fillTriangle(at, y, at + 6, y + thickness, at - 5, y + thickness);
     }
-    // Downward chevrons rather than a word: label2 only carries the glyphs A, I and R, so 'SHOOT'
-    // would have drawn nothing at all, and an arrow says the same thing in every language.
-    for (const at of [width * 0.28, width * 0.72]) {
-      const cx = x + at, top = y + 3;
-      this.graphics.fillStyle(0xffd2a0, 0.75 - wear * 0.4);
-      this.graphics.fillTriangle(cx - 7, top, cx + 7, top, cx, top + 8);
-    }
+    // A downward chevron rather than a word: label2 only carries the glyphs A, I and R, so any
+    // caption here would have drawn nothing at all, and an arrow says the same in every language.
+    const cx = x + width / 2, top = y + 4;
+    this.graphics.fillStyle(0xffd2a0, 0.8 - wear * 0.45);
+    this.graphics.fillTriangle(cx - 6, top, cx + 6, top, cx, top + 7);
   }
   /** Lava reads as a solid bright slab; a vent shows its warning before it ever fires. */
   private hazard(h: Hazard, cam: number) {
