@@ -13,7 +13,8 @@ import { WORLD } from '../src/data/balance';
 const seeded = (seed: number) => () => { seed = (Math.imul(seed, 1664525) + 1013904223) >>> 0; return seed / 4294967296; };
 const area3 = areaConfig(3);
 const plan = (section: SectionId) => area3.plans![section - 1];
-const SECTION_PIXELS = 200 * WORLD.pixelsPerMeter;
+const SECTION_PIXELS = area3.sectionLength * WORLD.pixelsPerMeter;
+const CHUNKS = Math.ceil((WORLD.startY + SECTION_PIXELS) / WORLD.chunkHeight) + 1;
 
 function inMagma(section: SectionId = 1) {
   const game = new GameModel(false, Math.random);
@@ -44,7 +45,7 @@ function section(sectionId: SectionId, seed: number) {
   const platforms: RoutePlatform[] = [], hazards: Hazard[] = [];
   const enemies: ReturnType<typeof spawnEnemy>[] = [];
   const pickups: { x: number; y: number; kind: string }[] = [];
-  for (let chunk = 0; chunk < 6; chunk++) {
+  for (let chunk = 0; chunk < CHUNKS; chunk++) {
     const result = generator.chunk(chunk);
     platforms.push(...result.platforms); hazards.push(...result.hazards);
     enemies.push(...result.enemies); pickups.push(...result.pickups);

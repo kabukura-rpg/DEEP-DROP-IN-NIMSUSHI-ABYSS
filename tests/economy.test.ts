@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest';
+import { AREAS, PLANNED_TOTAL_DEPTH } from '../src/data/areas';
 import { GameModel } from '../src/systems/GameModel';
 import { CoinSystem } from '../src/systems/CoinSystem';
 import { ShopSystem } from '../src/systems/ShopSystem';
@@ -256,7 +257,7 @@ describe('SHOP', () => {
 describe('EXIT replaces the forced section switch', () => {
   it('offers no exit before the goal', () => {
     const game = new GameModel(false, seeded(6));
-    game.player.y = WORLD.startY + 199 * WORLD.pixelsPerMeter; game.player.invincible = 99;
+    game.player.y = WORLD.startY + (game.sectionLength - 1) * WORLD.pixelsPerMeter; game.player.invincible = 99;
     game.step(1 / 120, 0, false);
     expect(game.exit).toBeNull();
     expect(game.state).toBe('playing');
@@ -264,7 +265,7 @@ describe('EXIT replaces the forced section switch', () => {
 
   it('lays the exit at the goal but leaves the SECTION running until it is entered', () => {
     const game = new GameModel(false, seeded(6));
-    game.player.y = WORLD.startY + 201 * WORLD.pixelsPerMeter; game.player.invincible = 99;
+    game.player.y = WORLD.startY + (game.sectionLength + 1) * WORLD.pixelsPerMeter; game.player.invincible = 99;
     game.step(1 / 120, 0, false);
     expect(game.exit).not.toBeNull();
     expect(game.state).toBe('playing');
@@ -276,11 +277,11 @@ describe('EXIT replaces the forced section switch', () => {
 
   it('places the gate a little past the goal, where it can be seen and reached', () => {
     const game = new GameModel(false, seeded(6));
-    game.player.y = WORLD.startY + 201 * WORLD.pixelsPerMeter; game.player.invincible = 99;
+    game.player.y = WORLD.startY + (game.sectionLength + 1) * WORLD.pixelsPerMeter; game.player.invincible = 99;
     game.step(1 / 120, 0, false);
     const gate = game.exit!;
     expect(gate.width).toBe(EXIT_RULES.width);
-    expect((gate.y - WORLD.startY) / WORLD.pixelsPerMeter).toBeGreaterThan(200);
+    expect((gate.y - WORLD.startY) / WORLD.pixelsPerMeter).toBeGreaterThan(game.sectionLength);
   });
 
   it('clears the SECTION when the gate is entered', () => {
@@ -292,7 +293,7 @@ describe('EXIT replaces the forced section switch', () => {
 
   it('bottoms the shaft out at the exit, so nothing below can be farmed', () => {
     const game = new GameModel(false, seeded(8));
-    game.player.y = WORLD.startY + 202 * WORLD.pixelsPerMeter; game.player.invincible = 99;
+    game.player.y = WORLD.startY + (game.sectionLength + 2) * WORLD.pixelsPerMeter; game.player.invincible = 99;
     game.step(1 / 120, 0, false);
     const floor = game.platforms.reduce((low, f) => (f.y > low.y ? f : low), game.platforms[0]);
     expect(floor.width).toBeGreaterThan(WORLD.width - WORLD.wall * 2 - 2);
@@ -306,16 +307,16 @@ describe('EXIT replaces the forced section switch', () => {
 
   it('keeps TOTAL DEPTH at the planned 12 x 200m however deep the hunt went', () => {
     const game = new GameModel(false, seeded(6));
-    game.player.y = WORLD.startY + 260 * WORLD.pixelsPerMeter; game.player.invincible = 99;
+    game.player.y = WORLD.startY + (game.sectionLength + 60) * WORLD.pixelsPerMeter; game.player.invincible = 99;
     game.step(1 / 120, 0, false);
-    expect(Math.round(game.sectionDepth)).toBeGreaterThan(200);
-    expect(Math.round(game.totalDepth)).toBe(200);
+    expect(Math.round(game.sectionDepth)).toBeGreaterThan(game.sectionLength);
+    expect(Math.round(game.totalDepth)).toBe(game.sectionLength);
     reachExit(game);
     game.selectUpgrade(game.upgrades.choices[0].id); game.confirmUpgrade();
-    expect(game.completedDepth).toBe(200);
+    expect(game.completedDepth).toBe(AREAS[0].sectionLength);
   });
 
-  it('reaches the FINAL BOSS after twelve gates, at exactly 2400m', () => {
+  it('reaches the FINAL BOSS after twelve gates, at the planned run total', () => {
     const game = new GameModel(false, seeded(15));
     for (let i = 0; i < 12; i++) {
       reachExit(game);
@@ -323,7 +324,7 @@ describe('EXIT replaces the forced section switch', () => {
       game.confirmUpgrade();
     }
     expect(game.state).toBe('boss');
-    expect(Math.round(game.totalDepth)).toBe(2400);
+    expect(Math.round(game.totalDepth)).toBe(PLANNED_TOTAL_DEPTH);
   });
 });
 

@@ -200,7 +200,7 @@ describe('AREA 1 generation safety across seeds', () => {
         expect(game.state).toBe('upgrade');
         game.selectUpgrade(game.upgrades.choices[0].id); game.confirmUpgrade();
       }
-      expect([game.stage.label, game.completedDepth]).toEqual(['2-1', 600]);
+      expect([game.stage.label, game.completedDepth]).toEqual(['2-1', area1.sectionLength * 3]);
       expect(game.stage.sectionPlan).toBe(areaConfig(2).plans![0]);
     }
   });

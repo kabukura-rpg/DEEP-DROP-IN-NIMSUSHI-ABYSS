@@ -258,8 +258,10 @@ export class StageGenerator {
    */
   private placeGunModule(platform: RoutePlatform, y: number, start: number, pickups: Pickup[], enemies: Enemy[], hazards: Hazard[]) {
     if (y < start || this.random() >= GUN_MODULE_SPAWN_CHANCE) return;
-    if (platform.breakable) return;
-    const x = platform.safeX, cy = y - 30;
+    // A collapsing ledge is still a fine place for a crate: it sits just above the landing spot, so
+    // it is collected on the way down, before the ledge has even begun to crack. Skipping them
+    // entirely is what left AREA 4 -- where every ledge collapses -- with no weapons at all.
+    const x = platform.safeX, cy = y - 34;
     if (enemies.some(e => Math.abs(e.x - x) < 36 && Math.abs(e.y - cy) < 36)) return;
     if (hazards.some(h => x > h.x - 22 && x < h.x + h.width + 22 && cy > h.y - 22 && cy < h.y + h.height + 22)) return;
     const roll = rollGunModule(this.random);
@@ -379,8 +381,9 @@ export class StageGenerator {
     // The rare full refill is a wide alcove: easy to see, easy to enter, and a real waypoint.
     if (this.random() < tuning.airPocketChance / (tuning.containerChance + tuning.airPocketChance)) {
       const width = 104, height = Math.min(66, bandBottom - bandTop);
-      const centre = clamp(exit + lean * tuning.bubbleOffside * 0.5 * reach, width / 2 + 2);
-      if (y >= start) airPockets.push({ id: this.id++, x: Math.round(centre - width / 2), y: Math.round(bandY - height / 2), width, height });
+      // Round before the final clamp, so the alcove centre stays inside the reach envelope.
+      const centre = clamp(Math.round(clamp(exit + lean * tuning.bubbleOffside * 0.5 * reach, width / 2 + 2)), width / 2 + 2);
+      if (y >= start) airPockets.push({ id: this.id++, x: centre - width / 2, y: Math.round(bandY - height / 2), width, height });
       this.lastAirY = bandY;
       return;
     }
@@ -388,7 +391,10 @@ export class StageGenerator {
     let x = clamp(exit + lean * tuning.bubbleOffside * reach, size / 2 + 6);
     // Never bury a container inside an enemy's patrol.
     for (const e of enemies) if (Math.abs(e.y - bandY) < 40 && Math.abs(e.originX - x) < e.range + 30) x = clamp(x + (e.originX > x ? -1 : 1) * (e.range + 34), size / 2 + 6);
-    if (y >= start) containers.push({ id: this.id++, x: Math.round(x - size / 2), y: Math.round(bandY - size / 2), width: size, height: size, broken: false, debris: 0 });
+    // Round first, then clamp again: clamping and then rounding can push the source half a pixel
+    // past the reach the fall actually has.
+    x = clamp(Math.round(x), size / 2 + 6);
+    if (y >= start) containers.push({ id: this.id++, x: x - size / 2, y: Math.round(bandY - size / 2), width: size, height: size, broken: false, debris: 0 });
     this.lastAirY = bandY;
   }
 

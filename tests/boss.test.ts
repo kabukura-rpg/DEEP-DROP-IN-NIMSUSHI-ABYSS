@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest';
+import { PLANNED_TOTAL_DEPTH } from '../src/data/areas';
 import { GameModel } from '../src/systems/GameModel';
 import { BossFightSystem } from '../src/systems/BossFightSystem';
 import { BOSS, BOSS_ATTACKS, BOSS_PHASES, bossPhaseAt } from '../src/data/boss';
@@ -290,12 +291,12 @@ describe('FINAL BOSS resolution', () => {
 
   it('keeps TOTAL DEPTH at the planned 12 x 200m however long the fight runs', () => {
     const game = atBoss();
-    expect(Math.round(game.totalDepth)).toBe(2400);
+    expect(Math.round(game.totalDepth)).toBe(PLANNED_TOTAL_DEPTH);
     until(game, () => game.boss.elapsed > 20, 40, true);
-    expect(Math.round(game.totalDepth)).toBe(2400);
+    expect(Math.round(game.totalDepth)).toBe(PLANNED_TOTAL_DEPTH);
     game.boss.damage(BOSS.maxHp);
     tick(game, BOSS.defeatDelay + 0.2);
-    expect(Math.round(game.totalDepth)).toBe(2400);
+    expect(Math.round(game.totalDepth)).toBe(PLANNED_TOTAL_DEPTH);
   });
 
   it('cannot be cleared twice', () => {

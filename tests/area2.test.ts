@@ -12,7 +12,8 @@ import type { AirContainer } from '../src/data/structures';
 const seeded = (seed: number) => () => { seed = (Math.imul(seed, 1664525) + 1013904223) >>> 0; return seed / 4294967296; };
 const area2 = areaConfig(2);
 const plan = (section: SectionId) => area2.plans![section - 1];
-const SECTION_PIXELS = 200 * WORLD.pixelsPerMeter;
+const SECTION_PIXELS = area2.sectionLength * WORLD.pixelsPerMeter;
+const CHUNKS = Math.ceil((WORLD.startY + SECTION_PIXELS) / WORLD.chunkHeight) + 1;
 
 /** A run parked in an AREA 2 section, with the world cleared so a test can place its own fixtures. */
 function inWater(section: SectionId = 1, random = Math.random) {
@@ -46,7 +47,7 @@ function section(sectionId: SectionId, seed: number) {
   const generator = new StageGenerator(seeded(seed), { plan: plan(sectionId), enemyPool: area2.enemyPool, water: area2.water, oxygen: true });
   const platforms: RoutePlatform[] = [], enemies: Enemy[] = [], pickups: Pickup[] = [], airPockets: AirPocket[] = [];
   const containers: AirContainer[] = [];
-  for (let chunk = 0; chunk < 6; chunk++) {
+  for (let chunk = 0; chunk < CHUNKS; chunk++) {
     const result = generator.chunk(chunk);
     platforms.push(...result.platforms); enemies.push(...result.enemies);
     pickups.push(...result.pickups); airPockets.push(...result.airPockets); containers.push(...result.containers);
@@ -276,9 +277,10 @@ describe('AREA 2 section pacing', () => {
   });
   it('keeps air sparse enough late in the area that the gauge still decides routes', () => {
     const [one, two, three] = [1, 2, 3].map(s => stats(s as SectionId));
-    // 2-3 is meant to sit near "a handful of bubbles and maybe one pocket", not a corridor of air.
-    // One container is worth several bubbles, so the count that matters is lower than the old one.
-    expect(three.bubbles).toBeLessThan(6);
+    // 2-3 is meant to sit near "a handful of containers and maybe one pocket", not a corridor of
+    // air. SECTION lengths differ per AREA now, so scarcity has to be read as a density.
+    const per100 = (n: number) => n / (area2.sectionLength / 100);
+    expect(per100(three.bubbles)).toBeLessThan(3);
     expect(three.pockets).toBeLessThan(1.6);
     expect(one.bubbles).toBeGreaterThan(three.bubbles);
     expect(two.bubbles).toBeGreaterThan(three.bubbles);
@@ -327,9 +329,13 @@ describe('AREA 2 generation safety', () => {
           const reach = horizontalReach(below.y - 54 - above.y, area2.water);
           expect(Math.abs(x - above.exitX)).toBeLessThanOrEqual(reach + halfWidth + 1);
         };
-        for (const bubble of s.pickups) {
-          sourceAt(bubble.x, bubble.y, PICKUP_TYPES[bubble.kind].radius);
-          for (const e of s.enemies) if (Math.abs(e.y - bubble.y) < 40) expect(Math.abs(e.originX - bubble.x)).toBeGreaterThan(e.range + 20);
+        // Air sources are containers now. A gun module crate also lives in `pickups`, but it sits
+        // on a ledge's landing spot rather than in the fall band, so the air-reach rule is not its
+        // rule and applying it here was simply testing the wrong object.
+        for (const box of s.containers) {
+          const centre = box.x + box.width / 2, middle = box.y + box.height / 2;
+          sourceAt(centre, middle, box.width / 2);
+          for (const e of s.enemies) if (Math.abs(e.y - middle) < 40) expect(Math.abs(e.originX - centre)).toBeGreaterThan(e.range + 20);
         }
         for (const pocket of s.airPockets) sourceAt(pocket.x + pocket.width / 2, pocket.y + pocket.height / 2, pocket.width / 2);
       }

@@ -1,4 +1,5 @@
 import { describe, expect, it, beforeEach } from 'vitest';
+import { PLANNED_TOTAL_DEPTH } from '../src/data/areas';
 import { GameModel } from '../src/systems/GameModel';
 import { GameAudio, EVENT_SOUNDS, eventSound, type SoundId } from '../src/systems/Audio';
 import { DAMAGE_LABELS, damageLabel } from '../src/data/damage';
@@ -224,18 +225,18 @@ describe('M2: the FINAL BOSS shows the banked total, not 000m', () => {
     game.jumpToBoss();
     expect(game.state).toBe('boss');
     expect(game.sectionDepth).toBe(0);
-    expect(Math.round(game.totalDepth)).toBe(2400);
+    expect(Math.round(game.totalDepth)).toBe(PLANNED_TOTAL_DEPTH);
     for (let i = 0; i < 120 * 20; i++) { game.player.invincible = 99; game.health.heal(9); game.step(1 / 120, 0, false); }
-    expect(Math.round(game.totalDepth)).toBe(2400);
+    expect(Math.round(game.totalDepth)).toBe(PLANNED_TOTAL_DEPTH);
   });
 
-  it('keeps 2400m on GAME CLEAR', () => {
+  it('keeps the planned run total on GAME CLEAR', () => {
     const game = new GameModel(false, seeded(23));
     game.jumpToBoss();
     tick(game, 2);
     game.boss.damage(BOSS.maxHp);
     tick(game, BOSS.defeatDelay + 0.3);
     expect(game.state).toBe('clear');
-    expect(Math.round(game.totalDepth)).toBe(2400);
+    expect(Math.round(game.totalDepth)).toBe(PLANNED_TOTAL_DEPTH);
   });
 });

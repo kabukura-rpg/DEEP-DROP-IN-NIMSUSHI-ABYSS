@@ -114,7 +114,7 @@ const LATER_AREA_POOL: readonly EnemyKind[] = ['slime', 'bat', 'armoredSlime', '
  */
 export const AREAS: readonly AreaConfig[] = [
   {
-    id: 1, name: 'SURFACE RUINS', sections: 3, sectionLength: 200,
+    id: 1, name: 'SURFACE RUINS', sections: 3, sectionLength: 240,
     enemyPool: ['slime', 'bat', 'armoredSlime'],
     theme: { wall: 0x2b3228, wallEdge: 0x44523a, brick: 0x222a20, pillar: 0x33402c, accent: 0xb9ef70, dust: 0x9db98a, sky: 0x2d4a52, horizon: 0x47707a, grass: 0x6d9c4a },
     plans: [
@@ -124,7 +124,7 @@ export const AREAS: readonly AreaConfig[] = [
     ],
   },
   {
-    id: 2, name: 'SUNKEN RUINS', sections: 3, sectionLength: 200,
+    id: 2, name: 'SUNKEN RUINS', sections: 3, sectionLength: 300,
     enemyPool: ['fish', 'bubbleFish', 'jellyfish', 'urchin'],
     theme: { wall: 0x1c2a2c, wallEdge: 0x324245, brick: 0x111c1f, pillar: 0x24484f, accent: 0x70d8ef, dust: 0x8fd5e0, water: { tint: 0x123844, light: 0x9fe8f5, weed: 0x2f7361 } },
     gimmicks: { oxygen: true },
@@ -136,7 +136,7 @@ export const AREAS: readonly AreaConfig[] = [
     ],
   },
   {
-    id: 3, name: 'MAGMA DEPTHS', sections: 3, sectionLength: 200,
+    id: 3, name: 'MAGMA DEPTHS', sections: 3, sectionLength: 340,
     enemyPool: ['fireLizard', 'fireBat', 'magmaSlime', 'fireArmor', 'frostBeetle'],
     theme: { wall: 0x2e1f1f, wallEdge: 0x4a2f2a, brick: 0x1d1414, pillar: 0x3a2622, accent: 0xef9b70, dust: 0xd8a074, ember: { glow: 0xff8a3c, ash: 0xffc27a } },
     gimmicks: { heat: true, lava: true },
@@ -150,7 +150,7 @@ export const AREAS: readonly AreaConfig[] = [
     ],
   },
   {
-    id: 4, name: 'COLLAPSED REALM', sections: 3, sectionLength: 200,
+    id: 4, name: 'COLLAPSED REALM', sections: 3, sectionLength: 380,
     enemyPool: ['demon', 'wraith', 'armorGuard', 'spikeDemon', 'ruinBreaker'],
     theme: { wall: 0x241f2e, wallEdge: 0x3c3350, pillar: 0x2d2740, brick: 0x171422, accent: 0xc0a7ed, dust: 0x8c82a5, rift: { glow: 0x9d7bd8, void: 0x0b0710, debris: 0x4a3f63 } },
     gimmicks: { breakablePlatforms: true },
@@ -168,3 +168,8 @@ export const FINAL_STAGE = { id: 'boss', label: 'FINAL BOSS', name: 'DEMON KING'
 
 export const areaConfig = (id: AreaId, areas: readonly AreaConfig[] = AREAS) => areas.find(a => a.id === id) ?? areas[0];
 export const TOTAL_SECTIONS = AREAS.reduce((count, area) => count + area.sections, 0);
+/**
+ * The metres a completed run is worth. Derived from the AREA table rather than written down, so
+ * changing a SECTION length moves the run total, the FINAL BOSS read-out and the tests together.
+ */
+export const PLANNED_TOTAL_DEPTH = AREAS.reduce((total, area) => total + area.sectionLength * area.sections, 0);

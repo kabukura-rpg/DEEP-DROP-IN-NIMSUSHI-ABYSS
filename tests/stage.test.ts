@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest';
 import { GameModel } from '../src/systems/GameModel';
 import { StageProgressionSystem } from '../src/systems/StageProgressionSystem';
 import { StageGenerator } from '../src/systems/StageGenerator';
-import { AREAS, TOTAL_SECTIONS, type AreaId, type SectionId } from '../src/data/areas';
+import { AREAS, TOTAL_SECTIONS, type AreaId, type SectionId, PLANNED_TOTAL_DEPTH } from '../src/data/areas';
 import { WORLD } from '../src/data/balance';
 import { reachExit } from './exitHelper';
 /** Reach the goal so the exit is laid, without entering it. */
@@ -25,7 +25,13 @@ function clearSection(game: GameModel) {
 
 describe('stage data and progression bookkeeping', () => {
   it('describes four areas of three sections plus the final boss', () => {
-    expect(AREAS.map(a => [a.id, a.sections, a.sectionLength])).toEqual([[1, 3, 200], [2, 3, 200], [3, 3, 200], [4, 3, 200]]);
+    // SECTION length is a tuning value now; what must hold is the shape and that the run gets
+    // longer as it goes on, so the opening stays cheap to retry and the end is a commitment.
+    expect(AREAS.map(a => [a.id, a.sections])).toEqual([[1, 3], [2, 3], [3, 3], [4, 3]]);
+    const lengths = AREAS.map(a => a.sectionLength);
+    expect(lengths.every(n => n > 0)).toBe(true);
+    for (let i = 1; i < lengths.length; i++) expect(lengths[i]).toBeGreaterThanOrEqual(lengths[i - 1]);
+    expect(PLANNED_TOTAL_DEPTH).toBe(lengths.reduce((sum, n, i) => sum + n * AREAS[i].sections, 0));
     expect(AREAS.map(a => a.name)).toEqual(['SURFACE RUINS', 'SUNKEN RUINS', 'MAGMA DEPTHS', 'COLLAPSED REALM']);
     expect(TOTAL_SECTIONS).toBe(12);
   });
@@ -68,14 +74,14 @@ describe('stage data and progression bookkeeping', () => {
 describe('section clear conditions', () => {
   it('offers no exit before the goal, and reaching the goal does not end the section', () => {
     const game = new GameModel();
-    reachDepth(game, 199);
+    reachDepth(game, game.sectionLength - 1);
     expect(game.exit).toBeNull();
     expect([game.state, game.stage.label]).toEqual(['playing', '1-1']);
     // The whole point of the change: 200m opens the way out, it does not take the run away.
-    reachDepth(game, 200);
+    reachDepth(game, game.sectionLength);
     expect(game.exit).not.toBeNull();
     expect([game.state, game.stage.label]).toEqual(['playing', '1-1']);
-    reachDepth(game, 205);
+    reachDepth(game, game.sectionLength + 5);
     expect(game.state).toBe('playing');
   });
   it('generates a reachable exit past the goal and clears exactly once when entered', () => {
@@ -112,16 +118,18 @@ describe('section clear conditions', () => {
   });
   it('keeps section depth local while total depth accumulates', () => {
     const game = new GameModel();
-    reachDepth(game, 210);
+    const past = game.sectionLength + 10;
+    reachDepth(game, past);
     // Hunting below the goal for the gate is real descent, but it is never banked: a SECTION is
     // worth exactly its planned length, so a cleared run still totals 12 x 200m.
-    expect(Math.round(game.sectionDepth)).toBe(210);
-    expect(Math.round(game.totalDepth)).toBe(200);
+    expect(Math.round(game.sectionDepth)).toBe(past);
+    expect(Math.round(game.totalDepth)).toBe(game.sectionLength);
     // Overshooting the goal by a frame must not leak into the run total, nor into the next section.
     clearSection(game);
-    expect([Math.round(game.sectionDepth), game.completedDepth, Math.round(game.totalDepth)]).toEqual([0, 200, 200]);
+    const banked = AREAS[0].sectionLength;
+    expect([Math.round(game.sectionDepth), game.completedDepth, Math.round(game.totalDepth)]).toEqual([0, banked, banked]);
     reachDepth(game, 150);
-    expect([Math.round(game.sectionDepth), Math.round(game.totalDepth)]).toEqual([150, 350]);
+    expect([Math.round(game.sectionDepth), Math.round(game.totalDepth)]).toEqual([150, banked + 150]);
   });
   it('banks the planned length however far past the goal the frame landed', () => {
     for (const overshoot of [200, 202, 260, 400]) {
@@ -130,17 +138,19 @@ describe('section clear conditions', () => {
       reachDepth(game, overshoot);
       reachExit(game);
       game.selectUpgrade(game.upgrades.choices[0].id); game.confirmUpgrade();
-      expect(game.completedDepth).toBe(200);
-      expect(Math.round(game.totalDepth)).toBe(200);
+      expect(game.completedDepth).toBe(AREAS[0].sectionLength);
+      expect(Math.round(game.totalDepth)).toBe(AREAS[0].sectionLength);
     }
   });
   it('reports the real depth reached when the run dies mid-section', () => {
     const game = new GameModel();
     for (let i = 0; i < 7; i++) clearSection(game);
-    expect([game.stage.label, game.completedDepth]).toEqual(['3-2', 1400]);
+    // Seven gates: all of AREA 1 and 2, then 3-1.
+    const sevenSections = AREAS[0].sectionLength * 3 + AREAS[1].sectionLength * 3 + AREAS[2].sectionLength;
+    expect([game.stage.label, game.completedDepth]).toEqual(['3-2', sevenSections]);
     reachDepth(game, 83);
     game.killInstantly('fall');
-    expect([game.state, Math.round(game.totalDepth)]).toEqual(['over', 1483]);
+    expect([game.state, Math.round(game.totalDepth)]).toEqual(['over', sevenSections + 83]);
   });
 });
 
@@ -204,7 +214,7 @@ describe('final boss and game clear', () => {
     const game = new GameModel();
     for (let i = 0; i < TOTAL_SECTIONS; i++) clearSection(game);
     expect(game.stage.boss).toBe(true);
-    expect(Math.round(game.totalDepth)).toBe(TOTAL_SECTIONS * 200);
+    expect(Math.round(game.totalDepth)).toBe(PLANNED_TOTAL_DEPTH);
     expect(game.score).toBe(Math.floor(game.totalDepth) + game.killScore);
   });
 });
@@ -247,11 +257,11 @@ describe('development stage jump', () => {
   it('keeps total depth consistent with the sections skipped and reaches the boss', () => {
     const game = new GameModel();
     game.jumpToStage(3, 1);
-    expect(Math.round(game.totalDepth)).toBe(1200);
+    expect(Math.round(game.totalDepth)).toBe(AREAS[0].sectionLength * 3 + AREAS[1].sectionLength * 3);
     reachExit(game);
     expect([game.state, game.stage.label]).toEqual(['upgrade', '3-1']);
     expect(game.jumpToBoss()).toBe(true);
-    expect([game.state, game.stage.label, Math.round(game.totalDepth)]).toEqual(['boss', 'FINAL BOSS', 2400]);
+    expect([game.state, game.stage.label, Math.round(game.totalDepth)]).toEqual(['boss', 'FINAL BOSS', PLANNED_TOTAL_DEPTH]);
   });
   it('is inert in practice mode', () => {
     const game = new GameModel(true);
