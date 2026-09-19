@@ -7,6 +7,7 @@ import { PICKUP_TYPES, type Pickup } from '../src/data/pickups';
 import { areaConfig, type SectionId } from '../src/data/areas';
 import { horizontalReach } from '../src/data/difficulty';
 import { WORLD, BALANCE } from '../src/data/balance';
+import type { AirContainer } from '../src/data/structures';
 
 const seeded = (seed: number) => () => { seed = (Math.imul(seed, 1664525) + 1013904223) >>> 0; return seed / 4294967296; };
 const area2 = areaConfig(2);
@@ -44,15 +45,17 @@ const hold = (game: GameModel, seconds: number) => {
 function section(sectionId: SectionId, seed: number) {
   const generator = new StageGenerator(seeded(seed), { plan: plan(sectionId), enemyPool: area2.enemyPool, water: area2.water, oxygen: true });
   const platforms: RoutePlatform[] = [], enemies: Enemy[] = [], pickups: Pickup[] = [], airPockets: AirPocket[] = [];
+  const containers: AirContainer[] = [];
   for (let chunk = 0; chunk < 6; chunk++) {
     const result = generator.chunk(chunk);
     platforms.push(...result.platforms); enemies.push(...result.enemies);
-    pickups.push(...result.pickups); airPockets.push(...result.airPockets);
+    pickups.push(...result.pickups); airPockets.push(...result.airPockets); containers.push(...result.containers);
   }
   const limit = WORLD.startY + SECTION_PIXELS;
   return {
     platforms: platforms.filter(p => p.y <= limit), enemies: enemies.filter(e => e.y <= limit),
-    pickups: pickups.filter(p => p.y <= limit), airPockets: airPockets.filter(a => a.y <= limit), limit,
+    pickups: pickups.filter(p => p.y <= limit), airPockets: airPockets.filter(a => a.y <= limit),
+    containers: containers.filter(c => c.y <= limit), limit,
   };
 }
 
@@ -254,7 +257,8 @@ describe('AREA 2 section pacing', () => {
     let bubbles = 0, pockets = 0, enemies = 0, tough = 0, rows = 0;
     for (let seed = 1; seed <= 40; seed++) {
       const s = section(sectionId, seed * 311);
-      bubbles += s.pickups.length; pockets += s.airPockets.length; rows += s.platforms.length;
+      // Air now arrives as sealed containers; breaking one releases the bubbles.
+      bubbles += s.containers.length; pockets += s.airPockets.length; rows += s.platforms.length;
       enemies += s.enemies.length; tough += s.enemies.filter(e => !e.stompable).length;
     }
     return { bubbles: bubbles / 40, pockets: pockets / 40, enemies: enemies / 40, toughPerRow: tough / rows, enemiesPerRow: enemies / rows };
@@ -264,6 +268,7 @@ describe('AREA 2 section pacing', () => {
     expect(one.pockets).toBeGreaterThan(two.pockets);
     expect(two.pockets).toBeGreaterThan(three.pockets);
     expect(one.bubbles).toBeGreaterThan(three.bubbles);
+    expect(plan(1).containerChance!).toBeGreaterThan(plan(3).containerChance!);
     expect(plan(1).bubbleOffside!).toBeLessThan(plan(2).bubbleOffside!);
     expect(plan(2).bubbleOffside!).toBeLessThan(plan(3).bubbleOffside!);
     expect(plan(1).maxOxygenGap!).toBeLessThan(plan(2).maxOxygenGap!);
@@ -272,9 +277,10 @@ describe('AREA 2 section pacing', () => {
   it('keeps air sparse enough late in the area that the gauge still decides routes', () => {
     const [one, two, three] = [1, 2, 3].map(s => stats(s as SectionId));
     // 2-3 is meant to sit near "a handful of bubbles and maybe one pocket", not a corridor of air.
-    expect(three.bubbles).toBeLessThan(8);
+    // One container is worth several bubbles, so the count that matters is lower than the old one.
+    expect(three.bubbles).toBeLessThan(6);
     expect(three.pockets).toBeLessThan(1.6);
-    expect(one.bubbles - three.bubbles).toBeGreaterThan(2);
+    expect(one.bubbles).toBeGreaterThan(three.bubbles);
     expect(two.bubbles).toBeGreaterThan(three.bubbles);
     // A full tank must still cover the worst planned dry stretch with room to spare.
     for (const sectionId of [1, 2, 3] as const) expect(plan(sectionId).maxOxygenGap!).toBeLessThan(60);
@@ -293,8 +299,9 @@ describe('AREA 2 generation safety', () => {
       const ceiling = plan(sectionId as SectionId).maxOxygenGap!;
       for (let seed = 1; seed <= 60; seed++) {
         const s = section(sectionId as SectionId, seed * 1597);
-        const air = s.pickups.filter(p => PICKUP_TYPES[p.kind].effect === 'oxygen');
-        const sources = [START_PLATFORM.y, ...air.map(p => p.y), ...s.airPockets.map(a => a.y + a.height / 2), s.limit].sort((a, b) => a - b);
+        // Every air source counts: a container the player can break, or an alcove to shelter in.
+        const air = s.containers;
+        const sources = [START_PLATFORM.y, ...air.map(c => c.y + c.height / 2), ...s.airPockets.map(a => a.y + a.height / 2), s.limit].sort((a, b) => a - b);
         expect(air.length + s.airPockets.length).toBeGreaterThan(3);
         for (let i = 1; i < sources.length; i++) {
           const gap = (sources[i] - sources[i - 1]) / WORLD.pixelsPerMeter;

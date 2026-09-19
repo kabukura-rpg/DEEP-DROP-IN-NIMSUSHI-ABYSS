@@ -5,6 +5,11 @@ import { HeatSystem } from './HeatSystem';
 import { BreakablePlatformSystem, BREAK_RULES } from './BreakablePlatformSystem';
 import { BossFightSystem } from './BossFightSystem';
 import { GunModuleSystem } from './GunModuleSystem';
+import { CoinSystem } from './CoinSystem';
+import { ShopSystem } from './ShopSystem';
+import { coinsFor } from '../data/coins';
+import { AIR_CONTAINER_RULES, EXIT_RULES, type AirBubble, type AirContainer, type StageExit } from '../data/structures';
+import type { ShopOffer } from '../data/shop';
 import { CHARGE_AMMO_BONUS, gunModule, STARTING_GUN_MODULE, volley, volleyRecoil, type GunModuleId } from '../data/gunModules';
 import { BOSS, type BossPhase } from '../data/boss';
 import { hazardBounds, ventStateAt, type Hazard } from '../data/hazards';
@@ -15,7 +20,7 @@ import { StageProgressionSystem } from './StageProgressionSystem';
 import type { AreaId, SectionId } from '../data/areas';
 import { enemyType } from '../data/enemies';
 import { defaultTuning, sanitizeTuning, type PhysicsTuning } from './PhysicsTuning';
-export type GameEvent = { type: 'shot' | 'empty' | 'land' | 'kill' | 'hurt' | 'upgrade' | 'over' | 'heal' | 'boss' | 'clear' | 'oxygen' | 'airPocket' | 'section' | 'ice' | 'vent' | 'crack' | 'collapse' | 'bossHit' | 'bossTelegraph' | 'bossFire' | 'bossPhase' | 'bossDown' | 'gunModule'; x: number; y: number; value?: number; stomp?: boolean; lifeUps?: number; overflow?: number; combo?: number; stage?: string; areaCleared?: string | null; bonus?: 'heart' | 'charge'; source?: { id: number; kind: Enemy['kind']; x: number; y: number } };
+export type GameEvent = { type: 'shot' | 'empty' | 'land' | 'kill' | 'hurt' | 'upgrade' | 'over' | 'heal' | 'boss' | 'clear' | 'oxygen' | 'airPocket' | 'section' | 'ice' | 'vent' | 'crack' | 'collapse' | 'bossHit' | 'bossTelegraph' | 'bossFire' | 'bossPhase' | 'bossDown' | 'gunModule' | 'coin' | 'shopOpen' | 'shopBuy' | 'exitReady' | 'exit' | 'containerBreak'; x: number; y: number; value?: number; stomp?: boolean; lifeUps?: number; overflow?: number; combo?: number; stage?: string; areaCleared?: string | null; bonus?: 'heart' | 'charge'; source?: { id: number; kind: Enemy['kind']; x: number; y: number } };
 export interface Bullet {
   x: number; y: number; previousY: number; previousX: number;
   /** Velocity in px/s. Straight-down weapons simply carry vx = 0. */
@@ -52,11 +57,19 @@ export class GameModel {
   readonly collapse = new BreakablePlatformSystem();
   readonly boss = new BossFightSystem();
   readonly gun = new GunModuleSystem();
+  readonly coins = new CoinSystem();
+  readonly shop = new ShopSystem();
+  /** AREA 2's sealed air containers, and the bubbles a broken one released. */
+  containers: AirContainer[] = [];
+  bubbles: AirBubble[] = [];
+  /** The way out of this SECTION, once the shaft has bottomed out. Null until then. */
+  exit: StageExit | null = null;
+  private nextBubbleId = 1;
   /** True while the player is inside an air pocket: the tank refills and nothing drains. */
   sheltered = false;
   paused = false;
   /** True while the world is actually simulating: normal play and the boss fight alike. */
-  get running() { return (this.state === 'playing' || this.state === 'boss') && !this.paused; }
+  get running() { return (this.state === 'playing' || this.state === 'boss') && !this.paused && !this.shop.open; }
   /**
    * The run is already won. The moment the king's HP reaches zero the fight is decided, so nothing
    * during the short collapse -- a stray demon, lava, drowning, overheating, a shot already in the
@@ -70,7 +83,17 @@ export class GameModel {
   sectionDepth = 0;
   /** Metres banked by every SECTION already cleared in this run. */
   completedDepth = 0;
-  get totalDepth() { return this.completedDepth + this.sectionDepth; }
+  /**
+   * The run depth the game reports. A SECTION is worth exactly its planned length: hunting for
+   * the exit below the goal is real descent, but it is never banked, so a cleared run still
+   * totals 12 x 200m.
+   */
+  get bankedSectionDepth() {
+    if (this.stage.boss) return 0;
+    // Endless has no sections and therefore no cap; a real SECTION is worth its planned length.
+    return this.stage.enabled ? Math.min(this.sectionDepth, this.stage.sectionLength) : this.sectionDepth;
+  }
+  get totalDepth() { return this.completedDepth + this.bankedSectionDepth; }
   get sectionLength() { return this.stage.sectionLength; }
   kills = 0;
   private comboValue = 0;
@@ -82,7 +105,7 @@ export class GameModel {
   cameraY = 0;
   elapsed = 0;
   cooldown = 0;
-  state: 'playing' | 'upgrade' | 'boss' | 'over' | 'clear' = 'playing';
+  state: 'playing' | 'upgrade' | 'boss' | 'over' | 'clear' | 'shop' = 'playing';
   private nextChunk = 0;
   private generator: StageGenerator;
   private random: () => number;
@@ -163,6 +186,13 @@ export class GameModel {
   /** Swap the equipped weapon and hand out the crate's bonus through the ordinary systems. */
   equipGunModule(id: GunModuleId, bonus: 'heart' | 'charge') {
     this.gun.equip(id);
+    this.applyModuleBonus(bonus);
+  }
+  /**
+   * The bonus half of a gun module, on its own. HEART goes through HealthSystem so a full tank
+   * still rolls into the existing overflow and LIFE UP; CHARGE is the same +2 magazine as ever.
+   */
+  private applyModuleBonus(bonus: 'heart' | 'charge') {
     if (bonus === 'heart') this.health.heal(1);
     else { this.stats.maxAmmo += CHARGE_AMMO_BONUS; this.ammo = this.stats.maxAmmo; }
   }
@@ -206,6 +236,13 @@ export class GameModel {
           continue;
         }
       }
+      for (const box of this.containers) {
+        if (box.broken) continue;
+        if (b.x > box.x - b.size && b.x < box.x + box.width + b.size && b.y >= box.y && b.previousY <= box.y + box.height) {
+          this.breakContainer(box); b.alive = false; break;
+        }
+      }
+      if (!b.alive) continue;
       const targets = this.enemies.filter(e => e.alive && !b.hits.has(e.id) && Math.abs(b.x - e.x) < 15 + b.size && b.previousY <= e.y + 15 && b.y >= e.y - 15).sort((a, z) => a.y - z.y);
       for (const e of targets) {
         b.hits.add(e.id); e.hp -= b.damage; e.flash = 0.1;
@@ -235,6 +272,9 @@ export class GameModel {
     }
     if (this.platforms.some(f => f.state === 'broken')) this.platforms = this.platforms.filter(f => f.state !== 'broken');
     if (this.boss.enabled) this.tickBoss(dt);
+    this.tickContainers(dt);
+    this.tickBubbles(dt);
+    if (this.coins.tick(dt, p, this.cameraY) > 0) this.events.push({ type: 'coin', x: p.x, y: p.y, value: this.coins.walletCoins });
     this.collectPickups();
     this.sheltered = this.airPockets.some(a => p.x > a.x && p.x < a.x + a.width && p.y + 15 > a.y && p.y - 15 < a.y + a.height);
     if (this.heat.enabled) this.tickHeat(dt);
@@ -249,7 +289,11 @@ export class GameModel {
       // complete, so depth accounting stops for the duration of the fight.
       if (!fighting) {
         this.sectionDepth = Math.max(this.sectionDepth, (p.y - WORLD.startY) / WORLD.pixelsPerMeter);
-        if (this.stage.isComplete(this.sectionDepth)) this.completeSection();
+        // Reaching the goal opens the way out; it never ends the SECTION by itself, so a fight,
+        // a coin spray or a chase after a bubble is never cut short mid-action.
+        if (!this.exit && this.stage.enabled && this.sectionDepth >= this.stage.sectionLength) this.openExit();
+        this.enterExit();
+        this.enterShop();
       }
       this.cameraY = Math.max(this.cameraY, p.y - WORLD.height * 0.37);
       this.generate();
@@ -344,6 +388,110 @@ export class GameModel {
     });
     this.nextChunk = Math.floor(resume / WORLD.chunkHeight);
   }
+  /** Contact breaks a container too, so a stomp and a shot are equally valid keys. */
+  private tickContainers(dt: number) {
+    const p = this.player;
+    for (const box of this.containers) {
+      if (box.broken) { box.debris = Math.max(0, box.debris - dt); continue; }
+      if (p.x + 9 > box.x && p.x - 9 < box.x + box.width && p.y + 15 > box.y && p.y - 15 < box.y + box.height) this.breakContainer(box);
+    }
+    this.containers = this.containers.filter(box => (!box.broken || box.debris > 0) && box.y > this.cameraY - 180);
+  }
+  /**
+   * Break one container. It restores nothing by itself: what it does is release bubbles, and only
+   * touching a bubble is worth air. The bubbles climb, so they have to be chased.
+   */
+  private breakContainer(box: AirContainer) {
+    if (box.broken) return;
+    box.broken = true; box.debris = AIR_CONTAINER_RULES.debrisTime;
+    const span = AIR_CONTAINER_RULES.bubblesMax - AIR_CONTAINER_RULES.bubblesMin;
+    const count = AIR_CONTAINER_RULES.bubblesMin + Math.round(this.random() * span);
+    for (let i = 0; i < count; i++) {
+      this.bubbles.push({
+        id: this.nextBubbleId++,
+        x: box.x + box.width / 2, y: box.y + box.height / 2,
+        vx: (this.random() * 2 - 1) * AIR_CONTAINER_RULES.riseSpread,
+        vy: -AIR_CONTAINER_RULES.riseSpeed * (0.35 + this.random() * 0.35),
+        life: AIR_CONTAINER_RULES.bubbleLife, taken: false,
+      });
+    }
+    this.events.push({ type: 'containerBreak', x: box.x + box.width / 2, y: box.y + box.height / 2, value: count });
+  }
+  /** Released bubbles climb away and expire. Catching one is the only thing that restores air. */
+  private tickBubbles(dt: number) {
+    const p = this.player;
+    for (const bubble of this.bubbles) {
+      if (bubble.taken) continue;
+      bubble.life -= dt;
+      bubble.vy = Math.max(-AIR_CONTAINER_RULES.riseSpeed, bubble.vy - AIR_CONTAINER_RULES.riseAccel * dt);
+      bubble.vx *= 0.985;
+      bubble.x = Math.max(WORLD.wall, Math.min(WORLD.width - WORLD.wall, bubble.x + bubble.vx * dt));
+      bubble.y += bubble.vy * dt;
+      if (this.oxygen.enabled && Math.abs(bubble.x - p.x) < 24 && Math.abs(bubble.y - p.y) < 28) {
+        bubble.taken = true;
+        const restored = this.oxygen.add(AIR_CONTAINER_RULES.recovery);
+        this.events.push({ type: 'oxygen', x: bubble.x, y: bubble.y, value: restored });
+      }
+    }
+    this.bubbles = this.bubbles.filter(b => !b.taken && b.life > 0 && b.y > this.cameraY - 90);
+  }
+  /**
+   * The goal has been reached: cut the unseen shaft below and lay the exit floor just past the
+   * camera, so the way out appears a little further on rather than having been visible all along.
+   */
+  private openExit() {
+    const cut = Math.max(this.player.y + 240, this.cameraY + WORLD.height);
+    this.platforms = this.platforms.filter(row => row.y <= cut);
+    this.enemies = this.enemies.filter(e => e.y <= cut);
+    this.pickups = this.pickups.filter(item => item.y <= cut);
+    this.airPockets = this.airPockets.filter(a => a.y <= cut);
+    this.hazards = this.hazards.filter(h => h.y <= cut);
+    this.containers = this.containers.filter(box => box.y <= cut);
+    const rows = this.platforms.filter((row): row is RoutePlatform => 'safeX' in row);
+    const deepest = rows.reduce((low, row) => (row.y > low.y ? row : low), rows[0] ?? this.generator.frontierRow);
+    const laid = this.generator.layExit(Math.max(cut, deepest.y + EXIT_RULES.depthMargin * WORLD.pixelsPerMeter), deepest);
+    this.platforms.push(laid.floor);
+    this.exit = laid.exit;
+    this.events.push({ type: 'exitReady', x: laid.exit.x + laid.exit.width / 2, y: laid.exit.y });
+  }
+  /** Walking into the gate is what clears the SECTION. */
+  private enterExit() {
+    const e = this.exit, p = this.player;
+    if (!e) return;
+    if (p.x + 9 > e.x && p.x - 9 < e.x + e.width && p.y + 15 > e.y && p.y - 15 < e.y + e.height) {
+      this.events.push({ type: 'exit', x: p.x, y: p.y });
+      this.completeSection();
+    }
+  }
+  /** Walking into the doorway opens the SHOP, which stops the world while it is open. */
+  private enterShop() {
+    const p = this.player;
+    if (!this.shop.touches(p.x, p.y) || !this.shop.enter()) return;
+    this.state = 'shop';
+    this.events.push({ type: 'shopOpen', x: p.x, y: p.y, value: this.coins.walletCoins });
+  }
+  /** Leave the SHOP and carry on falling. */
+  closeShop() {
+    if (this.state !== 'shop') return false;
+    this.shop.close();
+    this.state = 'playing';
+    return true;
+  }
+  /**
+   * Buy one item. Coins leave the wallet only -- the score total is never touched -- and the
+   * goods are applied through exactly the same calls a field pickup uses, so a bought weapon and
+   * a found one can never behave differently.
+   */
+  buyShopItem(index: number) {
+    if (this.state !== 'shop') return 'closed' as const;
+    const result = this.shop.buy(index, this.coins, (offer: ShopOffer) => {
+      if (offer.kind === 'gunModule' && offer.module) this.gun.equip(offer.module);
+      else if (offer.kind === 'heart') this.applyModuleBonus('heart');
+      else this.applyModuleBonus('charge');
+    });
+    if (result === 'bought') this.events.push({ type: 'shopBuy', x: this.player.x, y: this.player.y, value: this.coins.walletCoins });
+    return result;
+  }
   /** One collision path for every pickup; the effect comes from the table, never from the kind. */
   private collectPickups() {
     const p = this.player;
@@ -437,13 +585,19 @@ export class GameModel {
     this.sectionDepth = 0; this.cameraY = 0; this.cooldown = 0; this.lastAirShot = -Infinity;
     this.platforms = [{ ...START_PLATFORM }]; this.enemies = []; this.bullets = []; this.nextChunk = 0;
     this.pickups = []; this.airPockets = []; this.hazards = []; this.sheltered = false; p.vx = 0;
+    this.containers = []; this.bubbles = []; this.exit = null;
+    // Coins already banked stay banked; only the ones still lying on the floor are swept up.
+    this.coins.clearLoose();
+    // Whether this SECTION has a shop at all is decided once, here.
+    this.shop.reset();
+    if (!this.practice && this.state !== 'boss') this.shop.rollForSection(this.random);
     // A full tank and a cold gauge at every SECTION start. Both are environment, not health: HP
     // carries over untouched.
     if (this.state !== 'boss') this.boss.reset();
     this.oxygen.reset(!this.practice && this.stage.config.gimmicks?.oxygen === true);
     this.heat.reset(!this.practice && this.stage.config.gimmicks?.heat === true);
     this.collapse.reset(this.stage.sectionPlan?.breakDelay ?? BREAK_RULES.delay);
-    this.generator = new StageGenerator(this.random, { depthOffset: this.completedDepth, plan: this.stage.sectionPlan, enemyPool: this.stage.enemyPool, water: this.stage.config.water, oxygen: this.oxygen.enabled, heat: this.heat.enabled, breakable: !this.practice && this.stage.config.gimmicks?.breakablePlatforms === true });
+    this.generator = new StageGenerator(this.random, { depthOffset: this.completedDepth, plan: this.stage.sectionPlan, enemyPool: this.stage.enemyPool, water: this.stage.config.water, oxygen: this.oxygen.enabled, heat: this.heat.enabled, breakable: !this.practice && this.stage.config.gimmicks?.breakablePlatforms === true, sectionLength: this.practice || this.state === 'boss' || !this.stage.enabled ? undefined : this.stage.sectionLength, shop: this.shop.available });
     this.ammo = this.stats.maxAmmo;
     this.combo = 0;
     this.generate();
@@ -476,15 +630,20 @@ export class GameModel {
     }
     const drop = enemyType(enemy.kind).drop;
     if (drop && this.random() < (drop.chance ?? 1)) this.pickups.push(spawnPickup(drop.pickup, 900000 + enemy.id, enemy.x, enemy.y, this.random() * Math.PI * 2, true));
+    // Every defeated enemy leaves money. The boss is not an Enemy and never reaches this path,
+    // so the CLEAR sequence is untouched.
+    this.coins.burst(enemy.x, enemy.y, coinsFor(type.threat), this.random);
     const points = Math.round(100 * this.multiplier * (stomp ? 1.5 : 1));
     this.killScore += points; this.events.push({ type: 'kill', x: enemy.x, y: enemy.y, value: points, stomp, combo: this.combo });
   }
   private finish() { if (this.state === 'over' || this.state === 'clear') return; this.state = 'over'; this.emit('over', this.player.x, this.player.y); }
   private generate() {
-    while (this.nextChunk * WORLD.chunkHeight < this.cameraY + WORLD.height + WORLD.chunkHeight) {
+    while (!this.generator.finished && this.nextChunk * WORLD.chunkHeight < this.cameraY + WORLD.height + WORLD.chunkHeight) {
       const chunk = this.generator.chunk(this.nextChunk++);
       this.platforms.push(...chunk.platforms); this.enemies.push(...chunk.enemies);
       this.pickups.push(...chunk.pickups); this.airPockets.push(...chunk.airPockets); this.hazards.push(...chunk.hazards);
+      this.containers.push(...chunk.containers);
+      if (chunk.shopDoor) this.shop.placeEntrance(chunk.shopDoor.x, chunk.shopDoor.y, chunk.shopDoor.width, chunk.shopDoor.height);
     }
   }
   private emit(type: GameEvent['type'], x: number, y: number) { this.events.push({ type, x, y }); }

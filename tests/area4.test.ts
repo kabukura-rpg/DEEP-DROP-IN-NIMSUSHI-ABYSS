@@ -220,20 +220,31 @@ describe('AREA 4 section pacing', () => {
     }
     return { breakableRate: breakable / rows, stablePerRun: (rows - breakable) / 60, enemiesPerRow: enemies / rows, toughShare: tough / enemies, width: width / rows, longestRun };
   };
-  it('hands more and more of the floor over to collapse', () => {
-    const [one, two, three] = [1, 2, 3].map(s => stats(s as SectionId));
-    expect(one.breakableRate).toBeGreaterThan(0.35);
-    expect(one.breakableRate).toBeLessThan(0.55);
-    expect(two.breakableRate).toBeGreaterThan(0.65);
-    expect(three.breakableRate).toBeGreaterThan(0.85);
-    expect(one.breakableRate).toBeLessThan(two.breakableRate);
-    expect(two.breakableRate).toBeLessThan(three.breakableRate);
-    // Never a section with no firm ground at all.
-    expect(three.stablePerRun).toBeGreaterThan(0.5);
-  });
-  it('honours the run cap so a foothold always arrives', () => {
+  it('leaves no stable ground past the calm opening: every later ledge gives way', () => {
     for (const sectionId of [1, 2, 3] as const) {
-      expect(stats(sectionId).longestRun).toBeLessThanOrEqual(plan(sectionId).maxBreakableRun!);
+      const grace = plan(sectionId).graceDepth ?? 0;
+      for (let seed = 1; seed <= 30; seed++) {
+        for (const p of section(sectionId, seed * 1597).platforms) {
+          const depth = (p.y - WORLD.startY) / WORLD.pixelsPerMeter;
+          // The calm opening keeps firm ground on purpose; everything past it collapses.
+          if (depth > grace + 2) expect(p.breakable).toBe(true);
+        }
+      }
+      expect(stats(sectionId).breakableRate).toBeGreaterThan(0.85);
+    }
+  });
+  it('keeps the ledges small enough that standing still is not an option', () => {
+    const [one, two, three] = [1, 2, 3].map(s => stats(s as SectionId));
+    // Far narrower than any other AREA: a landing is a touch, not a rest.
+    expect(one.width).toBeLessThan(120);
+    expect(three.width).toBeLessThan(100);
+    expect(two.width).toBeLessThan(one.width);
+    expect(three.width).toBeLessThan(two.width);
+  });
+  it('still gives the player long enough on a ledge to land and reload', () => {
+    for (const sectionId of [1, 2, 3] as const) {
+      // A ledge that vanished on contact would break the reload core, so the delay stays real.
+      expect(plan(sectionId).breakDelay!).toBeGreaterThan(0.5);
     }
   });
   it('narrows the ledges and raises the pressure', () => {

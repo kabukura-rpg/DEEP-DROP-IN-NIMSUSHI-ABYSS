@@ -7,6 +7,7 @@ import { InputBuffer } from '../systems/InputBuffer';
 import { enemyType } from '../data/enemies';
 import { pickupType } from '../data/pickups';
 import { gunModule } from '../data/gunModules';
+import { AIR_CONTAINER_RULES } from '../data/structures';
 import { hazardBounds, type Hazard } from '../data/hazards';
 export interface GameBridge {
   direction: number; firing: boolean; active: boolean;
@@ -212,6 +213,60 @@ export class GameScene extends Phaser.Scene {
         this.rect(x - 4, y + bob - 7, 4, 4, 0xffffff, 0.8);
         this.rect(x - 9, y + bob + 9, 4, 4, type.color, 0.5); this.rect(x + 7, y + bob - 12, 3, 3, type.color, 0.45);
       }
+    }
+    // The way out: a gate standing on the floor that ends the shaft.
+    if (m.exit) {
+      const e = m.exit, ey = e.y - cam;
+      if (ey > -120 && ey < 860) {
+        const pulse = 0.5 + Math.abs(Math.sin(this.model.elapsed * 2.4)) * 0.3;
+        this.rect(e.x - 6, ey - 6, e.width + 12, e.height + 12, 0x7de8b0, 0.12 * pulse);
+        this.rect(e.x, ey, e.width, e.height, 0x0e1a16, 0.96);
+        this.graphics.lineStyle(3, 0x7de8b0, 0.95).strokeRect(e.x, ey, e.width, e.height);
+        for (let i = 0; i < 5; i++) this.rect(e.x + 10, ey + 12 + i * 12, e.width - 20, 3, 0x7de8b0, 0.16 + i * 0.07);
+        this.label2(e.x + e.width / 2, ey + e.height / 2, 'EXIT');
+      }
+    }
+    // The shop doorway, when this SECTION happens to have one.
+    const door = m.shop.entrance;
+    if (door) {
+      const dy = door.y - cam;
+      if (dy > -120 && dy < 860) {
+        this.rect(door.x, dy, door.width, door.height, 0x1e1830, 0.95);
+        this.graphics.lineStyle(3, 0xffd479, 0.9).strokeRect(door.x, dy, door.width, door.height);
+        this.rect(door.x + 8, dy + 10, door.width - 16, 4, 0xffd479, 0.5);
+        this.label2(door.x + door.width / 2, dy + door.height / 2 + 4, 'SHOP');
+      }
+    }
+    // AREA 2 air containers. Sealed they read as cargo; broken they burst and fade.
+    for (const box of m.containers) {
+      const by = box.y - cam;
+      if (by < -60 || by > 850) continue;
+      if (box.broken) {
+        const t = box.debris / AIR_CONTAINER_RULES.debrisTime;
+        for (let i = 0; i < 6; i++) this.rect(box.x + (i % 3) * 12 - 6 + (1 - t) * (i - 3) * 6, by + Math.floor(i / 3) * 14 - (1 - t) * 10, 7, 7, 0x9fe8f5, 0.5 * t);
+        continue;
+      }
+      this.rect(box.x, by, box.width, box.height, 0x17323a, 0.95);
+      this.graphics.lineStyle(2, 0x70d8ef, 0.95).strokeRect(box.x, by, box.width, box.height);
+      this.rect(box.x + 5, by + 5, box.width - 10, 5, 0x9fe8f5, 0.55);
+      this.graphics.lineStyle(2, 0x9fe8f5, 0.5).strokeCircle(box.x + box.width / 2, by + box.height / 2 + 3, 7);
+    }
+    // Released bubbles, climbing away. They blink as their life runs out.
+    for (const bubble of m.bubbles) {
+      const by = bubble.y - cam;
+      if (by < -40 || by > 850) continue;
+      const fade = bubble.life < 1 ? 0.35 + Math.abs(Math.sin(this.model.elapsed * 18)) * 0.5 : 0.92;
+      this.graphics.lineStyle(2, 0x9fe8f5, fade).strokeCircle(bubble.x, by, 9);
+      this.rect(bubble.x - 4, by - 5, 3, 3, 0xffffff, fade * 0.8);
+    }
+    // Loose coins.
+    for (const coin of m.coins.coins) {
+      const cy = coin.y - cam;
+      if (cy < -40 || cy > 850) continue;
+      const fade = m.coins.expiring(coin) ? 0.3 + Math.abs(Math.sin(this.model.elapsed * 16)) * 0.6 : 1;
+      const spin = Math.abs(Math.cos(this.model.elapsed * 5 + coin.id));
+      this.rect(coin.x - 1 - 6 * spin, cy - 7, 2 + 12 * spin, 14, 0xffd479, fade);
+      this.rect(coin.x - 1 - 3 * spin, cy - 4, 1 + 6 * spin, 8, 0xfff0c0, fade * 0.9);
     }
     this.boss(cam);
     for (const enemy of m.enemies) if (enemy.alive) this.enemy(enemy, cam);

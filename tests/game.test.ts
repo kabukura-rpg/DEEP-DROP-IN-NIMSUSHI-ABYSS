@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest';
+import { reachExit } from './exitHelper';
 import { GameModel } from '../src/systems/GameModel';
 import { StageGenerator } from '../src/systems/StageGenerator';
 import { spawnEnemy, type Enemy, type EnemyKind } from '../src/data/enemies';
@@ -29,8 +30,12 @@ describe('combat', () => {
 });
 
 describe('progression', () => {
-  it('clears 1-1 at its section goal and resumes only after a single upgrade', () => {
-    const game = new GameModel(); game.player.y = 180 + 200 * 24; game.step(1 / 120, 0, false);
+  it('clears 1-1 only once the exit is entered, and resumes after a single upgrade', () => {
+    const game = new GameModel();
+    // The goal alone no longer ends the SECTION: the player has to take the exit.
+    game.player.y = 180 + 200 * 24; game.player.invincible = 99; game.step(1 / 120, 0, false);
+    expect([game.state, game.stage.label]).toEqual(['playing', '1-1']);
+    reachExit(game);
     expect([game.state, game.stage.label]).toEqual(['upgrade', '1-1']);
     const y = game.player.y; game.step(0.1, 1, true); expect(game.player.y).toBe(y);
     expect(game.confirmUpgrade()).toBe(false);

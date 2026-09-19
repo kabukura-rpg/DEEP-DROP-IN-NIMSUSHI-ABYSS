@@ -44,7 +44,7 @@ export const BOSS_PHASES: readonly BossPhase[] = [
     enemyPool: ['fish', 'bubbleFish', 'jellyfish'],
     plan: {
       platformWidth: [142, 166], gap: 242, enemyChance: 0.22, flyChance: 0.20, toughChance: 0.20, heavyChance: 0, comboBias: 0.18,
-      bubbleChance: 0.30, airPocketChance: 0.45, maxOxygenGap: 21, bubbleOffside: 0.18,
+      containerChance: 0.34, airPocketChance: 0.45, maxOxygenGap: 21, bubbleOffside: 0.18,
     },
   },
   {
@@ -70,9 +70,20 @@ export const BOSS_PHASES: readonly BossPhase[] = [
 export const BOSS = {
   name: 'DEMON KING',
   maxHp: 450,
-  /** The band the king holds below the player: close enough to hit, far enough to dodge. */
-  minGap: 180,
-  maxGap: 260,
+  /**
+   * How the king keeps its distance. It rests near the bottom of the view, which is what gives
+   * the fight a real vertical field and lets the long-range weapons matter.
+   *
+   * minGap is deliberately much smaller than the resting distance: the king never closes in on
+   * the player, but the player may dive at it. That is the only way SHOTGUN (260px reach) and
+   * PUNCHER (330px) can land a hit, so short range stays a real choice with a real risk rather
+   * than a dead weapon.
+   */
+  minGap: 150,
+  restGap: 520,
+  maxGap: 620,
+  /** How fast it settles back down to its resting distance after the player closes in. */
+  settleSpeed: 210,
   bodyWidth: 86,
   bodyHeight: 64,
   /** How fast it closes on the player's column. */

@@ -43,8 +43,11 @@ export interface SectionPlan {
   comboBias: number;
   /** Metres at the top of the SECTION left empty so the opening reads calmly. */
   graceDepth?: number;
-  /** Per-row chance of an air bubble and of an air pocket. Only meaningful where oxygen is on. */
-  bubbleChance?: number;
+  /**
+   * Per-row chance of an AIR CONTAINER and of a sheltering air pocket, where oxygen is on.
+   * A container holds no air by itself: breaking it releases bubbles that climb away.
+   */
+  containerChance?: number;
   airPocketChance?: number;
   /**
    * Hard ceiling on the metres between two air sources. The generator forces a bubble when the run
@@ -127,9 +130,9 @@ export const AREAS: readonly AreaConfig[] = [
     gimmicks: { oxygen: true },
     water: { gravity: 0.90, responsiveness: 11 },
     plans: [
-      { platformWidth: [150, 174], gap: 236, enemyChance: 0.34, flyChance: 0.26, toughChance: 0.22, heavyChance: 0, comboBias: 0.18, graceDepth: 12, bubbleChance: 0.40, airPocketChance: 0.14, maxOxygenGap: 30, bubbleOffside: 0.35 },
-      { platformWidth: [138, 162], gap: 242, enemyChance: 0.46, flyChance: 0.32, toughChance: 0.30, heavyChance: 0, comboBias: 0.24, bubbleChance: 0.30, airPocketChance: 0.07, maxOxygenGap: 40, bubbleOffside: 0.62 },
-      { platformWidth: [126, 150], gap: 248, enemyChance: 0.56, flyChance: 0.38, toughChance: 0.38, heavyChance: 0, comboBias: 0.28, bubbleChance: 0.22, airPocketChance: 0.04, maxOxygenGap: 50, bubbleOffside: 0.85 },
+      { platformWidth: [150, 174], gap: 236, enemyChance: 0.34, flyChance: 0.26, toughChance: 0.22, heavyChance: 0, comboBias: 0.18, graceDepth: 12, containerChance: 0.30, airPocketChance: 0.14, maxOxygenGap: 30, bubbleOffside: 0.35 },
+      { platformWidth: [138, 162], gap: 242, enemyChance: 0.46, flyChance: 0.32, toughChance: 0.30, heavyChance: 0, comboBias: 0.24, containerChance: 0.22, airPocketChance: 0.07, maxOxygenGap: 40, bubbleOffside: 0.62 },
+      { platformWidth: [126, 150], gap: 248, enemyChance: 0.56, flyChance: 0.38, toughChance: 0.38, heavyChance: 0, comboBias: 0.28, containerChance: 0.17, airPocketChance: 0.04, maxOxygenGap: 50, bubbleOffside: 0.85 },
     ],
   },
   {
@@ -152,12 +155,12 @@ export const AREAS: readonly AreaConfig[] = [
     theme: { wall: 0x241f2e, wallEdge: 0x3c3350, pillar: 0x2d2740, brick: 0x171422, accent: 0xc0a7ed, dust: 0x8c82a5, rift: { glow: 0x9d7bd8, void: 0x0b0710, debris: 0x4a3f63 } },
     gimmicks: { breakablePlatforms: true },
     plans: [
-      { platformWidth: [128, 150], gap: 236, enemyChance: 0.30, flyChance: 0.26, toughChance: 0.16, heavyChance: 0.06, comboBias: 0.24, graceDepth: 26,
-        breakableChance: 0.45, breakDelay: 0.85, maxBreakableRun: 4, enemyExclude: ['ruinBreaker'] },
-      { platformWidth: [118, 138], gap: 242, enemyChance: 0.46, flyChance: 0.40, toughChance: 0.28, heavyChance: 0.12, comboBias: 0.34,
-        breakableChance: 0.76, breakDelay: 0.65, maxBreakableRun: 8 },
-      { platformWidth: [108, 128], gap: 248, enemyChance: 0.58, flyChance: 0.50, toughChance: 0.34, heavyChance: 0.16, comboBias: 0.40,
-        breakableChance: 0.92, breakDelay: 0.55, maxBreakableRun: 14 },
+      { platformWidth: [92, 112], gap: 232, enemyChance: 0.30, flyChance: 0.26, toughChance: 0.16, heavyChance: 0.06, comboBias: 0.24, graceDepth: 26,
+        breakableChance: 1, breakDelay: 0.85, maxBreakableRun: Infinity, enemyExclude: ['ruinBreaker'] },
+      { platformWidth: [84, 102], gap: 238, enemyChance: 0.46, flyChance: 0.40, toughChance: 0.28, heavyChance: 0.12, comboBias: 0.34,
+        breakableChance: 1, breakDelay: 0.72, maxBreakableRun: Infinity },
+      { platformWidth: [76, 94], gap: 244, enemyChance: 0.58, flyChance: 0.50, toughChance: 0.34, heavyChance: 0.16, comboBias: 0.40,
+        breakableChance: 1, breakDelay: 0.62, maxBreakableRun: Infinity },
     ],
   },
 ];

@@ -4,6 +4,11 @@ import { StageProgressionSystem } from '../src/systems/StageProgressionSystem';
 import { StageGenerator } from '../src/systems/StageGenerator';
 import { AREAS, TOTAL_SECTIONS, type AreaId, type SectionId } from '../src/data/areas';
 import { WORLD } from '../src/data/balance';
+import { reachExit } from './exitHelper';
+/** Reach the goal so the exit is laid, without entering it. */
+function reachExitOnly(game: GameModel) {
+  for (let i = 0; i < 40 && !game.exit; i++) { game.player.y = WORLD.startY + (game.sectionLength + 1 + i * 3) * WORLD.pixelsPerMeter; game.player.invincible = 99; game.step(1 / 120, 0, false); }
+}
 
 const atDepth = (metres: number) => WORLD.startY + metres * WORLD.pixelsPerMeter;
 /** Descend to a section-local depth in one step, then take the choice the rest offers. */
@@ -11,7 +16,7 @@ function reachDepth(game: GameModel, metres: number) {
   game.player.y = atDepth(metres); game.player.invincible = 99; game.step(1 / 120, 0, false);
 }
 function clearSection(game: GameModel) {
-  reachDepth(game, game.sectionLength);
+  reachExit(game);
   const choice = game.upgrades.choices[0];
   game.selectUpgrade(choice.id);
   game.confirmUpgrade();
@@ -61,32 +66,57 @@ describe('stage data and progression bookkeeping', () => {
 });
 
 describe('section clear conditions', () => {
-  it('does not clear one metre short and clears exactly once at the goal', () => {
+  it('offers no exit before the goal, and reaching the goal does not end the section', () => {
     const game = new GameModel();
     reachDepth(game, 199);
+    expect(game.exit).toBeNull();
     expect([game.state, game.stage.label]).toEqual(['playing', '1-1']);
+    // The whole point of the change: 200m opens the way out, it does not take the run away.
     reachDepth(game, 200);
+    expect(game.exit).not.toBeNull();
+    expect([game.state, game.stage.label]).toEqual(['playing', '1-1']);
+    reachDepth(game, 205);
+    expect(game.state).toBe('playing');
+  });
+  it('generates a reachable exit past the goal and clears exactly once when entered', () => {
+    const game = new GameModel();
+    const gate = reachExit(game);
+    expect(gate.width).toBeGreaterThan(0);
     expect([game.state, game.stage.label]).toEqual(['upgrade', '1-1']);
     expect(game.events.filter(e => e.type === 'upgrade')).toHaveLength(1);
     game.step(1 / 120, 0, false); game.step(1 / 120, 0, false);
     expect(game.events.filter(e => e.type === 'upgrade')).toHaveLength(1);
     expect(game.completeSection()).toBe(false);
   });
+  it('lays a floor across the shaft at the exit, so nothing can be farmed below it', () => {
+    const game = new GameModel();
+    reachExitOnly(game);
+    expect(game.exit).not.toBeNull();
+    const floor = game.platforms.reduce((low, f) => (f.y > low.y ? f : low), game.platforms[0]);
+    expect(floor.width).toBeGreaterThan(WORLD.width - WORLD.wall * 2 - 2);
+    const deepest = floor.y;
+    // Nothing is generated below the floor, however long the player lingers.
+    for (let i = 0; i < 240; i++) { game.player.invincible = 99; game.step(1 / 120, 0, false); }
+    expect(game.platforms.every(f => f.y <= deepest)).toBe(true);
+    expect(game.enemies.every(e => e.y <= deepest)).toBe(true);
+  });
   it('announces the cleared section and the area finale on the clear event', () => {
     const game = new GameModel();
-    reachDepth(game, 200);
+    reachExit(game);
     expect(game.events.find(e => e.type === 'upgrade')).toMatchObject({ stage: '1-1', areaCleared: null });
     clearSection(game); clearSection(game);
     expect(game.stage.label).toBe('1-3');
     game.events.length = 0;
-    reachDepth(game, 200);
+    reachExit(game);
     expect(game.events.find(e => e.type === 'upgrade')).toMatchObject({ stage: '1-3', areaCleared: 'SURFACE RUINS' });
   });
   it('keeps section depth local while total depth accumulates', () => {
     const game = new GameModel();
     reachDepth(game, 210);
+    // Hunting below the goal for the gate is real descent, but it is never banked: a SECTION is
+    // worth exactly its planned length, so a cleared run still totals 12 x 200m.
     expect(Math.round(game.sectionDepth)).toBe(210);
-    expect(Math.round(game.totalDepth)).toBe(210);
+    expect(Math.round(game.totalDepth)).toBe(200);
     // Overshooting the goal by a frame must not leak into the run total, nor into the next section.
     clearSection(game);
     expect([Math.round(game.sectionDepth), game.completedDepth, Math.round(game.totalDepth)]).toEqual([0, 200, 200]);
@@ -96,7 +126,9 @@ describe('section clear conditions', () => {
   it('banks the planned length however far past the goal the frame landed', () => {
     for (const overshoot of [200, 202, 260, 400]) {
       const game = new GameModel();
+      // However deep the player went hunting for the gate, the SECTION is worth its plan.
       reachDepth(game, overshoot);
+      reachExit(game);
       game.selectUpgrade(game.upgrades.choices[0].id); game.confirmUpgrade();
       expect(game.completedDepth).toBe(200);
       expect(Math.round(game.totalDepth)).toBe(200);
@@ -119,7 +151,7 @@ describe('carrying the run across a section boundary', () => {
     game.ammo = 1; game.combo = 7;
     const before = { hp: game.hp, maxHp: game.health.maxHp, overflow: game.health.overflowHealing };
     expect(before).toEqual({ hp: 3, maxHp: 5, overflow: 3 });
-    reachDepth(game, 200);
+    reachExit(game);
     expect({ hp: game.hp, maxHp: game.health.maxHp, overflow: game.health.overflowHealing }).toEqual(before);
     expect(game.ammo).toBe(1);
     const choice = game.upgrades.choices.find(u => u.category !== 'health')!;
@@ -147,7 +179,7 @@ describe('final boss and game clear', () => {
     const game = new GameModel();
     for (let i = 0; i < TOTAL_SECTIONS - 1; i++) clearSection(game);
     expect(game.stage.label).toBe('4-3');
-    reachDepth(game, 200);
+    reachExit(game);
     expect([game.state, game.stage.boss]).toEqual(['upgrade', false]);
     game.selectUpgrade(game.upgrades.choices[0].id);
     expect(game.confirmUpgrade()).toBe(true);
@@ -216,7 +248,7 @@ describe('development stage jump', () => {
     const game = new GameModel();
     game.jumpToStage(3, 1);
     expect(Math.round(game.totalDepth)).toBe(1200);
-    reachDepth(game, 200);
+    reachExit(game);
     expect([game.state, game.stage.label]).toEqual(['upgrade', '3-1']);
     expect(game.jumpToBoss()).toBe(true);
     expect([game.state, game.stage.label, Math.round(game.totalDepth)]).toEqual(['boss', 'FINAL BOSS', 2400]);

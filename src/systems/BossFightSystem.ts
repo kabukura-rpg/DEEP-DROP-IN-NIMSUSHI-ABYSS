@@ -45,7 +45,7 @@ export class BossFightSystem {
 
   start(playerY: number) {
     this.enabled = true; this.hp = BOSS.maxHp; this.elapsed = 0; this.defeated = false; this.defeatTimer = 0;
-    this.x = WORLD.width / 2; this.y = playerY + (BOSS.minGap + BOSS.maxGap) / 2;
+    this.x = WORLD.width / 2; this.y = playerY + BOSS.restGap;
     this.phaseId = 1; this.shots = []; this.action = null; this.danger = null;
     this.cooldowns.clear();
     for (const attack of BOSS_ATTACKS) this.cooldowns.set(attack.id, attack.cooldown * 0.6);
@@ -82,10 +82,14 @@ export class BossFightSystem {
     if (!this.enabled || !Number.isFinite(dt) || dt <= 0) return signals;
     this.elapsed += dt;
 
-    // Hold station below the player: never so close that a shot cannot be dodged, never so far
-    // that the player cannot answer.
+    // The king rests near the floor of the view. It sinks back to that resting distance at a
+    // limited speed and is never pushed further than maxGap, but it does NOT shove the player
+    // away: diving at it is allowed, all the way down to minGap. That dive is what makes a
+    // short-range weapon usable, and what makes the long-range ones worth their cost.
     const gap = this.y - player.y;
-    const wanted = gap < BOSS.minGap ? BOSS.minGap : gap > BOSS.maxGap ? BOSS.maxGap : gap;
+    const settle = BOSS.settleSpeed * dt;
+    const drifted = gap < BOSS.restGap ? Math.min(BOSS.restGap, gap + settle) : Math.max(BOSS.restGap, gap - settle);
+    const wanted = Math.max(BOSS.minGap, Math.min(BOSS.maxGap, drifted));
     this.y = player.y + wanted;
     // The king only closes in between attacks. Once a wind-up starts it holds its column, so the
     // telegraph marks exactly where the attack will land and stepping aside always works.

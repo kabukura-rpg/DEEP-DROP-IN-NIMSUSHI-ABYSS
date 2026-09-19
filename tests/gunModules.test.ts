@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { GameModel } from '../src/systems/GameModel';
+import { BOSS } from '../src/data/boss';
 import { GunModuleSystem } from '../src/systems/GunModuleSystem';
 import {
   CHARGE_AMMO_BONUS, GUN_MODULES, GUN_MODULE_IDS, STARTING_GUN_MODULE, gunModule, volley, volleyRecoil,
@@ -401,9 +402,13 @@ describe('gun modules across the run', () => {
     game.gun.equip(id);
     game.stats.maxAmmo = 40; game.ammo = 40;
     const before = game.boss.hp;
-    for (let i = 0; i < 240; i++) {
+    const reach = gunModule(id).range;
+    for (let i = 0; i < 360; i++) {
       game.player.invincible = 99; game.ammo = 40;
       game.player.x = game.boss.x;
+      // A short-range weapon only reaches the king by diving at it, which the fight allows down
+      // to BOSS.minGap. A long-range one simply fires from where it already is.
+      if (reach < BOSS.restGap) game.player.y = game.boss.y - Math.max(BOSS.minGap, reach * 0.55);
       game.step(1 / 120, 0, true);
     }
     expect(game.boss.hp).toBeLessThan(before);

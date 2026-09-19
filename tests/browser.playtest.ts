@@ -64,6 +64,7 @@ button('1-1 → 2-1 を通常プレイ', async () => {
   start(); const model = scene.model, deadline = performance.now() + 260000;
   let direction = 0, playingHp = model.hp;
   const rests: string[] = [];
+  let shopsSeen = 0;
   const steer = (next: number) => {
     if (next === direction) return;
     if (direction) key(direction < 0 ? 'KeyA' : 'KeyD', false);
@@ -72,6 +73,14 @@ button('1-1 → 2-1 を通常プレイ', async () => {
   };
   while (performance.now() < deadline) {
     if (model.state === 'over') throw new Error(`${model.stage.label} で死亡`);
+    // A SHOP stops the world until it is dismissed, so a play loop has to answer the door.
+    if (model.state === 'shop') {
+      steer(0);
+      shopsSeen++;
+      document.getElementById('shop-close')?.click();
+      await wait(120);
+      continue;
+    }
     if (model.state === 'upgrade') {
       steer(0);
       await until(() => !!document.getElementById('upgrade-0'), 8000);
@@ -92,7 +101,17 @@ button('1-1 → 2-1 を通常プレイ', async () => {
     const ground = model.platforms.find(p => p.id === model.player.grounded) as RoutePlatform | undefined;
     const next = model.platforms.filter(p => p.y > model.player.y + 15).sort((a, b) => a.y - b.y)[0] as RoutePlatform | undefined;
     const target = ground ? ground.exitX + ground.safeSide * 3 : next?.safeX;
-    steer(target === undefined || Math.abs(target - model.player.x) < 3 ? 0 : Math.sign(target - model.player.x));
+    // A SECTION now ends at the gate. The gate is below, so while a ledge is still underfoot the
+    // route is to step off its edge; only once falling does aiming straight at the gate help.
+    let gate: number | undefined;
+    if (model.exit) {
+      const centre = model.exit.x + model.exit.width / 2;
+      gate = ground && model.exit.y > model.player.y + 40
+        ? (centre < model.player.x ? ground.x - 24 : ground.x + ground.width + 24)
+        : centre;
+    }
+    const heading = gate ?? target;
+    steer(heading === undefined || Math.abs(heading - model.player.x) < 3 ? 0 : Math.sign(heading - model.player.x));
     output.textContent = `キーボード入力のみで通常プレイ\n${model.stage.label} ${Math.floor(model.sectionDepth)} / ${model.sectionLength}m\nTOTAL ${Math.floor(model.totalDepth)}m · HP ${model.hp}/${model.health.maxHp} · AMMO ${model.ammo}\n通過した休憩 ${rests.join(' → ') || 'なし'}`;
     await wait(20);
   }
@@ -297,6 +316,7 @@ button('2-1 → 3-1 を通常プレイ', async () => {
   const deadline = performance.now() + 320000;
   let direction = 0, lowest = model.oxygen.max, collected = 0, sheltered = 0, playingHp = model.hp, lastAir = model.oxygen.max;
   const rests: string[] = [];
+  let shopsSeen = 0;
   const steer = (next: number) => {
     if (next === direction) return;
     if (direction) key(direction < 0 ? 'KeyA' : 'KeyD', false);
@@ -305,6 +325,14 @@ button('2-1 → 3-1 を通常プレイ', async () => {
   };
   while (performance.now() < deadline) {
     if (model.state === 'over') throw new Error(`${model.stage.label} で死亡 (酸素 ${model.oxygen.remaining.toFixed(1)}s)`);
+    // A SHOP stops the world until it is dismissed, so a play loop has to answer the door.
+    if (model.state === 'shop') {
+      steer(0);
+      shopsSeen++;
+      document.getElementById('shop-close')?.click();
+      await wait(120);
+      continue;
+    }
     if (model.state === 'upgrade') {
       steer(0);
       const frozen = model.oxygen.remaining;
@@ -339,7 +367,17 @@ button('2-1 → 3-1 を通常プレイ', async () => {
       ].sort((a, b) => a.y - b.y)[0];
       if (air && Math.abs(air.x - model.player.x) < 170) target = air.x;
     }
-    steer(target === undefined || Math.abs(target - model.player.x) < 3 ? 0 : Math.sign(target - model.player.x));
+    // A SECTION now ends at the gate. The gate is below, so while a ledge is still underfoot the
+    // route is to step off its edge; only once falling does aiming straight at the gate help.
+    let gate: number | undefined;
+    if (model.exit) {
+      const centre = model.exit.x + model.exit.width / 2;
+      gate = ground && model.exit.y > model.player.y + 40
+        ? (centre < model.player.x ? ground.x - 24 : ground.x + ground.width + 24)
+        : centre;
+    }
+    const heading = gate ?? target;
+    steer(heading === undefined || Math.abs(heading - model.player.x) < 3 ? 0 : Math.sign(heading - model.player.x));
     output.textContent = `AREA 2 をキーボード入力のみで通常プレイ\n${model.stage.label} ${Math.floor(model.sectionDepth)} / ${model.sectionLength}m\nOXYGEN ${model.oxygen.remaining.toFixed(1)}s (最低 ${lowest.toFixed(1)}s) ${model.sheltered ? '· AIR POCKET' : ''}\nHP ${model.hp}/${model.health.maxHp} · 取得 ${collected} · 休憩 ${rests.join(' → ') || 'なし'}`;
     await wait(20);
   }
@@ -365,6 +403,7 @@ button('3-1 → 4-1 を通常プレイ', async () => {
   const deadline = performance.now() + 320000;
   let direction = 0, peak = 0, ice = 0, lastHeat = 0, nearMax = 0, playingHp = model.hp, vents = 0;
   const rests: string[] = [];
+  let shopsSeen = 0;
   const steer = (next: number) => {
     if (next === direction) return;
     if (direction) key(direction < 0 ? 'KeyA' : 'KeyD', false);
@@ -373,6 +412,14 @@ button('3-1 → 4-1 を通常プレイ', async () => {
   };
   while (performance.now() < deadline) {
     if (model.state === 'over') throw new Error(`${model.stage.label} で死亡 (${model.health.deathCause?.cause}, HEAT ${model.heat.value.toFixed(0)}%)`);
+    // A SHOP stops the world until it is dismissed, so a play loop has to answer the door.
+    if (model.state === 'shop') {
+      steer(0);
+      shopsSeen++;
+      document.getElementById('shop-close')?.click();
+      await wait(120);
+      continue;
+    }
     if (model.state === 'upgrade') {
       steer(0);
       const frozen = model.heat.value;
@@ -403,7 +450,17 @@ button('3-1 → 4-1 を通常プレイ', async () => {
       const shard = model.pickups.filter(p => !p.taken && p.kind === 'ice' && p.y > model.player.y && p.y < model.player.y + 200).sort((a, b) => a.y - b.y)[0];
       if (shard && Math.abs(shard.x - model.player.x) < 170) target = shard.x;
     }
-    steer(target === undefined || Math.abs(target - model.player.x) < 3 ? 0 : Math.sign(target - model.player.x));
+    // A SECTION now ends at the gate. The gate is below, so while a ledge is still underfoot the
+    // route is to step off its edge; only once falling does aiming straight at the gate help.
+    let gate: number | undefined;
+    if (model.exit) {
+      const centre = model.exit.x + model.exit.width / 2;
+      gate = ground && model.exit.y > model.player.y + 40
+        ? (centre < model.player.x ? ground.x - 24 : ground.x + ground.width + 24)
+        : centre;
+    }
+    const heading = gate ?? target;
+    steer(heading === undefined || Math.abs(heading - model.player.x) < 3 ? 0 : Math.sign(heading - model.player.x));
     output.textContent = `AREA 3 をキーボード入力のみで通常プレイ\n${model.stage.label} ${Math.floor(model.sectionDepth)} / ${model.sectionLength}m\nHEAT ${model.heat.value.toFixed(0)}% (最大 ${peak.toFixed(0)}%) ${model.heat.stage}\nHP ${model.hp}/${model.health.maxHp} · ICE ${ice} · 休憩 ${rests.join(' → ') || 'なし'}`;
     await wait(20);
   }
@@ -435,7 +492,7 @@ button('4-1 → BOSS を通常プレイ', async () => {
   assert(model.stage.config.gimmicks?.breakablePlatforms === true && (model.stage.sectionPlan?.breakableChance ?? 0) > 0,
     `AREA 4 の生成計画に崩壊足場が含まれる (breakableChance ${model.stage.sectionPlan?.breakableChance})`);
   const deadline = performance.now() + 320000;
-  let direction = 0, cracks = 0, collapses = 0, underfoot = 0, reloadsOnBreakable = 0, playingHp = model.hp;
+  let direction = 0, cracks = 0, collapses = 0, underfoot = 0, reloadsOnBreakable = 0, playingHp = model.hp, shopsSeen = 0;
   const rests: string[] = [];
   const steer = (next: number) => {
     if (next === direction) return;
@@ -452,6 +509,14 @@ button('4-1 → BOSS を通常プレイ', async () => {
   while (performance.now() < deadline) {
     if (model.state === 'over') throw new Error(`${model.stage.label} で死亡 (${model.health.deathCause?.cause})`);
     if (model.state === 'boss') break;
+    // A SHOP stops the world until it is dismissed, so a play loop has to answer the door.
+    if (model.state === 'shop') {
+      steer(0);
+      shopsSeen++;
+      document.getElementById('shop-close')?.click();
+      await wait(120);
+      continue;
+    }
     if (model.state === 'upgrade') {
       steer(0);
       await until(() => !!document.getElementById('upgrade-0'), 8000);
@@ -473,7 +538,17 @@ button('4-1 → BOSS を通常プレイ', async () => {
     if (ground?.breakable && model.ammo === model.stats.maxAmmo) reloadsOnBreakable++;
     const next = model.platforms.filter(p => p.y > model.player.y + 15 && p.state !== 'broken').sort((a, b) => a.y - b.y)[0] as RoutePlatform | undefined;
     const target = ground ? ground.exitX + ground.safeSide * 3 : next?.safeX;
-    steer(target === undefined || Math.abs(target - model.player.x) < 3 ? 0 : Math.sign(target - model.player.x));
+    // A SECTION now ends at the gate. The gate is below, so while a ledge is still underfoot the
+    // route is to step off its edge; only once falling does aiming straight at the gate help.
+    let gate: number | undefined;
+    if (model.exit) {
+      const centre = model.exit.x + model.exit.width / 2;
+      gate = ground && model.exit.y > model.player.y + 40
+        ? (centre < model.player.x ? ground.x - 24 : ground.x + ground.width + 24)
+        : centre;
+    }
+    const heading = gate ?? target;
+    steer(heading === undefined || Math.abs(heading - model.player.x) < 3 ? 0 : Math.sign(heading - model.player.x));
     output.textContent = `AREA 4 をキーボード入力のみで通常プレイ\n${model.stage.label} ${Math.floor(model.sectionDepth)} / ${model.sectionLength}m\nヒビ ${cracks} · 崩落 ${collapses} · 崩壊中 ${model.collapse.counting}\nHP ${model.hp}/${model.health.maxHp} · 休憩 ${rests.join(' → ') || 'なし'}`;
     await wait(20);
   }

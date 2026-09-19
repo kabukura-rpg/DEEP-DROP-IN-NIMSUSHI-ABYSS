@@ -21,6 +21,9 @@ export const EVENT_SOUNDS: Record<GameEvent['type'], SoundId | null> = {
   section: null, ice: null, vent: null, crack: null, collapse: null,
   // Picking up a weapon has no sound of its own yet; the swap card carries the feedback.
   gunModule: null,
+  // Money and doorways reuse the existing voices rather than inventing new ones.
+  coin: 'land', containerBreak: 'kill',
+  shopOpen: 'upgrade', shopBuy: 'upgrade', exitReady: 'upgrade', exit: 'upgrade',
   bossHit: null, bossTelegraph: null, bossFire: null, bossPhase: null, bossDown: null,
 };
 /** The sound an event should make, or null when it is silent. Never throws on an unknown type. */

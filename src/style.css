@@ -115,3 +115,20 @@
 .death-cause{border-top:1px solid #33422e;padding:13px 0 0;margin:0 0 20px;text-align:center}
 .death-cause small{display:block;font-size:7px;letter-spacing:2px;color:#8c9c80}
 .death-cause b{display:block;font-size:17px;font-weight:500;letter-spacing:1px;color:var(--pink);margin-top:5px;font-family:'Barlow Condensed',Impact,sans-serif}
+
+/* Money, and the SHOP the player walks into. */
+.purse{text-align:right;margin-left:auto;padding-right:10px}
+.purse span{display:block;font-size:11px;font-weight:700;letter-spacing:1px;color:#ffd479}
+.purse small{display:block;font-size:7px;letter-spacing:1.2px;color:#9aa89b;margin-top:2px}
+.shop-purse{border-top:1px solid #4a4030;border-bottom:1px solid #4a4030;padding:12px 0;margin-bottom:16px;font-size:10px;letter-spacing:1px;color:#cfd8c2}
+.shop-purse b{font-size:22px;color:#ffd479;margin:0 4px}
+.shop-purse small{display:block;font-size:8px;color:#94a08d;margin-top:5px;letter-spacing:.5px}
+.shop-list{display:flex;flex-direction:column;gap:10px;margin-bottom:16px}
+.shop-item{display:block;width:100%;text-align:left;padding:13px 12px;background:#221d33;border:1px solid #4a4166;color:#e6e0f2;min-height:62px}
+.shop-item:hover:not(:disabled){border-color:#ffd479;background:#2e2744}
+.shop-item:disabled{opacity:.42}
+.shop-kind{display:block;font-size:7px;letter-spacing:2px;color:#a79bd0}
+.shop-item strong{display:block;font-size:14px;letter-spacing:.7px;color:#ffd479;margin-top:3px}
+.shop-item small{display:block;font-size:8px;line-height:1.7;color:#aba3c4;margin-top:4px}
+.shop-item b{display:block;font-size:11px;color:#dfe9cf;margin-top:6px;letter-spacing:1px}
+@media(max-height:700px){.purse span{font-size:10px}.shop-item{min-height:54px;padding:10px}.shop-item small{display:none}.shop-purse{padding:9px 0;margin-bottom:11px}}

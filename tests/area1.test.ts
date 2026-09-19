@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest';
+import { reachExit } from './exitHelper';
 import { GameModel } from '../src/systems/GameModel';
 import { StageGenerator, START_PLATFORM, canReachPlatform, type RoutePlatform } from '../src/systems/StageGenerator';
 import { ENEMY_TYPES, enemyType, spawnEnemy, type Enemy, type EnemyKind } from '../src/data/enemies';
@@ -195,8 +196,7 @@ describe('AREA 1 generation safety across seeds', () => {
       for (const label of ['1-1', '1-2', '1-3']) {
         expect(game.stage.label).toBe(label);
         expect(game.stage.sectionPlan).toBe(plan(game.stage.progress.section));
-        game.player.y = WORLD.startY + 201 * WORLD.pixelsPerMeter; game.player.invincible = 99;
-        game.step(1 / 120, 0, false);
+        reachExit(game);
         expect(game.state).toBe('upgrade');
         game.selectUpgrade(game.upgrades.choices[0].id); game.confirmUpgrade();
       }
