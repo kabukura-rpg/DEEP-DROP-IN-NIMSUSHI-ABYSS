@@ -32,7 +32,7 @@ npm run preview
 | スマホの画面をタップ | 射撃 |
 | 画面下部の ← / → / FIRE | 移動・連射。複数指で同時操作可能 |
 
-ジャンプはありません。射撃反動は落下を減速し、上昇速度を発生させません。踏みつけだけは上向きにバウンドします。着地すると全弾を補充し、コンボを終了します。足場の端から歩いて再び落下します。空中で弾は自然回復しません。
+ACTIONは1つです。接地中は**ジャンプ**、空中は**射撃**になります（`JUMP.impulse` は原作未計測の暫定値）。射撃反動は落下を減速し、上昇速度を発生させません。踏みつけは上向きにバウンドし、CHARGEを全回復し、コンボは続きます。着地はCHARGEを全回復し、そこで**コンボを精算**します。空中で弾は自然回復しません。CHARGEは残り1以上なら武器コスト未満でも最後の1射を撃てます（消費後は0）。
 
 「操作を試す / CONTROL LAB」は敵のいない足場1枚の練習画面です。画面下に落ちると上から再開します。Esc でタイトルに戻れます。
 
@@ -44,7 +44,7 @@ npm run preview
 - 空中コンボ、段階的スコア倍率、深度と難易度の進行
 - チャンク生成と古いオブジェクトの破棄
 - 区間クリアから呼び出せる休憩・3択強化（10種類、カテゴリ分散・スタック上限・選択確認）
-- HPの一元管理、FOOD、余剰回復4ポイントでLIFE UP、25コンボでHP +1
+- HPの一元管理、FOOD、余剰回復4ポイントでLIFE UP、25コンボ以上で着地精算時にHP +1
 - 4 AREA × 3 SECTION + FINAL BOSS のステージ進行。各SECTIONは区間内200mで CLEAR。休憩では自動回復しません
 - AREA 1「SURFACE RUINS」は3SECTIONぶんの生成レシピを持ち、1-1から1-3へ足場が狭く敵が濃くなります
 - AREA 2「SUNKEN RUINS」はOXYGEN・泡・エアポケット・水中物理を追加。酸素はSECTION開始で満タン、休憩・ポーズ中は減りません
@@ -110,9 +110,9 @@ npm run preview
 
 HPの正本は `HealthSystem`。`GameModel.damage(amount, cause)` / `heal(amount)` / `killInstantly(cause)` を入口に利用してください。敵・oxygen・heatなどは通常ダメージ、lavaなどは無敵時間を無視する即死として区別し、最終被弾・死亡原因を記録します。現在はOXYGEN / HEATゲージ自体はありません。追加時はゲームの停止条件とシミュレーション時間を使用し、独立した実時間タイマーを動かさないでください。
 
-FOODはHPを4回復し、超過分を余剰回復へ蓄積。余剰4ごとに最大HPを1増やし、4を消費して残りを保持します。新しい1HPも埋めます（`HEALTH_RULES.fillNewHeart`で変更可）。25コンボでHP +1、満タンなら余剰 +1。同一コンボの26以降は再発動せず、着地・被弾でコンボが切れた後に再取得できます。
+FOODはHPを4回復し、超過分を余剰回復へ蓄積。余剰4ごとに最大HPを1増やし、4を消費して残りを保持します。新しい1HPも埋めます（`HEALTH_RULES.fillNewHeart`で変更可）。コンボ報酬は**着地精算**です：8以上でCOIN、15以上でCOIN + MAX CHARGE +1、25以上でCOIN + MAX CHARGE +1 + HP +1。段位は`src/data/combo.ts`の`COMBO_TIERS`にあり、COIN値は暫定です。満タンのHP +1は従来どおり余剰へ回ります。
 
-進行の正本は `StageProgressionSystem`（AREA / SECTION / 4-3後のBOSS遷移 / 1-1へのリセット）、AREA定義は `src/data/areas.ts`。SECTION CLEAR の判定は区間内の `sectionDepth` のみで、`totalDepth` は記録用に累積します。`confirmUpgrade()` が強化を1回適用してから次SECTIONを開始し、プレイヤー位置・速度・カメラ・生成状態をリセット、弾薬を満タンに補充、コンボを0に戻します。HP・MAX HP・余剰回復・取得強化・スタックはランの状態として引き継ぎ、AREA境界でも初期化しません。生成器には `depthOffset`（= 累積深度）を渡すため、SECTIONごとに地形を作り直しても難易度はラン全体で進みます。`new GameModel(false, random, 'endless')` はSECTION CLEARを止める検証用モードです。
+進行の正本は `StageProgressionSystem`（AREA / SECTION / 4-3後のBOSS遷移 / 1-1へのリセット）、AREA定義は `src/data/areas.ts`。SECTION CLEAR の判定は区間内の `sectionDepth` のみで、`totalDepth` は記録用に累積します。`confirmUpgrade()` が強化を1回適用してから次SECTIONを開始し、プレイヤー位置・速度・カメラ・生成状態をリセット、CHARGEを満タンに補充します。**コンボはSECTION／AREA／BOSS遷移をまたいで維持**されます（休憩は着地ではないため精算しません）。HP・MAX HP・余剰回復・取得強化・スタックはランの状態として引き継ぎ、AREA境界でも初期化しません。生成器には `depthOffset`（= 累積深度）を渡すため、SECTIONごとに地形を作り直しても難易度はラン全体で進みます。`new GameModel(false, random, 'endless')` はSECTION CLEARを止める検証用モードです。
 
 敵は `src/data/enemies.ts` の1テーブルが正本です。`stompable` が踏めるかどうかの唯一の判定材料で、衝突処理は種類を見ずにこのフラグだけを読みます。`silhouette` は描画形状（blob / wing / shell / brute）で、踏めない敵は色ではなく甲羅・トゲ・装甲で区別します。AREAは `enemyPool` で出現する敵を選び、AREA 1は slime / bat / armoredSlime のみです。
 

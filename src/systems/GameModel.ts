@@ -1,4 +1,4 @@
-import { WORLD, initialStats } from '../data/balance';
+import { WORLD, JUMP, initialStats } from '../data/balance';
 import { StageGenerator, START_PLATFORM, type Enemy, type Platform, type RoutePlatform } from './StageGenerator';
 import { OxygenSystem } from './OxygenSystem';
 import { HeatSystem } from './HeatSystem';
@@ -15,13 +15,13 @@ import { BOSS, type BossPhase } from '../data/boss';
 import { hazardBounds, hazardType, ventStateAt, type Hazard } from '../data/hazards';
 import { pickupType, spawnPickup, type Pickup } from '../data/pickups';
 import { HealthSystem, type DamageCause } from './HealthSystem';
-import { COMBO_RULES, comboRewardFor } from '../data/combo';
+import { comboTierFor } from '../data/combo';
 import { UpgradeSystem } from './UpgradeSystem';
 import { StageProgressionSystem } from './StageProgressionSystem';
 import type { AreaId, SectionId } from '../data/areas';
 import { enemyType } from '../data/enemies';
 import { defaultTuning, sanitizeTuning, type PhysicsTuning } from './PhysicsTuning';
-export type GameEvent = { type: 'shot' | 'empty' | 'land' | 'kill' | 'hurt' | 'upgrade' | 'over' | 'heal' | 'boss' | 'clear' | 'oxygen' | 'section' | 'ice' | 'vent' | 'crack' | 'collapse' | 'bossHit' | 'bossTelegraph' | 'bossFire' | 'bossPhase' | 'bossDown' | 'gunModule' | 'coin' | 'shopOpen' | 'shopBuy' | 'exitReady' | 'exit' | 'containerBreak' | 'blockCrack' | 'blockBreak' | 'comboReward'; x: number; y: number; value?: number; stomp?: boolean; lifeUps?: number; overflow?: number; combo?: number; stage?: string; areaCleared?: string | null; bonus?: 'heart' | 'charge'; source?: { id: number; kind: Enemy['kind']; x: number; y: number } };
+export type GameEvent = { type: 'shot' | 'empty' | 'land' | 'kill' | 'hurt' | 'upgrade' | 'over' | 'heal' | 'boss' | 'clear' | 'oxygen' | 'section' | 'ice' | 'vent' | 'crack' | 'collapse' | 'bossHit' | 'bossTelegraph' | 'bossFire' | 'bossPhase' | 'bossDown' | 'gunModule' | 'coin' | 'shopOpen' | 'shopBuy' | 'exitReady' | 'exit' | 'containerBreak' | 'blockCrack' | 'blockBreak' | 'jump' | 'comboSettle'; x: number; y: number; value?: number; stomp?: boolean; lifeUps?: number; overflow?: number; combo?: number; stage?: string; areaCleared?: string | null; bonus?: 'heart' | 'charge'; source?: { id: number; kind: Enemy['kind']; x: number; y: number } };
 export interface Bullet {
   x: number; y: number; previousY: number; previousX: number;
   /** Velocity in px/s. Straight-down weapons simply carry vx = 0. */
@@ -95,11 +95,10 @@ export class GameModel {
   get sectionLength() { return this.stage.sectionLength; }
   kills = 0;
   private comboValue = 0;
-  private comboRewardClaimed = false;
-  /** Rewards already paid out this run, so the table rotates instead of repeating. */
-  private comboRewardsGranted = 0;
   get combo() { return this.comboValue; }
-  set combo(value: number) { this.comboValue = value; if (value === 0) this.comboRewardClaimed = false; }
+  set combo(value: number) { this.comboValue = value; }
+  /** Raw ACTION state last step, so a held button jumps once rather than every frame. */
+  private actionHeld = false;
   maxCombo = 0;
   killScore = 0;
   cameraY = 0;
@@ -153,7 +152,9 @@ export class GameModel {
     const def = this.gun.module;
     this.cooldown = def.fireInterval;
     const p = this.player;
-    if (this.ammo < def.ammoCost) { this.emit('empty', p.x, p.y); return; }
+    // The last round always fires. A volley costs what it costs, but a magazine with anything left
+    // in it can pay for one more shot; only an empty one refuses. Spending is clamped at zero.
+    if (this.ammo <= 0) { this.emit('empty', p.x, p.y); return; }
     this.fireVolley(def.ammoCost, 0);
   }
   /** One trigger frame. The equipped module decides whether anything leaves the barrel. */
@@ -182,6 +183,21 @@ export class GameModel {
       });
     }
     this.emit('shot', p.x, p.y + 20);
+  }
+  /**
+   * The ground half of ACTION. A jump leaves the floor at a fixed impulse -- see JUMP in
+   * data/balance, which is a placeholder until the original is measured -- and deliberately peaks
+   * well short of one row, so it repositions the player and starts a fall without ever undoing
+   * descent already made.
+   */
+  jump() {
+    const p = this.player;
+    if (!this.running || p.grounded === -1) return false;
+    p.vy = -JUMP.impulse;
+    p.grounded = -1;
+    this.lastAirShot = -Infinity;
+    this.emit('jump', p.x, p.y);
+    return true;
   }
   /** Swap the equipped weapon and hand out the crate's bonus through the ordinary systems. */
   equipGunModule(id: GunModuleId, bonus: 'heart' | 'charge') {
@@ -213,7 +229,22 @@ export class GameModel {
     // so stepping off one onto its neighbour is an ordinary landing and reloads in full, exactly as
     // stepping between ledges does everywhere else. A player who runs dry against a block walks one
     // block over and comes back with a full magazine; the block keeps the hits it has already taken.
-    this.fireGun(dt, direction, firing);
+    //
+    // ONE ACTION, read by where the player is standing: on the ground it jumps, in the air it fires
+    // the gunboots. Every input route -- keyboard, the FIRE button, a tap anywhere on the frame --
+    // arrives here as `firing`, so there is no second path that could shoot from the ground.
+    const pressed = firing && !this.actionHeld;
+    this.actionHeld = firing;
+    if (p.grounded !== -1) {
+      // Standing: the gunboots are not in use. The gun is still ticked with the trigger released so
+      // its timers keep running and the next press in the air reads as a fresh one; any request it
+      // returns is dropped, which is what makes "grounded ACTION never shoots" true without
+      // exception -- including for the tail of a burst that was paid for before landing.
+      this.gun.update(dt, false, this.ammo);
+      if (pressed) this.jump();
+    } else {
+      this.fireGun(dt, direction, firing);
+    }
     p.y += p.vy * dt;
     for (const e of this.enemies) {
       e.flash = Math.max(0, e.flash - dt);
@@ -277,8 +308,9 @@ export class GameModel {
     if (p.vy >= 0 && p.grounded === -1) {
       const land = this.platforms.filter(f => f.state !== 'broken' && p.x + 9 > f.x && p.x - 9 < f.x + f.width && oldY + 15 <= f.y && p.y + 15 >= f.y).sort((a, b) => a.y - b.y)[0];
       if (land) {
-        p.y = land.y - 15; p.vy = 0; p.grounded = land.id; this.ammo = this.stats.maxAmmo; this.combo = 0; this.lastAirShot = -Infinity;
+        p.y = land.y - 15; p.vy = 0; p.grounded = land.id; this.lastAirShot = -Infinity;
         this.emit('land', p.x, land.y);
+        this.settleLanding();
         // A collapsing ledge still reloads in full; it just starts counting from this moment.
         if (this.collapse.land(land)) this.events.push({ type: 'crack', x: p.x, y: land.y, value: this.collapse.delay });
       }
@@ -650,20 +682,22 @@ export class GameModel {
     this.heat.reset(!this.practice && this.stage.config.gimmicks?.heat === true);
     this.collapse.reset(this.stage.sectionPlan?.breakDelay ?? BREAK_RULES.delay);
     this.generator = new StageGenerator(this.random, { depthOffset: this.completedDepth, plan: this.stage.sectionPlan, enemyPool: this.stage.enemyPool, water: this.stage.config.water, oxygen: this.oxygen.enabled, heat: this.heat.enabled, breakable: !this.practice && this.stage.config.gimmicks?.breakablePlatforms === true, sectionLength: this.practice || this.state === 'boss' || !this.stage.enabled ? undefined : this.stage.sectionLength, shop: this.shop.available });
-    this.ammo = this.stats.maxAmmo;
-    this.combo = 0;
+    this.reloadCharge();
+    // COMBO deliberately survives: a SECTION boundary is not a landing, and the rest point banks
+    // nothing. A chain carried out of 1-1 is still live at the top of 1-2.
     this.generate();
     // One signal for every way a SECTION can begin: run start, NEXT, or a development jump.
     this.events.push({ type: 'section', x: p.x, y: p.y, stage: this.stage.label });
   }
-  heal(amount: number, comboReward = false) {
+  heal(amount: number) {
     const result = this.health.heal(amount);
-    if (result.restored || result.overflow || result.lifeUps) this.events.push({ type: 'heal', combo: comboReward ? this.combo : undefined, x: this.player.x, y: this.player.y, value: result.restored, overflow: result.overflow, lifeUps: result.lifeUps });
+    if (result.restored || result.overflow || result.lifeUps) this.events.push({ type: 'heal', x: this.player.x, y: this.player.y, value: result.restored, overflow: result.overflow, lifeUps: result.lifeUps });
     return result;
   }
   damage(amount: number, cause: DamageCause = 'enemy', source?: Enemy) {
     if (!this.health.damage(amount, cause)) return false;
-    this.combo = 0;
+    // Being hit costs HP and nothing else: only a landing ends a chain. Losing a long chain to one
+    // unlucky contact is what made holding a combo feel arbitrary rather than risky.
     if (source) source.hurtFlash = 0.3;
     this.events.push({ type: 'hurt', x: this.player.x, y: this.player.y, source: source ? { id: source.id, kind: source.kind, x: source.x, y: source.y } : undefined });
     return true;
@@ -672,7 +706,9 @@ export class GameModel {
   hurt(source?: Enemy) { this.damage(1, source ? enemyType(source.kind).damageCause : 'enemy', source); }
   private kill(enemy: Enemy, stomp: boolean) {
     enemy.alive = false; this.kills++; this.combo++; this.maxCombo = Math.max(this.combo, this.maxCombo);
-    if (this.combo >= COMBO_RULES.rewardAt && !this.comboRewardClaimed) this.grantComboReward();
+    // Landing on a head is not landing on the ground: it refills CHARGE and the chain carries on,
+    // which is the whole reason a stomp is worth going out of the way for.
+    if (stomp) this.reloadCharge();
     const type = enemyType(enemy.kind);
     if (type.onDefeat === 'shatterNearby') {
       const hit = this.collapse.shatter(this.platforms, enemy.x, enemy.y);
@@ -687,22 +723,42 @@ export class GameModel {
     this.killScore += points; this.events.push({ type: 'kill', x: enemy.x, y: enemy.y, value: points, stomp, combo: this.combo });
   }
   /**
-   * The COMBO payout. It fires once per chain -- `comboRewardClaimed` is cleared the moment COMBO
-   * returns to zero, which every landing and every hit taken does -- and never interrupts the run:
-   * no screen, no choice, just the reward and a label in the shaft.
-   *
-   * The reward is applied through applyModuleBonus, exactly the call a gun-module crate and a shop
-   * purchase use, so HealthSystem still owns healing, overflow and LIFE UP and a combo reward can
-   * never behave differently from any other way the game hands out the same thing.
+   * Fill the magazine. This is ONE of the two things a landing does, and it is deliberately its own
+   * call: a stomp reloads without banking a chain, and a future Safe Zone will need the same.
+   * Reloading must never imply settling.
    */
-  private grantComboReward() {
-    this.comboRewardClaimed = true;
-    const reward = comboRewardFor(this.comboRewardsGranted++);
-    // A heart routes through heal() rather than applyModuleBonus so the existing overflow and
-    // LIFE UP feedback still reaches the player.
-    if (reward.bonus === 'heart') this.heal(1, true);
-    else this.applyModuleBonus('charge');
-    this.events.push({ type: 'comboReward', x: this.player.x, y: this.player.y, value: this.combo, combo: this.combo, bonus: reward.bonus, stage: reward.label });
+  reloadCharge() { this.ammo = this.stats.maxAmmo; }
+  /**
+   * Bank the chain. The tier table decides what a landing at this COMBO is worth; the DEEPEST tier
+   * it qualifies for is paid once, never the shallower ones as well. COIN goes out through the
+   * ordinary CoinSystem drop, so it scatters and is collected exactly as a corpse's money is, and
+   * a heart goes through HealthSystem so overflow and LIFE UP behave as they always have.
+   *
+   * Nothing here interrupts the run: no screen, no choice, just the payout and a label in the shaft.
+   */
+  settleCombo() {
+    const combo = this.combo;
+    const tier = comboTierFor(combo);
+    this.combo = 0;
+    if (!tier) return undefined;
+    const p = this.player;
+    if (tier.coins > 0) this.coins.burst(p.x, p.y, tier.coins, this.random);
+    if (tier.maxCharge > 0) {
+      this.stats.maxAmmo += tier.maxCharge;
+      // The chain's own reward should not leave the player a round short of their new maximum.
+      this.ammo = this.stats.maxAmmo;
+    }
+    if (tier.hearts > 0) this.heal(tier.hearts);
+    this.events.push({ type: 'comboSettle', x: p.x, y: p.y, value: combo, combo, stage: tier.label });
+    return tier;
+  }
+  /**
+   * What touching down on ordinary ground does, in one place: every kind of floor -- a plain ledge,
+   * a BREAK BLOCK, an AREA 4 collapsing ledge -- goes through this rather than repeating it.
+   */
+  private settleLanding() {
+    this.reloadCharge();
+    this.settleCombo();
   }
   private finish() { if (this.state === 'over' || this.state === 'clear') return; this.state = 'over'; this.emit('over', this.player.x, this.player.y); }
   private generate() {

@@ -6,7 +6,10 @@ import { AREAS, type SectionId, PLANNED_TOTAL_DEPTH } from '../src/data/areas';
 import { WORLD } from '../src/data/balance';
 import { pickupType } from '../src/data/pickups';
 import { UPGRADES } from '../src/data/upgrades';
-import { COMBO_RULES, comboRewardFor } from '../src/data/combo';
+// The watchdog behind the word "unassisted" lives in its own file so it can be unit-tested; see
+// tests/assistWatch.test.ts, which proves it restores the model and still tells cheating from play.
+import { watchForAssists } from './assistWatch';
+import { COMBO_TIERS, comboTierFor } from '../src/data/combo';
 import { isSpike } from '../src/data/hazards';
 import { BREAK_BLOCK_RULES } from '../src/data/structures';
 import type Phaser from 'phaser';
@@ -66,7 +69,7 @@ button('通常のランを開始', async () => { start(); });
 // Requirement 22: play 1-1 -> rest -> 1-2 -> rest -> 1-3 -> rest -> 2-1 with keyboard input only.
 button('1-1 → 2-1 を通常プレイ', async () => {
   start(); const model = scene.model, deadline = performance.now() + 260000;
-  let direction = 0, playingHp = model.hp;
+  let direction = 0, playingHp = model.hp, firing = false;
   const rests: string[] = [];
   let shopsSeen = 0;
   const steer = (next: number) => {
@@ -75,18 +78,19 @@ button('1-1 → 2-1 を通常プレイ', async () => {
     direction = next;
     if (direction) key(direction < 0 ? 'KeyA' : 'KeyD', true);
   };
+  const act = (on: boolean) => { if (on !== firing) { key('Space', on); firing = on; } };
   while (performance.now() < deadline) {
     if (model.state === 'over') throw new Error(`${model.stage.label} で死亡`);
     // A SHOP stops the world until it is dismissed, so a play loop has to answer the door.
     if (model.state === 'shop') {
-      steer(0);
+      steer(0); act(false);
       shopsSeen++;
       document.getElementById('shop-close')?.click();
       await wait(120);
       continue;
     }
     if (model.state === 'upgrade') {
-      steer(0);
+      steer(0); act(false);
       await until(() => !!document.getElementById('upgrade-0'), 8000);
       const cleared = model.stage.label, before = { hp: model.hp, max: model.health.maxHp, overflow: model.health.overflowHealing, stacks: Object.values(model.upgrades.stacks).reduce((a, b) => a + b, 0) };
       assert(model.hp === playingHp, `${cleared} クリアで休憩：HPは ${model.hp}/${model.health.maxHp} のまま回復しない`);
@@ -95,7 +99,7 @@ button('1-1 → 2-1 を通常プレイ', async () => {
       await wait(90);
       rests.push(cleared);
       assert(model.health.maxHp >= before.max && model.health.overflowHealing >= 0 && Object.values(model.upgrades.stacks).reduce((a, b) => a + b, 0) === before.stacks + 1, `${cleared} 強化を1つだけ適用`);
-      assert(model.ammo === model.stats.maxAmmo && model.combo === 0 && model.sectionDepth < 5, `${model.stage.label} 開始：弾数満タン・コンボ0・SECTION深度0`);
+      assert(model.ammo === model.stats.maxAmmo && model.sectionDepth < 5, `${model.stage.label} 開始：CHARGE満タン・SECTION深度0`);
       playingHp = model.hp;
       if (model.stage.label === '2-1') break;
       continue;
@@ -107,12 +111,18 @@ button('1-1 → 2-1 を通常プレイ', async () => {
     const target = ground ? ground.exitX + ground.safeSide * 3 : next?.safeX;
     // A SECTION now ends at the gate; gateHeading knows how to leave a ledge to reach it.
     const gate = model.exit ? gateHeading(model, ground) : undefined;
-    const heading = gate ?? target;
+    // A gate row is the one thing steering cannot solve: ACTION on the block hops off it, and ACTION
+    // in the air above it is the gunboots. Both halves are needed -- hopping alone just loops.
+    const block = model.platforms.filter(f => f.breakBlock && f.state !== 'broken' && f.y > model.player.y - 4).sort((a, b) => a.y - b.y)[0];
+    const overBlock = !!block && model.player.x + 9 > block.x && model.player.x - 9 < block.x + block.width;
+    const working = !!ground?.breakBlock || (!ground && overBlock);
+    act(working && model.ammo > 0);
+    const heading = working ? (block ? block.x + block.width / 2 : model.player.x) : (gate ?? target);
     steer(heading === undefined || Math.abs(heading - model.player.x) < 3 ? 0 : Math.sign(heading - model.player.x));
-    output.textContent = `キーボード入力のみで通常プレイ\n${model.stage.label} ${Math.floor(model.sectionDepth)} / ${model.sectionLength}m\nTOTAL ${Math.floor(model.totalDepth)}m · HP ${model.hp}/${model.health.maxHp} · AMMO ${model.ammo}\n通過した休憩 ${rests.join(' → ') || 'なし'}`;
+    output.textContent = `キーボード入力のみで通常プレイ\n${model.stage.label} ${Math.floor(model.sectionDepth)} / ${model.sectionLength}m\nTOTAL ${Math.floor(model.totalDepth)}m · HP ${model.hp}/${model.health.maxHp} · AMMO ${model.ammo} · COMBO ${model.combo}\n通過した休憩 ${rests.join(' → ') || 'なし'}`;
     await wait(20);
   }
-  steer(0); pause();
+  steer(0); act(false); pause();
   assert(rests.join(' ') === '1-1 1-2 1-3', `1-1 → 1-2 → 1-3 を通常プレイで踏破 (${rests.join(' → ')})`);
   assert(model.stage.label === '2-1' && model.stage.progress.area === 2, 'AREA 1 クリア後に AREA 2 / 2-1 へ');
   assert(scene.model === model && model.totalDepth > 600, `同一ランを継続し TOTAL DEPTH を累積 (${Math.floor(model.totalDepth)}m)`);
@@ -231,47 +241,168 @@ button('満タンFOOD → LIFE UP', async () => {
   assert(model.hp === 5 && model.health.maxHp === 5 && model.health.overflowHealing === 0, '満タンでFOOD → HP 5/5・余剰0');
   pause();
 });
-// The COMBO reward, against the one threshold the game now has. There is no 25 COMBO spec left:
-// HEALTH_RULES no longer carries comboRewardAt/comboHealing, and data/combo.ts owns all of it.
-button(`${COMBO_RULES.rewardAt} COMBO報酬・1チェーン1回`, async () => {
+// ACTION is one input read by where the player is standing. These drive the real app with real
+// key events, so what is measured is what a player's finger does.
+button('ACTION：地上=ジャンプ / 空中=射撃', async () => {
   start(); const model = scene.model;
-  model.hp = 2; model.combo = COMBO_RULES.rewardAt - 1; model.platforms = []; model.stats.piercing = true;
-  const extra = 3;
-  model.enemies = Array.from({ length: 1 + extra }, (_, i) => enemy('slime', 225, 260 + i * 46, 9500 + i));
-  const paid: string[] = [];
+  model.platforms = [{ id: 5100, x: 120, y: model.player.y + 60, width: 220, breakable: false, state: 'stable' }];
+  model.enemies = []; model.hazards = [];
+  await until(() => model.player.grounded === 5100, 6000);
+  await wait(120);
+  const floor = model.player.y;
+  let shots = 0, jumps = 0;
   const original = bridge.onEvent;
-  bridge.onEvent = (event, game) => { original(event, game); if (event.type === 'comboReward') paid.push(`${event.value}:${event.bonus}`); };
-  key('Space', true); await wait(30); key('Space', false);
-  await until(() => model.combo === COMBO_RULES.rewardAt + extra);
-  bridge.active = false; bridge.onEvent = original;
-  output.textContent += `\n支払い: ${paid.join(', ') || 'なし'} / HP ${model.hp}`;
-  assert(paid.length === 1, `実撃破で${COMBO_RULES.rewardAt + extra}連鎖 → 報酬はチェーン中1回だけ`);
-  assert(paid[0] === `${COMBO_RULES.rewardAt}:${comboRewardFor(0).bonus}`, `${COMBO_RULES.rewardAt}ちょうどでテーブル1行目を支払う`);
-  assert(model.hp === 3, 'HP +1 がHealthSystem経由で入る');
-  assert(document.getElementById('hearts')!.getAttribute('aria-label') === 'HP 3 / 4', '回復をHUDに反映');
-  assert(model.state === 'playing' && !model.paused, '報酬でランは一切止まらない');
+  bridge.onEvent = (event, game) => { original(event, game); if (event.type === 'shot') shots++; if (event.type === 'jump') jumps++; };
+  // Ground ACTION. The scene runs several fixed steps per animation frame, so nothing outside the
+  // simulation can hold the player down between them -- which is why the frame-exact claim ("a
+  // grounded frame emits no shot at all") is proven in tests/downwellCore.test.ts, where the model
+  // is stepped one frame at a time. What the real app can show, and what matters to the player, is
+  // the ORDER: pressing ACTION while standing produces a JUMP first, never a shot.
+  const order: string[] = [];
+  bridge.onEvent = (event, game) => { original(event, game); if (event.type === 'shot') { shots++; order.push('shot'); } if (event.type === 'jump') { jumps++; order.push('jump'); } };
+  key('Space', true); await wait(1000 / 60); key('Space', false);
+  await wait(200);
+  const apex = floor - model.player.y;
+  output.textContent += `\n地上ACTION → ${order.join(' → ') || 'なし'} / 上昇 ${Math.round(apex)}px`;
+  assert(order[0] === 'jump', `地上のACTIONがまず返すのはジャンプ（実際: ${order.join(' → ') || 'なし'}）`);
+  assert(jumps === 1, '単発のACTIONでジャンプは1回');
+  assert(model.player.grounded === -1 && apex > 20, `実際に床を離れた（+${Math.round(apex)}px）`);
+  // A shot AFTER the jump is the rule working, not a violation: once the player is airborne the
+  // same held ACTION is the gunboots. What must never happen is a shot before the jump.
+  assert(order.indexOf("shot") === -1 || order.indexOf("shot") > order.indexOf("jump"), `弾が出るのはジャンプより後だけ（${order.join(" → ")}）`);
+  // Air ACTION: the same input, now a shot.
+  model.platforms = [];
+  model.player.y = 200; model.player.vy = 0;
+  shots = 0; jumps = 0;
+  key('Space', true); await wait(120); key('Space', false);
+  await wait(120);
+  bridge.onEvent = original; bridge.active = false;
+  output.textContent += `\n空中ACTION → ジャンプ ${jumps} / 射撃 ${shots}`;
+  assert(shots > 0, '空中の同じACTIONで真下へ射撃した');
+  assert(jumps === 0, '空中ではジャンプしない');
 });
-button(`${COMBO_RULES.rewardAt} COMBO満タン余剰 → 次チェーンは別の報酬`, async () => {
+button('CHARGE：初期8 と 最後の1射', async () => {
+  start(); const model = scene.model;
+  assert(model.ammo === 8 && model.stats.maxAmmo === 8, `新規ランは CHARGE 8/8（実測 ${model.ammo}/${model.stats.maxAmmo}）`);
+  for (const id of ['laser', 'shotgun'] as const) {
+    model.platforms = []; model.enemies = []; model.hazards = [];
+    model.player.y = 200; model.player.vy = 0; model.player.grounded = -1;
+    model.gun.equip(id);
+    model.ammo = 1;
+    let shots = 0;
+    const original = bridge.onEvent;
+    bridge.onEvent = (event, game) => { original(event, game); if (event.type === 'shot') shots++; };
+    key('Space', true); await wait(80); key('Space', false); await wait(120);
+    bridge.onEvent = original;
+    output.textContent += `\n${id} cost ${model.gun.module.ammoCost} / 残1から発射 ${shots} / 残 ${model.ammo}`;
+    assert(shots > 0, `${id}：コスト未満でも最後の1射は撃てる`);
+    assert(model.ammo === 0, `${id}：撃った後は 0（マイナスにならない）`);
+    model.ammo = 0;
+    shots = 0;
+    bridge.onEvent = (event, game) => { original(event, game); if (event.type === 'shot') shots++; };
+    key('Space', true); await wait(200); key('Space', false); await wait(80);
+    bridge.onEvent = original;
+    assert(shots === 0, `${id}：0 では撃てない`);
+  }
+  bridge.active = false;
+});
+button('踏みつけ：CHARGE全回復・コンボ継続', async () => {
+  start(); const model = scene.model;
+  model.platforms = []; model.hazards = [];
+  model.player.y = 180; model.player.vy = 0; model.player.grounded = -1;
+  model.ammo = model.stats.maxAmmo;
+  // Spend some CHARGE in the air first, so the refill is visible.
+  key('Space', true); await wait(260); key('Space', false); await wait(60);
+  const spent = model.ammo;
+  assert(spent < model.stats.maxAmmo, `空中射撃で CHARGE が減った（${spent}/${model.stats.maxAmmo}）`);
+  model.combo = 6;
+  model.player.y = 180; model.player.vy = 320;
+  model.enemies = [enemy('slime', model.player.x, model.player.y + 40, 9700)];
+  await until(() => model.combo === 7, 4000);
+  await wait(60);
+  bridge.active = false;
+  output.textContent += `\n踏みつけ後: COMBO ${model.combo} / CHARGE ${model.ammo}/${model.stats.maxAmmo} / vy ${model.player.vy.toFixed(0)}`;
+  assert(model.combo === 7, '踏みつけで COMBO +1（精算されない）');
+  assert(model.ammo === model.stats.maxAmmo, '踏みつけで CHARGE 全回復');
+  assert(model.player.grounded === -1, '踏みつけ後も空中のまま');
+});
+button('被弾・SECTION跨ぎでコンボ維持', async () => {
+  start(); const model = scene.model;
+  model.platforms = []; model.enemies = []; model.hazards = [];
+  model.combo = 11;
+  model.player.invincible = 0;
+  const hp = model.hp;
+  model.enemies = [enemy('armoredSlime', model.player.x, model.player.y + 30, 9800)];
+  await until(() => model.hp < hp, 5000);
+  await wait(60);
+  assert(model.combo === 11, `被弾してもコンボ維持（HP ${hp}→${model.hp} / COMBO ${model.combo}）`);
+  // Now out through the gate and on into the next SECTION.
+  model.enemies = []; model.player.invincible = 99;
+  const label = model.stage.label;
+  for (let i = 0; i < 60 && !model.exit; i++) { keepAwake(); model.player.y = WORLD.startY + (model.sectionLength + 1 + i * 3) * WORLD.pixelsPerMeter; await wait(16); }
+  assert(!!model.exit, 'EXIT が出た');
+  model.player.x = model.exit!.x + model.exit!.width / 2; model.player.y = model.exit!.y + model.exit!.height / 2;
+  await until(() => scene.model.state === 'upgrade', 5000);
+  assert(scene.model.combo === 11, 'REST に入ってもコンボ維持');
+  await until(() => !!document.getElementById('upgrade-confirm'), 5000);
+  document.getElementById('upgrade-0')!.click(); document.getElementById('upgrade-confirm')!.click();
+  await wait(200);
+  bridge.active = false;
+  output.textContent += `\n${label} → ${scene.model.stage.label} / COMBO ${scene.model.combo}`;
+  assert(scene.model.stage.label !== label, `次の SECTION へ進んだ（${scene.model.stage.label}）`);
+  assert(scene.model.combo === 11, 'SECTION 跨ぎでもコンボ維持');
+});
+// COMBO is banked by LANDING now, in tiers. These drive it through real collision kills and a
+// real touchdown, so what is measured is what the player actually gets.
+for (const tier of COMBO_TIERS) button(`${tier.at} COMBO 着地精算（${tier.label}）`, async () => {
   start(); const model = scene.model;
   model.platforms = []; model.stats.piercing = true;
-  const chain = async (ids: number) => {
-    model.platforms = []; model.player.y = 180; model.player.vy = 0; model.player.grounded = -1;
-    model.combo = COMBO_RULES.rewardAt - 1;
-    model.enemies = [enemy('slime', 225, 260, ids)];
-    model.ammo = model.stats.maxAmmo;
-    key('Space', true); await wait(30); key('Space', false);
-    await until(() => model.combo >= COMBO_RULES.rewardAt);
-  };
-  await chain(9600);
-  assert(model.hp === 4 && model.health.overflowHealing === 1, `満タンで${COMBO_RULES.rewardAt}連鎖 → 余剰 1/4 へ`);
-  // Break the chain the way the game does, then earn a second one: the table rotates.
-  const magazine = model.stats.maxAmmo;
-  model.combo = 0;
-  await chain(9610);
+  model.player.y = 180; model.player.vy = 0; model.player.grounded = -1;
+  // Build the chain out of real kills, then touch down on an ordinary ledge.
+  model.enemies = Array.from({ length: tier.at }, (_, i) => enemy('slime', 225, 240 + i * 26, 9500 + i));
+  key('Space', true); await wait(40); key('Space', false);
+  await until(() => model.maxCombo >= tier.at, 6000);
+  // The corpses that built the chain drop their own COIN, and some is still in the air. Sweep the
+  // loose money and take the baseline AFTER that, so what is measured is the settlement alone.
+  model.enemies = [];
+  model.coins.clearLoose();
+  await wait(120);
+  model.coins.clearLoose();
+  const before = { coins: model.coins.scoreCoins, maxAmmo: model.stats.maxAmmo, hp: model.hp, overflow: model.health.overflowHealing };
+  const paid: string[] = [];
+  const original = bridge.onEvent;
+  bridge.onEvent = (event, game) => { original(event, game); if (event.type === 'comboSettle') paid.push(`${event.value}:${event.stage}`); };
+  model.combo = tier.at;
+  model.ammo = 0;
+  model.platforms = [{ id: 4242, x: 120, y: model.player.y + 60, width: 210, breakable: false, state: 'stable' }];
+  await until(() => model.player.grounded === 4242, 6000);
+  await wait(400);
+  bridge.onEvent = original; bridge.active = false;
+  const got = { coins: model.coins.scoreCoins - before.coins, maxAmmo: model.stats.maxAmmo - before.maxAmmo, hp: model.hp - before.hp + (model.health.overflowHealing - before.overflow) };
+  output.textContent += `\n精算: ${paid.join(', ') || 'なし'} / COIN +${got.coins} / MAX CHARGE +${got.maxAmmo} / HP +${got.hp}`;
+  assert(paid.length === 1, `${tier.at} COMBO で着地 → 精算は1回だけ`);
+  assert(model.combo === 0, '精算後に COMBO は 0');
+  assert(model.ammo === model.stats.maxAmmo, '着地で CHARGE FULL');
+  assert(got.coins === tier.coins, `COIN +${tier.coins}`);
+  assert(got.maxAmmo === tier.maxCharge, `MAX CHARGE +${tier.maxCharge}`);
+  assert(got.hp === tier.hearts, `HP +${tier.hearts}`);
+  assert(model.state === 'playing' && !model.paused, '精算でランは止まらない');
+  pause();
+});
+button('7 COMBO 着地 → 報酬なし', async () => {
+  start(); const model = scene.model;
+  model.platforms = []; model.player.y = 180; model.player.vy = 0; model.player.grounded = -1;
+  const before = { coins: model.coins.scoreCoins, maxAmmo: model.stats.maxAmmo, hp: model.hp };
+  model.combo = COMBO_TIERS[0].at - 1;
+  model.ammo = 0;
+  model.platforms = [{ id: 4243, x: 120, y: model.player.y + 60, width: 210, breakable: false, state: 'stable' }];
+  await until(() => model.player.grounded === 4243, 6000);
+  await wait(300);
   bridge.active = false;
-  output.textContent += `\nMAX AMMO ${magazine} → ${model.stats.maxAmmo}`;
-  assert(comboRewardFor(1).bonus === 'charge', '報酬テーブルの2行目はITEM側');
-  assert(model.stats.maxAmmo > magazine && model.ammo === model.stats.maxAmmo, '2チェーン目は別の報酬（MAX AMMO）になる');
+  assert(comboTierFor(COMBO_TIERS[0].at - 1) === undefined, `${COMBO_TIERS[0].at - 1} は精算の段位に届かない`);
+  assert(model.combo === 0, '届かなくても着地で COMBO は 0 になる');
+  assert(model.ammo === model.stats.maxAmmo, '届かなくても着地で CHARGE FULL');
+  assert(model.coins.scoreCoins === before.coins && model.stats.maxAmmo === before.maxAmmo && model.hp === before.hp, '報酬は一切出ない');
 });
 // SPIKE: instant death terrain, in the running game, drawn by the real renderer.
 button('SPIKE 即死（AREA 1-3 / AREA 2-3）', async () => {
@@ -461,8 +592,8 @@ button('2-1 → 3-1 を通常プレイ', async () => {
       await wait(90);
       if (model.stage.progress.area === 3) break;
       // Tolerance: a few frames of the new section have already run by the time this reads back.
-      assert(model.oxygen.remaining > model.oxygen.max - 0.5 && model.ammo === model.stats.maxAmmo && model.combo === 0,
-        `${model.stage.label} 開始で酸素 ${model.oxygen.remaining.toFixed(1)}s / ${model.oxygen.max}s・弾薬 ${model.ammo}/${model.stats.maxAmmo}・コンボ ${model.combo}`);
+      assert(model.oxygen.remaining > model.oxygen.max - 0.5 && model.ammo === model.stats.maxAmmo,
+        `${model.stage.label} 開始で酸素 ${model.oxygen.remaining.toFixed(1)}s / ${model.oxygen.max}s・CHARGE ${model.ammo}/${model.stats.maxAmmo}（COMBO ${model.combo} は跨いで維持）`);
       playingHp = model.hp; lowest = model.oxygen.max; lastAir = model.oxygen.max;
       continue;
     }
@@ -537,7 +668,7 @@ button('3-1 → 4-1 を通常プレイ', async () => {
       document.getElementById('upgrade-confirm')!.click();
       await wait(90);
       if (model.stage.progress.area === 4) break;
-      assert(model.heat.value < 1 && model.ammo === model.stats.maxAmmo && model.combo === 0, `${model.stage.label} 開始でHEAT 0%・弾薬満タン・コンボ0`);
+      assert(model.heat.value < 1 && model.ammo === model.stats.maxAmmo, `${model.stage.label} 開始でHEAT 0%・CHARGE満タン（COMBO ${model.combo} は跨いで維持）`);
       playingHp = model.hp; peak = 0; lastHeat = 0;
       continue;
     }
@@ -627,7 +758,7 @@ button('4-1 → BOSS を通常プレイ', async () => {
       if (scene.model.state === 'boss') break;
       assert(model.collapse.counting === 0 && model.platforms.every(f => f.state === 'stable'),
         `${model.stage.label} 開始で崩壊状態がリセットされる`);
-      assert(model.ammo === model.stats.maxAmmo && model.combo === 0, `${model.stage.label} 開始で弾薬満タン・コンボ0`);
+      assert(model.ammo === model.stats.maxAmmo, `${model.stage.label} 開始で CHARGE 満タン（COMBO ${model.combo} は跨いで維持）`);
       playingHp = model.hp;
       continue;
     }
@@ -654,64 +785,6 @@ button('4-1 → BOSS を通常プレイ', async () => {
   assert(scene.model.boss.enabled && scene.model.boss.phaseId === 1, 'FINAL BOSS 戦が PHASE 1 で始まっている');
 });
 
-
-/**
- * Proof that a check did not cheat.
- *
- * The old test asked "did HP go up?", which is the wrong question: picking up a HEART crate that
- * the shaft generated and walking into it is ordinary play, and so is any future in-game reward.
- * What actually makes a run assisted is THIS FILE calling an API that hands the player something
- * the game would not have. So each of those APIs is wrapped for the duration of the check and only
- * records a violation when the call came from the harness -- the game calling heal() because the
- * player collected a HEART does not appear, because that stack has no harness frame in it.
- */
-function watchForAssists(model: GameModel) {
-  const used: string[] = [];
-  /**
-   * Only a DIRECT call from this file counts. Scanning the whole stack does not work: the long
-   * checks call game.loop.wake() to keep a headless pane running, and Phaser steps the scene inside
-   * that call -- so an ordinary round of the player's hitting the king arrives with
-   *
-   *     [1] the wrapper  [2] GameModel.step  [3] GameScene.update  ...  [n] browser.playtest
-   *
-   * and a whole-stack search reports the player's own shooting as assistance. The caller is frame 2:
-   * frame 0 is the Error line and frame 1 is this wrapper.
-   */
-  const callerIsHarness = (stack: string | undefined) => ((stack ?? '').split('\n')[2] ?? '').includes('browser.playtest');
-  const undo: (() => void)[] = [];
-  const patch = (owner: object, key: string, label: string) => {
-    const target = owner as Record<string, unknown>;
-    const original = target[key] as (...args: unknown[]) => unknown;
-    if (typeof original !== 'function') return;
-    target[key] = function (this: unknown, ...args: unknown[]) {
-      // Captured here rather than in a helper: the frame layout is then fixed and readable --
-      // [0] the Error line, [1] this wrapper, [2] whoever called the API.
-      if (callerIsHarness(new Error().stack)) used.push(label);
-      return original.apply(this ?? owner, args);
-    };
-    undo.push(() => { target[key] = original; });
-  };
-  patch(model, 'heal', 'model.heal');
-  patch(model.health, 'heal', 'health.heal');
-  patch(model.health, 'lifeUp', 'health.lifeUp');
-  patch(model.health, 'killInstantly', 'health.killInstantly');
-  patch(model, 'killInstantly', 'model.killInstantly');
-  patch(model.boss, 'damage', 'boss.damage');
-  patch(model, 'clearBoss', 'clearBoss');
-  // Invincibility is a plain field, so it needs a property trap rather than a wrapper.
-  const player = model.player as unknown as Record<string, unknown>;
-  let invincible = player.invincible as number;
-  Object.defineProperty(player, 'invincible', {
-    configurable: true,
-    get: () => invincible,
-    set: (value: number) => { if (callerIsHarness(new Error().stack)) used.push('player.invincible'); invincible = value; },
-  });
-  undo.push(() => {
-    delete player.invincible;
-    player.invincible = invincible;
-  });
-  return { used, stop: () => { for (const restore of undo) restore(); } };
-}
 
 /**
  * Heading for the gate. While a ledge is still underfoot the player has to step off its edge --
@@ -790,13 +863,27 @@ function descendPlan(model: GameModel): { target: number | undefined; fire: bool
 
   if (model.exit) target = gateHeading(model, ground);
 
-  // A BREAK BLOCK row spans the shaft: there is no way round it, only through it. Standing on a
-  // block, shoot straight down to open THAT one -- and when the magazine runs dry, step onto the
-  // neighbour and back, which is an ordinary landing and reloads in full.
-  if (ground?.breakBlock) {
-    if (model.ammo >= model.gun.module.ammoCost) return { target: p.x, fire: true };
-    const room = ground.x + ground.width < WORLD.width - WORLD.wall - 4;
-    return { target: room ? ground.x + ground.width + 14 : ground.x - 14, fire: false };
+  // ACTION is read by where the player is standing, so the bot has to be too. On the ground it is a
+  // JUMP and produces no shot at all -- holding it there would only make the run hop in place.
+  if (ground) {
+    // A BREAK BLOCK row spans the shaft: the only way on is through it. Hop off the block so the
+    // very next frames are airborne and the gunboots can be pointed straight down at it. Out of
+    // rounds, step onto the neighbour instead -- an ordinary landing, and an ordinary full reload.
+    if (ground.breakBlock) {
+      if (model.ammo > 0) return { target: p.x, fire: true };
+      const room = ground.x + ground.width < WORLD.width - WORLD.wall - 4;
+      return { target: room ? ground.x + ground.width + 14 : ground.x - 14, fire: false };
+    }
+    return { target, fire: false };
+  }
+  // Airborne directly over a gate row: keep the gunboots on it. Hopping off a block is only half
+  // the move -- without this the run lands, jumps, lands and jumps again forever, which is exactly
+  // what it did the first time the ACTION rule changed underneath it.
+  const blockBelow = model.platforms
+    .filter(f => f.breakBlock && f.state !== 'broken' && f.y > p.y)
+    .sort((a, b) => a.y - b.y)[0];
+  if (blockBelow && model.ammo > 0 && p.x + 9 > blockBelow.x && p.x - 9 < blockBelow.x + blockBelow.width) {
+    return { target: blockBelow.x + blockBelow.width / 2, fire: true };
   }
 
   // The core of the game: shoot what is under you, and use the recoil to brake a long fall.

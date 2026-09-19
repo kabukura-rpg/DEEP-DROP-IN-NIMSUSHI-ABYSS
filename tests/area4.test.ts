@@ -338,7 +338,8 @@ describe('AREA 4 boundaries', () => {
       game.confirmUpgrade();
       expect(game.stage.label).toBe(label);
       expect({ hp: game.hp, maxHp: game.health.maxHp, overflow: game.health.overflowHealing }).toEqual(before);
-      expect([game.ammo, game.combo]).toEqual([game.stats.maxAmmo, 0]);
+      // The chain carries across the boundary; only a landing settles it.
+      expect([game.ammo, game.combo]).toEqual([game.stats.maxAmmo, 6]);
     }
   });
 });

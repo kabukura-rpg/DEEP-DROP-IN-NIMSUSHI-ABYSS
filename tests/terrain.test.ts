@@ -50,9 +50,46 @@ function bare(area: AreaId, section: SectionId) {
   game.player.invincible = 0;
   return game;
 }
-const tick = (game: GameModel, seconds: number, direction = 0, fire = false) => {
-  for (let i = 0; i < Math.round(seconds * 120); i++) game.step(1 / 120, direction, fire);
+const tick = (game: GameModel, seconds: number, direction = 0, action = false) => {
+  for (let i = 0; i < Math.round(seconds * 120); i++) game.step(1 / 120, direction, action);
 };
+/**
+ * Open one named block the way the game is actually played: ACTION on the ground is a JUMP, so the
+ * loop is hop off the block and shoot down at it from just above. Running dry is handled the way it
+ * always was -- step onto the neighbour and back for an ordinary landing reload, which is still the
+ * only resupply a gate row needs. Ends the moment that block is gone.
+ */
+function openBlock(game: GameModel, block: Platform, limitSeconds = 40) {
+  let seek = 1;
+  for (let i = 0; i < 120 * limitSeconds; i++) {
+    if (!game.platforms.includes(block)) return true;
+    const standing = game.platforms.find(f => f.id === game.player.grounded);
+    if (standing) {
+      if (game.ammo <= 0) {
+        const before = game.player.grounded;
+        game.step(1 / 120, seek, false);
+        if (game.player.grounded !== before && game.player.grounded !== -1) seek = -seek;
+        continue;
+      }
+      game.step(1 / 120, 0, true);                       // ACTION on the ground: jump
+      continue;
+    }
+    // Airborne: ACTION is the gunboots. Stay over the block so the rounds land on it.
+    const centre = block.x + block.width / 2;
+    const steer = Math.abs(centre - game.player.x) < 5 ? 0 : Math.sign(centre - game.player.x);
+    game.step(1 / 120, steer, i % 4 < 2);
+  }
+  return false;
+}
+/** Drop through the gap a broken block left, steering into it as a player would. */
+function fallThrough(game: GameModel, hole: Platform, seconds = 1.5) {
+  const centre = hole.x + hole.width / 2;
+  for (let i = 0; i < 120 * seconds && game.player.y < hole.y + 60; i++) {
+    const steer = Math.abs(centre - game.player.x) < 4 ? 0 : Math.sign(centre - game.player.x);
+    game.step(1 / 120, steer, false);
+  }
+  return game.player.y > hole.y + 60;
+}
 
 describe('SPIKE is instant death, not a large hit', () => {
   it('ends a run at full health the moment it is touched, and names SPIKES', () => {
@@ -193,26 +230,6 @@ describe('BREAK BLOCK: a row of separate blocks, not one slab', () => {
     game.player.vy = 240;
     return { game, row, durability, y, width };
   };
-  /** Shoot straight down until whatever is underfoot gives way, playing as a player would. */
-  const openUnderfoot = (game: GameModel, limitSeconds = 40) => {
-    let seek = 1;
-    for (let i = 0; i < 120 * limitSeconds; i++) {
-      const standing = game.platforms.find(f => f.id === game.player.grounded);
-      if (!standing) return true;                                   // through the hole
-      const spent = game.ammo < game.gun.module.ammoCost;
-      if (spent) {
-        // Out of rounds: step onto the neighbouring block and back. That is an ordinary landing,
-        // so it reloads in full -- no special case exists for gates any more.
-        const before = game.player.grounded;
-        game.step(1 / 120, seek, false);
-        if (game.player.grounded !== before && game.player.grounded !== -1) seek = -seek;
-        continue;
-      }
-      game.step(1 / 120, 0, i % 20 < 10);
-    }
-    return false;
-  };
-
   it('lays several blocks side by side, edge to edge, spanning the shaft', () => {
     for (const area of [1, 2, 3] as const) for (const s of [2, 3] as const) {
       for (let seed = 1; seed <= 10; seed++) {
@@ -258,7 +275,7 @@ describe('BREAK BLOCK: a row of separate blocks, not one slab', () => {
     tick(game, 0.6);
     const standing = game.platforms.find(f => f.id === game.player.grounded) as Platform;
     expect(standing.breakBlock).toBeDefined();
-    expect(openUnderfoot(game)).toBe(true);
+    expect(openBlock(game, standing)).toBe(true);
     expect(game.platforms).not.toContain(standing);
     expect(standing.breakBlock!.hits).toBe(durability);
     // Every other block is exactly as it was: no shared counter, no chain reaction.
@@ -272,13 +289,12 @@ describe('BREAK BLOCK: a row of separate blocks, not one slab', () => {
     const { game, row, y } = withRow(1, 3);
     tick(game, 0.6);
     const standing = game.platforms.find(f => f.id === game.player.grounded) as Platform;
-    expect(openUnderfoot(game)).toBe(true);
+    expect(openBlock(game, standing)).toBe(true);
     expect(game.platforms.filter(b => b.breakBlock).length).toBe(row.length - 1);
     // The gap is wider than the player, so nothing is scraping through on a pixel.
     expect(standing.width).toBeGreaterThan(22);
-    tick(game, 0.6);
+    expect(fallThrough(game, standing)).toBe(true);
     expect(game.player.y).toBeGreaterThan(y + 60);
-    expect(game.player.grounded).toBe(-1);
   });
   it('can be opened by every one of the seven gun modules, with no special resupply', () => {
     const modules = Object.keys(GUN_MODULES) as GunModuleId[];
@@ -289,9 +305,11 @@ describe('BREAK BLOCK: a row of separate blocks, not one slab', () => {
       expect(game.player.grounded).not.toBe(-1);
       game.gun.equip(id);
       game.ammo = 0;                                     // arrive spent, the way a fight leaves you
-      const through = openUnderfoot(game);
-      tick(game, 0.6);
-      expect({ id, through, below: game.player.y > y + 40 }).toEqual({ id, through: true, below: true });
+      const standing = game.platforms.find(f => f.id === game.player.grounded) as Platform;
+      const through = openBlock(game, standing);
+      const below = through && fallThrough(game, standing);
+      expect({ id, through, below }).toEqual({ id, through: true, below: true });
+      expect({ id, y: game.player.y > y + 40 }).toEqual({ id, y: true });
     }
   });
   it('is terrain work: no COMBO, no kill, no kill event, and no weapon rearm', () => {
@@ -313,14 +331,16 @@ describe('BREAK BLOCK: a row of separate blocks, not one slab', () => {
   it('never calls rearm(): a BURST already paid for finishes its rounds through the break', () => {
     const game = bare(1, 3);
     const block: Platform = { id: 88, x: WORLD.wall, y: game.player.y + 40, width: 120, breakable: false, state: 'stable', breakBlock: { hits: 0, durability: 1, slot: 0 } };
-    game.platforms = [block]; game.player.x = block.x + 40; game.player.vy = 240;
-    tick(game, 0.6);
+    game.platforms = [block]; game.player.x = block.x + 40; game.player.y = block.y - 90; game.player.vy = 0;
     game.gun.equip('burst');
     game.stats.maxAmmo = 20; game.ammo = 20;
+    // Airborne above the block, so ACTION is the gunboots and the burst is bought in the air.
+    expect(game.player.grounded).toBe(-1);
     game.step(1 / 120, 0, true);
     expect(game.gun.bursting).toBe(true);
-    game.step(1 / 120, 0, false);
+    for (let i = 0; i < 30 && game.platforms.includes(block); i++) game.step(1 / 120, 0, false);
     expect(game.platforms).not.toContain(block);
+    // The rounds the press already paid for are still owed: a break is not a boundary.
     expect(game.gun.bursting).toBe(true);
   });
   it('shares nothing with the AREA 4 collapse system', () => {
@@ -350,12 +370,12 @@ describe('BREAK BLOCK drops COIN through the ordinary money path', () => {
   const dropped = (game: GameModel) => game.coins.coins.length + game.coins.scoreCoins;
   it('drops below the chance and stays empty above it', () => {
     const lucky = oneBlock(() => BREAK_BLOCK_RULES.coinChance / 2);
-    for (let i = 0; i < 120 && lucky.game.platforms.includes(lucky.block); i++) lucky.game.step(1 / 120, 0, i % 20 < 10);
+    openBlock(lucky.game, lucky.block, 20);
     expect(lucky.game.platforms).not.toContain(lucky.block);
     expect(dropped(lucky.game)).toBe(BREAK_BLOCK_RULES.coins);
 
     const unlucky = oneBlock(() => Math.min(0.999, BREAK_BLOCK_RULES.coinChance + (1 - BREAK_BLOCK_RULES.coinChance) / 2));
-    for (let i = 0; i < 120 && unlucky.game.platforms.includes(unlucky.block); i++) unlucky.game.step(1 / 120, 0, i % 20 < 10);
+    openBlock(unlucky.game, unlucky.block, 20);
     expect(unlucky.game.platforms).not.toContain(unlucky.block);
     expect(dropped(unlucky.game)).toBe(0);
   });
@@ -368,7 +388,7 @@ describe('BREAK BLOCK drops COIN through the ordinary money path', () => {
       const game = new GameModel(true, random);
       const block: Platform = { id: 60, x: WORLD.wall, y: game.player.y + 40, width: 160, breakable: false, state: 'stable', breakBlock: { hits: 0, durability: 1, slot: 0 } };
       game.platforms = [block]; game.player.x = block.x + 80; game.player.vy = 240;
-      for (let i = 0; i < 240 && game.platforms.includes(block); i++) game.step(1 / 120, 0, game.player.grounded === block.id && i % 20 < 10);
+      openBlock(game, block, 20);
       if (game.coins.coins.length + game.coins.scoreCoins) drops++;
     }
     expect(Math.abs(drops / runs - BREAK_BLOCK_RULES.coinChance)).toBeLessThan(0.06);
@@ -377,7 +397,7 @@ describe('BREAK BLOCK drops COIN through the ordinary money path', () => {
     const { game, block } = oneBlock(() => BREAK_BLOCK_RULES.coinChance / 2);
     expect([game.coins.walletCoins, game.coins.scoreCoins]).toEqual([0, 0]);
     game.events.length = 0;
-    for (let i = 0; i < 120 && game.platforms.includes(block); i++) game.step(1 / 120, 0, i % 20 < 10);
+    openBlock(game, block, 20);
     // The coin pops out where the player is standing, so CoinSystem sweeps it up on its own; keep
     // stepping in case it scattered first.
     for (let i = 0; i < 240 && game.coins.walletCoins === 0; i++) game.step(1 / 120, 0, false);

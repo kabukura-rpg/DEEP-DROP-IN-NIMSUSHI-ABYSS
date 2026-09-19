@@ -3,7 +3,7 @@ import { GameModel } from '../src/systems/GameModel';
 import { StageProgressionSystem } from '../src/systems/StageProgressionSystem';
 import { StageGenerator } from '../src/systems/StageGenerator';
 import { AREAS, TOTAL_SECTIONS, type AreaId, type SectionId, PLANNED_TOTAL_DEPTH } from '../src/data/areas';
-import { WORLD } from '../src/data/balance';
+import { WORLD, initialStats } from '../src/data/balance';
 import { reachExit } from './exitHelper';
 /** Reach the goal so the exit is laid, without entering it. */
 function reachExitOnly(game: GameModel) {
@@ -155,7 +155,7 @@ describe('section clear conditions', () => {
 });
 
 describe('carrying the run across a section boundary', () => {
-  it('keeps HP, MAX HP, overflow and upgrades while refilling ammo and clearing combo', () => {
+  it('keeps HP, MAX HP, overflow, upgrades AND the live chain while refilling ammo', () => {
     const game = new GameModel();
     game.heal(4); game.heal(3); game.damage(2);
     game.ammo = 1; game.combo = 7;
@@ -168,7 +168,8 @@ describe('carrying the run across a section boundary', () => {
     game.selectUpgrade(choice.id); game.confirmUpgrade();
     expect({ hp: game.hp, maxHp: game.health.maxHp, overflow: game.health.overflowHealing }).toEqual(before);
     expect(game.upgrades.stacks[choice.id]).toBe(1);
-    expect([game.ammo, game.combo, game.sectionDepth, game.state]).toEqual([game.stats.maxAmmo, 0, 0, 'playing']);
+    // COMBO survives the boundary: a rest point is not a landing and banks nothing.
+    expect([game.ammo, game.combo, game.sectionDepth, game.state]).toEqual([game.stats.maxAmmo, 7, 0, 'playing']);
     expect([game.player.y, game.player.vy, game.player.grounded, game.cameraY]).toEqual([WORLD.startY, 0, -1, 0]);
     expect(game.platforms.length).toBeGreaterThan(1);
   });
@@ -233,7 +234,7 @@ describe('death and retry', () => {
     expect([retry.stage.label, retry.stage.clearedSections]).toEqual(['1-1', 0]);
     expect([retry.sectionDepth, retry.totalDepth, retry.combo, retry.kills, retry.maxCombo]).toEqual([0, 0, 0, 0, 0]);
     expect([retry.hp, retry.health.maxHp, retry.health.overflowHealing]).toEqual([4, 4, 0]);
-    expect([retry.ammo, retry.stats.maxAmmo, retry.state]).toEqual([6, 6, 'playing']);
+    expect([retry.ammo, retry.stats.maxAmmo, retry.state]).toEqual([initialStats().maxAmmo, initialStats().maxAmmo, 'playing']);
     expect(retry.upgrades.stacks).toEqual({});
   });
   it('play again after a clear starts a fresh 1-1 run', () => {

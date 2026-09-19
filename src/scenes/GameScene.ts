@@ -3,7 +3,6 @@ import { GameModel, type GameEvent } from '../systems/GameModel';
 import type { Enemy } from '../systems/StageGenerator';
 import { WORLD } from '../data/balance';
 import { comboFeedback } from '../systems/ComboFeedback';
-import { COMBO_RULES } from '../data/combo';
 import { InputBuffer } from '../systems/InputBuffer';
 import { enemyType } from '../data/enemies';
 import { pickupType } from '../data/pickups';
@@ -81,22 +80,24 @@ export class GameScene extends Phaser.Scene {
   }
   private dispatchEvents() {
     for (const event of this.model.events.splice(0)) {
-      if (event.type === 'shot' || event.type === 'empty') this.inputBuffer.consumeShot();
+      if (event.type === 'shot' || event.type === 'empty' || event.type === 'jump') this.inputBuffer.consumeShot();
       this.effect(event); this.bridge.onEvent(event, this.model);
     }
   }
   private effect(event: GameEvent) {
     if (event.type === 'shot') { this.shake = Math.max(this.shake, 1.2); this.burst(event.x, event.y, 0xf6ffc2, 5); }
     if (event.type === 'land') { this.burst(event.x, event.y, 0xb9ef70, 9); this.label(event.x, event.y - 20, 'RELOADED', '#b9ef70', 12); }
-    if (event.type === 'heal') this.label(event.x, event.y - 48, event.lifeUps ? `LIFE UP! MAX HP +${event.lifeUps}` : `${event.combo ? `${COMBO_RULES.rewardAt} COMBO · ` : ''}${event.value ? `HP +${event.value}` : `LIFE +${event.overflow}`}`, '#b9ef70', 13);
+    if (event.type === 'heal') this.label(event.x, event.y - 48, event.lifeUps ? `LIFE UP! MAX HP +${event.lifeUps}` : event.value ? `HP +${event.value}` : `LIFE +${event.overflow}`, '#b9ef70', 13);
     if (event.type === 'empty') this.label(event.x, event.y - 30, '弾切れ / 足場へ', '#f99bae', 11);
     if (event.type === 'crack') { this.burst(event.x, event.y, 0xe8d48a, 7); if (event.value) this.label(event.x, event.y - 22, 'CRACK!', '#e8d48a', 11); }
     if (event.type === 'collapse') { this.shake = Math.max(this.shake, 2.4); this.burst(event.x, event.y, 0x8f7ac4, 16); }
     // A block that held: say how many more rounds THIS one needs, so durability is never a guess.
     if (event.type === 'blockCrack') { this.shake = Math.max(this.shake, 1.4); this.burst(event.x, event.y, 0xffc27a, 8); this.label(event.x, event.y - 24, `あと${event.value}発`, '#ffc27a', 12); }
     if (event.type === 'blockBreak') { this.shake = Math.max(this.shake, 2.8); this.burst(event.x, event.y, 0xffd2a0, 22); this.label(event.x, event.y - 24, 'OPEN!', '#ffd2a0', 15); }
-    // The COMBO payout never opens a screen, so the shaft itself has to carry it.
-    if (event.type === 'comboReward') { this.flash = Math.max(this.flash, 0.08); this.burst(event.x, event.y, 0xf4e9ad, 24); this.label(event.x, event.y - 62, `${event.value} COMBO · ${event.stage ?? ''}`, '#f4e9ad', 16); }
+    // A ground jump: a small puff, no screen shake, nothing that reads as a shot.
+    if (event.type === 'jump') this.burst(event.x, event.y + 15, 0xb9ef70, 6);
+    // The chain being banked. It never opens a screen, so the shaft itself has to carry it.
+    if (event.type === 'comboSettle') { this.flash = Math.max(this.flash, 0.08); this.burst(event.x, event.y, 0xf4e9ad, 24); this.label(event.x, event.y - 62, `${event.value} COMBO · ${event.stage ?? ''}`, '#f4e9ad', 16); }
     if (event.type === 'bossHit') { this.burst(event.x, event.y, 0xd9a0ff, 6); this.shake = Math.max(this.shake, 1.4); }
     if (event.type === 'bossFire') this.shake = Math.max(this.shake, 2.2);
     if (event.type === 'bossDown') { this.shake = 6; this.flash = 0.16; this.burst(event.x, event.y, 0xffd2a0, 40); this.label(event.x, event.y - 40, 'BOSS DEFEATED', '#ffd2a0', 18); }

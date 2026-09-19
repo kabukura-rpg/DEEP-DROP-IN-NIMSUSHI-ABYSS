@@ -74,11 +74,11 @@ describe('MACHINE GUN', () => {
   it('spends one round per shot and fires while held', () => {
     const game = armed('machine');
     hold(game, 1 / 120, 0, true);
-    expect(game.ammo).toBe(5);
+    expect(game.ammo).toBe(initialStats().maxAmmo - GUN_MODULES.machine.ammoCost);
     expect(game.bullets).toHaveLength(1);
-    hold(game, 1.0, 0, true);
+    hold(game, 1.6, 0, true);
     expect(game.ammo).toBe(0);
-    expect(shots(game)).toBeGreaterThanOrEqual(6);
+    expect(shots(game)).toBeGreaterThanOrEqual(initialStats().maxAmmo);
   });
   it('brakes a fall by the standard recoil without ever lifting', () => {
     const game = armed('machine');
@@ -100,7 +100,7 @@ describe('BURST', () => {
     const game = armed('burst');
     hold(game, 0.30, 0, true);
     expect(shots(game)).toBe(3);
-    expect(game.ammo).toBe(3);
+    expect(game.ammo).toBe(initialStats().maxAmmo - GUN_MODULES.burst.ammoCost);
   });
   it('is point fire, not a single triple-wide volley', () => {
     const game = armed('burst');
@@ -136,7 +136,7 @@ describe('LASER', () => {
   it('costs four and carries high damage a long way', () => {
     const game = armed('laser');
     game.shoot();
-    expect(game.ammo).toBe(2);
+    expect(game.ammo).toBe(initialStats().maxAmmo - GUN_MODULES.laser.ammoCost);
     const shot = game.bullets[0];
     expect(shot.damage).toBe(3);
     expect(shot.range).toBeGreaterThan(GUN_MODULES.machine.range);
@@ -189,7 +189,7 @@ describe('PUNCHER', () => {
   it('costs two and throws a big, slow, hard-hitting round', () => {
     const game = armed('puncher');
     game.shoot();
-    expect(game.ammo).toBe(4);
+    expect(game.ammo).toBe(initialStats().maxAmmo - GUN_MODULES.puncher.ammoCost);
     const shot = game.bullets[0];
     expect(shot.damage).toBe(3);
     expect(shot.size).toBeGreaterThan(GUN_MODULES.machine.projectileSize * 2);
@@ -215,7 +215,7 @@ describe('SHOTGUN', () => {
   it('costs five and throws a fan of pellets', () => {
     const game = armed('shotgun');
     hold(game, 1 / 120, 0, true);
-    expect(game.ammo).toBe(1);
+    expect(game.ammo).toBe(initialStats().maxAmmo - GUN_MODULES.shotgun.ammoCost);
     expect(game.bullets).toHaveLength(5);
     const lateral = game.bullets.map(b => b.vx);
     expect(Math.min(...lateral)).toBeLessThan(0);
@@ -245,7 +245,7 @@ describe('TRIPLE', () => {
   it('costs two and covers three lanes at once', () => {
     const game = armed('triple');
     hold(game, 1 / 120, 0, true);
-    expect(game.ammo).toBe(4);
+    expect(game.ammo).toBe(initialStats().maxAmmo - GUN_MODULES.triple.ammoCost);
     expect(game.bullets).toHaveLength(3);
     const lateral = game.bullets.map(b => b.vx).sort((a, b) => a - b);
     expect(lateral[0]).toBeLessThan(0);
@@ -277,9 +277,16 @@ describe('every module keeps the shooting core intact', () => {
     expect(lowest).toBeGreaterThanOrEqual(0);
     expect(game.player.y).toBeGreaterThan(220);
   });
-  it.each(GUN_MODULE_IDS)('%s refuses to fire without enough rounds', id => {
+  it.each(GUN_MODULE_IDS)('%s spends its last round even when a volley costs more', id => {
     const game = armed(id);
-    game.ammo = gunModule(id).ammoCost - 1;
+    game.ammo = 1;
+    hold(game, 1 / 60, 0, true);
+    expect(game.bullets.length).toBeGreaterThan(0);
+    expect(game.ammo).toBe(0);
+  });
+  it.each(GUN_MODULE_IDS)('%s refuses to fire only once the magazine is empty', id => {
+    const game = armed(id);
+    game.ammo = 0;
     hold(game, 0.9, 0, true);
     expect(game.bullets).toHaveLength(0);
     expect(game.events.some(e => e.type === 'empty')).toBe(true);

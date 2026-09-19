@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 import { BALANCE, initialStats } from '../src/data/balance';
 import { difficultyAt, horizontalReach } from '../src/data/difficulty';
 import { GameModel } from '../src/systems/GameModel';
+import { GUN_MODULES } from '../src/data/gunModules';
 import { StageGenerator, START_PLATFORM, type RoutePlatform, type Enemy } from '../src/systems/StageGenerator';
 import { spawnEnemy } from '../src/data/enemies';
 import { defaultTuning, loadTuning, saveTuning, sanitizeTuning, tuningVisible, TUNING_STORAGE_KEY } from '../src/systems/PhysicsTuning';
@@ -24,13 +25,15 @@ describe('practice tuning isolation', () => {
     const game = new GameModel(true); game.setPhysicsTuning({ gravity: 1200, shotRecoil: 250, moveSpeed: 220, maxFallSpeed: 700, maxAmmo: 10 });
     game.shoot(); game.resetPhysicsTuning();
     for (const [key, value] of Object.entries(defaultTuning())) expect(game.stats[key as keyof typeof BALANCE]).toBe(value);
-    expect(game.ammo).toBe(5); expect(initialStats()).toEqual(new GameModel().stats);
+    // Back on the default magazine, one round short: resetting the tuning does not hand it back.
+    expect(game.ammo).toBe(game.stats.maxAmmo - GUN_MODULES.machine.ammoCost);
+    expect(initialStats()).toEqual(new GameModel().stats);
   });
   it('rejects tuning in normal runs and cannot leak between modes', () => {
     const practice = new GameModel(true), normal = new GameModel();
     const custom = { ...defaultTuning(), gravity: 1400, maxAmmo: 12 };
     practice.setPhysicsTuning(custom); normal.setPhysicsTuning(custom);
-    expect(normal.stats).toEqual(initialStats()); expect(normal.ammo).toBe(6);
+    expect(normal.stats).toEqual(initialStats()); expect(normal.ammo).toBe(initialStats().maxAmmo);
     expect(new GameModel().stats).toEqual(initialStats());
   });
   it('keeps ammo and current fall speed valid when limits decrease', () => {
@@ -142,13 +145,14 @@ function verifyTransfer(from: RoutePlatform, to: RoutePlatform, enemies: Enemy[]
     game.step(1 / 120, direction, false);
   }
   expect(game.player.grounded, `transfer ${from.id} to ${to.id}`).toBe(to.id);
-  expect(game.hp).toBe(4); expect(game.ammo).toBe(6);
+  expect(game.hp).toBe(4); expect(game.ammo).toBe(game.stats.maxAmmo);
 }
 
 describe('responsive controls and feedback', () => {
   it('keeps single-shot recoil but avoids hovering during sustained fire', () => {
     const game = new GameModel(true); game.platforms = []; game.player.y = 50; game.player.vy = 200;
-    tick(game, 0.85, 0, true);
+    // Long enough to empty the starting magazine, whatever size it is.
+    tick(game, 0.2 * game.stats.maxAmmo, 0, true);
     expect(game.ammo).toBe(0); expect(game.player.y - 50).toBeGreaterThan(100); expect(game.player.vy).toBeGreaterThan(100);
     for (let i = 0; i < 50; i++) { game.cooldown = 0; game.ammo = 1; game.shoot(); expect(game.player.vy).toBeGreaterThanOrEqual(0); game.step(1 / 120, 0, false); }
   });

@@ -1,36 +1,50 @@
 /**
- * COMBO is the number of enemies defeated without touching down. Landing of any kind -- an ordinary
- * ledge, a BREAK FLOOR, an AREA 4 collapsing ledge -- resets it to zero, and so does taking damage.
+ * COMBO, as Downwell runs it.
  *
- * Reaching the threshold pays out once per chain, in the field, with no screen to dismiss: the run
- * never stops for it. The reward itself comes from this table rather than from a branch in the
- * model, so adding a third kind of payout is a line here.
+ * COMBO counts enemies defeated between touchdowns. It is NOT paid out the moment a number is
+ * reached -- it is SETTLED when the player lands on ordinary ground, which is what makes a chain a
+ * gamble: the longer it runs the more it is worth, and every extra kill is another chance to be hit
+ * out of the air before it can be banked. Landing reads the current value, pays the tier it reached,
+ * and returns COMBO to zero.
+ *
+ * Deliberately NOT reset by: taking damage, stomping an enemy, or crossing a SECTION / AREA / BOSS
+ * boundary. Only a landing settles it.
  */
-export const COMBO_RULES = {
-  /** Kills in one chain that earn a reward. */
-  rewardAt: 10,
-} as const;
-
-/**
- * What a chain pays. `bonus` is handed to exactly the same call a gun-module crate and a shop
- * purchase use, so a combo reward can never behave differently from the rest of the game:
- * `heart` goes through HealthSystem (and therefore through overflow and LIFE UP), `charge` grows
- * the magazine and refills it.
- */
-export interface ComboReward {
-  id: string;
-  bonus: 'heart' | 'charge';
-  /** Shown in the field label. */
+export interface ComboTier {
+  /** Lowest COMBO that pays this tier. */
+  at: number;
+  /**
+   * COIN paid in. PROVISIONAL: Downwell pays 100 Gems, but DEEP DROP's COIN is a different currency
+   * (a SHOP heart is 30, a gun module 45, and a whole run collects tens of coins, not hundreds).
+   * Dropping 100 in here would make one chain worth more than a run. These values keep the tier
+   * structure honest while leaving the economy where it is; they are re-tuned in the Phase that
+   * aligns SHOP prices and the original's Gem economy.
+   */
+  coins: number;
+  /** Permanent Max Charge granted. Separate from the CHARGE module's +2. */
+  maxCharge: number;
+  /** Hearts handed to HealthSystem, so overflow and LIFE UP behave as they always do. */
+  hearts: number;
+  /** Short field label, e.g. shown as "12 COMBO · COIN". */
   label: string;
 }
-export const COMBO_REWARDS: readonly ComboReward[] = [
-  { id: 'life', bonus: 'heart', label: 'LIFE +1' },
-  { id: 'ammo', bonus: 'charge', label: 'MAX AMMO +2' },
-];
 
 /**
- * Rewards rotate rather than roll. A player who strings two chains together gets two different
- * things, which is both more readable and completely deterministic -- no seed can hand out four
- * hearts in a row, and no test has to stub the generator to find out what it will get.
+ * Ordered shallowest first. A landing pays the DEEPEST tier it qualifies for and only that one, so
+ * a 40-chain is worth the 25 tier once -- not the 8, the 15 and the 25 stacked together.
  */
-export const comboRewardFor = (granted: number) => COMBO_REWARDS[((granted % COMBO_REWARDS.length) + COMBO_REWARDS.length) % COMBO_REWARDS.length];
+export const COMBO_TIERS: readonly ComboTier[] = [
+  { at: 8, coins: 8, maxCharge: 0, hearts: 0, label: 'COIN' },
+  { at: 15, coins: 15, maxCharge: 1, hearts: 0, label: 'COIN + CHARGE' },
+  { at: 25, coins: 25, maxCharge: 1, hearts: 1, label: 'COIN + CHARGE + LIFE' },
+];
+
+/** The tier a landing at this COMBO pays, or undefined when the chain was too short to bank. */
+export const comboTierFor = (combo: number): ComboTier | undefined => {
+  let paid: ComboTier | undefined;
+  for (const tier of COMBO_TIERS) if (combo >= tier.at) paid = tier;
+  return paid;
+};
+
+/** The shortest chain worth anything, for HUD hints and tests. */
+export const COMBO_FIRST_TIER = COMBO_TIERS[0].at;

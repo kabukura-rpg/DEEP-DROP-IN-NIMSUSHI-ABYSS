@@ -87,7 +87,10 @@ export class GunModuleSystem {
 
     if (this.cooldown > 0) return { kind: 'idle' };
     if (!(def.automatic ? firing : this.pressBuffer > 0)) return { kind: 'idle' };
-    if (ammo < def.ammoCost) { this.cooldown = def.fireInterval; return { kind: 'empty' }; }
+    // The last round always fires. A volley costs what it costs, but a magazine with anything in
+    // it can pay for one more shot -- SHOTGUN on 4 of its 5, LASER on 1 of its 4 -- and only an
+    // empty magazine refuses. The caller clamps the spend at zero.
+    if (ammo <= 0) { this.cooldown = def.fireInterval; return { kind: 'empty' }; }
 
     // One press buys exactly one volley.
     this.pressBuffer = 0;
