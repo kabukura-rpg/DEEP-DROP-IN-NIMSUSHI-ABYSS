@@ -8,19 +8,20 @@ import { GunModuleSystem } from './GunModuleSystem';
 import { CoinSystem } from './CoinSystem';
 import { ShopSystem } from './ShopSystem';
 import { coinsFor } from '../data/coins';
-import { AIR_CONTAINER_RULES, EXIT_RULES, type AirBubble, type AirContainer, type StageExit } from '../data/structures';
+import { AIR_CONTAINER_RULES, BREAK_FLOOR_RULES, EXIT_RULES, type AirBubble, type AirContainer, type StageExit } from '../data/structures';
 import type { ShopOffer } from '../data/shop';
 import { CHARGE_AMMO_BONUS, gunModule, STARTING_GUN_MODULE, volley, volleyRecoil, type GunModuleId } from '../data/gunModules';
 import { BOSS, type BossPhase } from '../data/boss';
-import { hazardBounds, ventStateAt, type Hazard } from '../data/hazards';
+import { hazardBounds, hazardType, ventStateAt, type Hazard } from '../data/hazards';
 import { pickupType, spawnPickup, type Pickup } from '../data/pickups';
-import { HealthSystem, HEALTH_RULES, type DamageCause } from './HealthSystem';
+import { HealthSystem, type DamageCause } from './HealthSystem';
+import { COMBO_RULES, comboRewardFor } from '../data/combo';
 import { UpgradeSystem } from './UpgradeSystem';
 import { StageProgressionSystem } from './StageProgressionSystem';
 import type { AreaId, SectionId } from '../data/areas';
 import { enemyType } from '../data/enemies';
 import { defaultTuning, sanitizeTuning, type PhysicsTuning } from './PhysicsTuning';
-export type GameEvent = { type: 'shot' | 'empty' | 'land' | 'kill' | 'hurt' | 'upgrade' | 'over' | 'heal' | 'boss' | 'clear' | 'oxygen' | 'airPocket' | 'section' | 'ice' | 'vent' | 'crack' | 'collapse' | 'bossHit' | 'bossTelegraph' | 'bossFire' | 'bossPhase' | 'bossDown' | 'gunModule' | 'coin' | 'shopOpen' | 'shopBuy' | 'exitReady' | 'exit' | 'containerBreak'; x: number; y: number; value?: number; stomp?: boolean; lifeUps?: number; overflow?: number; combo?: number; stage?: string; areaCleared?: string | null; bonus?: 'heart' | 'charge'; source?: { id: number; kind: Enemy['kind']; x: number; y: number } };
+export type GameEvent = { type: 'shot' | 'empty' | 'land' | 'kill' | 'hurt' | 'upgrade' | 'over' | 'heal' | 'boss' | 'clear' | 'oxygen' | 'airPocket' | 'section' | 'ice' | 'vent' | 'crack' | 'collapse' | 'bossHit' | 'bossTelegraph' | 'bossFire' | 'bossPhase' | 'bossDown' | 'gunModule' | 'coin' | 'shopOpen' | 'shopBuy' | 'exitReady' | 'exit' | 'containerBreak' | 'floorCrack' | 'floorBreak' | 'comboReward'; x: number; y: number; value?: number; stomp?: boolean; lifeUps?: number; overflow?: number; combo?: number; stage?: string; areaCleared?: string | null; bonus?: 'heart' | 'charge'; source?: { id: number; kind: Enemy['kind']; x: number; y: number } };
 export interface Bullet {
   x: number; y: number; previousY: number; previousX: number;
   /** Velocity in px/s. Straight-down weapons simply carry vx = 0. */
@@ -98,6 +99,8 @@ export class GameModel {
   kills = 0;
   private comboValue = 0;
   private comboRewardClaimed = false;
+  /** Rewards already paid out this run, so the table rotates instead of repeating. */
+  private comboRewardsGranted = 0;
   get combo() { return this.comboValue; }
   set combo(value: number) { this.comboValue = value; if (value === 0) this.comboRewardClaimed = false; }
   maxCombo = 0;
@@ -209,6 +212,14 @@ export class GameModel {
     const ground = this.platforms.find(f => f.id === p.grounded);
     if (ground && p.x + 9 > ground.x && p.x - 9 < ground.x + ground.width) p.vy = 0;
     else { p.grounded = -1; p.vy = Math.min(this.stats.maxFallSpeed, p.vy + this.stats.gravity * (this.water?.gravity ?? 1) * dt); }
+    // A gate spans the shaft, so there is no edge to step off and no way to earn a reload the
+    // ordinary way. Without this, landing on a 3-round AREA 3 gate holding the LASER -- four rounds
+    // a shot against a six-round magazine -- leaves the run standing on a floor it can no longer
+    // open, forever. A gate therefore always supplies the rounds needed to get through it.
+    if (ground?.breakFloor && ground.state !== 'broken' && this.ammo < this.gun.module.ammoCost && this.ammo < this.stats.maxAmmo) {
+      this.ammo = this.stats.maxAmmo;
+      this.emit('land', p.x, ground.y);
+    }
     this.fireGun(dt, direction, firing);
     p.y += p.vy * dt;
     for (const e of this.enemies) {
@@ -238,6 +249,15 @@ export class GameModel {
           continue;
         }
       }
+      // A gate is a wall: it stops the round and takes one hit off its durability. Checked before
+      // anything else in the shaft, so nothing can be shot through a floor that is still standing.
+      for (const gate of this.platforms) {
+        if (!gate.breakFloor || gate.state === 'broken') continue;
+        if (b.x + b.size < gate.x || b.x - b.size > gate.x + gate.width) continue;
+        if (b.y < gate.y || b.previousY > gate.y + BREAK_FLOOR_RULES.thickness) continue;
+        this.hitBreakFloor(gate); b.alive = false; break;
+      }
+      if (!b.alive) continue;
       for (const box of this.containers) {
         if (box.broken) continue;
         if (b.x > box.x - b.size && b.x < box.x + box.width + b.size && b.y >= box.y && b.previousY <= box.y + box.height) {
@@ -280,6 +300,7 @@ export class GameModel {
     this.collectPickups();
     this.sheltered = this.airPockets.some(a => p.x > a.x && p.x < a.x + a.width && p.y + 15 > a.y && p.y - 15 < a.y + a.height);
     if (this.heat.enabled) this.tickHeat(dt);
+    this.tickLethalTerrain();
     // Invulnerability delays a drowning hit but can never cancel it: the debt is only cleared once
     // HealthSystem actually accepts the damage.
     if (this.oxygen.tick(dt, this.sheltered) && this.damage(1, 'oxygen')) this.oxygen.consumeDamage();
@@ -324,12 +345,41 @@ export class GameModel {
     }
     const nearby = this.hazards.filter(h => Math.abs(h.y + h.height / 2 - p.y) < 320);
     if (this.heat.tick(dt, p.x, p.y, nearby) && this.damage(1, 'heat')) this.heat.consumeDamage();
-    // Lava is lethal on touch: hearts and invulnerability do not apply.
-    for (const hazard of nearby) {
+  }
+  /**
+   * Terrain that kills on touch, run through in every AREA. Lava belongs to AREA 3's heat gimmick,
+   * but SPIKE belongs to AREA 1 and AREA 2, which run no gauge at all -- so this pass deliberately
+   * sits outside tickHeat, where it used to live and where a spike in a cold shaft would simply
+   * never have been looked at. The cause comes from the hazard table, so the result screen names
+   * what actually ended the run rather than guessing lava.
+   */
+  private tickLethalTerrain() {
+    const p = this.player;
+    for (const hazard of this.hazards) {
       if (!hazard.lethal) continue;
       const box = hazardBounds(hazard);
-      if (p.x + 9 > box.x && p.x - 9 < box.x + box.width && p.y + 15 > box.y && p.y - 15 < box.y + box.height) { this.killInstantly('lava'); return; }
+      if (p.x + 9 > box.x && p.x - 9 < box.x + box.width && p.y + 15 > box.y && p.y - 15 < box.y + box.height) {
+        this.killInstantly(hazardType(hazard.kind).damageCause);
+        return;
+      }
     }
+  }
+  /**
+   * One round into a BREAK FLOOR gate. Opening a gate is terrain work, not a kill: it adds nothing
+   * to COMBO, drops no COIN, counts as no defeated enemy, and never calls gun.rearm() -- forgetting
+   * a shot in progress belongs to a SECTION boundary and to nothing else.
+   */
+  private hitBreakFloor(gate: Platform) {
+    const floor = gate.breakFloor;
+    if (!floor || gate.state === 'broken') return;
+    floor.hits++;
+    if (floor.hits < floor.durability) {
+      this.events.push({ type: 'floorCrack', x: this.player.x, y: gate.y, value: floor.durability - floor.hits });
+      return;
+    }
+    gate.state = 'broken';
+    if (this.player.grounded === gate.id) this.player.grounded = -1;
+    this.events.push({ type: 'floorBreak', x: gate.x + gate.width / 2, y: gate.y, value: gate.width });
   }
   /**
    * The FINAL BOSS, inside the ordinary simulation step. Its attacks only ever reach the player
@@ -625,9 +675,7 @@ export class GameModel {
   hurt(source?: Enemy) { this.damage(1, source ? enemyType(source.kind).damageCause : 'enemy', source); }
   private kill(enemy: Enemy, stomp: boolean) {
     enemy.alive = false; this.kills++; this.combo++; this.maxCombo = Math.max(this.combo, this.maxCombo);
-    if (this.combo >= HEALTH_RULES.comboRewardAt && !this.comboRewardClaimed) {
-      this.comboRewardClaimed = true; this.heal(HEALTH_RULES.comboHealing, true);
-    }
+    if (this.combo >= COMBO_RULES.rewardAt && !this.comboRewardClaimed) this.grantComboReward();
     const type = enemyType(enemy.kind);
     if (type.onDefeat === 'shatterNearby') {
       const hit = this.collapse.shatter(this.platforms, enemy.x, enemy.y);
@@ -640,6 +688,24 @@ export class GameModel {
     this.coins.burst(enemy.x, enemy.y, coinsFor(type.threat), this.random);
     const points = Math.round(100 * this.multiplier * (stomp ? 1.5 : 1));
     this.killScore += points; this.events.push({ type: 'kill', x: enemy.x, y: enemy.y, value: points, stomp, combo: this.combo });
+  }
+  /**
+   * The COMBO payout. It fires once per chain -- `comboRewardClaimed` is cleared the moment COMBO
+   * returns to zero, which every landing and every hit taken does -- and never interrupts the run:
+   * no screen, no choice, just the reward and a label in the shaft.
+   *
+   * The reward is applied through applyModuleBonus, exactly the call a gun-module crate and a shop
+   * purchase use, so HealthSystem still owns healing, overflow and LIFE UP and a combo reward can
+   * never behave differently from any other way the game hands out the same thing.
+   */
+  private grantComboReward() {
+    this.comboRewardClaimed = true;
+    const reward = comboRewardFor(this.comboRewardsGranted++);
+    // A heart routes through heal() rather than applyModuleBonus so the existing overflow and
+    // LIFE UP feedback still reaches the player.
+    if (reward.bonus === 'heart') this.heal(1, true);
+    else this.applyModuleBonus('charge');
+    this.events.push({ type: 'comboReward', x: this.player.x, y: this.player.y, value: this.combo, combo: this.combo, bonus: reward.bonus, stage: reward.label });
   }
   private finish() { if (this.state === 'over' || this.state === 'clear') return; this.state = 'over'; this.emit('over', this.player.x, this.player.y); }
   private generate() {

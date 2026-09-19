@@ -19,6 +19,10 @@ export const EVENT_SOUNDS: Record<GameEvent['type'], SoundId | null> = {
   upgrade: 'upgrade', heal: 'upgrade', boss: 'upgrade', clear: 'upgrade',
   oxygen: 'land', airPocket: 'upgrade',
   section: null, ice: null, vent: null, crack: null, collapse: null,
+  // A BREAK FLOOR gate: a dull knock while it holds, the heavier landing voice when it gives way.
+  floorCrack: 'empty', floorBreak: 'land',
+  // The COMBO payout reuses the reward voice rather than inventing one.
+  comboReward: 'upgrade',
   // Picking up a weapon has no sound of its own yet; the swap card carries the feedback.
   gunModule: null,
   // Money and doorways reuse the existing voices rather than inventing new ones.

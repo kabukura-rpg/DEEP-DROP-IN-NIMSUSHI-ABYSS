@@ -23,12 +23,19 @@ function inWater(section: SectionId = 1, random = Math.random) {
 }
 function bare(section: SectionId = 1) {
   const game = inWater(section);
-  game.platforms = []; game.enemies = []; game.pickups = []; game.airPockets = [];
+  game.platforms = []; game.enemies = []; game.pickups = []; game.airPockets = []; game.hazards = [];
   game.player.invincible = 0;
   return game;
 }
+/**
+ * These fixtures delete the shaft so a test owns exactly what exists, which also voids the
+ * generator's row-to-row reachability guarantee: the run then free-falls in a straight line through
+ * terrain that was laid for a route it is no longer taking. SPIKE kills on contact, so leaving it
+ * in would make an oxygen test fail one run in seven for reasons that have nothing to do with air.
+ * Hazards are therefore cleared for the duration; SPIKE has its own coverage in terrain.test.ts.
+ */
 const tick = (game: GameModel, seconds: number, direction = 0, fire = false) => {
-  for (let i = 0; i < Math.round(seconds * 120); i++) game.step(1 / 120, direction, fire);
+  for (let i = 0; i < Math.round(seconds * 120); i++) { game.hazards = []; game.step(1 / 120, direction, fire); }
 };
 /**
  * Holds the run in place so only the air supply moves. step() keeps generating the shaft ahead, so
@@ -254,15 +261,18 @@ describe('AREA 2 enemies', () => {
 });
 
 describe('AREA 2 section pacing', () => {
+  // 200 seeds, not 40: at 40 the air counts swing by more than the gap between two SECTIONS, so a
+  // bound written against one 40-seed draw measures that draw rather than the plan.
+  const SEEDS = 200;
   const stats = (sectionId: SectionId) => {
     let bubbles = 0, pockets = 0, enemies = 0, tough = 0, rows = 0;
-    for (let seed = 1; seed <= 40; seed++) {
+    for (let seed = 1; seed <= SEEDS; seed++) {
       const s = section(sectionId, seed * 311);
       // Air now arrives as sealed containers; breaking one releases the bubbles.
       bubbles += s.containers.length; pockets += s.airPockets.length; rows += s.platforms.length;
       enemies += s.enemies.length; tough += s.enemies.filter(e => !e.stompable).length;
     }
-    return { bubbles: bubbles / 40, pockets: pockets / 40, enemies: enemies / 40, toughPerRow: tough / rows, enemiesPerRow: enemies / rows };
+    return { bubbles: bubbles / SEEDS, pockets: pockets / SEEDS, enemies: enemies / SEEDS, toughPerRow: tough / rows, enemiesPerRow: enemies / rows };
   };
   it('moves from plentiful, close air to sparse, off-route air', () => {
     const [one, two, three] = [1, 2, 3].map(s => stats(s as SectionId));
@@ -281,7 +291,10 @@ describe('AREA 2 section pacing', () => {
     // air. SECTION lengths differ per AREA now, so scarcity has to be read as a density.
     const per100 = (n: number) => n / (area2.sectionLength / 100);
     expect(per100(three.bubbles)).toBeLessThan(3);
-    expect(three.pockets).toBeLessThan(1.6);
+    // Read as a density, like the line above. The old form compared a 40-seed count against 1.6
+    // while the plan's own value is ~1.75 per SECTION (0.58 per 100m), so it was passing on the
+    // draw and not on the design. airPocketChance itself is untouched.
+    expect(per100(three.pockets)).toBeLessThan(1);
     expect(one.bubbles).toBeGreaterThan(three.bubbles);
     expect(two.bubbles).toBeGreaterThan(three.bubbles);
     // A full tank must still cover the worst planned dry stretch with room to spare.

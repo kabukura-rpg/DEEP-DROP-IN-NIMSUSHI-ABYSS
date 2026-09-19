@@ -1,4 +1,4 @@
-import { GameModel } from '../src/systems/GameModel';
+import { GameModel, plainBullet } from '../src/systems/GameModel';
 import { scene, bridge, start, pause, audio } from '../src/main';
 import type { RoutePlatform } from '../src/systems/StageGenerator';
 import { spawnEnemy, type Enemy, type EnemyKind } from '../src/data/enemies';
@@ -6,6 +6,9 @@ import { AREAS, type SectionId, PLANNED_TOTAL_DEPTH } from '../src/data/areas';
 import { WORLD } from '../src/data/balance';
 import { pickupType } from '../src/data/pickups';
 import { UPGRADES } from '../src/data/upgrades';
+import { COMBO_RULES, comboRewardFor } from '../src/data/combo';
+import { isSpike } from '../src/data/hazards';
+import { BREAK_FLOOR_RULES } from '../src/data/structures';
 import type Phaser from 'phaser';
 
 // A development-only HTML entry, not imported by index.html or emitted in dist.
@@ -228,18 +231,117 @@ button('満タンFOOD → LIFE UP', async () => {
   assert(model.hp === 5 && model.health.maxHp === 5 && model.health.overflowHealing === 0, '満タンでFOOD → HP 5/5・余剰0');
   pause();
 });
-button('25 COMBO回復・重複なし', async () => {
-  start(); const model = scene.model; model.hp = 2; model.combo = 24; model.platforms = []; model.stats.piercing = true;
-  model.enemies = [enemy('slime', 225, 260, 9500), enemy('slime', 225, 310, 9501)];
+// The COMBO reward, against the one threshold the game now has. There is no 25 COMBO spec left:
+// HEALTH_RULES no longer carries comboRewardAt/comboHealing, and data/combo.ts owns all of it.
+button(`${COMBO_RULES.rewardAt} COMBO報酬・1チェーン1回`, async () => {
+  start(); const model = scene.model;
+  model.hp = 2; model.combo = COMBO_RULES.rewardAt - 1; model.platforms = []; model.stats.piercing = true;
+  const extra = 3;
+  model.enemies = Array.from({ length: 1 + extra }, (_, i) => enemy('slime', 225, 260 + i * 46, 9500 + i));
+  const paid: string[] = [];
+  const original = bridge.onEvent;
+  bridge.onEvent = (event, game) => { original(event, game); if (event.type === 'comboReward') paid.push(`${event.value}:${event.bonus}`); };
   key('Space', true); await wait(30); key('Space', false);
-  await until(() => model.combo === 26); bridge.active = false;
-  assert(model.hp === 3, '24から実撃破で26へ：25でHP +1、26で重複なし');
+  await until(() => model.combo === COMBO_RULES.rewardAt + extra);
+  bridge.active = false; bridge.onEvent = original;
+  output.textContent += `\n支払い: ${paid.join(', ') || 'なし'} / HP ${model.hp}`;
+  assert(paid.length === 1, `実撃破で${COMBO_RULES.rewardAt + extra}連鎖 → 報酬はチェーン中1回だけ`);
+  assert(paid[0] === `${COMBO_RULES.rewardAt}:${comboRewardFor(0).bonus}`, `${COMBO_RULES.rewardAt}ちょうどでテーブル1行目を支払う`);
+  assert(model.hp === 3, 'HP +1 がHealthSystem経由で入る');
   assert(document.getElementById('hearts')!.getAttribute('aria-label') === 'HP 3 / 4', '回復をHUDに反映');
+  assert(model.state === 'playing' && !model.paused, '報酬でランは一切止まらない');
 });
-button('25 COMBO満タン余剰', async () => {
-  start(); const model = scene.model; model.combo = 24; model.platforms = []; model.enemies = [enemy('slime', 225, 260, 9600)];
-  key('Space', true); await wait(30); key('Space', false); await until(() => model.combo === 25); bridge.active = false;
-  assert(model.hp === 4 && model.health.overflowHealing === 1, '満タン25コンボでLIFE UP 1/4');
+button(`${COMBO_RULES.rewardAt} COMBO満タン余剰 → 次チェーンは別の報酬`, async () => {
+  start(); const model = scene.model;
+  model.platforms = []; model.stats.piercing = true;
+  const chain = async (ids: number) => {
+    model.platforms = []; model.player.y = 180; model.player.vy = 0; model.player.grounded = -1;
+    model.combo = COMBO_RULES.rewardAt - 1;
+    model.enemies = [enemy('slime', 225, 260, ids)];
+    model.ammo = model.stats.maxAmmo;
+    key('Space', true); await wait(30); key('Space', false);
+    await until(() => model.combo >= COMBO_RULES.rewardAt);
+  };
+  await chain(9600);
+  assert(model.hp === 4 && model.health.overflowHealing === 1, `満タンで${COMBO_RULES.rewardAt}連鎖 → 余剰 1/4 へ`);
+  // Break the chain the way the game does, then earn a second one: the table rotates.
+  const magazine = model.stats.maxAmmo;
+  model.combo = 0;
+  await chain(9610);
+  bridge.active = false;
+  output.textContent += `\nMAX AMMO ${magazine} → ${model.stats.maxAmmo}`;
+  assert(comboRewardFor(1).bonus === 'charge', '報酬テーブルの2行目はITEM側');
+  assert(model.stats.maxAmmo > magazine && model.ammo === model.stats.maxAmmo, '2チェーン目は別の報酬（MAX AMMO）になる');
+});
+// SPIKE: instant death terrain, in the running game, drawn by the real renderer.
+button('SPIKE 即死（AREA 1-3 / AREA 2-3）', async () => {
+  for (const area of [1, 2] as const) {
+    start(); scene.model.jumpToStage(area, 3);
+    await wait(60);
+    const model = scene.model;
+    // Descend for real until the shaft has laid some SPIKE. Standing still is not enough: without
+    // steering off each ledge the run simply parks on the first one and never sees more terrain.
+    for (let i = 0; i < 1600 && !model.hazards.some(h => isSpike(h.kind)); i++) {
+      keepAwake();
+      model.player.invincible = 99;
+      const standing = model.platforms.find(f => f.id === model.player.grounded) as RoutePlatform | undefined;
+      bridge.direction = standing ? Math.sign(standing.exitX - model.player.x) : 0;
+      await wait(16);
+    }
+    bridge.direction = 0;
+    const spike = model.hazards.find(h => isSpike(h.kind));
+    assert(!!spike, `AREA ${area} の実生成シャフトに SPIKE がある`);
+    model.health.heal(9);
+    const hp = model.hp;
+    assert(hp > 1, `AREA ${area}：満タン付近のHP ${hp} から試す`);
+    model.player.invincible = 99;
+    model.player.x = spike!.x + spike!.width / 2;
+    model.player.y = spike!.y + spike!.height - 2;
+    await until(() => scene.model.state === 'over', 4000);
+    assert(scene.model.health.deathCause?.instant === true, `AREA ${area}：大ダメージではなく即死`);
+    assert(scene.model.health.deathCause?.cause === 'spike', `AREA ${area}：死因は spike`);
+    assert(document.body.innerText.includes('SPIKES'), `AREA ${area}：結果画面が SPIKES と表示する`);
+  }
+});
+// BREAK FLOOR: landed on like any floor, opened only by shooting it.
+button('BREAK FLOOR 着地 → 射撃で開通', async () => {
+  start(); scene.model.jumpToStage(1, 2);
+  await wait(60);
+  const model = scene.model;
+  let armed = false, gate: RoutePlatform | undefined;
+  for (let i = 0; i < 2600 && !gate; i++) {
+    keepAwake();
+    model.player.invincible = 99; model.hazards = [];
+    const standing = model.platforms.find(f => f.id === model.player.grounded) as RoutePlatform | undefined;
+    if (standing?.breakFloor) { gate = standing; break; }
+    const next = model.platforms.filter(f => f.y > model.player.y + 15 && f.state !== 'broken').sort((a, b) => a.y - b.y)[0];
+    // Arrive at the gate spent and mid-chain, so the landing itself is what gets measured.
+    if (!armed && !standing && next?.breakFloor) { armed = true; model.combo = 5; model.ammo = 0; }
+    bridge.direction = standing ? Math.sign(standing.exitX - model.player.x) : 0;
+    await wait(16);
+  }
+  bridge.direction = 0;
+  assert(!!gate && armed, '通常の落下で BREAK FLOOR まで到達し、空中で弾切れ・COMBO 5 にした');
+  await wait(120);
+  assert(model.ammo === model.stats.maxAmmo, '着地で AMMO FULL RELOAD');
+  assert(model.combo === 0, '着地で COMBO RESET');
+  assert(gate!.width === WORLD.width - WORLD.wall * 2, 'シャフト全幅を塞ぐゲートである');
+  assert(gate!.breakable !== true && model.collapse.counting === 0, 'AREA 4 の崩落足場とは別物：タイマーは動かない');
+  await wait(800);
+  assert(model.platforms.includes(gate!), '乗っているだけでは壊れない');
+  const kills = model.kills, coins = model.coins.walletCoins, cracks: number[] = [];
+  let broke = false;
+  const original = bridge.onEvent;
+  bridge.onEvent = (event, game) => { original(event, game); if (event.type === 'floorCrack') cracks.push(event.value ?? 0); if (event.type === 'floorBreak') broke = true; };
+  for (let i = 0; i < 30 && !broke; i++) { keepAwake(); model.player.invincible = 99; key('Space', true); await wait(110); key('Space', false); await wait(110); }
+  bridge.onEvent = original;
+  output.textContent += `\n耐久 ${gate!.breakFloor!.durability} / ヒビ ${cracks.join(',') || 'なし'} / 厚み ${BREAK_FLOOR_RULES.thickness}px`;
+  assert(broke, '真下へ撃つと割れて開通する');
+  assert(cracks.length === gate!.breakFloor!.durability - 1, 'ヒビは耐久-1回、残弾数つきで出る');
+  assert(model.combo === 0 && model.kills === kills && model.coins.walletCoins === coins, '破壊は COMBO も COIN も撃破数も増やさない');
+  await wait(500);
+  assert(model.player.y > gate!.y + 30, '開通後は下へ落ちていく');
+  pause();
 });
 
 const checkStyle = document.createElement('style'); checkStyle.textContent = '@media(max-width:650px){body>aside{position:relative!important;right:auto!important;top:auto!important;width:100%!important}}'; document.head.append(checkStyle);
@@ -545,14 +647,26 @@ button('4-1 → BOSS を通常プレイ', async () => {
  */
 function watchForAssists(model: GameModel) {
   const used: string[] = [];
-  const fromHarness = () => (new Error().stack ?? '').split('\n').slice(2).some(line => line.includes('browser.playtest'));
+  /**
+   * Only a DIRECT call from this file counts. Scanning the whole stack does not work: the long
+   * checks call game.loop.wake() to keep a headless pane running, and Phaser steps the scene inside
+   * that call -- so an ordinary round of the player's hitting the king arrives with
+   *
+   *     [1] the wrapper  [2] GameModel.step  [3] GameScene.update  ...  [n] browser.playtest
+   *
+   * and a whole-stack search reports the player's own shooting as assistance. The caller is frame 2:
+   * frame 0 is the Error line and frame 1 is this wrapper.
+   */
+  const callerIsHarness = (stack: string | undefined) => ((stack ?? '').split('\n')[2] ?? '').includes('browser.playtest');
   const undo: (() => void)[] = [];
   const patch = (owner: object, key: string, label: string) => {
     const target = owner as Record<string, unknown>;
     const original = target[key] as (...args: unknown[]) => unknown;
     if (typeof original !== 'function') return;
     target[key] = function (this: unknown, ...args: unknown[]) {
-      if (fromHarness()) used.push(label);
+      // Captured here rather than in a helper: the frame layout is then fixed and readable --
+      // [0] the Error line, [1] this wrapper, [2] whoever called the API.
+      if (callerIsHarness(new Error().stack)) used.push(label);
       return original.apply(this ?? owner, args);
     };
     undo.push(() => { target[key] = original; });
@@ -570,7 +684,7 @@ function watchForAssists(model: GameModel) {
   Object.defineProperty(player, 'invincible', {
     configurable: true,
     get: () => invincible,
-    set: (value: number) => { if (fromHarness()) used.push('player.invincible'); invincible = value; },
+    set: (value: number) => { if (callerIsHarness(new Error().stack)) used.push('player.invincible'); invincible = value; },
   });
   undo.push(() => {
     delete player.invincible;
@@ -655,6 +769,10 @@ function descendPlan(model: GameModel): { target: number | undefined; fire: bool
   }
 
   if (model.exit) target = gateHeading(model, ground);
+
+  // A BREAK FLOOR gate spans the shaft: there is no edge to step off and no way round it. Standing
+  // on one, the only move is to shoot straight down until it opens, so hold position and fire.
+  if (ground?.breakFloor) return { target: p.x, fire: true };
 
   // The core of the game: shoot what is under you, and use the recoil to brake a long fall.
   const threat = model.enemies.some(e => e.alive && Math.abs(e.x - p.x) < 34 && e.y > p.y && e.y < p.y + 430);
@@ -827,6 +945,42 @@ button('FULL RUN 1-1 → GAME CLEAR（補助なし）', async () => {
  * A guard below fails the check if the player's HP ever rises during the fight, so this can never
  * quietly turn back into an assisted test.
  */
+// The watchdog above is what the word 'unassisted' rests on, so it gets its own check: it must
+// stay silent through ordinary play and still catch this file handing the run something.
+button('補助検出そのものを検証', async () => {
+  start(); scene.model.jumpToBoss();
+  await until(() => scene.model.state === 'boss' && scene.model.boss.enabled, 8000);
+  const model = scene.model;
+  pause();                                    // the scene must not race this; we drive the step
+
+  // 1. The game damaging the king through its own simulation. The API is reached from
+  //    GameModel.step, so the call site is the game even though this file started the step.
+  const quiet = watchForAssists(model);
+  const body = model.boss.body;
+  model.player.x = body.x + body.width / 2;
+  model.player.y = body.y - 120;
+  model.bullets.push(plainBullet(model.player.x, body.y - 40, 5));
+  const before = model.boss.hp;
+  model.paused = false;
+  for (let i = 0; i < 20 && model.boss.hp === before; i++) model.step(1 / 120, 0, false);
+  const dealt = before - model.boss.hp;
+  quiet.stop();
+  output.textContent += `\nゲーム自身の弾が与えたダメージ: ${dealt}`;
+  assert(dealt > 0, '実際に魔王へ当たっている（当たらなければ何も検証していない）');
+  assert(quiet.used.length === 0, `ゲーム自身の処理は補助として検出されない（検出: ${quiet.used.join(', ') || 'なし'}）`);
+
+  // 2. The same APIs, called straight from this file. The watchdog must see every one.
+  const caught = watchForAssists(model);
+  model.heal(9);
+  model.boss.damage(5);
+  model.player.invincible = 99;
+  caught.stop();
+  output.textContent += `\n意図的な補助の検出: ${caught.used.join(', ')}`;
+  assert(caught.used.includes('model.heal'), 'テストからの heal を検出する');
+  assert(caught.used.includes('boss.damage'), 'テストからの boss.damage を検出する');
+  assert(caught.used.includes('player.invincible'), 'テストからの無敵付与を検出する');
+  pause();
+});
 button('UNASSISTED BOSS CHECK', async () => {
   start();
   await until(() => scene.model.state === 'playing', 8000);

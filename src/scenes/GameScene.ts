@@ -3,12 +3,13 @@ import { GameModel, type GameEvent } from '../systems/GameModel';
 import type { Enemy } from '../systems/StageGenerator';
 import { WORLD } from '../data/balance';
 import { comboFeedback } from '../systems/ComboFeedback';
+import { COMBO_RULES } from '../data/combo';
 import { InputBuffer } from '../systems/InputBuffer';
 import { enemyType } from '../data/enemies';
 import { pickupType } from '../data/pickups';
 import { gunModule } from '../data/gunModules';
-import { AIR_CONTAINER_RULES } from '../data/structures';
-import { hazardBounds, type Hazard } from '../data/hazards';
+import { AIR_CONTAINER_RULES, BREAK_FLOOR_RULES } from '../data/structures';
+import { hazardBounds, hazardType, type Hazard } from '../data/hazards';
 export interface GameBridge {
   direction: number; firing: boolean; active: boolean;
   onFrame: (model: GameModel) => void;
@@ -87,10 +88,15 @@ export class GameScene extends Phaser.Scene {
   private effect(event: GameEvent) {
     if (event.type === 'shot') { this.shake = Math.max(this.shake, 1.2); this.burst(event.x, event.y, 0xf6ffc2, 5); }
     if (event.type === 'land') { this.burst(event.x, event.y, 0xb9ef70, 9); this.label(event.x, event.y - 20, 'RELOADED', '#b9ef70', 12); }
-    if (event.type === 'heal') this.label(event.x, event.y - 48, event.lifeUps ? `LIFE UP! MAX HP +${event.lifeUps}` : `${event.combo ? '25 COMBO · ' : ''}${event.value ? `HP +${event.value}` : `LIFE +${event.overflow}`}`, '#b9ef70', 13);
+    if (event.type === 'heal') this.label(event.x, event.y - 48, event.lifeUps ? `LIFE UP! MAX HP +${event.lifeUps}` : `${event.combo ? `${COMBO_RULES.rewardAt} COMBO · ` : ''}${event.value ? `HP +${event.value}` : `LIFE +${event.overflow}`}`, '#b9ef70', 13);
     if (event.type === 'empty') this.label(event.x, event.y - 30, '弾切れ / 足場へ', '#f99bae', 11);
     if (event.type === 'crack') { this.burst(event.x, event.y, 0xe8d48a, 7); if (event.value) this.label(event.x, event.y - 22, 'CRACK!', '#e8d48a', 11); }
     if (event.type === 'collapse') { this.shake = Math.max(this.shake, 2.4); this.burst(event.x, event.y, 0x8f7ac4, 16); }
+    // A gate that held: say how many more rounds it needs, so the durability is never a guess.
+    if (event.type === 'floorCrack') { this.shake = Math.max(this.shake, 1.6); this.burst(event.x, event.y, 0xffc27a, 9); this.label(event.x, event.y - 26, `あと${event.value}発`, '#ffc27a', 12); }
+    if (event.type === 'floorBreak') { this.shake = Math.max(this.shake, 3.4); this.burst(event.x, event.y, 0xffd2a0, 26); this.label(event.x, event.y - 26, 'FLOOR BROKEN', '#ffd2a0', 15); }
+    // The COMBO payout never opens a screen, so the shaft itself has to carry it.
+    if (event.type === 'comboReward') { this.flash = Math.max(this.flash, 0.08); this.burst(event.x, event.y, 0xf4e9ad, 24); this.label(event.x, event.y - 62, `${event.value} COMBO · ${event.stage ?? ''}`, '#f4e9ad', 16); }
     if (event.type === 'bossHit') { this.burst(event.x, event.y, 0xd9a0ff, 6); this.shake = Math.max(this.shake, 1.4); }
     if (event.type === 'bossFire') this.shake = Math.max(this.shake, 2.2);
     if (event.type === 'bossDown') { this.shake = 6; this.flash = 0.16; this.burst(event.x, event.y, 0xffd2a0, 40); this.label(event.x, event.y - 40, 'BOSS DEFEATED', '#ffd2a0', 18); }
@@ -154,6 +160,7 @@ export class GameScene extends Phaser.Scene {
     for (const f of m.platforms) {
       const y = f.y - cam;
       if (y < -20 || y > 820) continue;
+      if (f.breakFloor) { this.breakFloor(f.x, y, f.width, f.breakFloor.hits, f.breakFloor.durability); continue; }
       const cracking = f.state === 'cracking', critical = f.state === 'critical';
       // Shape carries the warning: a doomed ledge loses its top rail and splits into shards.
       const top = critical ? 0xf0a0b4 : cracking ? 0xe8d48a : f.breakable ? 0x9ad6c0 : 0xb9ef70;
@@ -372,10 +379,41 @@ export class GameScene extends Phaser.Scene {
       this.rect(x, y, 2, 3, 0xffb066, alpha * 2.2);
     }
   }
+  /**
+   * A BREAK FLOOR gate. It reads as a wall rather than a ledge -- a banded slab spanning the shaft,
+   * with rivets and a solid underside -- and every round taken opens a fracture across it, so the
+   * remaining durability is visible without reading the HUD. Deliberately nothing like an AREA 4
+   * collapsing ledge, which loses its rail and shakes.
+   */
+  private breakFloor(x: number, y: number, width: number, hits: number, durability: number) {
+    const wear = Math.min(1, hits / Math.max(1, durability));
+    const glow = 0.18 + wear * 0.5;
+    this.rect(x, y - 3, width, 3, 0xffc27a, 0.2 + wear * 0.4);
+    this.rect(x, y, width, BREAK_FLOOR_RULES.thickness, 0x5d4a3a);
+    this.rect(x, y, width, 4, hits ? 0xffb066 : 0xc8a882);
+    this.rect(x, y + BREAK_FLOOR_RULES.thickness - 3, width, 3, 0x3a2c22);
+    // Rivets along the slab; they read as a built gate rather than as terrain.
+    for (let i = x + 9; i < x + width - 6; i += 26) this.rect(i, y + 6, 4, 4, 0x2b211a);
+    // Fractures: one more opens for every round it has taken.
+    for (let i = 0; i < hits; i++) {
+      const at = x + ((i + 1) * width) / (durability + 1);
+      this.graphics.fillStyle(0x1b1410, 0.9).fillTriangle(at, y, at + 7, y + BREAK_FLOOR_RULES.thickness, at - 6, y + BREAK_FLOOR_RULES.thickness);
+      this.rect(at - 1, y - 6, 2, 6, 0xffd2a0, glow);
+    }
+    // Downward chevrons rather than a word: label2 only carries the glyphs A, I and R, so 'SHOOT'
+    // would have drawn nothing at all, and an arrow says the same thing in every language.
+    for (const at of [width * 0.28, width * 0.72]) {
+      const cx = x + at, top = y + 3;
+      this.graphics.fillStyle(0xffd2a0, 0.75 - wear * 0.4);
+      this.graphics.fillTriangle(cx - 7, top, cx + 7, top, cx, top + 8);
+    }
+  }
   /** Lava reads as a solid bright slab; a vent shows its warning before it ever fires. */
   private hazard(h: Hazard, cam: number) {
     const box = hazardBounds(h), y = box.y - cam;
     if (y > 820 || y + box.height < -20) return;
+    const type = hazardType(h.kind);
+    if (type.palette) { this.spikes(h, type.silhouette === 'stakes', type.palette, y); return; }
     if (h.kind === 'vent') {
       this.rect(h.x - 3, h.y - cam, h.width + 6, h.height, 0x4a3026);
       this.rect(h.x, h.y - cam - 3, h.width, 4, 0x7a4a33);
@@ -397,6 +435,23 @@ export class GameScene extends Phaser.Scene {
     this.rect(box.x, y, box.width, Math.min(4, box.height), 0xffd08a);
     for (let i = 0; i < box.width; i += 11) this.rect(box.x + i + 2, y + 2 + Math.round(Math.sin(this.model.elapsed * 3 + i) * 2), 6, 3, 0xffefc0, 0.8);
     this.rect(box.x - 3, y - 3, box.width + 6, box.height + 6, 0xff7a3c, 0.16);
+  }
+  /**
+   * SPIKE. It kills outright, so it has to be unmistakable from above while falling: a bright base
+   * line, a dark shadow under it, and points that catch the eye. The two silhouettes -- a close row
+   * of teeth and a sparser set of tall stakes -- are what tell the AREA 1 and AREA 2 variants apart,
+   * and the colours come from the hazard table, so a new variant needs no new code here.
+   */
+  private spikes(h: Hazard, tall: boolean, palette: { body: number; tip: number; base: number }, y: number) {
+    const step = tall ? 14 : 9, height = h.height;
+    // A warning band beneath the points, so the patch reads as lethal even at a glance.
+    this.rect(h.x - 2, y + height - 2, h.width + 4, 4, palette.base, 0.95);
+    this.rect(h.x - 3, y - 4, h.width + 6, height + 8, palette.tip, 0.1);
+    for (let i = 0; i + 5 <= h.width; i += step) {
+      const left = h.x + i, right = left + Math.min(step - 1, h.width - i), mid = (left + right) / 2;
+      this.graphics.fillStyle(palette.body, 0.98).fillTriangle(mid, y, left, y + height, right, y + height);
+      this.graphics.fillStyle(palette.tip, 0.95).fillTriangle(mid, y + (tall ? 1 : 0), mid - 2, y + height * 0.55, mid + 2, y + height * 0.55);
+    }
   }
   /** Void below, drifting rubble and a cracked sky for the collapsing realm. */
   private collapsed(theme: { rift?: { glow: number; void: number; debris: number } }, cam: number) {

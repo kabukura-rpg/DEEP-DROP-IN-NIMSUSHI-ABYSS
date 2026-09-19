@@ -47,5 +47,17 @@ describe('progression', () => {
   });
   it('offers three distinct upgrades and excludes acquired piercing', () => { const stats = initialStats(); stats.piercing = true; const choices = chooseUpgrades(stats, () => 0.4); expect(new Set(choices.map(u => u.id)).size).toBe(3); expect(choices.some(u => u.id === 'piercing')).toBe(false); });
   it('generates valid platforms and all four enemies with depth', () => { let seed = 12; const random = () => { seed = (Math.imul(seed, 1664525) + 1013904223) >>> 0; return seed / 4294967296; }; const generator = new StageGenerator(random); const kinds = new Set<string>(); for (let i = 0; i < 80; i++) { const chunk = generator.chunk(i); for (const p of chunk.platforms) { expect(p.x).toBeGreaterThanOrEqual(28); expect(p.x + p.width).toBeLessThanOrEqual(422); } chunk.enemies.forEach(e => kinds.add(e.kind)); if (i < 5) expect(chunk.enemies.some(e => e.kind === 'tank' || e.flying)).toBe(false); } expect(kinds.size).toBe(4); });
-  it('keeps generated objects bounded during a long descent', () => { const game = new GameModel(false, Math.random, 'endless'); for (let i = 0; i < 150; i++) { game.player.y += 800; game.player.grounded = -1; game.player.invincible = 99; game.step(1 / 120, 0, false); } expect(game.totalDepth).toBeGreaterThan(4500); expect(game.platforms.length).toBeLessThan(25); expect(game.enemies.length).toBeLessThan(40); });
+  it('keeps generated objects bounded during a long descent', () => {
+    const game = new GameModel(false, Math.random, 'endless');
+    for (let i = 0; i < 150; i++) {
+      // The bot teleports a screen at a time, so it can appear already standing inside terrain that
+      // kills on contact -- something no actual fall can do. Clearing hazards each step keeps this
+      // measuring what it is about: how much of the shaft stays alive during a long descent.
+      game.player.y += 800; game.player.grounded = -1; game.player.invincible = 99; game.hazards = [];
+      game.step(1 / 120, 0, false);
+    }
+    expect(game.totalDepth).toBeGreaterThan(4500);
+    expect(game.platforms.length).toBeLessThan(25);
+    expect(game.enemies.length).toBeLessThan(40);
+  });
 });

@@ -1,4 +1,9 @@
-export const HEALTH_RULES = { overflowPerLife: 4, fillNewHeart: true, invincibilitySeconds: 1, comboRewardAt: 25, comboHealing: 1 } as const;
+/**
+ * Healing, overflow and invulnerability. The COMBO reward used to be specified here as well
+ * (comboRewardAt / comboHealing); it now lives in data/combo.ts in one place, so there is no second
+ * threshold to fall out of step with it.
+ */
+export const HEALTH_RULES = { overflowPerLife: 4, fillNewHeart: true, invincibilitySeconds: 1 } as const;
 export type DamageCause =
   | 'enemy' | 'spike' | 'tank' | 'oxygen' | 'heat' | 'lava' | 'fall'
   /** The FINAL BOSS hurts in three distinguishable ways, so a death report can name which. */

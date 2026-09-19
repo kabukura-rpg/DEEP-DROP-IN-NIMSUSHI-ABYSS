@@ -5,6 +5,8 @@ import { UpgradeSystem } from '../src/systems/UpgradeSystem';
 import { UPGRADES, chooseUpgrades } from '../src/data/upgrades';
 import { initialStats } from '../src/data/balance';
 import { spawnEnemy } from '../src/data/enemies';
+import { COMBO_RULES, COMBO_REWARDS, comboRewardFor } from '../src/data/combo';
+import { CHARGE_AMMO_BONUS } from '../src/data/gunModules';
 const upgrade = (id: string) => UPGRADES.find(u => u.id === id)!;
 function killOne(game: GameModel) {
   game.platforms = []; game.player.x = 225; game.player.y = 180; game.player.vy = 0;
@@ -94,20 +96,66 @@ describe('upgrade candidates and stack limits', () => {
   });
 });
 
-describe('25-combo reward through real collision kills', () => {
-  it('heals exactly one at 25 and not at 26–50', () => {
-    const g = new GameModel(true); g.hp = 2; g.combo = 24; killOne(g); expect(g.combo).toBe(25); expect(g.hp).toBe(3);
-    for (let i = 0; i < 25; i++) killOne(g); expect(g.combo).toBe(50); expect(g.hp).toBe(3); expect(g.health.overflowHealing).toBe(0);
+/**
+ * The COMBO reward. There is exactly one threshold in the game now -- COMBO_RULES.rewardAt -- and
+ * these run through real collision kills rather than calling the reward directly, so what is
+ * measured is what the player actually gets.
+ */
+describe('COMBO reward through real collision kills', () => {
+  /** Kills up to and including the threshold, from a standing start. */
+  const chain = (g: GameModel, kills = COMBO_RULES.rewardAt) => { for (let i = 0; i < kills; i++) killOne(g); };
+  it('has one threshold, defined once, and a rotating reward table', () => {
+    expect(COMBO_RULES.rewardAt).toBe(10);
+    expect(COMBO_REWARDS.length).toBeGreaterThan(1);
+    expect(COMBO_REWARDS.map(r => r.bonus)).toContain('heart');
+    // Rotation, not a roll: the same run never gets the same reward twice in a row.
+    for (let i = 0; i < COMBO_REWARDS.length * 3; i++) expect(comboRewardFor(i)).toBe(COMBO_REWARDS[i % COMBO_REWARDS.length]);
+    expect(HEALTH_RULES).not.toHaveProperty('comboRewardAt');
+    expect(HEALTH_RULES).not.toHaveProperty('comboHealing');
   });
-  it('sends a full-HP reward into overflow', () => { const g = new GameModel(true); g.combo = 24; killOne(g); expect(g.hp).toBe(4); expect(g.health.overflowHealing).toBe(1); });
-  it('can trigger LIFE UP from a combo reward', () => { const g = new GameModel(true); g.heal(3); g.combo = 24; killOne(g); expect([g.hp, g.health.maxHp, g.health.overflowHealing]).toEqual([5, 5, 0]); });
-  it('allows another reward after damage breaks the combo', () => {
-    const g = new GameModel(true); g.combo = 24; killOne(g); expect(g.health.overflowHealing).toBe(1); g.damage(1); expect(g.combo).toBe(0);
-    for (let i = 0; i < 25; i++) killOne(g); expect(g.hp).toBe(4); expect(g.health.overflowHealing).toBe(1);
+  it('pays out on the threshold kill and never again inside the same chain', () => {
+    const g = new GameModel(true); g.hp = 2;
+    for (let i = 1; i < COMBO_RULES.rewardAt; i++) { killOne(g); expect(g.hp).toBe(2); }
+    killOne(g);
+    expect(g.combo).toBe(COMBO_RULES.rewardAt); expect(g.hp).toBe(3);
+    // Four more thresholds' worth of kills in the same chain buy nothing at all.
+    for (let i = 0; i < COMBO_RULES.rewardAt * 4; i++) killOne(g);
+    expect(g.combo).toBe(COMBO_RULES.rewardAt * 5); expect(g.hp).toBe(3); expect(g.health.overflowHealing).toBe(0);
+  });
+  it('never opens a screen or stops the run', () => {
+    const g = new GameModel(true); chain(g);
+    expect(g.state).toBe('playing'); expect(g.paused).toBe(false); expect(g.running).toBe(true);
+  });
+  it('reports the payout as one event carrying the reward it handed over', () => {
+    const g = new GameModel(true); g.events.length = 0; chain(g);
+    const paid = g.events.filter(e => e.type === 'comboReward');
+    expect(paid.length).toBe(1);
+    expect(paid[0].value).toBe(COMBO_RULES.rewardAt);
+    expect(paid[0].bonus).toBe(comboRewardFor(0).bonus);
+  });
+  it('sends a full-HP heart into overflow, and overflow into LIFE UP, through HealthSystem', () => {
+    const full = new GameModel(true); chain(full);
+    expect(full.hp).toBe(4); expect(full.health.overflowHealing).toBe(1);
+    const nearly = new GameModel(true); nearly.heal(3); chain(nearly);
+    expect([nearly.hp, nearly.health.maxHp, nearly.health.overflowHealing]).toEqual([5, 5, 0]);
+  });
+  it('rotates to the next reward on the next chain instead of repeating the first', () => {
+    const g = new GameModel(true); chain(g);
+    expect(g.health.overflowHealing).toBe(1);
+    g.damage(1); expect(g.combo).toBe(0);
+    const ammoBefore = g.stats.maxAmmo;
+    chain(g);
+    // Second chain draws the second row of the table: the magazine grows and refills.
+    expect(comboRewardFor(1).bonus).toBe('charge');
+    expect(g.stats.maxAmmo).toBe(ammoBefore + CHARGE_AMMO_BONUS);
+    expect(g.ammo).toBe(g.stats.maxAmmo);
   });
   it('allows another reward after landing breaks the combo', () => {
-    const g = new GameModel(true); g.combo = 24; killOne(g);
-    g.platforms = [{ id: 5, x: 150, y: g.player.y + 16, width: 150 }]; g.player.vy = 300; g.step(1 / 120, 0, false); expect(g.combo).toBe(0);
-    for (let i = 0; i < 25; i++) killOne(g); expect(g.health.overflowHealing).toBe(2);
+    const g = new GameModel(true); chain(g);
+    g.platforms = [{ id: 5, x: 150, y: g.player.y + 16, width: 150 }]; g.player.vy = 300; g.step(1 / 120, 0, false);
+    expect(g.combo).toBe(0);
+    g.events.length = 0;
+    chain(g);
+    expect(g.events.filter(e => e.type === 'comboReward').length).toBe(1);
   });
 });

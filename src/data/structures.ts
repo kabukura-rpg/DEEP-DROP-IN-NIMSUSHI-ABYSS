@@ -57,4 +57,23 @@ export interface AirBubble {
   id: number; x: number; y: number; vx: number; vy: number; life: number; taken: boolean;
 }
 
+/**
+ * BREAK FLOOR: a slab spanning the whole shaft, laid a few times per SECTION as a gate between
+ * fall zones. It is NOT an AREA 4 collapsing ledge and shares none of its code:
+ *
+ *   - landing on it is an ordinary landing -- AMMO FULL RELOAD, COMBO RESET -- and it does not
+ *     start any timer, so standing on it is safe indefinitely;
+ *   - the only way past it is to shoot it, downward, until its durability runs out;
+ *   - breaking it is terrain work, not a kill: no COMBO, no COIN, no enemy defeat, and no rearm.
+ *
+ * Durability is counted in rounds that connect rather than in damage, so every one of the seven
+ * gun modules can open it and a damage upgrade never trivialises the gate.
+ */
+export const BREAK_FLOOR_RULES = {
+  /** Collision thickness for rounds. Deep enough that a shot fired while standing on it registers. */
+  thickness: 16,
+  /** Hits taken before it gives way, when a SECTION plan does not say otherwise. */
+  durability: 2,
+} as const;
+
 export const shaftCentre = WORLD.width / 2;

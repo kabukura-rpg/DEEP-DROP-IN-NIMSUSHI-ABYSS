@@ -1,4 +1,5 @@
 import type { EnemyKind } from './enemies';
+import type { SpikeKind } from './hazards';
 
 export type AreaId = 1 | 2 | 3 | 4;
 export type SectionId = 1 | 2 | 3;
@@ -43,6 +44,25 @@ export interface SectionPlan {
   comboBias: number;
   /** Metres at the top of the SECTION left empty so the opening reads calmly. */
   graceDepth?: number;
+
+  // --- SPIKE (AREA 1 / AREA 2) ----------------------------------------------------------------
+  /**
+   * Per-row chance that the ledge carries a patch of SPIKE. SPIKE is instant death, so it is only
+   * ever laid on the far end of a ledge from the landing spot the route is guaranteed to reach,
+   * never in the fall corridor and never in front of an air source.
+   */
+  spikeChance?: number;
+  /** Which SPIKE variants this SECTION draws from. One is picked per patch. */
+  spikeKinds?: readonly SpikeKind[];
+
+  // --- BREAK FLOOR ----------------------------------------------------------------------------
+  /**
+   * Full-width gates laid across the SECTION, dividing it into that many + 1 fall zones. They are
+   * spaced evenly through the SECTION's own length, so they are never near the opening or the exit.
+   */
+  breakFloorCount?: number;
+  /** Rounds one gate takes before it gives way. Counted in hits, so every module can open it. */
+  breakFloorDurability?: number;
   /**
    * Per-row chance of an AIR CONTAINER and of a sheltering air pocket, where oxygen is on.
    * A container holds no air by itself: breaking it releases bubbles that climb away.
@@ -118,9 +138,12 @@ export const AREAS: readonly AreaConfig[] = [
     enemyPool: ['slime', 'bat', 'armoredSlime'],
     theme: { wall: 0x2b3228, wallEdge: 0x44523a, brick: 0x222a20, pillar: 0x33402c, accent: 0xb9ef70, dust: 0x9db98a, sky: 0x2d4a52, horizon: 0x47707a, grass: 0x6d9c4a },
     plans: [
-      { platformWidth: [176, 196], gap: 232, enemyChance: 0.30, flyChance: 0.08, toughChance: 0.17, heavyChance: 0, comboBias: 0.20, graceDepth: 25 },
-      { platformWidth: [152, 178], gap: 238, enemyChance: 0.38, flyChance: 0.20, toughChance: 0.22, heavyChance: 0, comboBias: 0.22 },
-      { platformWidth: [132, 158], gap: 244, enemyChance: 0.52, flyChance: 0.30, toughChance: 0.30, heavyChance: 0, comboBias: 0.30 },
+      { platformWidth: [176, 196], gap: 232, enemyChance: 0.30, flyChance: 0.08, toughChance: 0.17, heavyChance: 0, comboBias: 0.20, graceDepth: 25,
+        spikeChance: 0.12, spikeKinds: ['stoneSpike'], breakFloorCount: 1, breakFloorDurability: 1 },
+      { platformWidth: [152, 178], gap: 238, enemyChance: 0.38, flyChance: 0.20, toughChance: 0.22, heavyChance: 0, comboBias: 0.22,
+        spikeChance: 0.26, spikeKinds: ['stoneSpike', 'ancientStake'], breakFloorCount: 2, breakFloorDurability: 2 },
+      { platformWidth: [132, 158], gap: 244, enemyChance: 0.52, flyChance: 0.30, toughChance: 0.30, heavyChance: 0, comboBias: 0.30,
+        spikeChance: 0.40, spikeKinds: ['stoneSpike', 'ancientStake'], breakFloorCount: 2, breakFloorDurability: 2 },
     ],
   },
   {
@@ -130,9 +153,12 @@ export const AREAS: readonly AreaConfig[] = [
     gimmicks: { oxygen: true },
     water: { gravity: 0.90, responsiveness: 11 },
     plans: [
-      { platformWidth: [150, 174], gap: 236, enemyChance: 0.34, flyChance: 0.26, toughChance: 0.22, heavyChance: 0, comboBias: 0.18, graceDepth: 12, containerChance: 0.30, airPocketChance: 0.14, maxOxygenGap: 30, bubbleOffside: 0.35 },
-      { platformWidth: [138, 162], gap: 242, enemyChance: 0.46, flyChance: 0.32, toughChance: 0.30, heavyChance: 0, comboBias: 0.24, containerChance: 0.22, airPocketChance: 0.07, maxOxygenGap: 40, bubbleOffside: 0.62 },
-      { platformWidth: [126, 150], gap: 248, enemyChance: 0.56, flyChance: 0.38, toughChance: 0.38, heavyChance: 0, comboBias: 0.28, containerChance: 0.17, airPocketChance: 0.04, maxOxygenGap: 50, bubbleOffside: 0.85 },
+      { platformWidth: [150, 174], gap: 236, enemyChance: 0.34, flyChance: 0.26, toughChance: 0.22, heavyChance: 0, comboBias: 0.18, graceDepth: 12, containerChance: 0.30, airPocketChance: 0.14, maxOxygenGap: 30, bubbleOffside: 0.35,
+        spikeChance: 0.22, spikeKinds: ['poisonCoral'], breakFloorCount: 2, breakFloorDurability: 2 },
+      { platformWidth: [138, 162], gap: 242, enemyChance: 0.46, flyChance: 0.32, toughChance: 0.30, heavyChance: 0, comboBias: 0.24, containerChance: 0.22, airPocketChance: 0.07, maxOxygenGap: 40, bubbleOffside: 0.62,
+        spikeChance: 0.34, spikeKinds: ['poisonCoral', 'urchinSpike'], breakFloorCount: 2, breakFloorDurability: 2 },
+      { platformWidth: [126, 150], gap: 248, enemyChance: 0.56, flyChance: 0.38, toughChance: 0.38, heavyChance: 0, comboBias: 0.28, containerChance: 0.17, airPocketChance: 0.04, maxOxygenGap: 50, bubbleOffside: 0.85,
+        spikeChance: 0.46, spikeKinds: ['poisonCoral', 'urchinSpike'], breakFloorCount: 2, breakFloorDurability: 2 },
     ],
   },
   {
@@ -142,11 +168,11 @@ export const AREAS: readonly AreaConfig[] = [
     gimmicks: { heat: true, lava: true },
     plans: [
       { platformWidth: [146, 170], gap: 238, enemyChance: 0.34, flyChance: 0.24, toughChance: 0.18, heavyChance: 0, comboBias: 0.20, graceDepth: 14,
-        lavaPoolChance: 0.22, lavaWallChance: 0, ventChance: 0.10, iceChance: 0.52, iceOffside: 0.25 },
+        lavaPoolChance: 0.22, lavaWallChance: 0, ventChance: 0.10, iceChance: 0.52, iceOffside: 0.25, breakFloorCount: 2, breakFloorDurability: 3 },
       { platformWidth: [136, 158], gap: 244, enemyChance: 0.46, flyChance: 0.30, toughChance: 0.28, heavyChance: 0.10, comboBias: 0.24,
-        lavaPoolChance: 0.34, lavaWallChance: 0.12, ventChance: 0.20, iceChance: 0.40, iceOffside: 0.60 },
+        lavaPoolChance: 0.34, lavaWallChance: 0.12, ventChance: 0.20, iceChance: 0.40, iceOffside: 0.60, breakFloorCount: 2, breakFloorDurability: 3 },
       { platformWidth: [124, 146], gap: 250, enemyChance: 0.56, flyChance: 0.36, toughChance: 0.36, heavyChance: 0.16, comboBias: 0.28,
-        lavaPoolChance: 0.44, lavaWallChance: 0.20, ventChance: 0.28, iceChance: 0.30, iceOffside: 0.85 },
+        lavaPoolChance: 0.44, lavaWallChance: 0.20, ventChance: 0.28, iceChance: 0.30, iceOffside: 0.85, breakFloorCount: 2, breakFloorDurability: 3 },
     ],
   },
   {

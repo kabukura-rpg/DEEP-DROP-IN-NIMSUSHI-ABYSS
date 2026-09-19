@@ -3,9 +3,9 @@ import { difficultyAt, horizontalReach } from '../data/difficulty';
 import { ENEMY_TYPES, enemyType, spawnEnemy, type Enemy, type EnemyKind } from '../data/enemies';
 import { spawnGunModule, spawnPickup, type Pickup, type PickupKind } from '../data/pickups';
 import { GUN_MODULE_SPAWN_CHANCE, rollGunModule } from '../data/gunModules';
-import { AIR_CONTAINER_RULES, EXIT_RULES, SHOP_DOOR, type AirContainer, type ShopDoor, type StageExit } from '../data/structures';
+import { AIR_CONTAINER_RULES, BREAK_FLOOR_RULES, EXIT_RULES, SHOP_DOOR, type AirContainer, type ShopDoor, type StageExit } from '../data/structures';
 import { SHOP_RULES } from '../data/shop';
-import { spawnHazard, type Hazard } from '../data/hazards';
+import { spawnHazard, type Hazard, type SpikeKind } from '../data/hazards';
 import type { SectionPlan, WaterPhysics } from '../data/areas';
 
 export type { Enemy, EnemyKind } from '../data/enemies';
@@ -14,19 +14,32 @@ export type { Hazard } from '../data/hazards';
 /** A pocket of trapped air. Standing inside it refills the tank and stops the drain. */
 export interface AirPocket { id: number; x: number; y: number; width: number; height: number }
 import type { PlatformState } from './BreakablePlatformSystem';
+/**
+ * A BREAK FLOOR gate, tracked on the slab itself. Present only on gates, so `breakFloor` is also
+ * the test for "is this a gate" -- it is deliberately independent of `breakable`, which belongs to
+ * AREA 4's collapsing ledges and behaves nothing like this.
+ */
+export interface BreakFloor {
+  /** Rounds that have connected so far. */
+  hits: number;
+  /** Rounds it takes. Counted in hits, not damage, so every gun module can open a gate. */
+  durability: number;
+}
 export interface Platform {
   id: number; x: number; y: number; width: number;
   /** AREA 4: this ledge gives way once the player has landed on it. */
   breakable?: boolean;
   /** Owned by BreakablePlatformSystem; every other reader treats it as read-only. */
   state?: PlatformState;
+  /** A full-width gate that has to be shot open. Landing on it is an ordinary landing. */
+  breakFloor?: BreakFloor;
 }
 export interface RoutePlatform extends Platform { safeX: number; exitX: number; safeSide: -1 | 1 }
 export const START_PLATFORM: RoutePlatform = { id: -2, x: 155, y: 250, width: 140, safeX: 225, exitX: 307, safeSide: 1, breakable: false, state: 'stable' };
 export const canReachPlatform = (from: RoutePlatform, to: RoutePlatform, water?: WaterPhysics) => to.y > from.y && Math.abs(to.safeX - from.exitX) <= horizontalReach(to.y - from.y, water);
 
 /** Everything one row needs, whether it came from a SECTION plan or the shared depth curve. */
-interface RowTuning { minWidth: number; maxWidth: number; gap: number; enemyChance: number; flyChance: number; toughChance: number; heavyChance: number; comboBias: number; containerChance: number; airPocketChance: number; maxOxygenGap: number; bubbleOffside: number; lavaPoolChance: number; lavaWallChance: number; ventChance: number; iceChance: number; iceOffside: number; breakableChance: number; maxBreakableRun: number }
+interface RowTuning { minWidth: number; maxWidth: number; gap: number; enemyChance: number; flyChance: number; toughChance: number; heavyChance: number; comboBias: number; containerChance: number; airPocketChance: number; maxOxygenGap: number; bubbleOffside: number; lavaPoolChance: number; lavaWallChance: number; ventChance: number; iceChance: number; iceOffside: number; breakableChance: number; maxBreakableRun: number; spikeChance: number; spikeKinds: readonly SpikeKind[] }
 export interface GenerationContext {
   /** Metres already descended this run; only used when no SECTION plan is supplied. */
   depthOffset?: number;
@@ -69,6 +82,13 @@ export class StageGenerator {
   /** Set once the exit floor is down: nothing is generated below it, ever. */
   private done = false;
   private shopPlaced = false;
+  /**
+   * Section-local metres at which a BREAK FLOOR gate is laid, shallowest first. Spaced evenly
+   * through the SECTION so the gates divide it into fall zones rather than clustering, and derived
+   * from the SECTION's own length so they can never land on the opening or on the exit floor. The
+   * FINAL BOSS passes no sectionLength, which is why the arena has no gates at all.
+   */
+  private gates: number[] = [];
   constructor(private random: () => number = Math.random, private context: GenerationContext = {}) {
     this.nextY = context.startY ?? 465;
     this.previous = context.previous ? { ...context.previous } : { ...START_PLATFORM };
@@ -78,6 +98,24 @@ export class StageGenerator {
     const held = context.plan?.enemyExclude ?? [];
     this.pool = held.length ? roster.filter(kind => !held.includes(kind)) : roster;
     this.openKinds = this.pool.some(kind => ENEMY_TYPES[kind].spawnSlot !== 'guard');
+    const gateCount = context.sectionLength ? context.plan?.breakFloorCount ?? 0 : 0;
+    for (let i = 1; i <= gateCount; i++) this.gates.push(context.sectionLength! * i / (gateCount + 1));
+  }
+
+  /**
+   * One gate. It spans the shaft, so nothing falls past it and the only way on is to shoot it out.
+   * Landing is measured from where the fall actually arrives, and the drop out of it is measured
+   * from the same spot: the player opens a hole under their own feet, so there is no ledge edge to
+   * leave from. That is the conservative reading -- they are free to walk anywhere on it first.
+   */
+  private breakFloorRow(y: number): RoutePlatform {
+    const landing = Math.max(WORLD.wall + 26, Math.min(WORLD.width - WORLD.wall - 26, this.previous.exitX));
+    return {
+      id: this.id++, x: WORLD.wall, y, width: WORLD.width - WORLD.wall * 2,
+      safeSide: 1, safeX: landing, exitX: landing,
+      breakable: false, state: 'stable',
+      breakFloor: { hits: 0, durability: this.context.plan?.breakFloorDurability ?? BREAK_FLOOR_RULES.durability },
+    };
   }
 
   /**
@@ -97,10 +135,12 @@ export class StageGenerator {
         lavaPoolChance: quiet ? 0 : plan.lavaPoolChance ?? 0, lavaWallChance: quiet ? 0 : plan.lavaWallChance ?? 0,
         ventChance: quiet ? 0 : plan.ventChance ?? 0, iceChance: plan.iceChance ?? 0, iceOffside: plan.iceOffside ?? 0,
         breakableChance: quiet ? 0 : plan.breakableChance ?? 0, maxBreakableRun: plan.maxBreakableRun ?? Infinity,
+        // SPIKE is instant death, so the opening grace period holds it back like everything lethal.
+        spikeChance: quiet ? 0 : plan.spikeChance ?? 0, spikeKinds: plan.spikeKinds ?? [],
       };
     }
     const curve = difficultyAt((this.context.depthOffset ?? 0) + localDepth);
-    return { minWidth: curve.minWidth, maxWidth: curve.maxWidth, gap: curve.gap, enemyChance: curve.enemyChance, flyChance: curve.flyChance, toughChance: curve.spikeChance, heavyChance: curve.tankChance, comboBias: 0, containerChance: 0, airPocketChance: 0, maxOxygenGap: Infinity, bubbleOffside: 0, lavaPoolChance: 0, lavaWallChance: 0, ventChance: 0, iceChance: 0, iceOffside: 0, breakableChance: 0, maxBreakableRun: Infinity };
+    return { minWidth: curve.minWidth, maxWidth: curve.maxWidth, gap: curve.gap, enemyChance: curve.enemyChance, flyChance: curve.flyChance, toughChance: curve.spikeChance, heavyChance: curve.tankChance, comboBias: 0, containerChance: 0, airPocketChance: 0, maxOxygenGap: Infinity, bubbleOffside: 0, lavaPoolChance: 0, lavaWallChance: 0, ventChance: 0, iceChance: 0, iceOffside: 0, breakableChance: 0, maxBreakableRun: Infinity, spikeChance: 0, spikeKinds: [] };
   }
 
   private pick<T>(items: readonly T[]) { return items[Math.min(items.length - 1, Math.floor(this.random() * items.length))]; }
@@ -161,6 +201,16 @@ export class StageGenerator {
       const y = this.nextY, localDepth = Math.max(0, (y - WORLD.startY) / WORLD.pixelsPerMeter);
 
       const tuning = this.tuningAt(localDepth);
+      // A gate takes the whole row: no ledge, no enemies, no hazards, nothing to collect. It is a
+      // wall across the shaft and the pause it creates is the point.
+      if (this.gates.length && localDepth >= this.gates[0]) {
+        this.gates.shift();
+        const gate = this.breakFloorRow(y);
+        if (y >= start) platforms.push(gate);
+        this.previous = gate;
+        this.nextY += tuning.gap + this.random() * 28;
+        continue;
+      }
       const width = Math.round(tuning.minWidth + this.random() * (tuning.maxWidth - tuning.minWidth));
       const candidates: RoutePlatform[] = [];
       // A finite set always includes both extremes. Random ordering cannot defeat safety.
@@ -230,6 +280,7 @@ export class StageGenerator {
       }
       if (this.context.oxygen) this.placeAir(tuning, platform, y, start, containers, airPockets, enemies);
       if (this.context.heat) this.placeHeat(tuning, platform, y, width, start, pickups, hazards, enemies);
+      this.placeSpikes(tuning, platform, y, width, start, hazards, enemies, containers, airPockets);
       this.placeGunModule(platform, y, start, pickups, enemies, hazards);
       // One doorway per SECTION, on an ordinary ledge, clear of the opening and of the exit.
       if (this.context.shop && !this.shopPlaced && y >= start && !platform.breakable
@@ -266,6 +317,40 @@ export class StageGenerator {
     if (hazards.some(h => x > h.x - 22 && x < h.x + h.width + 22 && cy > h.y - 22 && cy < h.y + h.height + 22)) return;
     const roll = rollGunModule(this.random);
     pickups.push(spawnGunModule(this.id++, Math.round(x), Math.round(cy), roll.module, roll.bonus));
+  }
+  /**
+   * SPIKE. It kills outright, so every one of these rules is a safety rule rather than a flavour:
+   *
+   *   - a patch only ever sits on the FAR end of a ledge from `safeX`, which is the one spot the
+   *     generator guarantees the previous fall can reach, with the player's body and room to turn
+   *     around reserved on top of that. Landing safely is therefore always possible;
+   *   - nothing is ever laid in the fall corridor itself, because a patch lives on a ledge surface
+   *     and the corridor is open water;
+   *   - in AREA 2 a patch is dropped outright when it would sit under or beside an air container or
+   *     an alcove, so reaching air never requires touching SPIKE.
+   */
+  private placeSpikes(tuning: RowTuning, platform: RoutePlatform, y: number, width: number, start: number, hazards: Hazard[], enemies: Enemy[], containers: AirContainer[], airPockets: AirPocket[]) {
+    if (!tuning.spikeKinds.length || this.random() >= tuning.spikeChance) return;
+    // The landing lane that stays clear: the guaranteed touchdown spot, the player's body, and
+    // enough room either side that arriving fast is never an instant death.
+    const clearance = 62, patchMin = 26, patchMax = 54;
+    const side: -1 | 1 = platform.safeSide === -1 ? 1 : -1;
+    const from = side === 1 ? platform.safeX + clearance : platform.x + 6;
+    const to = side === 1 ? platform.x + width - 6 : platform.safeX - clearance;
+    if (to - from < patchMin) return;
+    const patch = Math.round(Math.min(patchMax, to - from));
+    const x = Math.round(side === 1 ? to - patch : from);
+    const kind = this.pick(tuning.spikeKinds);
+    const height = kind === 'ancientStake' || kind === 'urchinSpike' ? 18 : 12;
+    // Never under an enemy's patrol: a guard standing in the teeth reads as a bug, not a threat.
+    if (enemies.some(e => e.y > y - 40 && e.y <= y + 4 && e.originX + e.range > x - 14 && e.originX - e.range < x + patch + 14)) return;
+    // AREA 2's guarantee. An air source anywhere near this column means no SPIKE here at all,
+    // so the route to a container or an alcove is never a route through instant death.
+    const overlapsAir = (ax: number, awidth: number, ay: number, aheight: number) =>
+      ax < x + patch + 26 && ax + awidth > x - 26 && ay < y + 24 && ay + aheight > y - 300;
+    if (containers.some(box => overlapsAir(box.x, box.width, box.y, box.height))) return;
+    if (airPockets.some(pocket => overlapsAir(pocket.x, pocket.width, pocket.y, pocket.height))) return;
+    if (y >= start) hazards.push(spawnHazard(kind, this.id++, x, y - height, patch, height));
   }
   private placeHeat(tuning: RowTuning, platform: RoutePlatform, y: number, width: number, start: number, pickups: Pickup[], hazards: Hazard[], enemies: Enemy[]) {
     const emit = <T extends Hazard | Pickup>(list: T[], item: T) => { if (y >= start) list.push(item); };
