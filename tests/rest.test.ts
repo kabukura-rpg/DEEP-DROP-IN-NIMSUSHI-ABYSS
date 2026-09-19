@@ -89,11 +89,22 @@ describe('upgrade candidates and stack limits', () => {
     expect(system.applyLegacy(upgrade('piercing'))).toBe(true); expect(system.applyLegacy(upgrade('piercing'))).toBe(false);
   });
   it('FOOD is selectable and useful at full HP', () => { const g = new GameModel(false, () => .999); g.completeSection('a'); expect(g.selectUpgrade('food')).toBe(true); g.confirmUpgrade(); expect([g.hp, g.health.maxHp]).toEqual([5, 5]); });
-  it('maximum ammo and recoil upgrades never turn shooting into upward flight', () => {
+  it('maximum ammo and recoil upgrades never turn shooting into sustained flight', () => {
     const g = new GameModel(true); g.platforms = []; for (let i = 0; i < 3; i++) g.upgrades.applyLegacy(upgrade('mag'));
     for (let i = 0; i < 2; i++) g.upgrades.applyLegacy(upgrade('recoil'));
-    g.player.y = -10000; for (let i = 0; i < 600; i++) { g.step(1 / 120, 0, true); expect(g.player.vy).toBeGreaterThanOrEqual(0); }
-    expect(g.ammo).toBe(0); expect(g.player.y).toBeGreaterThan(-9000);
+    // RECOIL+ makes the kick stronger, and a strong kick may now lift. What it must not do is turn
+    // a held trigger into flight: the run still ends lower than it started.
+    g.player.y = -10000;
+    const start = g.player.y;
+    let highest = start;
+    for (let i = 0; i < 600; i++) { g.step(1 / 120, 0, true); highest = Math.min(highest, g.player.y); }
+    expect(g.ammo).toBe(0);
+    // The magazine bought some height -- that is what RECOIL+ is for -- but it is spent now.
+    expect(highest).toBeLessThan(start);
+    let rose = 0, previous = g.player.y;
+    for (let i = 0; i < 400; i++) { g.step(1 / 120, 0, true); if (g.player.y < previous - 1e-9) rose++; previous = g.player.y; }
+    expect(rose).toBe(0);
+    expect(g.player.y).toBeGreaterThan(start);
   });
 });
 

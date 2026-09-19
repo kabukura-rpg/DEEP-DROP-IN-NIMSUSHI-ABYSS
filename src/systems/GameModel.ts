@@ -1,4 +1,4 @@
-import { WORLD, JUMP, initialStats } from '../data/balance';
+import { WORLD, JUMP, WALL_JUMP, initialStats } from '../data/balance';
 import { StageGenerator, START_PLATFORM, type Enemy, type Platform, type RoutePlatform } from './StageGenerator';
 import { OxygenSystem } from './OxygenSystem';
 import { HeatSystem } from './HeatSystem';
@@ -21,7 +21,7 @@ import { StageProgressionSystem } from './StageProgressionSystem';
 import type { AreaId, SectionId } from '../data/areas';
 import { enemyType } from '../data/enemies';
 import { defaultTuning, sanitizeTuning, type PhysicsTuning } from './PhysicsTuning';
-export type GameEvent = { type: 'shot' | 'empty' | 'land' | 'kill' | 'hurt' | 'upgrade' | 'over' | 'heal' | 'boss' | 'clear' | 'oxygen' | 'section' | 'ice' | 'vent' | 'crack' | 'collapse' | 'bossHit' | 'bossTelegraph' | 'bossFire' | 'bossPhase' | 'bossDown' | 'gunModule' | 'coin' | 'shopOpen' | 'shopBuy' | 'exitReady' | 'exit' | 'containerBreak' | 'blockCrack' | 'blockBreak' | 'jump' | 'comboSettle'; x: number; y: number; value?: number; stomp?: boolean; lifeUps?: number; overflow?: number; combo?: number; stage?: string; areaCleared?: string | null; bonus?: 'heart' | 'charge'; source?: { id: number; kind: Enemy['kind']; x: number; y: number } };
+export type GameEvent = { type: 'shot' | 'empty' | 'land' | 'kill' | 'hurt' | 'upgrade' | 'over' | 'heal' | 'boss' | 'clear' | 'oxygen' | 'section' | 'ice' | 'vent' | 'crack' | 'collapse' | 'bossHit' | 'bossTelegraph' | 'bossFire' | 'bossPhase' | 'bossDown' | 'gunModule' | 'coin' | 'shopOpen' | 'shopBuy' | 'exitReady' | 'exit' | 'containerBreak' | 'blockCrack' | 'blockBreak' | 'jump' | 'wallJump' | 'comboSettle'; x: number; y: number; value?: number; stomp?: boolean; lifeUps?: number; overflow?: number; combo?: number; stage?: string; areaCleared?: string | null; bonus?: 'heart' | 'charge'; source?: { id: number; kind: Enemy['kind']; x: number; y: number } };
 export interface Bullet {
   x: number; y: number; previousY: number; previousX: number;
   /** Velocity in px/s. Straight-down weapons simply carry vx = 0. */
@@ -29,6 +29,10 @@ export interface Bullet {
   damage: number; size: number;
   /** Enemies this round may pass through beyond the first. */
   pierce: number;
+  /** True: a BREAK BLOCK is damaged but does not stop it. */
+  pierceBlocks: boolean;
+  /** BREAK BLOCK ids already hit, so one round can never hit the same block twice. */
+  blocks: Set<number>;
   range: number; travelled: number;
   /** Drawn as a streak instead of a pellet; damage still uses the ordinary path. */
   beam: boolean;
@@ -37,6 +41,7 @@ export interface Bullet {
 /** A plain downward round, exactly as MACHINE GUN fires it. Useful for fixtures and drops. */
 export const plainBullet = (x: number, y: number, damage = 1, size = 4): Bullet => ({
   x, y, previousY: y, previousX: x, vx: 0, vy: 850, damage, size, pierce: 0,
+  pierceBlocks: false, blocks: new Set(),
   range: 900, travelled: 0, beam: false, hits: new Set(), alive: true,
 });
 export class GameModel {
@@ -99,6 +104,23 @@ export class GameModel {
   set combo(value: number) { this.comboValue = value; }
   /** Raw ACTION state last step, so a held button jumps once rather than every frame. */
   private actionHeld = false;
+  /**
+   * Which wall the last WALL JUMP left from, so the same one cannot be ridden forever. Cleared by
+   * touching the other wall or by any ordinary landing.
+   */
+  private wallJumpUsed: -1 | 0 | 1 = 0;
+  /** Horizontal shove from a WALL JUMP, decaying. Zero at all other times. */
+  private wallKick = 0;
+  /** The wall most recently touched and how long ago, so contact survives the step that leaves it. */
+  private wallTouchSide: -1 | 0 | 1 = 0;
+  private wallTouchAge = Infinity;
+  /**
+   * Which way "up" is for every impulse the player receives -- a jump, a wall jump, and the
+   * gunboots' recoil all go through this one value. The FINAL BOSS is planned to invert gravity
+   * later; this exists so that becomes a change here rather than a hunt through the model. It is
+   * NOT inverted anywhere yet, and projectile direction is deliberately still its own thing.
+   */
+  private readonly up = -1;
   maxCombo = 0;
   killScore = 0;
   cameraY = 0;
@@ -133,15 +155,65 @@ export class GameModel {
   resetPhysicsTuning() { this.setPhysicsTuning(defaultTuning()); }
   /** Present only for submerged areas; undefined restores the ordinary instant movement. */
   get water() { return this.practice ? undefined : this.boss.enabled ? this.boss.phase.water : this.stage.config.water; }
+  /** The playable span; the player's body stops 12px short of the brickwork on either side. */
+  private get leftEdge() { return WORLD.wall + 12; }
+  private get rightEdge() { return WORLD.width - WORLD.wall - 12; }
+  /** -1 pressed against the left wall, 1 against the right, 0 in open air. */
+  get wallSide(): -1 | 0 | 1 {
+    const p = this.player;
+    if (p.x <= this.leftEdge + 0.5) return -1;
+    if (p.x >= this.rightEdge - 0.5) return 1;
+    return 0;
+  }
+  /**
+   * The wall a WALL JUMP may leave from this frame, or 0 for none. It needs all of: being in the
+   * air, touching a wall, steering AWAY from it, and not having just left that same wall. The last
+   * condition is what stops a player climbing one wall forever; it clears on the other wall or on
+   * any landing.
+   */
+  wallJumpSide(direction: number): -1 | 0 | 1 {
+    if (this.player.grounded !== -1) return 0;
+    // Live contact first, then contact remembered from the last fraction of a second. The grace is
+    // not a nicety: steering away from a wall IS what breaks contact, so without it the move could
+    // never be performed at all.
+    const side = this.wallSide !== 0 ? this.wallSide
+      : this.wallTouchAge <= WALL_JUMP.grace ? this.wallTouchSide : 0;
+    if (side === 0 || side === this.wallJumpUsed) return 0;
+    return Math.sign(direction) === -side ? side : 0;
+  }
+  /** Remember the wall under the player's shoulder right now, if there is one. */
+  private noteWallTouch() {
+    const side = this.wallSide;
+    if (side !== 0) { this.wallTouchSide = side; this.wallTouchAge = 0; }
+  }
   moveHorizontal(dt: number, direction: number) {
     if (!this.running) return;
     const p = this.player, input = Math.max(-1, Math.min(1, direction)), water = this.water;
-    if (!water) { p.vx = 0; p.x = Math.max(WORLD.wall + 12, Math.min(WORLD.width - WORLD.wall - 12, p.x + input * this.stats.moveSpeed * dt)); return; }
+    // Sampled before AND after the move: entering the frame against the wall counts, and so does
+    // being pushed into it during the frame.
+    this.noteWallTouch();
+    // Touching the opposite wall re-arms the one already used, so a shaft can be zig-zagged down.
+    if (this.wallJumpUsed !== 0 && this.wallSide === -this.wallJumpUsed) this.wallJumpUsed = 0;
+    if (!water) {
+      p.vx = 0;
+      p.x = Math.max(this.leftEdge, Math.min(this.rightEdge, p.x + (input * this.stats.moveSpeed + this.wallKick) * dt));
+      this.decayWallKick(dt);
+      this.noteWallTouch();
+      return;
+    }
     // Submerged: steer towards the input speed instead of snapping to it, and drift on release.
     p.vx += (input * this.stats.moveSpeed - p.vx) * Math.min(1, water.responsiveness * dt);
-    const next = Math.max(WORLD.wall + 12, Math.min(WORLD.width - WORLD.wall - 12, p.x + p.vx * dt));
+    const next = Math.max(this.leftEdge, Math.min(this.rightEdge, p.x + (p.vx + this.wallKick) * dt));
     if (next === p.x) p.vx = 0;
     p.x = next;
+    this.decayWallKick(dt);
+    this.noteWallTouch();
+  }
+  /** The shove fades over WALL_JUMP.kickTime and is then exactly zero again. */
+  private decayWallKick(dt: number) {
+    if (this.wallKick === 0) return;
+    this.wallKick *= Math.max(0, 1 - dt / WALL_JUMP.kickTime);
+    if (Math.abs(this.wallKick) < 1) this.wallKick = 0;
   }
   /**
    * Fire one volley immediately, bypassing the module's trigger rules. Direct callers (and the
@@ -165,20 +237,31 @@ export class GameModel {
     this.fireVolley(request.cost, direction);
   }
   /**
-   * Spend the rounds, brake the fall and spawn the projectiles the module describes.
-   * Recoil brakes a fall; only stomping can create upward velocity. Full recoil returns after
-   * 0.34s, so sustained fire brakes less and no module can hover on its own trigger.
+   * Spend the rounds, kick the player and spawn the projectiles the module describes.
+   *
+   * The gunboots are boots: a heavy weapon genuinely throws the player upward rather than merely
+   * slowing a fall. What stops that becoming flight is the existing recovery curve -- full recoil
+   * returns only after 0.34s, so held fire pays 0.65x -- and each module's own fire interval. At
+   * every module's rate, gravity over one interval outweighs the recoil that interval buys, so no
+   * weapon climbs on its own trigger even though any of them can lift once.
+   *
+   * Rise is capped at the same speed as a fall, which is the natural symmetry and needs no number
+   * of its own.
    */
   private fireVolley(cost: number, aim: number) {
     const p = this.player;
     const def = this.gun.module;
     this.ammo = Math.max(0, this.ammo - cost);
     const recovery = Math.max(0.65, Math.min(1, 0.65 + (this.elapsed - this.lastAirShot - def.fireInterval) / 0.18 * 0.35));
-    if (p.vy > 0) { p.vy = Math.max(0, p.vy - volleyRecoil(def, this.stats) * recovery); this.lastAirShot = this.elapsed; }
+    const kick = volleyRecoil(def, this.stats) * recovery;
+    p.vy = Math.max(-this.stats.maxFallSpeed, Math.min(this.stats.maxFallSpeed, p.vy + this.up * kick));
+    this.lastAirShot = this.elapsed;
     for (const shot of volley(def, this.stats, aim)) {
+      const x = p.x + shot.offsetX;
       this.bullets.push({
-        x: p.x, y: p.y + 21, previousY: p.y + 21, previousX: p.x,
+        x, y: p.y + 21, previousY: p.y + 21, previousX: x,
         vx: shot.vx, vy: shot.vy, damage: shot.damage, size: shot.size, pierce: shot.pierce,
+        pierceBlocks: shot.blockPiercing, blocks: new Set(),
         range: shot.range, travelled: 0, beam: shot.beam, hits: new Set(), alive: true,
       });
     }
@@ -193,10 +276,25 @@ export class GameModel {
   jump() {
     const p = this.player;
     if (!this.running || p.grounded === -1) return false;
-    p.vy = -JUMP.impulse;
+    p.vy = this.up * JUMP.impulse;
     p.grounded = -1;
     this.lastAirShot = -Infinity;
     this.emit('jump', p.x, p.y);
+    return true;
+  }
+  /**
+   * The wall half of ACTION. It costs no CHARGE, fires nothing, and leaves the chain alone -- it is
+   * movement, not an attack. The shove away from the wall is a decaying horizontal push rather than
+   * a velocity the player fights against, so steering back in still works once it has faded.
+   */
+  wallJump(side: -1 | 0 | 1 = this.wallJumpSide(0)) {
+    if (!this.running || side === 0 || this.player.grounded !== -1) return false;
+    const p = this.player;
+    p.vy = this.up * WALL_JUMP.impulse;
+    this.wallKick = -side * WALL_JUMP.kick;
+    this.wallJumpUsed = side;
+    this.lastAirShot = -Infinity;
+    this.emit('wallJump', p.x, p.y);
     return true;
   }
   /** Swap the equipped weapon and hand out the crate's bonus through the ordinary systems. */
@@ -220,6 +318,7 @@ export class GameModel {
     this.cooldown = Math.max(0, this.cooldown - dt);
     const p = this.player;
     this.health.tick(dt);
+    this.wallTouchAge += dt;
     const oldY = p.y;
     this.moveHorizontal(dt, direction);
     const ground = this.platforms.find(f => f.id === p.grounded);
@@ -235,6 +334,7 @@ export class GameModel {
     // arrives here as `firing`, so there is no second path that could shoot from the ground.
     const pressed = firing && !this.actionHeld;
     this.actionHeld = firing;
+    const wall = this.wallJumpSide(direction);
     if (p.grounded !== -1) {
       // Standing: the gunboots are not in use. The gun is still ticked with the trigger released so
       // its timers keep running and the next press in the air reads as a fresh one; any request it
@@ -242,6 +342,13 @@ export class GameModel {
       // exception -- including for the tail of a burst that was paid for before landing.
       this.gun.update(dt, false, this.ammo);
       if (pressed) this.jump();
+    } else if (wall !== 0) {
+      // Pressed against a wall and steering away from it: ACTION kicks off the wall and fires
+      // nothing. Unlike standing, the gunboots are still live here -- they are simply not being
+      // pressed -- so a BURST already paid for keeps unspooling rather than being swallowed.
+      if (pressed) this.wallJump(wall);
+      if (this.gun.bursting) this.fireGun(dt, direction, false);
+      else this.gun.update(dt, false, this.ammo);
     } else {
       this.fireGun(dt, direction, firing);
     }
@@ -281,7 +388,12 @@ export class GameModel {
         if (!block.breakBlock || block.state === 'broken') continue;
         if (b.x + b.size < block.x || b.x - b.size > block.x + block.width) continue;
         if (b.y < block.y || b.previousY > block.y + BREAK_BLOCK_RULES.thickness) continue;
-        this.hitBreakBlock(block); b.alive = false; break;
+        // Never the same block twice, however many frames a round spends inside one. This is what
+        // lets a LASER cross a row without grinding a single block down on its own.
+        if (b.blocks.has(block.id)) continue;
+        b.blocks.add(block.id);
+        this.hitBreakBlock(block);
+        if (!b.pierceBlocks) { b.alive = false; break; }
       }
       if (!b.alive) continue;
       for (const box of this.containers) {
@@ -291,7 +403,9 @@ export class GameModel {
         }
       }
       if (!b.alive) continue;
-      const targets = this.enemies.filter(e => e.alive && !b.hits.has(e.id) && Math.abs(b.x - e.x) < 15 + b.size && b.previousY <= e.y + 15 && b.y >= e.y - 15).sort((a, z) => a.y - z.y);
+      // `shootable: false` is a real answer, not a miss: the round passes over such an enemy and
+      // carries on to whatever is behind it. Landing on one is then the only way through.
+      const targets = this.enemies.filter(e => e.alive && e.shootable !== false && !b.hits.has(e.id) && Math.abs(b.x - e.x) < 15 + b.size && b.previousY <= e.y + 15 && b.y >= e.y - 15).sort((a, z) => a.y - z.y);
       for (const e of targets) {
         b.hits.add(e.id); e.hp -= b.damage; e.flash = 0.1;
         if (e.hp <= 0) this.kill(e, false);
@@ -665,6 +779,7 @@ export class GameModel {
     p.x = 225; p.y = WORLD.startY; p.vy = 0; p.grounded = -1;
     this.sectionDepth = 0; this.cameraY = 0; this.cooldown = 0; this.lastAirShot = -Infinity;
     this.platforms = [{ ...START_PLATFORM }]; this.enemies = []; this.bullets = []; this.nextChunk = 0;
+    this.wallJumpUsed = 0; this.wallKick = 0; this.wallTouchSide = 0; this.wallTouchAge = Infinity;
     this.pickups = []; this.hazards = []; p.vx = 0;
     this.containers = []; this.bubbles = []; this.exit = null;
     // Coins already banked stay banked; only the ones still lying on the floor are swept up.
@@ -759,6 +874,9 @@ export class GameModel {
   private settleLanding() {
     this.reloadCharge();
     this.settleCombo();
+    // Touching down re-arms both walls: the lockout only ever stops riding ONE wall in mid-air.
+    this.wallJumpUsed = 0;
+    this.wallTouchAge = Infinity;
   }
   private finish() { if (this.state === 'over' || this.state === 'clear') return; this.state = 'over'; this.emit('over', this.player.x, this.player.y); }
   private generate() {

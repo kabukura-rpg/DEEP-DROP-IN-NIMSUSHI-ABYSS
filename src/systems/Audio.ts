@@ -21,8 +21,9 @@ export const EVENT_SOUNDS: Record<GameEvent['type'], SoundId | null> = {
   section: null, ice: null, vent: null, crack: null, collapse: null,
   // A BREAK BLOCK: a dull knock while it holds, the heavier landing voice when it gives way.
   blockCrack: 'empty', blockBreak: 'land',
-  // ACTION on the ground, and the payout a landing banks. Both reuse existing voices.
-  jump: 'land', comboSettle: 'upgrade',
+  // ACTION on the ground and against a wall, and the payout a landing banks. All reuse existing
+  // voices rather than inventing new ones.
+  jump: 'land', wallJump: 'land', comboSettle: 'upgrade',
   // Picking up a weapon has no sound of its own yet; the swap card carries the feedback.
   gunModule: null,
   // Money and doorways reuse the existing voices rather than inventing new ones.

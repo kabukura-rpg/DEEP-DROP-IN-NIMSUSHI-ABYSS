@@ -149,12 +149,14 @@ function verifyTransfer(from: RoutePlatform, to: RoutePlatform, enemies: Enemy[]
 }
 
 describe('responsive controls and feedback', () => {
-  it('keeps single-shot recoil but avoids hovering during sustained fire', () => {
+  it('keeps single-shot recoil but avoids climbing during sustained fire', () => {
     const game = new GameModel(true); game.platforms = []; game.player.y = 50; game.player.vy = 200;
     // Long enough to empty the starting magazine, whatever size it is.
     tick(game, 0.2 * game.stats.maxAmmo, 0, true);
     expect(game.ammo).toBe(0); expect(game.player.y - 50).toBeGreaterThan(100); expect(game.player.vy).toBeGreaterThan(100);
-    for (let i = 0; i < 50; i++) { game.cooldown = 0; game.ammo = 1; game.shoot(); expect(game.player.vy).toBeGreaterThanOrEqual(0); game.step(1 / 120, 0, false); }
+    // A single shot may throw the player upward now; fifty of them in a row must still not climb.
+    const ceiling = game.player.y - 200;
+    for (let i = 0; i < 50; i++) { game.cooldown = 0; game.ammo = 1; game.shoot(); expect(game.player.y).toBeGreaterThan(ceiling); game.step(1 / 120, 0, false); }
   });
   it('buffers short movement taps and shots but clears them on pause/restart', () => {
     const input = new InputBuffer(); input.move(-1); input.shoot();

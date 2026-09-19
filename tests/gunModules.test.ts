@@ -59,13 +59,15 @@ describe('gun module catalogue', () => {
     const costs = Object.fromEntries(GUN_MODULE_IDS.map(id => [id, gunModule(id).ammoCost]));
     expect(costs).toEqual({ machine: 1, burst: 3, laser: 4, noppy: 1, puncher: 2, shotgun: 5, triple: 2 });
   });
-  it('orders recoil from SHOTGUN down to NOPPY', () => {
+  it('puts LASER and SHOTGUN at the heavy end of recoil, well above MACHINE', () => {
     const r = (id: GunModuleId) => gunModule(id).recoil;
+    // LASER is the original's recoil weapon; it used to sit at the bottom of this list.
+    expect(r('laser')).toBeGreaterThan(r('shotgun'));
     expect(r('shotgun')).toBeGreaterThan(r('machine'));
+    expect(r('laser')).toBeGreaterThan(r('machine') * 1.5);
     expect(r('machine')).toBeGreaterThan(r('puncher'));
     expect(r('puncher')).toBeGreaterThan(r('burst'));
     expect(r('burst')).toBeGreaterThanOrEqual(r('triple'));
-    expect(r('triple')).toBeGreaterThan(r('laser'));
     expect(r('laser')).toBeGreaterThan(r('noppy'));
   });
 });
@@ -186,13 +188,11 @@ describe('NOPPY', () => {
 });
 
 describe('PUNCHER', () => {
-  it('costs two and throws a big, slow, hard-hitting round', () => {
+  it('costs two and throws three slow rounds side by side', () => {
     const game = armed('puncher');
     game.shoot();
     expect(game.ammo).toBe(initialStats().maxAmmo - GUN_MODULES.puncher.ammoCost);
-    const shot = game.bullets[0];
-    expect(shot.damage).toBe(3);
-    expect(shot.size).toBeGreaterThan(GUN_MODULES.machine.projectileSize * 2);
+    expect(game.bullets).toHaveLength(3);
     expect(GUN_MODULES.puncher.projectileSpeed).toBeLessThan(GUN_MODULES.machine.projectileSpeed);
   });
   it('expires well short of the standard gun', () => {
@@ -202,12 +202,15 @@ describe('PUNCHER', () => {
     hold(game, 0.9, 0, false);
     expect(game.bullets).toHaveLength(0);
   });
-  it('passes through one extra enemy', () => {
+  it('hits with each of its three rounds independently, rather than piercing with one', () => {
     const game = armed('puncher');
-    game.enemies = [foe(1, 250), foe(2, 300), foe(3, 350)];
+    // One enemy under each lane: three separate rounds, three separate kills.
+    const lanes = GUN_MODULES.puncher.spawnSpread! / 2;
+    game.enemies = [spawnEnemy('slime', 1, 225 - lanes, 260), spawnEnemy('slime', 2, 225, 260), spawnEnemy('slime', 3, 225 + lanes, 260)];
     game.shoot();
     for (let i = 0; i < 90; i++) { game.platforms = []; game.pickups = []; game.player.y = 180; game.player.vy = 0; game.step(1 / 120, 0, false); }
-    expect(game.kills).toBe(2);
+    expect(game.kills).toBe(3);
+    expect(GUN_MODULES.puncher.piercing).toBe(0);
   });
 });
 
@@ -264,18 +267,22 @@ describe('TRIPLE', () => {
 });
 
 describe('every module keeps the shooting core intact', () => {
-  it.each(GUN_MODULE_IDS)('%s cannot hover, even with an endless magazine', id => {
+  it.each(GUN_MODULE_IDS)('%s cannot climb on its own trigger, even with an endless magazine', id => {
     const game = armed(id);
     game.player.y = 220; game.player.vy = 0; game.player.grounded = -1;
-    let lowest = Infinity;
+    const start = 220;
+    let highest = start;
     for (let i = 0; i < 1080; i++) {
       game.platforms = []; game.enemies = []; game.pickups = []; game.hazards = [];
       game.player.invincible = 99; game.ammo = game.stats.maxAmmo;
       game.step(1 / 120, 0, true);
-      lowest = Math.min(lowest, game.player.vy);
+      highest = Math.min(highest, game.player.y);
     }
-    expect(lowest).toBeGreaterThanOrEqual(0);
-    expect(game.player.y).toBeGreaterThan(220);
+    // Recoil may now genuinely lift: the gunboots are boots. What must still hold is that no
+    // weapon CLIMBS on its own trigger -- over a long hold, gravity beats the recoil the fire rate
+    // can buy, so the run always ends up lower than it started and never far above it.
+    expect(game.player.y).toBeGreaterThan(start);
+    expect(highest).toBeGreaterThan(start - 200);
   });
   it.each(GUN_MODULE_IDS)('%s spends its last round even when a volley costs more', id => {
     const game = armed(id);

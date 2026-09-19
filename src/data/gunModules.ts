@@ -22,7 +22,10 @@ export interface GunModuleDefinition {
   automatic: boolean;
   /** Seconds between volleys. */
   fireInterval: number;
-  /** Upward brake applied once per volley. Never produces upward velocity. */
+  /**
+   * Kick applied once per volley, along the same axis a jump uses. Strong enough on the heavy
+   * weapons to actually throw the player upward -- the gunboots are boots, not a brake.
+   */
   recoil: number;
   projectileSpeed: number;
   projectileDamage: number;
@@ -30,10 +33,21 @@ export interface GunModuleDefinition {
   projectileSize: number;
   /** Total fan angle in radians across all projectiles. 0 means straight down. */
   spread: number;
+  /**
+   * Total width in pixels the volley leaves the muzzle across. With a near-zero `spread` this is
+   * what makes a volley read as parallel streams rather than a fan: PUNCHER's three rounds start
+   * beside each other and stay beside each other.
+   */
+  spawnSpread?: number;
   /** Pixels of travel before the projectile expires. */
   range: number;
   /** Extra enemies a projectile passes through. 0 stops at the first. */
   piercing: number;
+  /**
+   * True: the round damages a BREAK BLOCK and keeps going, so a row does not stop it. Each block
+   * is still only ever hit once by the same round, however many frames it spends inside one.
+   */
+  blockPiercing?: boolean;
   /** How far horizontal input tilts the shot, in radians at full input. */
   horizontalAimFactor: number;
   /** Sequential shots from a single press, e.g. BURST's three-round point fire. */
@@ -61,10 +75,12 @@ export const GUN_MODULES: Record<GunModuleId, GunModuleDefinition> = {
   },
   laser: {
     ...base, id: 'laser', name: 'LASER', short: 'LASER',
-    ammoCost: 4, automatic: false, fireInterval: 0.5, recoil: 120,
+    // recoil 420 is MEASUREMENT REQUIRED like every other number here: what matters is that it is
+    // decisively above MACHINE's 190 and large enough to throw the player upward from a standstill.
+    ammoCost: 4, automatic: false, fireInterval: 0.5, recoil: 420,
     projectileSpeed: 2600, projectileDamage: 3, projectileSize: 3, range: 2000, piercing: 99,
-    beam: true,
-    description: '超長射程・高威力・貫通。横の当たりは狭い。',
+    blockPiercing: true, beam: true,
+    description: '超長射程・高威力・貫通。壁も敵も抜ける。反動は最強クラス。',
   },
   noppy: {
     ...base, id: 'noppy', name: 'NOPPY', short: 'NOPPY',
@@ -75,9 +91,13 @@ export const GUN_MODULES: Record<GunModuleId, GunModuleDefinition> = {
   },
   puncher: {
     ...base, id: 'puncher', name: 'PUNCHER', short: 'PUNCH',
+    // Three rounds leaving the muzzle side by side and staying that way: a narrow column, not a
+    // fan. The angular spread is deliberately an order of magnitude under TRIPLE's, and the width
+    // comes from where the rounds START rather than from where they diverge to.
     ammoCost: 2, automatic: true, fireInterval: 0.30, recoil: 165,
-    projectileSpeed: 520, projectileDamage: 3, projectileSize: 11, range: 330, piercing: 1,
-    description: '大口径・高威力・低速・短射程。横判定が広い。',
+    projectileSpeed: 520, projectileDamage: 1, projectileCount: 3, projectileSize: 5,
+    spread: 0.06, spawnSpread: 22, range: 330,
+    description: '近距離へ3発を平行に叩き込む。低速・短射程、横に散らない。',
   },
   shotgun: {
     ...base, id: 'shotgun', name: 'SHOTGUN', short: 'SHOT',
@@ -126,11 +146,15 @@ export function rollGunModule(random: () => number): { module: GunModuleId; bonu
 export interface ProjectileSpec {
   /** Velocity components in px/s. Down is +y; these already include aim and spread. */
   vx: number; vy: number;
+  /** Lateral offset from the muzzle at spawn, in px. Non-zero only for parallel-stream weapons. */
+  offsetX: number;
   damage: number; size: number;
   /** Enemies it may pass through beyond the first. */
   pierce: number;
   range: number;
   beam: boolean;
+  /** Passes through BREAK BLOCK instead of stopping at it. */
+  blockPiercing: boolean;
 }
 
 /**
@@ -150,12 +174,16 @@ export function volley(def: GunModuleDefinition, stats: Stats, aim: number): Pro
   const shots: ProjectileSpec[] = [];
   for (let i = 0; i < count; i++) {
     // Spread fans evenly around the aim line; a single projectile sits exactly on it.
-    const offset = count === 1 ? 0 : (i / (count - 1) - 0.5) * def.spread;
-    const angle = tilt + offset;
+    // `lane` runs -0.5 .. +0.5 across the volley, and feeds both the fan angle and the muzzle
+    // offset. A weapon uses one, the other, or neither.
+    const lane = count === 1 ? 0 : i / (count - 1) - 0.5;
+    const angle = tilt + lane * def.spread;
     shots.push({
       vx: Math.sin(angle) * def.projectileSpeed,
       vy: Math.cos(angle) * def.projectileSpeed,
+      offsetX: lane * (def.spawnSpread ?? 0),
       damage, size, pierce, range: def.range, beam: def.beam === true,
+      blockPiercing: def.blockPiercing === true,
     });
   }
   return shots;

@@ -423,17 +423,18 @@ describe('AREA 2 submerged physics', () => {
     expect(dry.player.x - dryStart).toBeCloseTo(BALANCE.moveSpeed / 120, 4);
     expect(dry.player.vx).toBe(0);
   });
-  it('keeps the shooting core intact underwater: no hovering, no climbing', () => {
+  it('keeps the shooting core intact underwater: recoil may lift, but never climbs', () => {
     const game = bare(1);
     game.player.y = 200; game.player.vy = 0; game.player.grounded = -1;
-    let lowest = Infinity;
+    let highest = 200;
     // Clear the shaft each step: this is about recoil, not about bouncing off a passing fish.
     // Gun modules are cleared alongside the enemies: swapping weapons mid-measurement would be
     // testing the crate, not the recoil.
-    for (let i = 0; i < 900; i++) { game.oxygen.remaining = OXYGEN_RULES.max; game.player.invincible = 99; game.enemies = []; game.platforms = []; game.pickups = []; game.step(1 / 120, 0, true); lowest = Math.min(lowest, game.player.vy); }
-    expect(lowest).toBeGreaterThanOrEqual(0);
+    for (let i = 0; i < 900; i++) { game.oxygen.remaining = OXYGEN_RULES.max; game.player.invincible = 99; game.enemies = []; game.platforms = []; game.pickups = []; game.step(1 / 120, 0, true); highest = Math.min(highest, game.player.y); }
+    // Recoil may lift underwater too; what must hold is that it never turns into climbing.
     expect(game.ammo).toBe(0);
     expect(game.player.y).toBeGreaterThan(200);
+    expect(highest).toBeGreaterThan(200 - 200);
   });
   it('still reloads a full magazine on landing underwater', () => {
     const game = bare(1);

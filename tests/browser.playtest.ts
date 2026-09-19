@@ -6,6 +6,7 @@ import { AREAS, type SectionId, PLANNED_TOTAL_DEPTH } from '../src/data/areas';
 import { WORLD } from '../src/data/balance';
 import { pickupType } from '../src/data/pickups';
 import { UPGRADES } from '../src/data/upgrades';
+import { GUN_MODULES } from '../src/data/gunModules';
 // The watchdog behind the word "unassisted" lives in its own file so it can be unit-tested; see
 // tests/assistWatch.test.ts, which proves it restores the model and still tells cheating from play.
 import { watchForAssists } from './assistWatch';
@@ -241,6 +242,108 @@ button('満タンFOOD → LIFE UP', async () => {
   assert(model.hp === 5 && model.health.maxHp === 5 && model.health.overflowHealing === 0, '満タンでFOOD → HP 5/5・余剰0');
   pause();
 });
+// Phase 2A: the wall kick, and the gunboots behaving like boots.
+button('WALL JUMP：壁キック', async () => {
+  start(); const model = scene.model;
+  model.platforms = []; model.enemies = []; model.hazards = [];
+  const left = WORLD.wall + 12;
+  let jumps = 0, shots = 0, ammoAtKick = -1, comboAtKick = -1;
+  const order: string[] = [];
+  const original = bridge.onEvent;
+  bridge.onEvent = (event, game) => {
+    original(event, game);
+    if (event.type === 'wallJump') { jumps++; order.push('wallJump'); ammoAtKick = game.ammo; comboAtKick = game.combo; }
+    if (event.type === 'shot') { shots++; order.push('shot'); }
+  };
+  // Pin the run against the left wall, in the air, and hold LEFT so it stays there.
+  key('KeyA', true);
+  // Long enough to actually cross the shaft: 225 -> the wall is about a second at moveSpeed 180.
+  for (let i = 0; i < 110 && model.player.x > left + 0.5; i++) { keepAwake(); model.player.y = 300; model.player.vy = 0; model.player.grounded = -1; model.platforms = []; model.enemies = []; await wait(16); }
+  key('KeyA', false);
+  const beforeX = model.player.x, ammo = model.ammo, combo = model.combo = 9;
+  assert(Math.abs(beforeX - left) < 1.5, `左壁に接している (x=${beforeX.toFixed(1)})`);
+  // Steer AWAY from the wall and press ACTION: that is the whole input.
+  key('KeyD', true);
+  await wait(30);
+  key('Space', true); await wait(1000 / 60); key('Space', false);
+  await wait(260);
+  key('KeyD', false);
+  bridge.onEvent = original;
+  output.textContent += `\n壁キック ${jumps} / 順序 ${order.join(' → ') || 'なし'} / x ${beforeX.toFixed(0)}→${model.player.x.toFixed(0)} / vy ${model.player.vy.toFixed(0)} / 壁キック時CHARGE ${ammoAtKick}/${model.stats.maxAmmo}`;
+  assert(jumps === 1, '壁接触＋反対入力＋ACTION で WALL JUMP が1回');
+  // Holding ACTION past the kick correctly becomes the gunboots -- the player is off the wall by
+  // then. What must never happen is a shot BEFORE the kick, or the kick itself costing anything.
+  assert(order[0] === 'wallJump', `ACTION がまず返すのは WALL JUMP（実際: ${order.join(' → ')}）`);
+  assert(ammoAtKick === ammo, `WALL JUMP は CHARGE を消費しない (${ammo} → ${ammoAtKick})`);
+  assert(comboAtKick === combo, `WALL JUMP は COMBO を維持する (${combo} → ${comboAtKick})`);
+  assert(model.player.x > beforeX + 20, `壁から離れる向きへ押し出される (${(model.player.x - beforeX).toFixed(0)}px)`);
+  assert(model.player.y < 300, `上方向へ跳ねる (y ${model.player.y.toFixed(0)})`);
+  bridge.active = false;
+});
+button('PUNCHER / TRIPLE の見分け', async () => {
+  start(); const model = scene.model;
+  const spread = (id: 'puncher' | 'triple') => {
+    model.platforms = []; model.enemies = []; model.hazards = [];
+    model.player.x = 225; model.player.y = 200; model.player.vy = 0; model.player.grounded = -1;
+    model.gun.equip(id); model.stats.maxAmmo = 20; model.ammo = 20; model.cooldown = 0; model.bullets = [];
+    model.shoot();
+    const xs = model.bullets.map(b => b.x);
+    const reach = model.bullets.map(b => b.x + (b.vx / b.vy) * 200);
+    return { count: model.bullets.length, muzzle: Math.max(...xs) - Math.min(...xs), at200: Math.max(...reach) - Math.min(...reach) };
+  };
+  const punch = spread('puncher'), triple = spread('triple');
+  output.textContent += `\nPUNCHER ${punch.count}発 銃口幅 ${punch.muzzle.toFixed(0)}px → 200px先 ${punch.at200.toFixed(0)}px`;
+  output.textContent += `\nTRIPLE  ${triple.count}発 銃口幅 ${triple.muzzle.toFixed(0)}px → 200px先 ${triple.at200.toFixed(0)}px`;
+  assert(punch.count === 3 && triple.count === 3, 'どちらも3発');
+  assert(punch.muzzle > 10, 'PUNCHER は銃口の時点で3本に分かれている（平行）');
+  assert(punch.at200 < triple.at200 / 3, 'PUNCHER は TRIPLE よりはるかに狭い');
+  bridge.active = false;
+});
+button('LASER：反動で上昇 / ブロック貫通', async () => {
+  start(); const model = scene.model;
+  model.platforms = []; model.enemies = []; model.hazards = [];
+  model.player.x = 225; model.player.y = 300; model.player.vy = 0; model.player.grounded = -1;
+  model.gun.equip('laser'); model.stats.maxAmmo = 40; model.ammo = 40;
+  let shots = 0;
+  const original = bridge.onEvent;
+  bridge.onEvent = (event, game) => { original(event, game); if (event.type === 'shot') shots++; };
+  const startY = model.player.y;
+  key('Space', true); await wait(1000 / 60); key('Space', false);
+  await wait(60);
+  const vy = model.player.vy;
+  output.textContent += `\nLASER 反動 vy ${vy.toFixed(0)} / MACHINE recoil ${GUN_MODULES.machine.recoil} / LASER recoil ${GUN_MODULES.laser.recoil}`;
+  assert(shots > 0, 'LASER が発射された');
+  assert(vy < 0, `反動でプレイヤーが上向きになる (vy ${vy.toFixed(0)})`);
+  await wait(200);
+  assert(model.player.y < startY, `実際に上へ移動した (${startY.toFixed(0)}→${model.player.y.toFixed(0)})`);
+  // A column of BREAK BLOCK in one lane: the round must reach the far one.
+  const rows = [0, 1, 2].map(i => ({ id: 8100 + i, x: WORLD.wall, y: 520 + i * 140, width: 120, breakable: false, state: 'stable' as const, breakBlock: { hits: 0, durability: 9, slot: 0 } }));
+  model.platforms = rows;
+  model.player.x = WORLD.wall + 40; model.player.y = 360; model.player.vy = 0; model.player.grounded = -1;
+  model.ammo = 40; model.cooldown = 0;
+  model.shoot();
+  for (let i = 0; i < 40; i++) { keepAwake(); model.player.y = 360; model.player.vy = 0; await wait(16); }
+  bridge.onEvent = original;
+  const hits = rows.map(r => r.breakBlock.hits);
+  output.textContent += `\nBREAK BLOCK 3段のヒット数 ${hits.join(' / ')}`;
+  assert(hits.every(h => h === 1), `手前で消えず奥まで貫通する (${hits.join('/')})`);
+  bridge.active = false;
+});
+button('SHOTGUN：強い上向き反動', async () => {
+  start(); const model = scene.model;
+  model.platforms = []; model.enemies = []; model.hazards = [];
+  model.player.x = 225; model.player.y = 300; model.player.vy = 0; model.player.grounded = -1;
+  model.gun.equip('shotgun'); model.stats.maxAmmo = 20; model.ammo = 20;
+  const startY = model.player.y;
+  key('Space', true); await wait(1000 / 60); key('Space', false);
+  await wait(60);
+  const vy = model.player.vy;
+  await wait(200);
+  output.textContent += `\nSHOTGUN 反動 vy ${vy.toFixed(0)} / y ${startY.toFixed(0)}→${model.player.y.toFixed(0)} / 弾 ${model.bullets.length}`;
+  assert(vy < 0, `反動でプレイヤーが上向きになる (vy ${vy.toFixed(0)})`);
+  assert(model.player.y < startY, '実際に上へ移動した');
+  bridge.active = false;
+});
 // ACTION is one input read by where the player is standing. These drive the real app with real
 // key events, so what is measured is what a player's finger does.
 button('ACTION：地上=ジャンプ / 空中=射撃', async () => {
@@ -442,7 +545,10 @@ button('BREAK BLOCK 着地 → 1個開けて通過', async () => {
   let armed = false, standing: RoutePlatform | undefined, ended = '';
   for (let i = 0; i < 3400 && !standing; i++) {
     keepAwake();
-    // A run that ended on the way down would otherwise fail this check with no reason given.
+    // A SHOP stops the world until it is dismissed; walking into one is ordinary play, not a
+    // reason for this check to give up.
+    if (model.state === 'shop') { document.getElementById('shop-close')?.click(); await wait(120); continue; }
+    // Anything else that ended the run would otherwise fail this check with no reason given.
     if (model.state !== 'playing') { ended = `${model.state} (${model.health.deathCause?.cause ?? '-'}) ${Math.floor(model.sectionDepth)}m`; break; }
     model.player.invincible = 99; model.hazards = [];
     const under = model.platforms.find(f => f.id === model.player.grounded) as RoutePlatform | undefined;

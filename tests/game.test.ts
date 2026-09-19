@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { reachExit } from './exitHelper';
 import { GameModel } from '../src/systems/GameModel';
+import { GUN_MODULES } from '../src/data/gunModules';
 import { StageGenerator } from '../src/systems/StageGenerator';
 import { spawnEnemy, type Enemy, type EnemyKind } from '../src/data/enemies';
 import { chooseUpgrades } from '../src/data/upgrades';
@@ -12,7 +13,7 @@ function tick(game: GameModel, seconds: number, direction = 0, fire = false) { f
 
 describe('falling and ammunition', () => {
   it('falls under gravity and caps vertical speed', () => { const game = emptyGame(); tick(game, 0.7); expect(game.player.y).toBeGreaterThan(300); expect(game.player.vy).toBe(520); });
-  it('uses a round and brakes the fall without creating upward motion', () => { const game = emptyGame(); game.player.vy = 100; game.shoot(); expect(game.player.vy).toBe(0); expect(game.ammo).toBe(game.stats.maxAmmo - 1); expect(game.bullets).toHaveLength(1); });
+  it('uses a round and kicks the fall back, hard enough to reverse it', () => { const game = emptyGame(); game.player.vy = 100; game.shoot(); expect(game.player.vy).toBe(100 - GUN_MODULES.machine.recoil); expect(game.player.vy).toBeLessThan(0); expect(game.ammo).toBe(game.stats.maxAmmo - 1); expect(game.bullets).toHaveLength(1); });
   it('limits shots by ammunition with no regeneration in the air', () => { const game = emptyGame(); const rounds = game.stats.maxAmmo; for (let i = 0; i < rounds + 2; i++) { game.cooldown = 0; game.shoot(); } expect(game.ammo).toBe(0); expect(game.bullets).toHaveLength(rounds); tick(game, 0.2); expect(game.ammo).toBe(0); });
   it('refills and ends combo only on a landing from above', () => { const game = emptyGame(); game.platforms = [{ id: 4, x: 150, width: 150, y: 260 }]; game.ammo = 1; game.combo = 5; tick(game, 0.5); expect(game.player.y).toBe(245); expect(game.player.grounded).toBe(4); expect(game.ammo).toBe(game.stats.maxAmmo); expect(game.combo).toBe(0); const count = game.events.filter(e => e.type === 'land').length; tick(game, 0.2); expect(game.events.filter(e => e.type === 'land')).toHaveLength(count); });
   it('does not land while crossing a platform from below', () => { const game = emptyGame(); game.platforms = [{ id: 4, x: 150, width: 150, y: 260 }]; game.player.y = 285; game.player.vy = -250; game.ammo = 2; tick(game, 0.12); expect(game.player.grounded).toBe(-1); expect(game.ammo).toBe(2); });

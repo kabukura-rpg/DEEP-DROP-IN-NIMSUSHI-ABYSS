@@ -71,7 +71,7 @@ function openBlock(game: GameModel, block: Platform, limitSeconds = 40) {
         if (game.player.grounded !== before && game.player.grounded !== -1) seek = -seek;
         continue;
       }
-      game.step(1 / 120, 0, true);                       // ACTION on the ground: jump
+      game.step(1 / 120, 0, i % 8 < 4);                   // ACTION on the ground: jump, then release
       continue;
     }
     // Airborne: ACTION is the gunboots. Stay over the block so the rounds land on it.
