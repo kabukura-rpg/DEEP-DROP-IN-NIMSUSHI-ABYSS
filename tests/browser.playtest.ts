@@ -3,6 +3,7 @@ import { scene, bridge, start, pause, audio } from '../src/main';
 import type { RoutePlatform } from '../src/systems/StageGenerator';
 import { spawnEnemy, type Enemy, type EnemyKind } from '../src/data/enemies';
 import { AREAS, type SectionId } from '../src/data/areas';
+import { WORLD } from '../src/data/balance';
 import { pickupType } from '../src/data/pickups';
 import { UPGRADES } from '../src/data/upgrades';
 import type Phaser from 'phaser';
@@ -101,15 +102,8 @@ button('1-1 → 2-1 を通常プレイ', async () => {
     const ground = model.platforms.find(p => p.id === model.player.grounded) as RoutePlatform | undefined;
     const next = model.platforms.filter(p => p.y > model.player.y + 15).sort((a, b) => a.y - b.y)[0] as RoutePlatform | undefined;
     const target = ground ? ground.exitX + ground.safeSide * 3 : next?.safeX;
-    // A SECTION now ends at the gate. The gate is below, so while a ledge is still underfoot the
-    // route is to step off its edge; only once falling does aiming straight at the gate help.
-    let gate: number | undefined;
-    if (model.exit) {
-      const centre = model.exit.x + model.exit.width / 2;
-      gate = ground && model.exit.y > model.player.y + 40
-        ? (centre < model.player.x ? ground.x - 24 : ground.x + ground.width + 24)
-        : centre;
-    }
+    // A SECTION now ends at the gate; gateHeading knows how to leave a ledge to reach it.
+    const gate = model.exit ? gateHeading(model, ground) : undefined;
     const heading = gate ?? target;
     steer(heading === undefined || Math.abs(heading - model.player.x) < 3 ? 0 : Math.sign(heading - model.player.x));
     output.textContent = `キーボード入力のみで通常プレイ\n${model.stage.label} ${Math.floor(model.sectionDepth)} / ${model.sectionLength}m\nTOTAL ${Math.floor(model.totalDepth)}m · HP ${model.hp}/${model.health.maxHp} · AMMO ${model.ammo}\n通過した休憩 ${rests.join(' → ') || 'なし'}`;
@@ -359,23 +353,13 @@ button('2-1 → 3-1 を通常プレイ', async () => {
     const ground = model.platforms.find(p => p.id === model.player.grounded) as RoutePlatform | undefined;
     const next = model.platforms.filter(p => p.y > model.player.y + 15).sort((a, b) => a.y - b.y)[0] as RoutePlatform | undefined;
     let target = ground ? ground.exitX + ground.safeSide * 3 : next?.safeX;
-    if (!ground && model.oxygen.remaining < 7.5) {
-      // Low on air: leave the safe lane for the nearest source below, exactly the AREA 2 decision.
-      const air = [
-        ...model.pickups.filter(b => !b.taken && b.kind === 'oxygenBubble' && b.y > model.player.y && b.y < model.player.y + 190).map(b => ({ x: b.x, y: b.y })),
-        ...model.airPockets.filter(a => a.y + a.height > model.player.y && a.y < model.player.y + 190).map(a => ({ x: a.x + a.width / 2, y: a.y })),
-      ].sort((a, b) => a.y - b.y)[0];
-      if (air && Math.abs(air.x - model.player.x) < 170) target = air.x;
-    }
-    // A SECTION now ends at the gate. The gate is below, so while a ledge is still underfoot the
-    // route is to step off its edge; only once falling does aiming straight at the gate help.
-    let gate: number | undefined;
-    if (model.exit) {
-      const centre = model.exit.x + model.exit.width / 2;
-      gate = ground && model.exit.y > model.player.y + 40
-        ? (centre < model.player.x ? ground.x - 24 : ground.x + ground.width + 24)
-        : centre;
-    }
+    // Air is sealed in containers now: break one, then chase what it released. The shared policy
+    // owns that decision so the AREA 2 check and the full run cannot drift apart.
+    const air = descendPlan(model);
+    if (air.target !== undefined) target = air.target;
+    if (air.fire) key('Space', true); else key('Space', false);
+    // A SECTION now ends at the gate; gateHeading knows how to leave a ledge to reach it.
+    const gate = model.exit ? gateHeading(model, ground) : undefined;
     const heading = gate ?? target;
     steer(heading === undefined || Math.abs(heading - model.player.x) < 3 ? 0 : Math.sign(heading - model.player.x));
     output.textContent = `AREA 2 をキーボード入力のみで通常プレイ\n${model.stage.label} ${Math.floor(model.sectionDepth)} / ${model.sectionLength}m\nOXYGEN ${model.oxygen.remaining.toFixed(1)}s (最低 ${lowest.toFixed(1)}s) ${model.sheltered ? '· AIR POCKET' : ''}\nHP ${model.hp}/${model.health.maxHp} · 取得 ${collected} · 休憩 ${rests.join(' → ') || 'なし'}`;
@@ -450,15 +434,8 @@ button('3-1 → 4-1 を通常プレイ', async () => {
       const shard = model.pickups.filter(p => !p.taken && p.kind === 'ice' && p.y > model.player.y && p.y < model.player.y + 200).sort((a, b) => a.y - b.y)[0];
       if (shard && Math.abs(shard.x - model.player.x) < 170) target = shard.x;
     }
-    // A SECTION now ends at the gate. The gate is below, so while a ledge is still underfoot the
-    // route is to step off its edge; only once falling does aiming straight at the gate help.
-    let gate: number | undefined;
-    if (model.exit) {
-      const centre = model.exit.x + model.exit.width / 2;
-      gate = ground && model.exit.y > model.player.y + 40
-        ? (centre < model.player.x ? ground.x - 24 : ground.x + ground.width + 24)
-        : centre;
-    }
+    // A SECTION now ends at the gate; gateHeading knows how to leave a ledge to reach it.
+    const gate = model.exit ? gateHeading(model, ground) : undefined;
     const heading = gate ?? target;
     steer(heading === undefined || Math.abs(heading - model.player.x) < 3 ? 0 : Math.sign(heading - model.player.x));
     output.textContent = `AREA 3 をキーボード入力のみで通常プレイ\n${model.stage.label} ${Math.floor(model.sectionDepth)} / ${model.sectionLength}m\nHEAT ${model.heat.value.toFixed(0)}% (最大 ${peak.toFixed(0)}%) ${model.heat.stage}\nHP ${model.hp}/${model.health.maxHp} · ICE ${ice} · 休憩 ${rests.join(' → ') || 'なし'}`;
@@ -538,15 +515,8 @@ button('4-1 → BOSS を通常プレイ', async () => {
     if (ground?.breakable && model.ammo === model.stats.maxAmmo) reloadsOnBreakable++;
     const next = model.platforms.filter(p => p.y > model.player.y + 15 && p.state !== 'broken').sort((a, b) => a.y - b.y)[0] as RoutePlatform | undefined;
     const target = ground ? ground.exitX + ground.safeSide * 3 : next?.safeX;
-    // A SECTION now ends at the gate. The gate is below, so while a ledge is still underfoot the
-    // route is to step off its edge; only once falling does aiming straight at the gate help.
-    let gate: number | undefined;
-    if (model.exit) {
-      const centre = model.exit.x + model.exit.width / 2;
-      gate = ground && model.exit.y > model.player.y + 40
-        ? (centre < model.player.x ? ground.x - 24 : ground.x + ground.width + 24)
-        : centre;
-    }
+    // A SECTION now ends at the gate; gateHeading knows how to leave a ledge to reach it.
+    const gate = model.exit ? gateHeading(model, ground) : undefined;
     const heading = gate ?? target;
     steer(heading === undefined || Math.abs(heading - model.player.x) < 3 ? 0 : Math.sign(heading - model.player.x));
     output.textContent = `AREA 4 をキーボード入力のみで通常プレイ\n${model.stage.label} ${Math.floor(model.sectionDepth)} / ${model.sectionLength}m\nヒビ ${cracks} · 崩落 ${collapses} · 崩壊中 ${model.collapse.counting}\nHP ${model.hp}/${model.health.maxHp} · 休憩 ${rests.join(' → ') || 'なし'}`;
@@ -562,6 +532,243 @@ button('4-1 → BOSS を通常プレイ', async () => {
   assert(scene.model.boss.enabled && scene.model.boss.phaseId === 1, 'FINAL BOSS 戦が PHASE 1 で始まっている');
 });
 
+
+/**
+ * Heading for the gate. While a ledge is still underfoot the player has to step off its edge --
+ * but a ledge flush against a wall has no edge on that side, and walking into the wall forever is
+ * how a bot gets stuck. Pick the side that is actually open, preferring the one toward the gate.
+ */
+function gateHeading(model: GameModel, ground: RoutePlatform | undefined): number {
+  const exit = model.exit!;
+  const centre = exit.x + exit.width / 2;
+  const p = model.player;
+  if (!ground || exit.y <= p.y + 40) return centre;
+  // Which edge is reachable depends on the ledge: one flush against a wall has no edge that side,
+  // and pressing into a wall forever is how a bot gets stuck. Sweep toward one edge, then the
+  // other, so any ledge with an open side is left within a couple of seconds.
+  const leftOpen = ground.x > WORLD.wall + 6;
+  const rightOpen = ground.x + ground.width < WORLD.width - WORLD.wall - 6;
+  if (leftOpen && !rightOpen) return ground.x - 26;
+  if (rightOpen && !leftOpen) return ground.x + ground.width + 26;
+  const sweepLeft = Math.floor(performance.now() / 900) % 2 === 0 ? centre < p.x : centre >= p.x;
+  return sweepLeft ? ground.x - 26 : ground.x + ground.width + 26;
+}
+/**
+ * One descent policy that understands every mechanic the game currently has. The per-AREA checks
+ * and the full run share it, so a rule change only has to be taught once.
+ *
+ * It returns the x the player should be heading for and whether to hold fire. It never touches
+ * the model: everything it decides is delivered as ordinary key presses by the caller.
+ */
+function descendPlan(model: GameModel): { target: number | undefined; fire: boolean } {
+  const p = model.player;
+  const ground = model.platforms.find(f => f.id === p.grounded) as RoutePlatform | undefined;
+  const next = model.platforms.filter(f => f.y > p.y + 15 && f.state !== 'broken').sort((a, b) => a.y - b.y)[0] as RoutePlatform | undefined;
+  let target: number | undefined = ground ? ground.exitX + ground.safeSide * 3 : next?.safeX;
+  let fire = false;
+
+  // AREA 2: air is sealed in containers now. Low on air, go and break one, then chase what it
+  // released -- the bubbles climb, so they have to be caught rather than collected.
+  if (model.oxygen.enabled) {
+    // A bubble that has already climbed above us is gone: chasing it upward is impossible, since
+    // nothing in this game pushes the player up. Only go for one still at or below our level.
+    const bubble = model.bubbles
+      .filter(b => !b.taken && b.y > p.y - 30 && b.y < p.y + 300 && Math.abs(b.x - p.x) < 210)
+      .sort((a, b) => Math.hypot(a.x - p.x, a.y - p.y) - Math.hypot(b.x - p.x, b.y - p.y))[0];
+    const box = model.containers
+      .filter(c => !c.broken && c.y > p.y - 20 && c.y < p.y + 520)
+      .sort((a, b) => a.y - b.y)[0];
+    const thirsty = model.oxygen.remaining < model.oxygen.max * 0.72;
+    if (bubble) {
+      target = bubble.x;
+    } else if (box && thirsty) {
+      // Falling onto it breaks it and costs no ammo, so line up on it and drop through.
+      const centre = box.x + box.width / 2;
+      target = centre;
+      if (Math.abs(centre - p.x) < 26 && box.y > p.y) fire = true;
+    }
+  }
+  // AREA 3: ice still matters exactly as before.
+  // Ice is worth going for well before the gauge is dangerous: HEAT climbs with proximity, so
+  // waiting until it is high means the detour itself is spent in the hot zone.
+  if (model.heat.enabled && model.heat.value > 38) {
+    const ice = model.pickups.filter(k => !k.taken && k.kind === 'ice' && k.y > p.y - 40 && k.y < p.y + 300).sort((a, b) => a.y - b.y)[0];
+    if (ice && Math.abs(ice.x - p.x) < 220) target = ice.x;
+  }
+  // Loose money on the way down is worth a small detour, never a dangerous one.
+  const coin = model.coins.coins.filter(c => !c.taken && c.y > p.y - 30 && c.y < p.y + 150 && Math.abs(c.x - p.x) < 90)[0];
+  if (coin && !model.exit) target = coin.x;
+
+  // The gate ends the SECTION. It is below, so while a ledge is still underfoot the job is to step
+  // off its edge; once falling, aim straight at it.
+  // AREA 3 keeps everything lethal off the safe corridor, so a detour is the only way to end up
+  // over lava. If the chosen detour sits above a hazard, give it up and take the route.
+  const routeTarget = ground ? ground.exitX + ground.safeSide * 3 : next?.safeX;
+  if (target !== undefined && model.hazards.some(h => target! > h.x - 22 && target! < h.x + h.width + 22 && h.y > p.y - 20 && h.y < p.y + 420)) {
+    target = routeTarget;
+  }
+
+  if (model.exit) target = gateHeading(model, ground);
+
+  // The core of the game: shoot what is under you, and use the recoil to brake a long fall.
+  const threat = model.enemies.some(e => e.alive && Math.abs(e.x - p.x) < 34 && e.y > p.y && e.y < p.y + 430);
+  // A ledge with something unstompable standing on it is worth clearing before landing on it.
+  fire = fire || threat || p.vy > 360;
+  return { target, fire };
+}
+
+/**
+ * FULL RUN -- 1-1 to GAME CLEAR with nothing given.
+ *
+ * No heal, no HP written, no invincibility, no forced kill, no boss HP touched, no teleporting,
+ * no oxygen topped up, no forced SECTION change. Every SECTION is finished by walking into its
+ * gate. Whatever happens is reported exactly as it lands.
+ */
+button('FULL RUN 1-1 → GAME CLEAR（補助なし）', async () => {
+  start();
+  await until(() => bridge.active, 8000);
+  const deadline = performance.now() + 1500000;
+  let facing = 0, firing = false, tapFrame = 0;
+  const steer = (dir: number) => {
+    if (dir === facing) return;
+    if (facing) key(facing < 0 ? 'KeyA' : 'KeyD', false);
+    facing = dir;
+    if (facing) key(facing < 0 ? 'KeyA' : 'KeyD', true);
+  };
+  const trigger = (on: boolean) => { if (on !== firing) { key('Space', on); firing = on; } };
+
+  const sections: string[] = [];
+  let frame = 0, died = '';
+  const seen = {
+    shops: 0, bought: 0, containersBroken: 0, bubblesCaught: 0, coins: 0,
+    cracks: 0, collapses: 0, landings: 0, exits: 0, gunSwaps: 0, phases: [] as number[],
+  };
+  const areaNotes: Record<string, string> = {};
+  let depthAtBoss = -1, gunAtBossEntry = '', maxOxygen = 0, minOxygen = 99, maxHeat = 0;
+  const original = bridge.onEvent;
+  bridge.onEvent = (event, m) => {
+    if (event.type === 'crack') seen.cracks++;
+    if (event.type === 'collapse') seen.collapses++;
+    if (event.type === 'land') seen.landings++;
+    if (event.type === 'coin') seen.coins++;
+    if (event.type === 'containerBreak') seen.containersBroken++;
+    if (event.type === 'oxygen') seen.bubblesCaught++;
+    if (event.type === 'exit') seen.exits++;
+    if (event.type === 'gunModule') seen.gunSwaps++;
+    if (event.type === 'bossPhase') seen.phases.push(Number(event.value));
+    original(event, m);
+  };
+
+  try {
+    while (performance.now() < deadline) {
+      const model = scene.model;
+      if (model.state === 'over') {
+        died = `${model.stage.label} で死亡 (${model.health.deathCause?.cause ?? '?'})`;
+        break;
+      }
+      if (model.state === 'clear') break;
+      // A shop stops the world. Buy the first affordable thing once, then leave.
+      if (model.state === 'shop') {
+        steer(0); trigger(false);
+        seen.shops++;
+        await until(() => !!document.getElementById('shop-close'), 6000);
+        for (let i = 0; i < model.shop.offers.length; i++) {
+          const button = document.getElementById(`shop-buy-${i}`) as HTMLButtonElement | null;
+          if (button && !button.disabled) { button.click(); seen.bought++; await wait(120); break; }
+        }
+        document.getElementById('shop-close')!.click();
+        await wait(120);
+        continue;
+      }
+      if (model.state === 'upgrade') {
+        steer(0); trigger(false);
+        await until(() => !!document.getElementById('upgrade-0'), 8000);
+        sections.push(model.stage.label);
+        if (model.stage.progress.area === 2) areaNotes['AREA2'] = `酸素箱${seen.containersBroken}破壊・泡${seen.bubblesCaught}回収・最低酸素${minOxygen.toFixed(1)}s`;
+        if (model.stage.progress.area === 3) areaNotes['AREA3'] = `最大HEAT ${maxHeat.toFixed(0)}%`;
+        if (model.stage.progress.area === 4) areaNotes['AREA4'] = `着地${seen.landings}・ヒビ${seen.cracks}・崩落${seen.collapses}`;
+        // Choose, the way a player does, rather than always taking the leftmost card. Survivability
+        // first, then damage: that is what carries a run into the FINAL BOSS.
+        const order = ['heart', 'food', 'power', 'mag', 'recoil', 'piercing', 'big', 'speed', 'combo', 'bounce'];
+        const rank = (id: string) => { const i = order.indexOf(id); return i < 0 ? order.length : i; };
+        let best = 0;
+        model.upgrades.choices.forEach((choice, index) => { if (rank(choice.id) < rank(model.upgrades.choices[best].id)) best = index; });
+        document.getElementById(`upgrade-${best}`)!.click();
+        document.getElementById('upgrade-confirm')!.click();
+        await wait(120);
+        continue;
+      }
+      keepAwake();
+      if (model.state === 'boss') {
+        if (depthAtBoss < 0) { depthAtBoss = Math.floor(model.totalDepth); gunAtBossEntry = model.gun.id; }
+        const p = model.player, boss = model.boss;
+        const incoming = boss.shots.filter(s => s.y > p.y - 30 && Math.abs(s.x - p.x) < 46);
+        const band = boss.sweepBand;
+        const ground = model.platforms.find(f => f.id === p.grounded) as RoutePlatform | undefined;
+        const ahead = model.platforms.filter(f => f.y > p.y + 15 && f.state !== 'broken').sort((a, b) => a.y - b.y)[0] as RoutePlatform | undefined;
+        let target: number | undefined = ground ? ground.exitX + ground.safeSide * 3 : ahead?.safeX;
+        if (boss.action?.attack.id === 'sweep' && band) target = band.x < 225 ? band.x + band.width + 70 : band.x - 70;
+        else if (incoming.length) target = incoming[0].x < 225 ? incoming[0].x + 110 : incoming[0].x - 110;
+        else if (model.ammo > 0) target = boss.x;
+        if (model.oxygen.enabled) {
+          const bubble = model.bubbles.filter(b => !b.taken && b.y > p.y - 150 && b.y < p.y + 280).sort((a, b) => a.y - b.y)[0];
+          const box = model.containers.filter(c => !c.broken && c.y > p.y - 40 && c.y < p.y + 460).sort((a, b) => a.y - b.y)[0];
+          if (bubble && model.oxygen.remaining < model.oxygen.max * 0.8) target = bubble.x;
+          else if (box && model.oxygen.remaining < model.oxygen.max * 0.6) target = box.x + box.width / 2;
+        }
+        if (model.heat.enabled && model.heat.value > 55) {
+          const ice = model.pickups.filter(k => !k.taken && k.kind === 'ice' && k.y > p.y && k.y < p.y + 220).sort((a, b) => a.y - b.y)[0];
+          if (ice && Math.abs(ice.x - p.x) < 190) target = ice.x;
+        }
+        steer(target === undefined || Math.abs(target - p.x) < 4 ? 0 : Math.sign(target - p.x));
+        // Tap here too: arriving at the king holding a semi-automatic module and holding the
+        // trigger down would fire exactly one round for the whole fight.
+        frame++;
+        trigger(model.ammo > 0 && Math.abs(boss.x - p.x) < 34 && !incoming.length && frame % 10 < 5);
+        output.textContent = `FULL RUN（補助なし）\nFINAL BOSS PHASE ${boss.phaseId} · 魔王HP ${Math.ceil(boss.ratio * 100)}%\nHP ${model.hp}/${model.health.maxHp} · COIN ${model.coins.walletCoins}\n経過 ${boss.elapsed.toFixed(1)}s`;
+        await wait(16);
+        continue;
+      }
+      if (model.oxygen.enabled) { minOxygen = Math.min(minOxygen, model.oxygen.remaining); maxOxygen = Math.max(maxOxygen, model.oxygen.remaining); }
+      if (model.heat.enabled) maxHeat = Math.max(maxHeat, model.heat.value);
+      const plan = descendPlan(model);
+      steer(plan.target === undefined || Math.abs(plan.target - model.player.x) < 4 ? 0 : Math.sign(plan.target - model.player.x));
+      // Tap rather than hold: a semi-automatic module only answers to a fresh press.
+      frame++;
+      trigger(plan.fire && frame % 10 < 5);
+      output.textContent = `FULL RUN（補助なし）\n${model.stage.label} ${Math.floor(model.sectionDepth)} / ${model.sectionLength}m${model.exit ? ' · EXIT OPEN' : ''}\n` +
+        `HP ${model.hp}/${model.health.maxHp} · AMMO ${model.ammo}/${model.stats.maxAmmo} · ${model.gun.short}\n` +
+        `COIN ${model.coins.walletCoins} (SCORE ${model.coins.scoreCoins})\n` +
+        `通過 ${sections.length}/12 · 酸素箱${seen.containersBroken} 泡${seen.bubblesCaught} 店${seen.shops}`;
+      await wait(16);
+    }
+  } finally {
+    steer(0); trigger(false); bridge.onEvent = original;
+  }
+
+  const model = scene.model;
+  await wait(900);
+  const body = document.body.innerText.replace(/\n/g, ' | ');
+  const timeAt = (label: string) => { const k = body.indexOf(label); if (k < 0) return 'なし'; const t = body.slice(k, k + 60).match(/[0-9]+:[0-5][0-9]/); return t ? t[0] : 'なし'; };
+
+  if (died) output.textContent += `\n\n${died}`;
+  output.textContent += `\n通過SECTION: ${sections.join(' → ')}`;
+  output.textContent += `\n${Object.entries(areaNotes).map(([k, v]) => `${k}: ${v}`).join('\n')}`;
+  assert(sections.length === 12, `12 SECTION すべてを EXIT 侵入で踏破 (${sections.length}: ${sections.join(' ')})`);
+  assert(seen.exits === 12, `EXIT 侵入イベントが 12 回 (${seen.exits})`);
+  assert(depthAtBoss === 2400, `BOSS 到達時 TOTAL DEPTH = ${depthAtBoss}m`);
+  assert(seen.containersBroken > 0 && seen.bubblesCaught > 0, `AREA 2 実プレイで酸素箱→泡→回復が成立 (箱 ${seen.containersBroken} / 泡 ${seen.bubblesCaught})`);
+  assert(maxHeat > 0, `AREA 3 の HEAT が実プレイで動いた (最大 ${maxHeat.toFixed(0)}%)`);
+  assert(seen.cracks > 0 && seen.collapses > 0, `AREA 4 で着地→ヒビ→崩落が成立 (着地 ${seen.landings} / ヒビ ${seen.cracks} / 崩落 ${seen.collapses})`);
+  assert(seen.phases.join(',') === '2,3,4', `BOSS PHASE 2 → 3 → 4 と進行 (${seen.phases.join(' → ')})`);
+  assert(model.state === 'clear', `GAME CLEAR に到達 (state=${model.state})`);
+  assert(Math.floor(model.totalDepth) === 2400, `CLEAR 時も TOTAL DEPTH 2400m (${Math.floor(model.totalDepth)})`);
+  const clearTime = timeAt('CLEAR TIME'), bossTime = timeAt('BOSS TIME');
+  assert(clearTime !== 'なし' && bossTime !== 'なし' && clearTime !== bossTime, `CLEAR TIME ${clearTime} と BOSS TIME ${bossTime} が分離`);
+  output.textContent += `\n\n結果: CLEAR / 残HP ${model.hp}/${model.health.maxHp} / COIN ${model.coins.walletCoins} (SCORE ${model.coins.scoreCoins})`;
+  output.textContent += `\n店 ${seen.shops} 回 / 購入 ${seen.bought} / 武器交換 ${seen.gunSwaps} / 最終武器 ${model.gun.short} / BOSS入場時 ${gunAtBossEntry}`;
+  output.textContent += `\nCLEAR TIME ${clearTime} · BOSS TIME ${bossTime}`;
+});
 /**
  * UNASSISTED BOSS CHECK -- the fight exactly as a player meets it.
  *
@@ -588,7 +795,7 @@ button('UNASSISTED BOSS CHECK', async () => {
   const phases: number[] = [];
   const original = bridge.onEvent;
   bridge.onEvent = (event, m) => { if (event.type === 'bossPhase') phases.push(Number(event.value)); defaultEventHandler?.(event, m); };
-  let facing = 0, firing = false, hits = 0, lastHp = model.hp, deepest = 1, healed = 0;
+  let facing = 0, firing = false, hits = 0, lastHp = model.hp, deepest = 1, healed = 0, tapFrame = 0;
   const steer = (dir: number) => {
     if (dir === facing) return;
     if (facing === -1) key('KeyA', false); if (facing === 1) key('KeyD', false);
@@ -615,15 +822,20 @@ button('UNASSISTED BOSS CHECK', async () => {
     else if (incoming.length) target = incoming[0].x < 225 ? incoming[0].x + 110 : incoming[0].x - 110;
     else if (model.ammo > 0) target = boss.x;
     if (model.oxygen.enabled && model.oxygen.remaining < 6) {
-      const air = model.pickups.filter(k => !k.taken && k.kind === 'oxygenBubble' && k.y > p.y && k.y < p.y + 220).sort((a, b) => a.y - b.y)[0];
-      if (air && Math.abs(air.x - p.x) < 180) target = air.x;
+      // PHASE 2 runs AREA 2's air rules, which are containers now: catch a released bubble if one
+      // is still within reach, otherwise go and break a container open.
+      const bubble = model.bubbles.filter(b => !b.taken && b.y > p.y - 30 && b.y < p.y + 300).sort((a, b) => a.y - b.y)[0];
+      const box = model.containers.filter(c => !c.broken && c.y > p.y - 20 && c.y < p.y + 520).sort((a, b) => a.y - b.y)[0];
+      if (bubble && Math.abs(bubble.x - p.x) < 200) target = bubble.x;
+      else if (box) target = box.x + box.width / 2;
     }
     if (model.heat.enabled && model.heat.value > 55) {
       const ice = model.pickups.filter(k => !k.taken && k.kind === 'ice' && k.y > p.y && k.y < p.y + 220).sort((a, b) => a.y - b.y)[0];
       if (ice && Math.abs(ice.x - p.x) < 180) target = ice.x;
     }
     steer(target === undefined || Math.abs(target - p.x) < 4 ? 0 : Math.sign(target - p.x));
-    trigger(model.ammo > 0 && Math.abs(boss.x - p.x) < 34 && !incoming.length);
+    tapFrame++;
+    trigger(model.ammo > 0 && Math.abs(boss.x - p.x) < 34 && !incoming.length && tapFrame % 10 < 5);
     output.textContent = `UNASSISTED BOSS CHECK\nPHASE ${boss.phaseId} · 魔王HP ${Math.ceil(boss.ratio * 100)}%\nHP ${model.hp}/${model.health.maxHp} · 被弾 ${hits}\n経過 ${boss.elapsed.toFixed(1)}s`;
     await wait(16);
   }
@@ -703,8 +915,11 @@ button('ASSISTED BOSS CHECK', async () => {
     else if (incoming.length) target = incoming[0].x < 225 ? incoming[0].x + 110 : incoming[0].x - 110;
     else if (model.ammo > 0) target = boss.x;
     if (model.oxygen.enabled && model.oxygen.remaining < 6) {
-      const air = model.pickups.filter(k => !k.taken && k.kind === 'oxygenBubble' && k.y > p.y && k.y < p.y + 200).sort((a, b) => a.y - b.y)[0];
-      if (air && Math.abs(air.x - p.x) < 170) target = air.x;
+      // Same as above: the king's PHASE 2 air comes out of containers, not off the floor.
+      const bubble = model.bubbles.filter(b => !b.taken && b.y > p.y - 30 && b.y < p.y + 300).sort((a, b) => a.y - b.y)[0];
+      const box = model.containers.filter(c => !c.broken && c.y > p.y - 20 && c.y < p.y + 520).sort((a, b) => a.y - b.y)[0];
+      if (bubble && Math.abs(bubble.x - p.x) < 200) target = bubble.x;
+      else if (box) target = box.x + box.width / 2;
     }
     if (model.heat.enabled && model.heat.value > 60) {
       const ice = model.pickups.filter(k => !k.taken && k.kind === 'ice' && k.y > p.y && k.y < p.y + 200).sort((a, b) => a.y - b.y)[0];
