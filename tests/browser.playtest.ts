@@ -8,6 +8,7 @@ import { pickupType } from '../src/data/pickups';
 import { UPGRADES } from '../src/data/upgrades';
 import { GUN_MODULES } from '../src/data/gunModules';
 import { DOODAD_RULES, spawnDoodad } from '../src/data/doodads';
+import { spikePlatform } from '../src/data/structures';
 import { SAFE_ZONE_RULES, insideSafeZone, type SafeZoneContentKind } from '../src/data/safeZone';
 import { spawnGunModule } from '../src/data/pickups';
 // The watchdog behind the word "unassisted" lives in its own file so it can be unit-tested; see
@@ -428,7 +429,7 @@ button('AREA 2/3/4 SAFE ZONE：各ギミックの freeze → 退出 → 再開',
     model.jumpToStage(area, 2);
     model.platforms = []; model.enemies = []; model.pickups = []; model.hazards = [];
     model.doodads = []; model.containers = []; model.bubbles = []; model.bullets = [];
-    const content: SafeZoneContentKind = area === 2 ? 'coinVein' : area === 3 ? 'gunModule' : 'shop';
+    const content: SafeZoneContentKind = area === 3 ? 'coinVein' : area === 2 ? 'gunModule' : 'shop';
     const zone = { id: 9200 + area, side: -1 as const, x: WORLD.wall, y: floorY - height, width, height,
       content: { kind: content, module: 'laser' as const, bonus: 'charge' as const }, taken: false };
     model.safeZones = [zone];
@@ -436,21 +437,22 @@ button('AREA 2/3/4 SAFE ZONE：各ギミックの freeze → 退出 → 再開',
     model.player.invincible = 99;
     model.combo = 14; model.ammo = 2;
     const centre = Math.round(zone.x + width / 2);
-    // AREA-specific furniture out in the shaft, so the gauge has something to run on.
+    // AREA-specific furniture out in the shaft, so each AREA's own clock has something to run on.
     let ledge: Platform | undefined;
-    if (area === 3) model.hazards = [spawnHazard('lavaPool', 9400, 250, floorY - 40, 120, 24)];
-    if (area === 4) {
-      ledge = { id: 9500, x: zone.x + width + 10, y: floorY, width: 120, breakable: true, state: 'stable' };
+    if (area === 2 || area === 4) {
+      // Dangerous ground with its cycle already armed: CATACOMBS and LIMBO both run on it.
+      ledge = { id: 9500, x: zone.x + width + 10, y: floorY, width: 120, breakable: false, state: 'stable', spikePlatform: spikePlatform() };
       model.platforms.push(ledge);
     }
     // Arrive the way a run does: fall down the shaft beside the mouth and steer in.
     model.player.x = zone.x + width + 34;
     model.player.y = zone.y - 130; model.player.vy = 0; model.player.grounded = -1;
-    if (area === 4) {
-      // Land on the collapsing ledge first so its timer is already running.
-      model.player.x = ledge!.x + 60; model.player.y = floorY - 140; model.player.vy = 260;
-      await until(() => model.player.grounded === ledge!.id, 6000);
-      assert(model.collapse.counting === 1, 'AREA 4：崩落タイマーが動き出した');
+    if (ledge) {
+      // Land on the dangerous ledge first, so its cycle is already running when the player leaves it
+      // for the chamber. A warning nobody started proves nothing about freezing one.
+      model.player.x = ledge.x + 60; model.player.y = floorY - 140; model.player.vy = 260;
+      await until(() => model.player.grounded === ledge.id, 6000);
+      assert(ledge.spikePlatform!.state === 'warning', `AREA ${area}：危険な床のタイマーが動き出した`);
       model.combo = 14; model.ammo = 2;
       model.player.x = centre; model.player.y = floorY - 30; model.player.vy = 0; model.player.grounded = -1;
     }
@@ -474,26 +476,21 @@ button('AREA 2/3/4 SAFE ZONE：各ギミックの freeze → 退出 → 再開',
     if (area !== 4) assert(airborneEntry, `AREA ${area}：横穴を横切った時点で TIMEVOID（着地前）`);
 
     // The AREA's own gauge, frozen.
-    if (area === 2) {
+    if (area === 3) {
       const held = model.oxygen.remaining;
       await wait(2500);
-      output.textContent += `\nAREA 2 OXYGEN: ${held.toFixed(1)}s → ${model.oxygen.remaining.toFixed(1)}s`;
-      assert(model.oxygen.enabled, 'AREA 2：酸素ギミックが有効');
-      assert(model.oxygen.remaining === held, 'AREA 2：SAFE ZONE 中は酸素が減らない');
-      assert(model.oxygen.remaining <= OXYGEN_RULES.max, 'AREA 2：SAFE ZONE は酸素を回復もしない');
+      output.textContent += `\nAREA 3 OXYGEN: ${held.toFixed(1)}s → ${model.oxygen.remaining.toFixed(1)}s`;
+      assert(model.oxygen.enabled, 'AREA 3：酸素ギミックが有効');
+      assert(model.oxygen.remaining === held, 'AREA 3：SAFE ZONE 中は酸素が減らない');
+      assert(model.oxygen.remaining <= OXYGEN_RULES.max, 'AREA 3：SAFE ZONE は酸素を回復もしない');
     }
-    if (area === 3) {
-      model.heat.value = 40;
+    if (area === 2 || area === 4) {
+      const spikes = ledge!.spikePlatform!;
+      const held = { state: spikes.state, timer: spikes.timer };
       await wait(2500);
-      output.textContent += `\nAREA 3 HEAT: 40 → ${model.heat.value.toFixed(1)}`;
-      assert(model.heat.enabled, 'AREA 3：熱ギミックが有効');
-      assert(model.heat.value === 40, 'AREA 3：SAFE ZONE 中は熱が動かない');
-    }
-    if (area === 4) {
-      await wait(2500);
-      output.textContent += `\nAREA 4 COLLAPSE: counting ${model.collapse.counting} / ledge ${ledge!.state}`;
-      assert(model.collapse.counting === 1, 'AREA 4：SAFE ZONE 中は崩落タイマーが止まる');
-      assert(ledge!.state !== 'broken', 'AREA 4：待っている間に足場は崩れない');
+      output.textContent += `\nAREA ${area} 罠床: ${held.state} ${held.timer.toFixed(2)}s → ${spikes.state} ${spikes.timer.toFixed(2)}s`;
+      assert(spikes.state === held.state, `AREA ${area}：SAFE ZONE 中は罠床の状態が変わらない`);
+      assert(Math.abs(spikes.timer - held.timer) < 0.001, `AREA ${area}：警告タイマーも止まる`);
     }
 
     // Use the content.
@@ -506,17 +503,17 @@ button('AREA 2/3/4 SAFE ZONE：各ギミックの freeze → 退出 → 再開',
         key('Space', true); await wait(1000 / 60); key('Space', false); await wait(16);
       }
       const spilled = model.coins.coins.reduce((sum, c) => sum + c.value, 0);
-      output.textContent += `\nAREA 2 VEIN: 割れた=${zone.taken} / ${spilled} COIN`;
-      assert(zone.taken && spilled > 0, 'AREA 2：SAFE ZONE の COIN VEIN を撃って割れる');
+      output.textContent += `\nAREA ${area} VEIN: 割れた=${zone.taken} / ${spilled} COIN`;
+      assert(zone.taken && spilled > 0, `AREA ${area}：SAFE ZONE の COIN VEIN を撃って割れる`);
     }
     if (content === 'gunModule') {
       model.pickups = [spawnGunModule(zone.id + 1, centre, floorY - 34, 'laser', 'charge')];
       const maxAmmo = model.stats.maxAmmo;
       model.player.x = centre; model.player.y = floorY - 34; model.player.vy = 0; model.player.grounded = -1;
       await until(() => model.gun.id === 'laser', 6000);
-      output.textContent += `\nAREA 3 MODULE: ${model.gun.id} / MAX CHARGE ${maxAmmo}→${model.stats.maxAmmo}`;
-      assert(model.gun.id === 'laser', 'AREA 3：SAFE ZONE の Gun Module を取得できる');
-      assert(model.stats.maxAmmo > maxAmmo, 'AREA 3：CHARGE ボーナスも効く');
+      output.textContent += `\nAREA ${area} MODULE: ${model.gun.id} / MAX CHARGE ${maxAmmo}→${model.stats.maxAmmo}`;
+      assert(model.gun.id === 'laser', `AREA ${area}：SAFE ZONE の Gun Module を取得できる`);
+      assert(model.stats.maxAmmo > maxAmmo, `AREA ${area}：CHARGE ボーナスも効く`);
     }
     if (content === 'shop') {
       model.coins.walletCoins = 5000; model.coins.scoreCoins = 5000;
@@ -544,23 +541,19 @@ button('AREA 2/3/4 SAFE ZONE：各ギミックの freeze → 退出 → 再開',
     assert(!model.timeFrozen, `AREA ${area}：横移動だけで退出できる`);
     assert(model.combo === 14, `AREA ${area}：退出後も COMBO 維持`);
     model.player.grounded = -1;
-    if (area === 2) {
+    if (area === 3) {
       const before = model.oxygen.remaining;
       await wait(800);
-      output.textContent += `\nAREA 2 退出後 OXYGEN: ${before.toFixed(1)}s → ${model.oxygen.remaining.toFixed(1)}s`;
-      assert(model.oxygen.remaining < before, 'AREA 2：退出すると酸素が再び減る');
+      output.textContent += `\nAREA 3 退出後 OXYGEN: ${before.toFixed(1)}s → ${model.oxygen.remaining.toFixed(1)}s`;
+      assert(model.oxygen.remaining < before, 'AREA 3：退出すると酸素が再び減る');
     }
-    if (area === 3) {
-      model.player.x = 300; model.player.y = floorY - 30; model.player.vy = 0;
-      const before = model.heat.value;
-      await wait(900);
-      output.textContent += `\nAREA 3 退出後 HEAT: ${before.toFixed(1)} → ${model.heat.value.toFixed(1)}`;
-      assert(model.heat.value > before, 'AREA 3：退出すると熱が再び上がる');
-    }
-    if (area === 4) {
-      await until(() => ledge!.state === 'broken', 6000);
-      output.textContent += `\nAREA 4 退出後: ledge ${ledge!.state}`;
-      assert(ledge!.state === 'broken', 'AREA 4：退出すると崩落タイマーが再開して足場が落ちる');
+    if (area === 2 || area === 4) {
+      const spikes = ledge!.spikePlatform!;
+      const before = spikes.state;
+      model.player.invincible = 99;
+      await until(() => spikes.state !== before, 6000);
+      output.textContent += `\nAREA ${area} 退出後 罠床: ${before} → ${spikes.state}`;
+      assert(spikes.state !== before, `AREA ${area}：退出すると罠床のサイクルが再開する`);
     }
   }
   bridge.active = false;
@@ -1099,34 +1092,214 @@ button('7 COMBO 着地 → 報酬なし', async () => {
   assert(model.coins.scoreCoins === before.coins && model.stats.maxAmmo === before.maxAmmo && model.hp === before.hp, '報酬は一切出ない');
 });
 // SPIKE: instant death terrain, in the running game, drawn by the real renderer.
-button('SPIKE 即死（AREA 1-3 / AREA 2-3）', async () => {
-  for (const area of [1, 2] as const) {
-    start(); scene.model.jumpToStage(area, 3);
-    await wait(60);
-    const model = scene.model;
-    // Descend for real until the shaft has laid some SPIKE. Standing still is not enough: without
-    // steering off each ledge the run simply parks on the first one and never sees more terrain.
-    for (let i = 0; i < 1600 && !model.hazards.some(h => isSpike(h.kind)); i++) {
-      keepAwake();
-      model.player.invincible = 99;
-      const standing = model.platforms.find(f => f.id === model.player.grounded) as RoutePlatform | undefined;
-      bridge.direction = standing ? Math.sign(standing.exitX - model.player.x) : 0;
-      await wait(16);
-    }
-    bridge.direction = 0;
-    const spike = model.hazards.find(h => isSpike(h.kind));
-    assert(!!spike, `AREA ${area} の実生成シャフトに SPIKE がある`);
-    model.health.heal(9);
-    const hp = model.hp;
-    assert(hp > 1, `AREA ${area}：満タン付近のHP ${hp} から試す`);
+button('AREA 1：即死SPIKEなし・BREAK BLOCK・stomp/combo', async () => {
+  start(); const model = scene.model;
+  model.jumpToStage(1, 2);
+  await wait(80);
+  model.player.invincible = 99;
+  // Descend for real for a while and watch what the shaft actually lays.
+  let lethal = 0, blocks = 0, turning = 0;
+  for (let i = 0; i < 1400; i++) {
+    keepAwake();
     model.player.invincible = 99;
-    model.player.x = spike!.x + spike!.width / 2;
-    model.player.y = spike!.y + spike!.height - 2;
-    await until(() => scene.model.state === 'over', 4000);
-    assert(scene.model.health.deathCause?.instant === true, `AREA ${area}：大ダメージではなく即死`);
-    assert(scene.model.health.deathCause?.cause === 'spike', `AREA ${area}：死因は spike`);
-    assert(document.body.innerText.includes('SPIKES'), `AREA ${area}：結果画面が SPIKES と表示する`);
+    lethal += model.hazards.filter(h => h.lethal).length;
+    turning += model.platforms.filter(f => f.spikePlatform).length;
+    blocks = Math.max(blocks, model.platforms.filter(f => f.breakBlock).length);
+    const standing = model.platforms.find(f => f.id === model.player.grounded) as RoutePlatform | undefined;
+    bridge.direction = standing ? Math.sign(standing.exitX - model.player.x) : 0;
+    await wait(16);
   }
+  bridge.direction = 0;
+  output.textContent += `\nAREA 1 実降下: 致死hazard ${lethal} / 罠床 ${turning} / BREAK BLOCK 同時 ${blocks} / 深度 ${Math.floor(model.sectionDepth)}m`;
+  assert(lethal === 0, 'AREA 1 は即死hazardを一切生成しない');
+  assert(turning === 0, 'AREA 1 は罠床（SPIKE PLATFORM）も生成しない');
+  assert(blocks > 0, 'AREA 1 に BREAK BLOCK がある');
+  assert(model.state === 'playing' || model.state === 'upgrade', `AREA 1 を即死せず降下できた (${model.state})`);
+  // Stomp and settle, on ordinary AREA 1 ground.
+  start(); const m2 = scene.model;
+  m2.jumpToStage(1, 2);
+  await wait(60);
+  m2.platforms = []; m2.hazards = []; m2.doodads = [];
+  m2.player.invincible = 99;
+  m2.player.y = 180; m2.player.vy = 0; m2.player.grounded = -1;
+  m2.ammo = m2.stats.maxAmmo; m2.combo = 0;
+  for (let n = 0; n < 3; n++) {
+    m2.enemies = [enemy('slime', m2.player.x, m2.player.y + 40, 9600 + n)];
+    m2.player.vy = 320;
+    await until(() => m2.combo === n + 1, 4000);
+  }
+  assert(m2.combo === 3, `踏みつけで COMBO 3 まで繋がった (${m2.combo})`);
+  const ledge: RoutePlatform = { id: 9650, x: WORLD.wall, y: m2.player.y + 90, width: WORLD.width - WORLD.wall * 2, safeX: m2.player.x, exitX: m2.player.x, safeSide: 1, breakable: false, state: 'stable' };
+  m2.platforms = [ledge]; m2.enemies = []; m2.ammo = 1;
+  await until(() => m2.player.grounded === ledge.id, 5000);
+  await wait(120);
+  output.textContent += `\n通常床へ着地: CHARGE ${m2.ammo}/${m2.stats.maxAmmo} / COMBO ${m2.combo}`;
+  assert(m2.ammo === m2.stats.maxAmmo, '通常床の着地で CHARGE 全回復');
+  assert(m2.combo === 0, '通常床の着地で COMBO が精算される');
+  bridge.active = false;
+});
+button('AREA 2：SPIKE PLATFORM の warning → 1ダメージ', async () => {
+  start(); const model = scene.model;
+  model.jumpToStage(2, 2);
+  await wait(80);
+  model.platforms = []; model.enemies = []; model.hazards = []; model.doodads = []; model.safeZones = [];
+  model.player.invincible = 0;
+  const ledge: Platform = { id: 9700, x: WORLD.wall, y: 520, width: 240, breakable: false, state: 'stable', spikePlatform: spikePlatform() };
+  model.platforms = [ledge];
+  model.player.x = ledge.x + 120; model.player.y = 300; model.player.vy = 240; model.player.grounded = -1;
+  model.ammo = 1; model.combo = 6;
+  const hp = model.hp;
+  await until(() => model.player.grounded === ledge.id, 6000);
+  output.textContent += `\n着地時: state=${ledge.spikePlatform!.state} HP ${model.hp}/${model.stats.maxHp} CHARGE ${model.ammo}/${model.stats.maxAmmo} COMBO ${model.combo}`;
+  assert(ledge.spikePlatform!.state === 'warning', '着地した瞬間は warning（即ダメージではない）');
+  assert(model.hp === hp, '着地そのものでは1も減らない');
+  assert(model.ammo === model.stats.maxAmmo, '罠床でも着地で CHARGE 全回復');
+  assert(model.combo === 0, '罠床でも着地で COMBO は精算される');
+  // Ride the warning out and take the hit.
+  model.combo = 11;
+  await until(() => ledge.spikePlatform!.state === 'active', 4000);
+  await wait(120);
+  output.textContent += `\nspikes 展開: HP ${hp} → ${model.hp} / 死因 ${model.health.lastDamage?.cause} / instant=${model.health.lastDamage?.instant} / COMBO ${model.combo}`;
+  assert(model.hp === hp - 1, 'spikes 接触は 1 ダメージ');
+  assert(model.health.lastDamage?.instant === false, '即死ではなく通常ダメージ');
+  assert(model.state === 'playing', '被弾してもランは続く');
+  assert(model.combo === 11, '被弾しても COMBO は維持される');
+  // A candle keeps a chain alive without touching the floor at all.
+  model.player.invincible = 99;
+  model.platforms = []; model.ammo = 2;
+  model.player.y = 200; model.player.vy = 0; model.player.grounded = -1;
+  const candle = spawnDoodad(9750, model.player.x - DOODAD_RULES.width / 2, model.player.y + 60, 'lamp');
+  model.doodads = [candle];
+  // Latched through the event bridge: a 'doodad' event lives for one frame, and polling for it can
+  // simply step over the frame it happened on.
+  let bounced = false;
+  const original = bridge.onEvent;
+  bridge.onEvent = (event, game) => { original(event, game); if (event.type === 'doodad') bounced = true; };
+  model.player.vy = 300;
+  for (let i = 0; i < 260 && !bounced; i++) { keepAwake(); await wait(16); }
+  bridge.onEvent = original;
+  assert(bounced, 'CANDLE を踏んだ');
+  await wait(60);
+  output.textContent += `\nCANDLE: CHARGE ${model.ammo}/${model.stats.maxAmmo} / COMBO ${model.combo} / vy ${model.player.vy.toFixed(0)}`;
+  assert(model.ammo === model.stats.maxAmmo, 'CANDLE を踏むと CHARGE 全回復');
+  assert(model.combo === 11, 'CANDLE は COMBO を精算しない');
+  assert(model.player.vy < 0, 'CANDLE で跳ね返る');
+  assert(model.kills === 0, 'CANDLE は撃破ではない');
+  bridge.active = false;
+});
+button('AREA 3：oxygen → container → bubble → 回復', async () => {
+  start(); const model = scene.model;
+  model.jumpToStage(3, 1);
+  await wait(80);
+  assert(model.oxygen.enabled, 'AREA 3 で酸素ギミックが有効');
+  assert(!!model.water, 'AREA 3 は水中物理');
+  assert(!model.heat.enabled, 'AREA 3 に熱ギミックはない');
+  model.player.invincible = 99;
+  // Let the tank drain a little without moving.
+  const full = model.oxygen.remaining;
+  for (let i = 0; i < 180; i++) { keepAwake(); model.player.y = 220; model.player.vy = 0; model.player.grounded = -1; model.enemies = []; await wait(16); }
+  output.textContent += `\nOXYGEN: ${full.toFixed(1)}s → ${model.oxygen.remaining.toFixed(1)}s`;
+  assert(model.oxygen.remaining < full, 'AREA 3 では酸素が減る');
+  const low = model.oxygen.remaining;
+  // Break a container and catch a bubble.
+  const box = { id: 9800, x: model.player.x - 17, y: model.player.y + 50, width: 34, height: 34, broken: false, debris: 0 };
+  model.containers = [box];
+  model.ammo = model.stats.maxAmmo;
+  for (let i = 0; i < 200 && !box.broken; i++) {
+    keepAwake();
+    model.player.y = 220; model.player.vy = 0; model.player.grounded = -1; model.ammo = model.stats.maxAmmo;
+    key('Space', true); await wait(1000 / 60); key('Space', false); await wait(16);
+  }
+  assert(box.broken, 'AIR CONTAINER を撃って割れる');
+  assert(model.bubbles.length > 0, '割ると bubble が出る');
+  for (let i = 0; i < 300 && model.oxygen.remaining <= low; i++) {
+    keepAwake();
+    const b = model.bubbles.find(x => !x.taken);
+    if (b) { model.player.x = b.x; model.player.y = b.y; model.player.vy = 0; }
+    await wait(16);
+  }
+  output.textContent += `\nBUBBLE 回収: ${low.toFixed(1)}s → ${model.oxygen.remaining.toFixed(1)}s`;
+  assert(model.oxygen.remaining > low, 'bubble を取ると酸素が回復する');
+  bridge.active = false;
+});
+button('AREA 4：踏めない敵・射撃撃破・doodadでリロード', async () => {
+  start(); const model = scene.model;
+  model.jumpToStage(4, 2);
+  await wait(80);
+  model.platforms = []; model.enemies = []; model.hazards = []; model.doodads = []; model.safeZones = [];
+  model.player.invincible = 0;
+  model.player.x = 225; model.player.y = 200; model.player.vy = 0; model.player.grounded = -1;
+  model.ammo = 4; model.combo = 4;
+  // Fall onto one: it must NOT read as a stomp.
+  const foe = enemy(model.stage.config.enemyPool[0], model.player.x, model.player.y + 40, 9900);
+  model.enemies = [foe];
+  const hp = model.hp, combo = model.combo, ammo = model.ammo;
+  model.player.vy = 320;
+  await until(() => model.hp < hp, 4000);
+  output.textContent += `\n上から接触: HP ${hp}→${model.hp} / 敵 alive=${foe.alive} / COMBO ${model.combo} / CHARGE ${model.ammo}`;
+  assert(model.hp === hp - 1, 'AREA 4 の敵は踏めず、接触ダメージになる');
+  assert(foe.alive, '踏んでも敵は死なない');
+  assert(model.combo === combo, '踏んでも COMBO は増えない');
+  assert(model.ammo === ammo, '踏んでも CHARGE は回復しない');
+  // Shoot it instead.
+  model.player.invincible = 99;
+  model.player.y = 200; model.player.vy = 0; model.player.grounded = -1;
+  foe.x = model.player.x; foe.y = 270;
+  model.ammo = model.stats.maxAmmo;
+  for (let i = 0; i < 300 && foe.alive; i++) {
+    keepAwake();
+    model.player.y = 200; model.player.vy = 0; model.player.grounded = -1;
+    foe.x = model.player.x; foe.y = 270;
+    key('Space', true); await wait(1000 / 60); key('Space', false); await wait(16);
+  }
+  output.textContent += `\n射撃: 敵 alive=${foe.alive} / COMBO ${model.combo} / CHARGE ${model.ammo}/${model.stats.maxAmmo}`;
+  assert(!foe.alive, 'AREA 4 の敵は Gunboots で倒せる');
+  assert(model.combo > combo, '射撃撃破で COMBO が増える');
+  // Reload from a floating doodad, keeping the chain.
+  const chain = model.combo;
+  model.ammo = 1;
+  model.enemies = [];
+  model.player.y = 200; model.player.vy = 0; model.player.grounded = -1;
+  const doodad = spawnDoodad(9950, model.player.x - DOODAD_RULES.width / 2, model.player.y + 60, 'lamp');
+  model.doodads = [doodad];
+  let bounced = false;
+  const original = bridge.onEvent;
+  bridge.onEvent = (event, game) => { original(event, game); if (event.type === 'doodad') bounced = true; };
+  model.player.vy = 300;
+  for (let i = 0; i < 260 && !bounced; i++) { keepAwake(); await wait(16); }
+  bridge.onEvent = original;
+  assert(bounced, 'DOODAD を踏んだ');
+  await wait(60);
+  output.textContent += `\nDOODAD: CHARGE ${model.ammo}/${model.stats.maxAmmo} / COMBO ${model.combo} / grounded ${model.player.grounded}`;
+  assert(model.ammo === model.stats.maxAmmo, 'AREA 4 は doodad が主要リロード源');
+  assert(model.combo === chain, 'doodad は COMBO を精算しない');
+  assert(model.player.grounded === -1, 'doodad 着地ではなく跳ね返り');
+  // And the real shaft has no ordinary resting ground.
+  start(); const m3 = scene.model;
+  m3.jumpToStage(4, 2);
+  await wait(80);
+  m3.player.invincible = 99;
+  // Count DISTINCT ledges, not frames: a platform on screen for 200 frames is still one platform.
+  // The run's own starting ledge is excluded -- it is where a SECTION puts the player, not ground
+  // the AREA generated.
+  const trap = new Set<number>(), ordinary = new Set<number>();
+  for (let i = 0; i < 900; i++) {
+    keepAwake();
+    m3.player.invincible = 99;
+    for (const f of m3.platforms) {
+      if (f.breakBlock || f.safeZone !== undefined || f.id < 0) continue;
+      (f.spikePlatform ? trap : ordinary).add(f.id);
+    }
+    const standing = m3.platforms.find(f => f.id === m3.player.grounded) as RoutePlatform | undefined;
+    bridge.direction = standing ? Math.sign(standing.exitX - m3.player.x) : 0;
+    await wait(16);
+  }
+  bridge.direction = 0;
+  output.textContent += `\nAREA 4 実降下: 罠床 ${trap.size} / 通常床 ${ordinary.size} / 崩落床 ${m3.platforms.filter(f => f.breakable).length} / 深度 ${Math.floor(m3.sectionDepth)}m`;
+  assert(trap.size > 0, 'AREA 4 の床は罠床');
+  assert(ordinary.size === 0, `AREA 4 に通常の休める床はない (通常床 ${ordinary.size})`);
+  assert(m3.collapse.counting === 0, 'AREA 4 に崩落タイマーは存在しない');
+  bridge.active = false;
 });
 // BREAK BLOCK: a row of separate blocks, landed on like any floor and opened only by shooting.
 button('BREAK BLOCK 着地 → 1個開けて通過', async () => {
