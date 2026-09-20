@@ -2504,6 +2504,107 @@ button('FULL RUN 1-1 → GAME CLEAR（補助なし）', async () => {
   output.textContent += `\nCLEAR TIME ${clearTime} · BOSS TIME ${bossTime}`;
 });
 /**
+ * 最終 REST POINT の NEXT -- 人間が踏む導線そのもの。
+ *
+ * 4-3 の EXIT を実際にくぐり、出てきた REST POINT で本物のカードを押し、本物の NEXT を押す。
+ * ここが切れていると 12 SECTION 走り切った人が休憩画面から動けなくなる。開発用ジャンプは
+ * この一本道を飛び越してしまうので、ABYSS のチェックがいくら通っていても意味がない。
+ */
+button('4-3 → 最終REST → NEXT → THE ABYSS', async () => {
+  start();
+  await until(() => scene.model.state === 'playing', 8000);
+  const model = scene.model;
+  model.safeZoneVisitCount = 1;
+  model.jumpToStage(4, 3);
+  await wait(60);
+  assert(model.stage.label === '4-3', `4-3 から開始 (${model.stage.label})`);
+
+  // Fall to the goal so the way out is laid, then walk into it -- no completeSection() by hand.
+  // Progress is appended to whatever has already been asserted rather than replacing it, so the
+  // PASS lines survive to the end and the check can actually be read.
+  const log = output.textContent ?? '';
+  const deadline = performance.now() + 200000;
+  let facing = 0;
+  const pad = driver();
+  while (model.state === 'playing' && performance.now() < deadline) {
+    keepAwake();
+    // LIMBO is not what is under test, and neither is descending it well: the gunboots are left
+    // alone so gravity carries the run to the goal, and the only steering is towards the gate once
+    // it opens. What matters is that the EXIT is walked into for real.
+    model.player.invincible = 9;
+    const gate = model.exit;
+    const floor = model.platforms.find(f => f.id === model.player.grounded);
+    // Standing on something: walk off it. Falling: aim for the gate once there is one.
+    // No gate yet: drift from wall to wall so the fall never settles into a doodad bounce, which
+    // is the one thing in LIMBO that will hold a run in place indefinitely.
+    const target = gate ? gate.x + gate.width / 2
+      : floor ? stepOff(floor, model.player.x - floor.x < floor.width / 2 ? 'left' : 'right')
+      : (Math.sin(performance.now() / 700) > 0 ? WORLD.width - WORLD.wall - 16 : WORLD.wall + 16);
+    pad.steer(target === undefined || Math.abs(target - model.player.x) < 4 ? 0 : Math.sign(target - model.player.x));
+    pad.trigger(false);
+    facing = pad.facing;
+    output.textContent = `${log}\n4-3 ${Math.floor(model.sectionDepth)}/${model.sectionLength}m · EXIT ${gate ? 'OPEN' : '-'} · HP ${model.hp}`;
+    await wait(16);
+  }
+  pad.release();
+  void facing;
+  assert(model.state === 'upgrade', `4-3 の EXIT をくぐって REST POINT に出た (state=${model.state})`);
+
+  // The banner comes first and wants a press before the cards appear, exactly as a player sees it.
+  await until(() => !!document.getElementById('upgrade-0') || !!document.querySelector('.clear-banner'), 8000);
+  if (!document.getElementById('upgrade-0')) {
+    window.dispatchEvent(new KeyboardEvent('keydown', { key: ' ', code: 'Space', bubbles: true }));
+    await until(() => !!document.getElementById('upgrade-0'), 8000);
+  }
+  const panel = document.body.innerText;
+  assert(/SECTION\s*12\s*\/\s*12/.test(panel.replace(/\n/g, ' ')), '最終 REST POINT（SECTION 12/12）が出ている');
+  assert(panel.includes('FINAL BOSS'), 'NEXT の行き先が FINAL BOSS と表示されている');
+
+  // A real card, then the real NEXT button.
+  document.getElementById('upgrade-0')!.click();
+  const next = document.getElementById('upgrade-confirm') as HTMLButtonElement;
+  assert(!next.disabled, 'カードを選ぶと NEXT が押せるようになる');
+  next.click();
+  await wait(400);
+
+  // What a stuck run looked like: panel still up, controls dead, nothing moving.
+  assert(scene.model.abyssStage === 'staging', `NEXT で THE ABYSS へ入った (${scene.model.abyssStage})`);
+  assert(document.getElementById('overlay')!.hidden || !document.getElementById('upgrade-confirm'),
+    '休憩パネルが閉じている（開いたままなら操作不能）');
+  assert(bridge.active, 'NEXT のあと操作が戻っている（bridge.active）');
+  assert(scene.model.shop.available, '最終ショップが用意されている');
+  assert(scene.model.platforms.filter(f => f.breakBlock).length === 5, '封印が張られている');
+
+  // And the controls really do move the player, not just report that they should.
+  const before = scene.model.player.x;
+  pad.steer(scene.model.player.x < 225 ? 1 : -1);
+  await wait(500);
+  pad.release();
+  assert(Math.abs(scene.model.player.x - before) > 8, `THE ABYSS で実際に操作できる (Δx ${Math.round(scene.model.player.x - before)})`);
+
+  // Carry on the rest of the way on real input.
+  const pushOn = performance.now() + 120000;
+  let frame = 0;
+  const log2 = output.textContent ?? '';
+  while (scene.model.abyssStage !== 'fight' && performance.now() < pushOn && scene.model.state !== 'over') {
+    keepAwake();
+    const m = scene.model;
+    if (m.shop.open) { document.getElementById('shop-close')!.click(); await wait(150); continue; }
+    frame++;
+    const plan = abyssPlan(m, frame);
+    pad.steer(plan.target === undefined || Math.abs(plan.target - m.player.x) < 4 ? 0 : Math.sign(plan.target - m.player.x));
+    pad.trigger(plan.fire);
+    output.textContent = `${log2}\nTHE ABYSS ${m.abyssStage} · 封印 ${m.platforms.filter(f => f.breakBlock && f.state !== 'broken').length}/5 · HP ${m.hp}`;
+    await wait(16);
+  }
+  pad.release();
+  assert(scene.model.abyssStage === 'fight', `封印を破って重力反転まで到達 (${scene.model.abyssStage})`);
+  assert(scene.model.gravitySign === -1, '重力が反転している');
+  assert(scene.model.boss.enabled && scene.model.boss.state === 'dormant', 'NIMUSHI が休眠で待っている');
+  pause();
+});
+
+/**
  * ABYSS 入場 -- 4-3 CLEAR から店・封印・重力反転・NIMUSHI 登場まで、実キー入力だけで通す。
  */
 button('ABYSS 入場 → 重力反転', async () => {

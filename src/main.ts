@@ -74,6 +74,7 @@ const bridge: GameBridge = {
     if (event.type === 'bossRage') showToast('FINAL RAGE', 'NIMUSHI が本気になった');
     if (event.type === 'tomato') showToast('TOMATO', `MAX HP +10 / MAX CHARGE +${event.value}`);
     if (event.type === 'upgrade') showSectionClear(model, event.stage || model.stage.label, event.areaCleared || null);
+    if (event.type === 'abyss') showAbyss(model);
     if (event.type === 'boss') showBoss(model);
     if (event.type === 'clear') showClear(model);
     if (event.type === 'over') showResult(model);
@@ -253,6 +254,19 @@ function showBossPhase(phase: number, name: string) {
   if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) { window.setTimeout(() => { intro.hidden = true; }, 1100); return; }
   introAnimation = intro.animate([{ opacity: 0 }, { opacity: 1, offset: 0.15 }, { opacity: 1, offset: 0.7 }, { opacity: 0 }], { duration: 1100, easing: 'ease-out' });
   introAnimation.onfinish = () => { intro.hidden = true; };
+}
+/**
+ * THE ABYSS opens. The staging room is ordinary play -- it is walked, shopped and shot through --
+ * so this puts the controls back exactly as a SECTION start does, and only names the place.
+ */
+function showAbyss(model: GameModel) {
+  mode = 'boss'; clearInput();
+  $('run-status').textContent = 'THE ABYSS';
+  $('zone').textContent = 'FINAL · THE ABYSS';
+  setOverlay(''); lastHud = ''; updateHud(model);
+  $('touch-controls').classList.add('visible');
+  bridge.active = true;
+  showBossPhase(0, 'THE ABYSS');
 }
 function showBoss(model: GameModel) {
   mode = 'boss'; clearInput();

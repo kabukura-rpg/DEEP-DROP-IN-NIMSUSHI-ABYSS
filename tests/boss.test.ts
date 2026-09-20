@@ -58,7 +58,88 @@ describe('THE ABYSS opens after 4-3, and is not a thirteenth SECTION', () => {
   });
 });
 
+describe('4-3 CLEAR hands the run to THE ABYSS through the ordinary rest point', () => {
+  /** Clear the section the way a player does: complete it, pick a card, press NEXT. */
+  const clearAndConfirm = (game: GameModel) => {
+    expect(game.completeSection()).toBe(true);
+    expect(game.state).toBe('upgrade');
+    expect(game.upgrades.choices.length).toBeGreaterThan(0);
+    expect(game.selectUpgrade(game.upgrades.choices[0].id)).toBe(true);
+    game.events.length = 0;
+    expect(game.confirmUpgrade()).toBe(true);
+  };
+
+  it('opens the staging room, and SAYS so', () => {
+    const game = new GameModel(false, seeded(4));
+    game.jumpToStage(4, 3);
+    expect(game.stage.label).toBe('4-3');
+    clearAndConfirm(game);
+    expect(game.state).toBe('boss');
+    expect(game.abyssStage).toBe('staging');
+    // The signal the UI acts on to take the rest panel down and give the controls back.
+    //
+    // Before Phase 6 that signal was `boss`, raised because 4-3 CLEAR opened the fight directly.
+    // It now opens the staging room and `boss` belongs to NIMUSHI's arrival -- so without its own
+    // announcement, NEXT at 4-3 raised nothing at all and the run sat on the rest panel forever.
+    // A player reported exactly that; every ABYSS check had used the development jump and missed it.
+    expect(game.events.some(e => e.type === 'abyss')).toBe(true);
+  });
+
+  it('is reachable by walking into 4-3ʼs gate rather than by calling completeSection', () => {
+    const game = new GameModel(false, seeded(11));
+    game.jumpToStage(4, 3);
+    // Fall to the goal so the way out is laid, then walk into it.
+    for (let i = 0; i < 260 / STEP && !game.exit; i++) {
+      game.player.invincible = 9;
+      game.player.y += 6;
+      game.step(STEP, 0, false);
+    }
+    expect(game.exit).not.toBeNull();
+    for (let i = 0; i < 40 / STEP && game.state === 'playing'; i++) {
+      game.player.invincible = 9;
+      const gate = game.exit!;
+      game.player.x = gate.x + gate.width / 2;
+      game.player.y = gate.y + gate.height / 2;
+      game.step(STEP, 0, false);
+    }
+    expect(game.state).toBe('upgrade');
+    expect(game.selectUpgrade(game.upgrades.choices[0].id)).toBe(true);
+    game.events.length = 0;
+    expect(game.confirmUpgrade()).toBe(true);
+    expect(game.abyssStage).toBe('staging');
+    expect(game.events.some(e => e.type === 'abyss')).toBe(true);
+  });
+
+  it('carries straight on into the seal, the reversal and NIMUSHI from there', () => {
+    const game = new GameModel(false, seeded(4));
+    game.safeZoneVisitCount = 1;
+    game.jumpToStage(4, 3);
+    clearAndConfirm(game);
+    expect(game.abyssStage).toBe('staging');
+    expect(game.shop.available).toBe(true);
+    expect(game.platforms.filter(row => row.breakBlock).length).toBe(5);
+    intoTheAbyss(game);
+    tick(game, ABYSS.hold + ABYSS.reverse + 0.2);
+    expect(game.abyssStage).toBe('fight');
+    expect(game.gravitySign).toBe(-1);
+    expect(game.boss.enabled).toBe(true);
+    expect(game.boss.state).toBe('dormant');
+  });
+
+  it('does not hand off early: every SECTION before 4-3 returns to ordinary play', () => {
+    const game = new GameModel(false, seeded(12));
+    for (const [area, section] of [[1, 1], [1, 3], [2, 2], [3, 3], [4, 1], [4, 2]] as const) {
+      game.jumpToStage(area, section);
+      clearAndConfirm(game);
+      expect([area, section, game.state]).toEqual([area, section, 'playing']);
+      expect([area, section, game.abyssStage]).toEqual([area, section, 'none']);
+      expect(game.events.some(e => e.type === 'abyss')).toBe(false);
+    }
+  });
+});
+
 describe('the final shop', () => {
+
   it('quotes the ABYSS column, which is dearer than AREA 4 on every good', () => {
     for (const item of SHOP_ITEMS) {
       expect(item.prices.length).toBe(5);

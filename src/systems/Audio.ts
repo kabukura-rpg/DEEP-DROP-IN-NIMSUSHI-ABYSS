@@ -41,6 +41,8 @@ export const EVENT_SOUNDS: Record<GameEvent['type'], SoundId | null> = {
   // a line of dialogue is deliberately silent.
   gravityFlip: 'over', bossRage: 'over', bossEye: 'land', bossLine: null, bossStart: 'upgrade',
   seal: null, tomato: 'upgrade',
+  // Arriving at the bottom of the well: the same weight as reaching the fight itself.
+  abyss: 'upgrade',
 };
 /** The sound an event should make, or null when it is silent. Never throws on an unknown type. */
 export const eventSound = (type: GameEvent['type']): SoundId | null => EVENT_SOUNDS[type] ?? null;
