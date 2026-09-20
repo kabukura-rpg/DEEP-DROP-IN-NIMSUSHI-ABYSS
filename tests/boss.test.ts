@@ -11,6 +11,7 @@ import { UPGRADE_TUNING } from '../src/data/upgrades';
 import { atNimushi, defeatNimushi, fighting, intoTheAbyss, laneOf, pin, round, seeded, shootBody, shootEye, STEP, tick } from './nimushi';
 import { BOSS_PHYSICS } from '../src/data/bossPhysics';
 import { BALANCE } from '../src/data/balance';
+import { WORLD } from '../src/data/balance';
 
 describe('THE ABYSS opens after 4-3, and is not a thirteenth SECTION', () => {
   it('lands in a staging room rather than straight into a fight', () => {
@@ -476,16 +477,40 @@ describe('the weak point is the whole fight', () => {
   it('is never stompable: arriving on it costs a heart instead', () => {
     const game = fighting(29);
     const hp = game.boss.hp, hearts = game.hp;
-    // Dived straight into it. NIMUSHI backs away at a limited speed rather than snapping clear,
-    // so this is something a player can actually do -- and it costs them.
+    // Put the player inside the body. The camera is moved with them, because NIMUSHI now holds a
+    // share of the VIEWPORT -- leaving the camera behind would have it jump clear in the same frame
+    // and the contact would never be tested at all.
     game.player.x = game.boss.x;
     game.player.y = game.boss.y;
+    game.cameraY = game.player.y - WORLD.height * 0.63;
+    // NIMUSHI carries the camera's own movement so its band holds at any speed; a hand-moved camera
+    // would therefore teleport it clear before the contact could resolve. Tell it the camera is
+    // already where it is, so this frame's carry is zero and the collision is the thing under test.
+    (game.boss as unknown as { lastCameraY: number }).lastCameraY = game.cameraY;
     game.player.vy = -520;
     game.player.invincible = 0;
     game.step(STEP, 0, false);
     expect(game.boss.hp).toBe(hp);
     expect(game.hp).toBe(hearts - NIMUSHI.contactDamage);
     expect(game.health.lastDamage?.cause).toBe('bossContact');
+  });
+
+  /**
+   * ...but ordinary play never gets there.
+   *
+   * The band is what makes body contact a non-event rather than the fight's main hazard: the player
+   * cannot climb above their own camera anchor, so NIMUSHI's share of the screen is a floor under
+   * the separation and there is no route into the body by movement alone.
+   */
+  it('cannot be reached by flying at it', () => {
+    const game = fighting(29);
+    let closest = Infinity;
+    for (let i = 0; i < 20 / STEP && game.state === 'boss'; i++) {
+      game.player.invincible = 9;
+      game.step(STEP, 0, false);
+      closest = Math.min(closest, game.boss.reach(game.player.y));
+    }
+    expect(closest).toBeGreaterThan(0);
   });
 });
 

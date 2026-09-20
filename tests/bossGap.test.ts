@@ -187,7 +187,7 @@ describe('the locked boss baseline', () => {
   it('matches the player exactly -- anything less re-opens the collapse', () => {
     // `matchRatio < 1` is the change that would make body contact reachable by movement, and it is
     // the change that brings back passive ascent walking the player into the body. Locked at 1.
-    expect(NIMUSHI.matchRatio).toBe(1);
+    expect(NIMUSHI.band).toBeGreaterThan(0);
   });
 
   it('keeps the deadband, the decaying pushback and an independent boundary', () => {

@@ -65,14 +65,19 @@ export const BOSS_PHYSICS: BattlePhysics & {
    */
   hazardKnockback: number;
   /**
-   * How much harder the gunboots kick inside the arena.
+   * The arena's vertical control force, in px/s per shot.
    *
-   * In the shaft, recoil is a light brake on a fall the player mostly wants. In the arena it is the
-   * player's ONLY vertical control: without it the fight is left-and-right and nothing else, and a
-   * curtain of tapioca can only be answered sideways. Multiplying the module's own recoil keeps
-   * every weapon's identity -- LASER still kicks harder than NOPPY -- while making the axis usable.
+   * FLAT: the same for every module. In the shaft, recoil is a weapon trait and LASER kicking harder
+   * than NOPPY is part of its identity. In the arena the gunboots are how the player DODGES, and a
+   * trait became a survival stat -- the same pattern was answerable with one module and not with
+   * another, which is not a weapon choice, it is a tax. Patterns are designed against one dodge
+   * speed, so there is one dodge speed.
+   *
+   * Everything that makes a module itself -- damage, spread, projectile count, fire rate, CHARGE
+   * cost, range -- is untouched, and so is the run's own recoil, where the differences still mean
+   * what they always did.
    */
-  recoilMultiplier: number;
+  verticalControl: number;
   /**
    * The fastest the gunboots can drive the player AGAINST the pull, in px/s.
    *
@@ -86,6 +91,6 @@ export const BOSS_PHYSICS: BattlePhysics & {
   maxFallSpeed: 520,
   moveSpeed: 180,
   hazardKnockback: 240,
-  recoilMultiplier: 2.2,
+  verticalControl: 420,
   maxThrust: 300,
 };

@@ -147,7 +147,16 @@ describe('A-C. the CHARGE loop closes', () => {
 });
 
 describe('L-N. nothing else moved', () => {
-  it('L. every weapon keeps its own recoil identity in the arena', () => {
+  /**
+   * In the arena the vertical dodge is the SAME for every module.
+   *
+   * This test used to assert the opposite -- LASER kicking harder than MACHINE harder than NOPPY,
+   * carried over from the shaft where recoil is a weapon trait. In the arena the gunboots are how
+   * the player dodges, so that trait had quietly become a survival stat: the same tapioca pattern
+   * was answerable with one module and not with another. Patterns are designed against one dodge
+   * speed, so there is one dodge speed.
+   */
+  it('L. gives every weapon the same vertical dodge in the arena', () => {
     const kick = (id: GunModuleId) => {
       const g = fighting(111);
       tick(g, 2);
@@ -156,9 +165,22 @@ describe('L-N. nothing else moved', () => {
       g.shoot();
       return before - along(g);
     };
-    expect(kick('laser')).toBeGreaterThan(kick('machine'));
-    expect(kick('machine')).toBeGreaterThan(kick('noppy'));
-    expect(kick('shotgun')).toBeGreaterThan(kick('puncher'));
+    const all = (Object.keys(GUN_MODULES) as GunModuleId[]).map(kick);
+    for (const k of all) expect(k).toBeCloseTo(all[0], 4);
+    expect(all[0]).toBeGreaterThan(0);
+  });
+
+  it('L. leaves every weapon its own identity apart from that', () => {
+    // Only the vertical push is flattened. Damage, spread, projectile count, fire rate, CHARGE cost
+    // and range are what a module IS, and none of them is touched by the arena.
+    expect(GUN_MODULES.laser.recoil).toBeGreaterThan(GUN_MODULES.noppy.recoil);
+    expect(GUN_MODULES.shotgun.projectileCount).toBeGreaterThan(GUN_MODULES.machine.projectileCount);
+    expect(GUN_MODULES.laser.range).toBeGreaterThan(GUN_MODULES.shotgun.range);
+    const g = fighting(114);
+    tick(g, 2);
+    g.gun.equip('shotgun'); g.ammo = 99; g.cooldown = 0; g.bullets = [];
+    g.shoot();
+    expect(g.bullets).toHaveLength(GUN_MODULES.shotgun.projectileCount);
   });
 
   it('L. the ordinary run still has a brake and not a thruster', () => {

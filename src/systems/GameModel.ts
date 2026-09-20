@@ -484,9 +484,17 @@ export class GameModel {
     const def = this.gun.module;
     this.ammo = Math.max(0, this.ammo - cost);
     const recovery = Math.max(0.65, Math.min(1, 0.65 + (this.elapsed - this.lastAirShot - def.fireInterval) / 0.18 * 0.35));
-    // The arena's gunboots kick harder, because there they are the only vertical control there is.
-    // The MODULE's own recoil is what gets multiplied, so the weapons keep their relative identity.
-    const kick = volleyRecoil(def, this.stats) * recovery * (this.inBossArena ? BOSS_PHYSICS.recoilMultiplier : 1);
+    /**
+     * How hard this shot pushes back.
+     *
+     * In the shaft it is the module's own recoil, which is part of what each weapon IS. In the
+     * arena it is a flat figure instead: there the gunboots are the player's vertical dodge, and
+     * leaving that on the weapon made dodging a weapon stat -- the same tapioca pattern was
+     * answerable with LASER and not with NOPPY. Patterns are designed against one dodge speed.
+     */
+    const kick = this.inBossArena
+      ? BOSS_PHYSICS.verticalControl * recovery
+      : volleyRecoil(def, this.stats) * recovery;
     /**
      * RECOIL IS A BRAKE, NEVER A THRUSTER.
      *
@@ -1161,7 +1169,7 @@ export class GameModel {
    */
   private tickNimushi(dt: number) {
     const p = this.player;
-    for (const signal of this.boss.update(dt, p, this.random)) this.onBossSignal(signal);
+    for (const signal of this.boss.update(dt, p, this.random, this.cameraY)) this.onBossSignal(signal);
     if (!this.boss.active) return;
     // Contact with the body. Reachable on purpose: NIMUSHI hangs directly ahead along the pull, so
     // a player who keeps falling into it pays for it. It is never stompable and never lethal alone.

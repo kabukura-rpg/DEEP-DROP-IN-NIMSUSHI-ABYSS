@@ -121,56 +121,47 @@ export const NIMUSHI = {
   pushPerHit: 24,
 
   /**
-   * THE GAP CONTROLLER.
+   * THE BOSS BAND.
    *
-   * NIMUSHI holds a distance rather than running away at a fixed speed. Its pace along the pull is
-   * the PLAYER's pace plus a correction proportional to how far the gap is from where it should be:
+   * NIMUSHI holds a fraction of the VIEWPORT, not a distance from the player. It hangs in the top
+   * fifth of the screen and stays there; the camera already follows the player, so anchoring the
+   * boss to the camera keeps the fight framed without NIMUSHI chasing anybody.
    *
-   *   speed = playerSpeedAlongThePull + correction(gap)
+   * This replaced a velocity-matching gap controller. That version worked -- it stopped the player
+   * being dragged into the body -- but it kept the boss at a distance measured from the PLAYER, so
+   * how much of the fight you could see depended on what you were doing, and the answer was usually
+   * "not enough". A screen band gives the same guarantee with none of that: the player cannot climb
+   * above their own camera anchor, so the separation has a floor by construction rather than by
+   * correction, and it is the same on every frame of every fight.
    *
-   * Matching the player is what makes the fight possible at all. A fixed speed cannot: whatever it
-   * is set to, a player falling faster closes on it every second until they are inside the body, and
-   * a player falling slower is left behind. Matching means ordinary movement holds the distance, and
-   * the correction is only there to recover from a gap that has already gone wrong.
-   *
-   * The correction is a DEADBAND between `minGap` and `maxGap`, not a pull toward one ideal
-   * distance: inside the band NIMUSHI leaves the gap where the player put it, so closing in to use
-   * SHOTGUN's 260px reach is a decision the fight respects rather than one it undoes. `gapGain` is
-   * per second, so being 100px inside the band's edge asks for 220px/s back. `maxCorrection` keeps
-   * a recovery firm rather than a teleport and `maxTrackSpeed` caps the total. All MEASUREMENT
-   * REQUIRED -- these are the first values that make the geometry work, not tuned ones.
+   * Viewport-relative rather than a pixel count, so the framing survives a different screen.
    */
-  gapGain: 2.2,
-  maxCorrection: 260,
+  // 0.25 -- the lower edge of the intended 15-25% band, chosen for SHOTGUN. The resting distance
+  // from the player to the eye is `playerAnchor - band*height - bodyHalf`, and at 0.22 that came to
+  // 272px against SHOTGUN's 260px reach: the shortest module in the roster could not touch the weak
+  // point from where the fight actually happens. At 0.25 it is 248px, and the muzzle sits 21px
+  // nearer again, so every weapon reaches without anything being retuned.
+  band: 0.25,
   /**
-   * How much of the player's pace NIMUSHI matches in the ordinary case.
+   * How fast NIMUSHI converges on its band, in px/s.
    *
-   * A FULL match, and it has to be. The player's speed toward NIMUSHI is capped at the arena's
-   * terminal speed whether they are charging or doing nothing, so anything under 1 makes the gap
-   * close on a player who is not even playing -- which is the bug this controller exists to fix.
-   * Matching exactly means ordinary movement changes nothing about the distance, and the ways the
-   * distance DOES change are the interesting ones: NIMUSHI's attacks, and the player's own brake.
-   *
-   * It is a named constant rather than an implicit 1 so that the choice is visible, and so that a
-   * future boss balance pass can see what it would be trading away by lowering it.
+   * Comfortably above the arena's terminal speed so the band is held rather than chased -- the
+   * camera can move at the player's full pace and the boss still sits where it belongs.
    */
-  matchRatio: 1,
-  maxTrackSpeed: 780,
+  bandSpeed: 1100,
   /**
    * How much of the player's pace NIMUSHI matches WHILE AN ATTACK IS RUNNING.
    *
-   * Below 1 on purpose. Station-keeping that never lapses would put the body permanently out of
-   * reach, and body contact is supposed to be something a player can choose -- so the one window
-   * where NIMUSHI is busy is the window where a player who wants to close can. Charging it during
-   * an attack is exactly when being near it should be dangerous.
+   * Kept from the previous design and now only a small drift: during an attack NIMUSHI stops
+   * correcting toward its band, so a pattern can pull it a little out of frame and settle back
+   * afterwards. It is what stops the band looking painted on.
    */
   attackFollow: 0.45,
   /**
-   * Seconds the extra room from a weak-point hit lasts before the gap settles back to `restGap`.
+   * Seconds the extra room from a weak-point hit lasts before the band settles back.
    *
-   * Without this the controller would erase its own pushback: the shove opens the gap, the gap is
-   * then "too big", and the correction closes it again within a frame or two. The hit therefore
-   * raises the TARGET for a moment as well as moving the body.
+   * A hit still shoves NIMUSHI up and off its band for a moment, which is the visible reward for
+   * finding the eye; `bandSpeed` then walks it home.
    */
   pushbackDecay: 1.8,
   /** Extra ascent while a stretch gives way to the next, which is what hauls the arena up. */
@@ -210,9 +201,26 @@ export const NIMUSHI_ATTACKS: Record<AbyssAttackId, NimushiAttackDef> = {
  */
 export const TAPIOCA_SHOWER = {
   lanes: 7,
-  safeLanes: 2,
-  /** Seconds between waves. MEASUREMENT REQUIRED. */
-  waveInterval: 0.4,
+  /**
+   * How many ADJACENT lanes are left open. Three of seven, so the corridor is 169px of a 394px
+   * shaft -- wide enough to see from across the arena and to stand in without pixel-perfect placing.
+   *
+   * It was two. With the gap also moving every 0.4s, answering a shower meant walking continuously
+   * and correctly from the first wave, with no margin for reading it at all. A human playtest called
+   * the attack unavoidable, and it very nearly was: not because any single wave was unfair, but
+   * because the pattern never gave a moment to look at it.
+   */
+  safeLanes: 3,
+  /**
+   * Seconds between waves.
+   *
+   * This is the READING time, not just a rate. The corridor moves at most one lane per wave and a
+   * lane is 56px, which the player crosses in about 0.31s at the arena's move speed -- so an
+   * interval of 0.75s leaves well over twice the time needed to follow it, rather than exactly
+   * enough. At the attack's 2.4s that is three or four waves: a pattern to read, not a barrage to
+   * survive. MEASUREMENT REQUIRED, like everything else here.
+   */
+  waveInterval: 0.75,
   speed: 265,
   size: 9,
   damage: 1,
