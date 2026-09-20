@@ -149,55 +149,207 @@ recording because each produced a plausible-looking wrong answer:
   From terminal the same magazine only slows the fall 14%, so the two situations differ enormously —
   worth deciding deliberately rather than inheriting.
 - **Wall jump throws the player 58.8% of the way across the shaft**, unclamped. That is a traversal
-  move, not a foothold, and it is the mechanic the "壁に取っ掛かりが欲しい" note is about (section E,
-  WALL STUB).
+  move, not a foothold. *(Corrected: an earlier draft read the "壁に取っ掛かりが欲しい" note as being
+  about this measurement. It is not — the request is about terrain geometry, whether the walls carry
+  small landable structures at all. That is measurement 21; wall-contact physics is measurement 22.)*
 
 ---
 
 ## D. ORIGINAL FOOTAGE MEASUREMENT PROTOCOL
 
-No original value is adopted without going through this. Absolute pixels are not transferable —
-the original's resolution, zoom and player sprite are all different — so every quantity is captured
-as a **ratio against something visible in the same frame**, then multiplied into DEEP DROP's scale.
+No original value is adopted without going through this.
+
+Every quantity is recorded **twice**: the raw screen measurement, and its ratio against something
+visible in the same frame. The ratio is what transfers — the original's resolution, zoom and sprite
+scale are all different from DEEP DROP's — but the absolute is what makes a mistake findable later.
+A ratio alone cannot be re-checked once the clip is closed.
 
 **Capture.** 60fps, native resolution, no scaling or interpolation, Normal Mode, first World, a run
-with no upgrades that alter movement. Frame-step only; never scrub.
+holding no upgrade that alters movement. Frame-step only; never scrub.
 
-**Reference lengths, measured once per clip** (the denominators):
-`H` = player sprite height px · `W` = player sprite width px · `S` = open shaft width px, wall to wall.
+### Scale reference — measured once per clip, before anything else
+
+| Symbol | Quantity | Note |
+|---|---|---|
+| `H` | player sprite height, px | the primary denominator for vertical quantities |
+| `W` | player sprite width, px | the primary denominator for horizontal quantities |
+| `S` | open shaft inner width, px, wall to wall | |
+| `B` | apparent terrain block / tile size, px | **only if a repeating unit is actually visible** |
+
+`B` is optional and is recorded **only when a repeating terrain unit can be seen**. If terrain reads
+as a continuous mass with no repeating unit, or the apparent unit cannot be distinguished from a
+texture, record `VISUAL UNIT ONLY` — or omit `B` entirely. Do not derive it from a guess at the
+original's tile grid. Where `B` is available, terrain measurements carry `/ B` alongside `/ H` and
+`/ W`, because a terrain grammar expressed in blocks is easier to reproduce than one in raw pixels.
+
+### Measurements
+
+Items 1–16 are unchanged from the original protocol; 17–22 are new. Grouped, one continuous numbering.
+
+**Player physics — locomotion**
 
 | # | Quantity | Method | Report as |
 |---|---|---|---|
-| 1 | Jump rise | standing frame → apex frame, top-of-sprite delta | `rise / H` |
+| 1 | Jump rise | standing frame → apex frame, top-of-sprite delta | px **and** `rise / H` |
 | 2 | Jump apex time | frames from leaving ground to apex ÷ 60 | seconds |
 | 3 | Jump airtime | leave-ground frame → first frame back at launch height ÷ 60 | seconds |
-| 4 | Jump horizontal reach | x delta across that arc with a direction held | `dx / S` **and** `dx / W` |
-| 5 | Gravity | per-frame y delta over frames 1–10 of a fall; second difference | `px/frame² / H` |
-| 6 | Terminal velocity | y delta per frame once flat, 10-frame mean | `px/frame / H` |
+| 4 | Jump horizontal reach | x delta across that arc with a direction held | px **and** `dx / S`, `dx / W` |
+| 5 | Free-fall acceleration | per-frame y delta over frames 1–10 of a fall; second difference | px/frame² **and** `/ H` |
+| 6 | Terminal velocity | y delta per frame once flat, 10-frame mean | px/frame **and** `/ H` |
 | 7 | Time to terminal | first fall frame → first flat frame ÷ 60 | seconds |
-| 8 | Wall-jump rise | contact frame → apex | `rise / H` |
-| 9 | Wall-jump horizontal | contact frame → frame back at contact height | `dx / W` **and** `dx / S` |
-| 10 | Recoil Δv | per-frame y delta the frame before vs the frame after a shot | `Δ / terminal px-per-frame` |
-| 11 | Hover | y delta over a full magazine held from terminal vs an unfired fall of equal length | % slower |
-| 12 | Stomp bounce | contact frame → apex | `rise / H` |
-| 13 | Walk speed | x delta per frame while grounded | `px/frame / W` **and** shaft-crossing seconds |
-| 14 | Air control | x delta per frame while falling ÷ grounded x delta per frame | ratio, 0–1 |
-| 15 | Row spacing | vertical distance between consecutive landable rows | `gap / H` |
-| 16 | Ledge width | ledge width | `width / S` |
+| 8 | Wall-jump rise | contact frame → apex | px **and** `rise / H` |
+| 9 | Wall-jump horizontal | contact frame → frame back at contact height | px **and** `dx / W`, `dx / S` |
+| 13 | Horizontal move, grounded | x delta per frame while grounded | px/frame **and** `/ W`, plus shaft-crossing seconds |
+| 14 | Horizontal move, airborne | x delta per frame while falling ÷ grounded x delta per frame | ratio, 0–1 |
 
-**Conversion.** DEEP DROP `H = 30`, `W = 22`, `S = 394`. A ratio `r` measured against `H` becomes
-`r × 30`. Velocities in px/frame convert at ×60 to px/s. Gravity in px/frame² converts at ×3600.
+**Player physics — weapon and contact**
 
-**Rules.**
-- At least **5 independent clips** per quantity; report **median and spread**. A quantity whose
-  spread exceeds 15% is not measured — it is contaminated by an upgrade or a different World.
-- Ratio 14 (air control) and ratio 11 (hover) are the two that decide the most about feel and are
-  the two most easily eyeballed wrong. They get 10 clips.
+| # | Quantity | Method | Report as |
+|---|---|---|---|
+| 10 | MACHINE GUN single-shot recoil | per-frame y delta the frame before vs the frame after one shot | `Δ / terminal px-per-frame` |
+| 11 | MACHINE GUN sustained recoil | y delta over a full magazine held from terminal, vs an unfired fall of equal frame count | % slower, **and** net px |
+| 12 | Stomp bounce | contact frame → apex | px **and** `rise / H` |
+
+Item 10 names the module deliberately: the original's gun modules do not share a recoil, so a figure
+captured without recording which module was equipped is not a measurement of anything.
+
+Item 11 must record whether the magazine produces a net **climb** or only a slowed descent. DEEP
+DROP's own behaviour differs enormously by starting state — from terminal, a magazine slows the fall
+14%; from rest, the same magazine is a net climb of 45.8px. So capture it **from terminal**, and note
+separately whether a climb from rest is possible at all.
+
+**Upgrade behaviour**
+
+| # | Quantity | Method | Report as |
+|---|---|---|---|
+| 17 | HEART BALLOON fall multiplier | see below | `balloon px/frame ÷ normal px/frame` |
+| 18 | HEART BALLOON pop / reset timing | see below | frames ÷ 60 |
+
+*17.* Measure **terminal only**, never the acceleration phase — mixing the ramp in contaminates the
+ratio, and the ramp is where the difference is least stable.
+
+- Without the balloon: after terminal is reached, y displacement over **≥10 consecutive frames**.
+- With the balloon: the same, under the same conditions.
+- Report the quotient. **Minimum 3 samples** per condition.
+
+*18.* Where the footage allows, additionally record:
+- the frame the balloon pops;
+- how long after the pop fall speed returns to normal (frames ÷ 60) — instantaneous, or a ramp;
+- when it respawns on the next Level (at entry, or on some trigger).
+
+These three are what decide whether the balloon is a persistent modifier or a consumable, which is a
+structural question the current `fallMultiplier` cannot answer either way.
+
+**Hazard timing**
+
+| # | Quantity | Method | Report as |
+|---|---|---|---|
+| 19 | Catacombs spike — trigger → warning | frames B − A ÷ 60 | seconds |
+| 20 | Catacombs spike — active / retract / reset | frames C→D, D→E ÷ 60 | seconds |
+
+Capture these five frame indices per individual, **minimum 3 individuals**:
+
+```
+A  landing / trigger satisfied
+B  warning visual begins
+C  spike hitbox becomes active
+D  spike begins to retract
+E  fully inactive / reset, able to trigger again
+```
+
+Derived: `trigger → warning` = B−A · `warning duration` = C−B · `active duration` = D−C ·
+`cooldown / reset` = E−D.
+
+> **The frame the player takes damage is NOT frame C.** Damage is where the player happened to be;
+> C is where the trap changed state. Conflating them measures the player's position and calls it a
+> hazard constant. Read C from the spike's own animation, with no player contact if possible.
+
+Where the footage allows, record any divergence between the **warning visual** and the **hitbox
+becoming active** — if the hitbox leads the visual even by a frame, the telegraph is a lie, and that
+is a design fact worth more than the duration itself.
+
+**Terrain**
+
+| # | Quantity | Method | Report as |
+|---|---|---|---|
+| 15 | Row spacing | vertical distance between consecutive landable rows | px **and** `gap / H` (`/ B`) |
+| 16 | Ledge width | ledge width | px **and** `width / S` (`/ B`) |
+| 21 | Wall foothold geometry | see below | ratios below |
+| 22 | Wall-contact player physics | see below | see below |
+
+**21 — WALL FOOTHOLD / TERRAIN GEOMETRY.**
+
+*Correction to the earlier framing.* Section C of this document treated "壁に取っ掛かりが欲しい" as a
+player-physics question, and section E's `wallStub` piece was proposed as the answer without anything
+to measure it against. That was a misreading. The request is primarily about **terrain geometry** —
+whether the original's shaft walls carry small landable structures at all — and it is measured here
+as terrain. Item 22 below is the player-physics question, kept strictly separate because the two can
+be true independently: a wall can carry footholds with no special contact physics, or have slide
+physics with no footholds.
+
+Observe and record:
+
+- whether wall-attached footholds **exist at all** — this is the first question, and "no" is a result;
+- `foothold width / W`;
+- `foothold height / H`;
+- `projection from the wall / W`;
+- `vertical spacing between footholds / H`;
+- whether they are **landable** (the player can come to rest) or only brushed past;
+- whether they are usable as a temporary platform;
+- whether footage shows them used to **set up a wall jump**;
+- whether footage shows them used as an **emergency landing** to avoid a hazard below.
+
+Record absolute px alongside every ratio. Where `B` was established, add `/ B` — if footholds turn
+out to be one block wide, that is the most directly reproducible result this protocol can produce.
+
+**22 — WALL-CONTACT PLAYER PHYSICS.** A separate measurement from 21. Falling while held against a
+wall, determine which of these occurs:
+
+- **wall slide** — fall speed is reduced while in contact;
+- **wall grip** — the fall stops entirely while in contact;
+- **neither** — contact changes nothing and only the wall jump exists.
+
+If and only if a slide is observed, measure `wall-contact fall px/frame ÷ normal terminal px/frame`.
+If a grip is observed, measure how many frames it can be held. If neither occurs, record exactly:
+
+```
+NO WALL SLIDE OBSERVED
+```
+
+Do not infer a value from how the movement looks. DEEP DROP is currently in the third category, and
+that is a fact about DEEP DROP, not evidence about the original.
+
+### Conversion
+
+DEEP DROP `H = 30`, `W = 22`, `S = 394`. A ratio `r` against `H` becomes `r × 30`. Velocities in
+px/frame convert ×60 to px/s. Acceleration in px/frame² converts ×3600 to px/s².
+
+Timings (items 18, 19, 20) are **already in seconds and do not convert** — they transfer directly.
+This is why hazard and upgrade timing are the highest-value items in this protocol: they are the only
+measurements that need no scale assumption at all, and two of them replace values currently carrying
+`DESIGN TUNING — ORIGINAL VALUE NOT VERIFIED` (`heartBalloon.fallMultiplier` 0.82 and the Catacombs
+spike warning 0.65s).
+
+### Rules
+
+- **At least 5 independent clips** per quantity for items 1–16; report **median and spread**. A
+  quantity whose spread exceeds 15% is not measured — it is contaminated by an upgrade or a
+  different World.
+- Items 17 and 19/20 have their own stated minimums (**3 samples** / **3 individuals**), because each
+  sample is a whole staged situation rather than a frame range inside ordinary play.
+- Items 11 and 14 decide more about feel than any other, and are the two most easily eyeballed wrong.
+  They get **10 clips**.
+- Record which gun module is equipped in any clip used for items 10 or 11, and which upgrades are
+  held in **every** clip. An unrecorded loadout invalidates the sample.
 - Any quantity not obtained this way stays `MEASUREMENT REQUIRED` in the data files. **No value is
-  invented because it looks plausible.** The current `JUMP.impulse` and `WALL_JUMP.*` already carry
-  that label and keep it until this protocol replaces them.
-- Ratios 15 and 16 are terrain, not physics, and feed section F — but they must be captured in the
-  same pass, because a row gap is only meaningful next to the jump that has to deal with it.
+  invented because it looks plausible.** `JUMP.impulse` and `WALL_JUMP.*` carry that label today and
+  keep it until this protocol replaces them.
+- **A negative result is a result.** "No foothold geometry", `NO WALL SLIDE OBSERVED`, "no divergence
+  between warning and hitbox" are all findings and are recorded as such. An unmeasurable quantity is
+  recorded as unmeasurable, never filled in.
+- Items 15, 16 and 21 are terrain rather than physics and feed section F — but they are captured in
+  the same pass, because a row gap is only meaningful next to the jump that has to clear it, and a
+  foothold only means something next to the wall jump that reaches it.
 
 ---
 
@@ -229,7 +381,7 @@ emit ordinary `Platform` entries so nothing downstream changes.
 |---|---|---|
 | `ledge` | free-floating, `width` of shaft span | the ordinary landing |
 | `wallShelf` | flush to one wall | landing that also sets up a wall interaction |
-| `wallStub` | **narrow**, flush to a wall, ≤1.5 player-widths | *foothold* — the "取っ掛かり" |
+| `wallStub` | **narrow**, flush to a wall | *foothold* — the "取っ掛かり". **Dimensions pending measurement 21**; not authored until the original is known to have footholds at all |
 | `breakCluster` | 2–5 gate blocks, contiguous | obstruction that costs CHARGE |
 | `partial` | spans part of the shaft, deliberately leaving a lane | funnels without blocking |
 | `stack` | 2–3 pieces within one jump height of each other | vertical texture; the thing the ladder cannot express |
