@@ -121,27 +121,28 @@ export const NIMUSHI = {
   pushPerHit: 24,
 
   /**
-   * THE BOSS BAND.
+   * THE BOSS BANDS -- two of them, because the fight has two halves.
    *
-   * NIMUSHI holds a fraction of the VIEWPORT, not a distance from the player. It hangs in the top
-   * fifth of the screen and stays there; the camera already follows the player, so anchoring the
-   * boss to the camera keeps the fight framed without NIMUSHI chasing anybody.
+   * NIMUSHI holds a fraction of the VIEWPORT rather than a distance from the player: the camera
+   * already follows the player and the player cannot climb above their own camera anchor, so this
+   * puts a floor under the separation by construction instead of by correction.
    *
-   * This replaced a velocity-matching gap controller. That version worked -- it stopped the player
-   * being dragged into the body -- but it kept the boss at a distance measured from the PLAYER, so
-   * how much of the fight you could see depended on what you were doing, and the answer was usually
-   * "not enough". A screen band gives the same guarantee with none of that: the player cannot climb
-   * above their own camera anchor, so the separation has a floor by construction rather than by
-   * correction, and it is the same on every frame of every fight.
+   * One fixed band could not serve both halves. Close enough for SHOTGUN's 260px reach is close
+   * enough that a tapioca pattern arrives before it can be read; far enough to read the pattern is
+   * far enough that the shortest modules cannot touch the eye. So the boss moves:
    *
-   * Viewport-relative rather than a pixel count, so the framing survives a different screen.
+   *   ATTACK   far, while winding up and attacking -- the pattern is the thing to look at
+   *   DAMAGE   near, through recovery and the open eye -- the weak point is the thing to shoot
+   *
+   * FAR to dodge, CLOSE to counterattack. Derived from the player's own camera anchor (63% of the
+   * viewport) and the roster's shortest reach, not picked:
+   *
+   *   reach = anchor - band*height - bodyHeight/2, and a round leaves the muzzle 21px nearer again.
+   *   attack 0.12 -> 352px, and the whole body sits at 40px from the top of the screen.
+   *   damage 0.28 -> 224px, 203px from the muzzle, which leaves SHOTGUN 57px of margin.
    */
-  // 0.25 -- the lower edge of the intended 15-25% band, chosen for SHOTGUN. The resting distance
-  // from the player to the eye is `playerAnchor - band*height - bodyHalf`, and at 0.22 that came to
-  // 272px against SHOTGUN's 260px reach: the shortest module in the roster could not touch the weak
-  // point from where the fight actually happens. At 0.25 it is 248px, and the muzzle sits 21px
-  // nearer again, so every weapon reaches without anything being retuned.
-  band: 0.25,
+  attackBand: 0.12,
+  damageBand: 0.28,
   /**
    * How fast NIMUSHI converges on its band, in px/s.
    *

@@ -290,7 +290,7 @@ export class NimushiBossSystem {
 
     // The band, in world coordinates: a fixed share of the screen, offset by whatever room a
     // weak-point hit has most recently bought.
-    const target = cameraY + WORLD.height * NIMUSHI.band + this.pushback * this.sign;
+    const target = cameraY + WORLD.height * this.band + this.pushback * this.sign;
     // While an attack runs NIMUSHI corrects more slowly, so a pattern can pull it a little off the
     // band and let it settle back afterwards rather than looking painted on.
     const rate = attacking ? NIMUSHI.bandSpeed * NIMUSHI.attackFollow : NIMUSHI.bandSpeed;
@@ -310,6 +310,19 @@ export class NimushiBossSystem {
       const edge = WORLD.wall + NIMUSHI.bodyWidth / 2;
       this.x = Math.max(edge, Math.min(WORLD.width - edge, this.x + towards * NIMUSHI.drift * dt));
     }
+  }
+  /**
+   * Which band NIMUSHI wants right now.
+   *
+   * Far while it is winding up or attacking, so the pattern can be read from a distance and the body
+   * is nowhere near the player. Near from the moment it starts recovering until the eye shuts again,
+   * so the counterattack is in reach of every module including the shortest.
+   */
+  get band() {
+    if (this.state === 'attackPrep' || this.state === 'eyeClosing') return NIMUSHI.attackBand;
+    return (Object.values(ATTACK_STATES) as string[]).includes(this.state)
+      ? NIMUSHI.attackBand
+      : NIMUSHI.damageBand;
   }
   /** How far the player currently is from the face -- the one number the fight is really about. */
   reach(playerY: number) { return this.along(this.face - playerY); }
@@ -427,8 +440,19 @@ export class NimushiBossSystem {
     }
   }
 
+  /**
+   * Open the eye -- and clear the air first.
+   *
+   * The damage window is for shooting NIMUSHI, so it starts with the last attack's pearls swept
+   * away. Leaving them in flight made the counterattack a second dodge: the player would finally
+   * get their window and spend it reading leftovers from the pattern they had already answered.
+   *
+   * FINAL RAGE's own curtain is not swept, because it is not an attack that ended -- it runs
+   * underneath the whole cycle by design, and the eye still opens through it.
+   */
   private openEye(out: NimushiSignal[]) {
     if (!this.raged && this.ratio <= FINAL_RAGE_RATIO) { this.enterRage(out); return; }
+    if (this.state !== 'finalRage') this.tapiocas = [];
     this.state = 'eyeOpen'; this.timer = NIMUSHI.eyeWindow.timeout; this.windowDamage = 0;
     out.push({ kind: 'eye', open: true });
   }

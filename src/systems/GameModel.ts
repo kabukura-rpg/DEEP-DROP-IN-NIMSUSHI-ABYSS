@@ -787,6 +787,28 @@ export class GameModel {
         }
       }
       if (this.boss.active) {
+        /**
+         * SHOOTING A PEARL OUT OF THE AIR -- the emergency exit, not the answer.
+         *
+         * The corridor is still guaranteed, still three lanes wide, and still walks one lane per
+         * wave: a player who reads the pattern dodges it and keeps their CHARGE. This is for the
+         * player who did not read it in time, and it costs them the magazine they were going to
+         * counterattack with.
+         *
+         * ONE ROUND, ONE PEARL, whatever the weapon. The round dies here even if it had piercing
+         * left, because a LASER that wipes a whole row would not be a safety valve -- it would be
+         * the answer, and the pattern would stop mattering. That rule lives here, in the arena, and
+         * the run's own piercing is untouched.
+         */
+        const pearl = this.boss.tapiocas.find(t => t.life > 0
+          && Math.abs(b.x - t.x) < t.size + b.size
+          && sweeps(b.previousY, b.y, t.y - t.size, t.y + t.size));
+        if (pearl) {
+          pearl.life = 0;
+          this.events.push({ type: 'kill', x: pearl.x, y: pearl.y, value: 0, stomp: false });
+          b.alive = false;
+          continue;
+        }
         // A cup is the one thing in the fight that is NOT the weak-point rule: it is an object in
         // the world with HP, and shooting it down is the answer to being caught between the two.
         const cup = this.boss.cups.find(c => c.alive

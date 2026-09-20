@@ -26,6 +26,6 @@ describe('the boss band', () => {
     console.log(`BAND reach over the fight: min ${Math.round(minReach)}px, max ${Math.round(maxReach)}px`);
     console.log(`BAND highest the player ever got on screen: ${Math.round(minPlayerScreen)} of ${WORLD.height}`);
     console.log(`BAND weapon reach: ${Object.values(GUN_MODULES).map(m => `${m.short} ${m.range}`).join(' | ')}`);
-    console.log(`BAND band constant ${NIMUSHI.band} -> ${Math.round(NIMUSHI.band * WORLD.height)}px from the top`);
+    console.log(`BAND attack ${NIMUSHI.attackBand} (${Math.round(NIMUSHI.attackBand * WORLD.height)}px) | damage ${NIMUSHI.damageBand} (${Math.round(NIMUSHI.damageBand * WORLD.height)}px)`);
   });
 });
