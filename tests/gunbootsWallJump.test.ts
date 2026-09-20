@@ -158,31 +158,53 @@ describe('WALL JUMP', () => {
   });
 });
 
-describe('the gunboots are boots: recoil can lift', () => {
-  const lift = (id: GunModuleId) => {
+/**
+ * The gunboots are a BRAKE, not a thruster.
+ *
+ * This block used to be called "recoil can lift" and asserted that heavy weapons throw the player
+ * upward. That was the behaviour, and it was wrong: holding ACTION after a jump stacked recoil on
+ * top of the launch and peaked at 497px against a 59px jump, which made the gunboots a jetpack and
+ * vertical position something CHARGE could buy. The rule now is that recoil may kill a descent and
+ * hold a hover, and may never add height. These tests assert the new rule; they have not been
+ * relaxed to fit it.
+ */
+describe('the gunboots are brakes: recoil kills a descent but never adds height', () => {
+  /** Fire while falling at terminal, and report what is left of the fall. */
+  const brake = (id: GunModuleId) => {
     const game = airborne();
     game.gun.equip(id);
     game.ammo = game.stats.maxAmmo;
+    game.player.vy = game.stats.maxFallSpeed;
     game.cooldown = 0;
     game.shoot();
     return game.player.vy;
   };
-  it('throws the player upward with the heavy weapons', () => {
-    for (const id of ['laser', 'shotgun'] as GunModuleId[]) {
-      expect({ id, vy: lift(id) < 0 }).toEqual({ id, vy: true });
+  it('never throws the player upward, with any weapon', () => {
+    for (const id of Object.keys(GUN_MODULES) as GunModuleId[]) {
+      const game = airborne();
+      game.gun.equip(id);
+      game.stats.maxAmmo = 20; game.ammo = 20;
+      game.cooldown = 0;
+      game.player.vy = 0;                       // at the apex of a jump
+      game.shoot();
+      expect({ id, vy: game.player.vy }).toEqual({ id, vy: 0 });
     }
   });
-  it('gives LASER decisively more kick than MACHINE', () => {
+  it('gives LASER decisively more braking than MACHINE', () => {
     expect(GUN_MODULES.laser.recoil).toBeGreaterThan(GUN_MODULES.machine.recoil * 1.5);
-    expect(Math.abs(lift('laser'))).toBeGreaterThan(Math.abs(lift('machine')));
+    // Weapon-by-weapon recoil differences survive the new rule: the stronger gun kills more of the
+    // fall. What it cannot do any more is carry the player past a standstill.
+    expect(brake('laser')).toBeLessThan(brake('machine'));
+    expect(brake('laser')).toBeGreaterThanOrEqual(0);
   });
-  it('caps a rise at the same speed as a fall, needing no number of its own', () => {
+  it('stops a fall dead at most, however absurd the recoil', () => {
     const game = airborne();
     game.gun.equip('laser');
     game.stats.shotRecoil = BALANCE.shotRecoil * 40;      // absurd on purpose
     game.ammo = game.stats.maxAmmo; game.cooldown = 0;
+    game.player.vy = game.stats.maxFallSpeed;
     game.shoot();
-    expect(game.player.vy).toBe(-game.stats.maxFallSpeed);
+    expect(game.player.vy).toBe(0);
   });
   it('still lets a falling player be slowed rather than only launched', () => {
     const game = airborne();
@@ -320,7 +342,7 @@ describe('LASER goes through what it hits', () => {
 });
 
 describe('SHOTGUN stays the close-range shove', () => {
-  it('costs five, fans wide and throws the player up', () => {
+  it('costs five, fans wide and brakes harder than MACHINE', () => {
     expect(GUN_MODULES.shotgun.ammoCost).toBe(5);
     expect(GUN_MODULES.shotgun.spread).toBeGreaterThan(GUN_MODULES.puncher.spread * 10);
     const game = airborne();
@@ -329,7 +351,6 @@ describe('SHOTGUN stays the close-range shove', () => {
     game.cooldown = 0;
     game.shoot();
     expect(game.bullets).toHaveLength(5);
-    expect(game.player.vy).toBeLessThan(0);
     expect(GUN_MODULES.shotgun.recoil).toBeGreaterThan(GUN_MODULES.machine.recoil);
   });
 });

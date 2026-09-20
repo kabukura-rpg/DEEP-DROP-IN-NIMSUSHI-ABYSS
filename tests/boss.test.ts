@@ -291,15 +291,19 @@ describe('gravity is a sign, and every direction reads it', () => {
     expect(game.bullets.every(b => b.vy < 0)).toBe(true);
   });
 
-  it('kicks the player the other way when the gunboots fire', () => {
+  // Recoil brakes the descent whichever way the pull runs. The player is given a real fall ALONG
+  // the pull first, because recoil is a brake now and has nothing to bite on at a standstill.
+  it('brakes the fall against the pull when the gunboots fire, either way up', () => {
     const down = normal();
-    down.player.grounded = -1; down.player.vy = 0;
+    down.player.grounded = -1; down.player.vy = down.stats.maxFallSpeed;
     down.shoot();
-    expect(down.player.vy).toBeLessThan(0);
+    expect(down.player.vy).toBeGreaterThan(0);
+    expect(down.player.vy).toBeLessThan(down.stats.maxFallSpeed);
     const up = atNimushi(14);
-    up.player.grounded = -1; up.player.vy = 0;
+    up.player.grounded = -1; up.player.vy = -up.stats.maxFallSpeed;
     up.shoot();
-    expect(up.player.vy).toBeGreaterThan(0);
+    expect(up.player.vy).toBeLessThan(0);
+    expect(up.player.vy).toBeGreaterThan(-up.stats.maxFallSpeed);
   });
 
   it('jumps away from the floor either way', () => {
@@ -921,12 +925,14 @@ describe('the fight can be won, and won honestly', () => {
       const game = atNimushi(62);
       game.gun.equip(id);
       game.player.grounded = -1;
+      game.player.vy = -game.stats.maxFallSpeed;   // falling along the inverted pull
       game.bullets = [];
       game.shoot();
       expect(game.bullets.length, id).toBeGreaterThan(0);
-      // Every round goes along the pull, and the recoil goes the other way.
+      // Every round goes along the pull, and the recoil brakes against it -- never past a standstill.
       expect(game.bullets.every(b => b.vy < 0), id).toBe(true);
-      expect(game.player.vy, id).toBeGreaterThan(0);
+      expect(game.player.vy, id).toBeLessThanOrEqual(0);
+      expect(game.player.vy, id).toBeGreaterThan(-game.stats.maxFallSpeed);
       // The horizontal half of the pattern is untouched by the inversion.
       const down = new GameModel(false, seeded(62));
       down.gun.equip(id);

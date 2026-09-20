@@ -457,7 +457,27 @@ export class GameModel {
     this.ammo = Math.max(0, this.ammo - cost);
     const recovery = Math.max(0.65, Math.min(1, 0.65 + (this.elapsed - this.lastAirShot - def.fireInterval) / 0.18 * 0.35));
     const kick = volleyRecoil(def, this.stats) * recovery;
-    p.vy = Math.max(-this.stats.maxFallSpeed, Math.min(this.stats.maxFallSpeed, p.vy + this.up * kick));
+    /**
+     * RECOIL IS A BRAKE, NEVER A THRUSTER.
+     *
+     * The gunboots slow a descent and can hold it at a standstill while CHARGE lasts. They cannot
+     * add height. Firing while already moving against the pull does nothing to the velocity at all,
+     * so a jump's apex is the jump's alone and no weapon can raise it.
+     *
+     * This used to be `p.vy + up * kick`, added unconditionally. Because a jump leaves the floor at
+     * -330 and every shot pushed further the same way, holding ACTION after a jump stacked recoil on
+     * top of the launch and peaked at 497px instead of 59px -- a machine gun magazine was worth
+     * eight jumps. That made the gunboots a jetpack, and made vertical position something the player
+     * could buy with CHARGE rather than something the descent took away.
+     *
+     * Weapon-by-weapon recoil differences survive this intact: `kick` still comes from the module,
+     * so LASER at 420 takes four fifths off a terminal fall where NOPPY at 95 barely leans on it.
+     * Nothing in the roster stops a 520 fall in one shot -- the surplus is only ever discarded, and
+     * what no module can do any more is climb.
+     */
+    const descent = this.along(p.vy);
+    const braked = descent > 0 ? Math.max(descent - kick, 0) : descent;
+    p.vy = Math.max(-this.stats.maxFallSpeed, Math.min(this.stats.maxFallSpeed, braked * this.gravity));
     this.lastAirShot = this.elapsed;
     // The muzzle is at the boots, which is the gravity-facing end of the player, and the volley
     // leaves it along the pull. Only the y half turns over: `vx` is untouched, so NOPPY's tilt,
