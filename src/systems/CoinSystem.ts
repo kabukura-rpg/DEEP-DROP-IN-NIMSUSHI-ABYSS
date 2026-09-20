@@ -69,6 +69,17 @@ export class CoinSystem {
     return collected;
   }
 
+  /**
+   * Pay coins straight in, without scattering them on the floor first. A COIN VEIN in a SAFE ZONE
+   * is mined rather than dropped, and the world outside a chamber is stopped anyway, so loose coins
+   * there would simply hang in the air. Both totals move exactly as they do for a collected coin.
+   */
+  grant(coins: number) {
+    const paid = Math.max(0, Math.round(coins)) * this.rules.value;
+    this.scoreCoins += paid;
+    this.walletCoins += paid;
+    return paid;
+  }
   /** True once a coin is close enough to expiry that the view should blink it. */
   expiring(coin: Coin) { return coin.life <= this.rules.blinkAt; }
 

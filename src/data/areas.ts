@@ -64,6 +64,18 @@ export interface SectionPlan {
   breakBlockRows?: number;
   /** Rounds ONE block takes before it gives way. Counted in hits, so every module can open one. */
   breakBlockDurability?: number;
+
+  // --- DOODAD / SAFE ZONE ----------------------------------------------------------------------
+  /**
+   * Per-row chance of a DOODAD: scenery to bounce off for a reload, keeping a chain alive where
+   * there is nothing to stomp. Deliberately sparse while the mechanic is being proven out.
+   */
+  doodadChance?: number;
+  /**
+   * SAFE ZONE chambers cut into the shaft wall in this SECTION. A verification quantity, not a
+   * World design: the AREA rebuild that decides where these really belong is a later Phase.
+   */
+  safeZoneCount?: number;
   /**
    * Per-row chance of an AIR CONTAINER, where oxygen is on. A container holds no air by itself:
    * breaking it releases bubbles that climb away and have to be chased. It is the only air there
@@ -141,11 +153,14 @@ export const AREAS: readonly AreaConfig[] = [
     theme: { wall: 0x2b3228, wallEdge: 0x44523a, brick: 0x222a20, pillar: 0x33402c, accent: 0xb9ef70, dust: 0x9db98a, sky: 0x2d4a52, horizon: 0x47707a, grass: 0x6d9c4a },
     plans: [
       { platformWidth: [176, 196], gap: 232, enemyChance: 0.30, flyChance: 0.08, toughChance: 0.17, heavyChance: 0, comboBias: 0.20, graceDepth: 25,
-        spikeChance: 0.12, spikeKinds: ['stoneSpike'], breakBlockRows: 1, breakBlockDurability: 1 },
+        spikeChance: 0.12, spikeKinds: ['stoneSpike'], breakBlockRows: 1, breakBlockDurability: 1,
+        doodadChance: 0.12, safeZoneCount: 1 },
       { platformWidth: [152, 178], gap: 238, enemyChance: 0.38, flyChance: 0.20, toughChance: 0.22, heavyChance: 0, comboBias: 0.22,
-        spikeChance: 0.26, spikeKinds: ['stoneSpike', 'ancientStake'], breakBlockRows: 2, breakBlockDurability: 2 },
+        spikeChance: 0.26, spikeKinds: ['stoneSpike', 'ancientStake'], breakBlockRows: 2, breakBlockDurability: 2,
+        doodadChance: 0.12, safeZoneCount: 1 },
       { platformWidth: [132, 158], gap: 244, enemyChance: 0.52, flyChance: 0.30, toughChance: 0.30, heavyChance: 0, comboBias: 0.30,
-        spikeChance: 0.40, spikeKinds: ['stoneSpike', 'ancientStake'], breakBlockRows: 2, breakBlockDurability: 2 },
+        spikeChance: 0.40, spikeKinds: ['stoneSpike', 'ancientStake'], breakBlockRows: 2, breakBlockDurability: 2,
+        doodadChance: 0.12, safeZoneCount: 1 },
     ],
   },
   {

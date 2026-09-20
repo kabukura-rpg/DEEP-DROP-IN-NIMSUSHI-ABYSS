@@ -7,6 +7,9 @@ import { WORLD } from '../src/data/balance';
 import { pickupType } from '../src/data/pickups';
 import { UPGRADES } from '../src/data/upgrades';
 import { GUN_MODULES } from '../src/data/gunModules';
+import { DOODAD_RULES, spawnDoodad } from '../src/data/doodads';
+import { SAFE_ZONE_RULES } from '../src/data/safeZone';
+import { spawnGunModule } from '../src/data/pickups';
 // The watchdog behind the word "unassisted" lives in its own file so it can be unit-tested; see
 // tests/assistWatch.test.ts, which proves it restores the model and still tells cheating from play.
 import { watchForAssists } from './assistWatch';
@@ -241,6 +244,150 @@ button('満タンFOOD → LIFE UP', async () => {
   await wait(30);
   assert(model.hp === 5 && model.health.maxHp === 5 && model.health.overflowHealing === 0, '満タンでFOOD → HP 5/5・余剰0');
   pause();
+});
+// Phase 2B: scenery that reloads, chambers cut into the shaft, and the stopped time inside one.
+button('DOODAD：踏んで CHARGE 全回復', async () => {
+  start(); const model = scene.model;
+  model.platforms = []; model.enemies = []; model.hazards = []; model.safeZones = [];
+  model.player.x = 225; model.player.y = 200; model.player.vy = 0; model.player.grounded = -1;
+  model.combo = 9;
+  // Spend CHARGE in the air first, so the refill is something that actually happens.
+  key('Space', true); await wait(260); key('Space', false); await wait(60);
+  const spent = model.ammo;
+  assert(spent < model.stats.maxAmmo, `空中射撃で CHARGE が減った（${spent}/${model.stats.maxAmmo}）`);
+
+  model.player.x = 225; model.player.y = 180; model.player.vy = 260; model.player.grounded = -1;
+  model.doodads = [spawnDoodad(9100, 225 - DOODAD_RULES.width / 2, 300, 'lamp')];
+  const kills = model.kills, coins = model.coins.scoreCoins;
+  let bounced = 0;
+  const original = bridge.onEvent;
+  bridge.onEvent = (event, game) => { original(event, game); if (event.type === 'doodad') bounced++; };
+  await until(() => bounced > 0, 5000);
+  bridge.onEvent = original;
+  output.textContent += `\nDOODAD 反発 vy ${model.player.vy.toFixed(0)} / CHARGE ${spent}→${model.ammo}/${model.stats.maxAmmo} / COMBO ${model.combo}`;
+  assert(bounced === 1, '上から踏んで1回だけ発火した');
+  assert(model.ammo === model.stats.maxAmmo, 'DOODAD で CHARGE 全回復');
+  assert(model.combo === 9, 'DOODAD は COMBO を維持する（精算しない）');
+  assert(model.player.vy < 0, `跳ね返る (vy ${model.player.vy.toFixed(0)})`);
+  assert(model.kills === kills && model.coins.scoreCoins === coins, '撃破でも COIN でもない');
+  assert(model.doodads[0].active, 'DOODAD は残る');
+  bridge.active = false;
+});
+button('SAFE ZONE：TIMEVOID と着地', async () => {
+  start(); const model = scene.model;
+  model.platforms = []; model.pickups = []; model.hazards = []; model.doodads = []; model.containers = [];
+  // A chamber cut into the left wall, with something alive and a round left out in the shaft.
+  const floorY = 320, height = SAFE_ZONE_RULES.height, width = SAFE_ZONE_RULES.width;
+  const zone = { id: 9200, side: -1 as const, x: WORLD.wall, y: floorY - height, width, height, content: null, taken: false };
+  model.safeZones = [zone];
+  model.platforms = [{ id: 9201, x: zone.x, y: floorY, width, breakable: false, state: 'stable' as const, safeZone: zone.id }];
+  model.enemies = [enemy('slime', 330, 420, 9300)];
+  // The harness spawns with no patrol range, which would make "it did not move" true for the wrong
+  // reason. Give it one, and prove it is moving BEFORE stepping into the chamber.
+  model.enemies[0].range = 40;
+  model.bullets = [];
+  model.combo = 17; model.ammo = 2;
+  model.player.invincible = 99;
+  model.player.x = 300; model.player.y = 200; model.player.vy = 0; model.player.grounded = -1;
+  const moving = model.enemies[0].x;
+  await wait(400);
+  assert(Math.abs(model.enemies[0].x - moving) > 0.001, `入る前は外の敵が動いている (${moving.toFixed(2)} → ${model.enemies[0].x.toFixed(2)})`);
+  model.player.x = zone.x + width / 2; model.player.y = floorY - 110; model.player.vy = 240; model.player.grounded = -1;
+  await until(() => model.player.grounded === 9201, 6000);
+  await wait(120);
+  output.textContent += `\n着地: TIMEVOID ${model.timeFrozen} / CHARGE ${model.ammo}/${model.stats.maxAmmo} / COMBO ${model.combo}`;
+  assert(model.timeFrozen, '中に入ると TIMEVOID になる');
+  assert(model.ammo === model.stats.maxAmmo, 'SAFE ZONE 床で CHARGE 全回復');
+  assert(model.combo === 17, 'SAFE ZONE 床では COMBO を精算しない');
+  assert(model.state === 'playing' && !model.paused, 'ゲーム全体は停止していない');
+  // The outside must not move at all while we stand here.
+  const foe = model.enemies[0];
+  const held = { x: foe.x, oxygen: model.oxygen.remaining, depth: Math.floor(model.sectionDepth) };
+  await wait(2000);
+  output.textContent += `\n2秒後: 敵x ${held.x.toFixed(1)}→${foe.x.toFixed(1)} / 深度 ${held.depth}→${Math.floor(model.sectionDepth)}`;
+  assert(Math.abs(foe.x - held.x) < 0.001, `外の敵が動かない (${held.x.toFixed(2)} → ${foe.x.toFixed(2)})`);
+  assert(Math.floor(model.sectionDepth) === held.depth, '深度が進まない');
+  // Inside, the player is fully operational.
+  const insideX = model.player.x;
+  key('KeyD', true); await wait(220); key('KeyD', false);
+  assert(model.player.x !== insideX, 'SAFE ZONE 内で左右移動できる');
+  model.player.y = floorY - 15; model.player.vy = 0; model.player.grounded = 9201;
+  let jumped = 0;
+  const original = bridge.onEvent;
+  bridge.onEvent = (event, game) => { original(event, game); if (event.type === 'jump') jumped++; };
+  key('Space', true); await wait(1000 / 60); key('Space', false); await wait(200);
+  bridge.onEvent = original;
+  assert(jumped === 1, 'SAFE ZONE 内でジャンプできる');
+  // Walk out: the world starts again.
+  key('KeyD', true);
+  for (let i = 0; i < 200 && model.timeFrozen; i++) { keepAwake(); model.player.y = floorY - 15; model.player.vy = 0; await wait(16); }
+  key('KeyD', false);
+  assert(!model.timeFrozen, 'SAFE ZONE を出ると TIMEVOID が解ける');
+  assert(model.combo === 17, '出ても COMBO は維持される');
+  const before = foe.x;
+  model.player.invincible = 99;
+  await wait(600);
+  output.textContent += `\n退出後: 敵x ${before.toFixed(1)}→${foe.x.toFixed(1)}`;
+  assert(Math.abs(foe.x - before) > 0.001, '外へ出ると外界の時間が再開する');
+  bridge.active = false;
+});
+button('SAFE ZONE content：MODULE / SHOP / COIN VEIN', async () => {
+  const height = SAFE_ZONE_RULES.height, width = SAFE_ZONE_RULES.width, floorY = 320;
+  const chamber = (kind: 'gunModule' | 'shop' | 'coinVein') => {
+    const model = scene.model;
+    model.platforms = []; model.enemies = []; model.pickups = []; model.hazards = []; model.doodads = []; model.containers = [];
+    const zone = { id: 9400, side: -1 as const, x: WORLD.wall, y: floorY - height, width, height,
+      content: { kind, module: 'laser' as const, bonus: 'charge' as const }, taken: false };
+    model.safeZones = [zone];
+    model.platforms = [{ id: 9401, x: zone.x, y: floorY, width, breakable: false, state: 'stable' as const, safeZone: zone.id }];
+    model.player.invincible = 99;
+    return zone;
+  };
+  // --- gun module ---------------------------------------------------------------------------
+  start();
+  let model = scene.model;
+  let zone = chamber('gunModule');
+  model.combo = 11;
+  const centre = Math.round(zone.x + width / 2);
+  model.pickups = [spawnGunModule(zone.id + 1, centre, floorY - 34, 'laser', 'charge')];
+  const maxAmmo = model.stats.maxAmmo;
+  model.player.x = centre; model.player.y = floorY - 34; model.player.vy = 0; model.player.grounded = -1;
+  await until(() => model.gun.id === 'laser', 5000);
+  await wait(120);
+  output.textContent += `\nMODULE: ${model.gun.id} / MAX CHARGE ${maxAmmo}→${model.stats.maxAmmo} / COMBO ${model.combo}`;
+  assert(model.gun.id === 'laser', 'SAFE ZONE 内で Gun Module を取得できる');
+  assert(model.stats.maxAmmo > maxAmmo, 'CHARGE ボーナスも従来どおり適用される');
+  assert(model.combo === 11, 'Module 取得で COMBO は維持される');
+  // --- shop ----------------------------------------------------------------------------------
+  start();
+  model = scene.model;
+  zone = chamber('shop');
+  model.combo = 13;
+  model.shop.rollForSection(() => 0);
+  assert(model.shop.available, 'SECTION の SHOP 在庫が用意された');
+  model.shop.placeEntrance(centre - 33, floorY - 66, 66, 66);
+  model.player.x = centre; model.player.y = floorY - 33; model.player.vy = 0; model.player.grounded = -1;
+  await until(() => scene.model.state === 'shop', 5000);
+  output.textContent += `\nSHOP: state ${scene.model.state} / 在庫 ${model.shop.offers.length} / COMBO ${model.combo}`;
+  assert(scene.model.state === 'shop', 'SAFE ZONE 内で SHOP を開ける');
+  assert(model.combo === 13, 'SHOP を開いても COMBO は維持される');
+  scene.model.closeShop();
+  // --- coin vein ------------------------------------------------------------------------------
+  start();
+  model = scene.model;
+  zone = chamber('coinVein');
+  model.combo = 5;
+  const vein = model.coinVeinBounds(zone);
+  const before = model.coins.scoreCoins, kills = model.kills;
+  model.player.x = vein.x + vein.width / 2; model.player.y = vein.y + vein.height / 2; model.player.vy = 0; model.player.grounded = -1;
+  await until(() => model.coins.scoreCoins > before, 5000);
+  await wait(120);
+  output.textContent += `\nCOIN VEIN: +${model.coins.scoreCoins - before} / wallet ${model.coins.walletCoins} / COMBO ${model.combo}`;
+  assert(model.coins.scoreCoins - before === SAFE_ZONE_RULES.coinVein.coins, `COIN VEIN が ${SAFE_ZONE_RULES.coinVein.coins} 支払う`);
+  assert(model.coins.walletCoins >= SAFE_ZONE_RULES.coinVein.coins, 'walletCoins にも入る');
+  assert(model.kills === kills, '撃破扱いではない');
+  assert(model.combo === 5, 'COIN VEIN は COMBO に影響しない');
+  bridge.active = false;
 });
 // Phase 2A: the wall kick, and the gunboots behaving like boots.
 button('WALL JUMP：壁キック', async () => {

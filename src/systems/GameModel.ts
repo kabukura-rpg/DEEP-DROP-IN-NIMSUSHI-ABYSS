@@ -8,12 +8,14 @@ import { GunModuleSystem } from './GunModuleSystem';
 import { CoinSystem } from './CoinSystem';
 import { ShopSystem } from './ShopSystem';
 import { coinsFor } from '../data/coins';
-import { AIR_CONTAINER_RULES, BREAK_BLOCK_RULES, EXIT_RULES, type AirBubble, type AirContainer, type StageExit } from '../data/structures';
+import { AIR_CONTAINER_RULES, BREAK_BLOCK_RULES, EXIT_RULES, SHOP_DOOR, type AirBubble, type AirContainer, type StageExit } from '../data/structures';
+import { DOODAD_RULES, type Doodad } from '../data/doodads';
+import { insideSafeZone, SAFE_ZONE_RULES, type SafeZone } from '../data/safeZone';
 import type { ShopOffer } from '../data/shop';
 import { CHARGE_AMMO_BONUS, gunModule, STARTING_GUN_MODULE, volley, volleyRecoil, type GunModuleId } from '../data/gunModules';
 import { BOSS, type BossPhase } from '../data/boss';
 import { hazardBounds, hazardType, ventStateAt, type Hazard } from '../data/hazards';
-import { pickupType, spawnPickup, type Pickup } from '../data/pickups';
+import { pickupType, spawnGunModule, spawnPickup, type Pickup } from '../data/pickups';
 import { HealthSystem, type DamageCause } from './HealthSystem';
 import { comboTierFor } from '../data/combo';
 import { UpgradeSystem } from './UpgradeSystem';
@@ -21,7 +23,7 @@ import { StageProgressionSystem } from './StageProgressionSystem';
 import type { AreaId, SectionId } from '../data/areas';
 import { enemyType } from '../data/enemies';
 import { defaultTuning, sanitizeTuning, type PhysicsTuning } from './PhysicsTuning';
-export type GameEvent = { type: 'shot' | 'empty' | 'land' | 'kill' | 'hurt' | 'upgrade' | 'over' | 'heal' | 'boss' | 'clear' | 'oxygen' | 'section' | 'ice' | 'vent' | 'crack' | 'collapse' | 'bossHit' | 'bossTelegraph' | 'bossFire' | 'bossPhase' | 'bossDown' | 'gunModule' | 'coin' | 'shopOpen' | 'shopBuy' | 'exitReady' | 'exit' | 'containerBreak' | 'blockCrack' | 'blockBreak' | 'jump' | 'wallJump' | 'comboSettle'; x: number; y: number; value?: number; stomp?: boolean; lifeUps?: number; overflow?: number; combo?: number; stage?: string; areaCleared?: string | null; bonus?: 'heart' | 'charge'; source?: { id: number; kind: Enemy['kind']; x: number; y: number } };
+export type GameEvent = { type: 'shot' | 'empty' | 'land' | 'kill' | 'hurt' | 'upgrade' | 'over' | 'heal' | 'boss' | 'clear' | 'oxygen' | 'section' | 'ice' | 'vent' | 'crack' | 'collapse' | 'bossHit' | 'bossTelegraph' | 'bossFire' | 'bossPhase' | 'bossDown' | 'gunModule' | 'coin' | 'shopOpen' | 'shopBuy' | 'exitReady' | 'exit' | 'containerBreak' | 'blockCrack' | 'blockBreak' | 'jump' | 'wallJump' | 'comboSettle' | 'doodad' | 'timeVoid' | 'coinVein'; x: number; y: number; value?: number; stomp?: boolean; lifeUps?: number; overflow?: number; combo?: number; stage?: string; areaCleared?: string | null; bonus?: 'heart' | 'charge'; source?: { id: number; kind: Enemy['kind']; x: number; y: number } };
 export interface Bullet {
   x: number; y: number; previousY: number; previousX: number;
   /** Velocity in px/s. Straight-down weapons simply carry vx = 0. */
@@ -51,6 +53,10 @@ export class GameModel {
   enemies: Enemy[] = [];
   pickups: Pickup[] = [];
   hazards: Hazard[] = [];
+  /** Scenery that reloads CHARGE when bounced off. Never an enemy, never a platform. */
+  doodads: Doodad[] = [];
+  /** Chambers cut into the shaft wall. Being inside one is what freezes the world outside it. */
+  safeZones: SafeZone[] = [];
   bullets: Bullet[] = [];
   events: GameEvent[] = [];
   ammo = this.stats.maxAmmo;
@@ -79,6 +85,18 @@ export class GameModel {
    * air -- may turn that victory into a GAME OVER. Routed through HealthSystem's own damage gate,
    * so every source is covered by this one predicate.
    */
+  /** The SAFE ZONE the player is standing in, or null out in the shaft. */
+  get safeZone(): SafeZone | null {
+    const p = this.player;
+    return this.safeZones.find(zone => insideSafeZone(zone, p.x, p.y)) ?? null;
+  }
+  /**
+   * TIMEVOID. True while the player is inside a chamber: the shaft outside stops dead -- enemies,
+   * rounds, collapse timers, the oxygen tank, the heat gauge, generation, the descent itself --
+   * while the player keeps moving, jumping, wall jumping and firing inside. It is emphatically NOT
+   * a pause: `running` stays true and the simulation keeps stepping.
+   */
+  get timeFrozen() { return this.safeZone !== null; }
   get victorySealed() { return this.state === 'clear' || (this.boss.enabled && this.boss.defeated); }
   get hp() { return this.health.currentHp; }
   set hp(value: number) { this.health.currentHp = value; }
@@ -121,6 +139,15 @@ export class GameModel {
    * NOT inverted anywhere yet, and projectile direction is deliberately still its own thing.
    */
   private readonly up = -1;
+  /**
+   * The world's own clock. It stops while the player is inside a SAFE ZONE, which is what TIMEVOID
+   * is: `elapsed` keeps running for the player (recoil recovery, animation), while everything that
+   * belongs to the shaft -- patrol sway, vent cycles -- is driven from this instead and simply does
+   * not advance. Freezing by skipping updates alone would make the world JUMP on resume.
+   */
+  private worldElapsed = 0;
+  /** The doodad currently underfoot, so one contact cannot reload every frame. */
+  private doodadContact: number | null = null;
   maxCombo = 0;
   killScore = 0;
   cameraY = 0;
@@ -320,7 +347,12 @@ export class GameModel {
     this.health.tick(dt);
     this.wallTouchAge += dt;
     const oldY = p.y;
+    const wasFrozen = this.timeFrozen;
     this.moveHorizontal(dt, direction);
+    // Decided after the move, so stepping into a chamber takes effect on the very frame it happens.
+    const frozen = this.timeFrozen;
+    if (frozen !== wasFrozen) this.events.push({ type: 'timeVoid', x: p.x, y: p.y, value: frozen ? 1 : 0 });
+    if (!frozen) this.worldElapsed += dt;
     const ground = this.platforms.find(f => f.id === p.grounded);
     if (ground && p.x + 9 > ground.x && p.x - 9 < ground.x + ground.width) p.vy = 0;
     else { p.grounded = -1; p.vy = Math.min(this.stats.maxFallSpeed, p.vy + this.stats.gravity * (this.water?.gravity ?? 1) * dt); }
@@ -353,13 +385,16 @@ export class GameModel {
       this.fireGun(dt, direction, firing);
     }
     p.y += p.vy * dt;
-    for (const e of this.enemies) {
+    this.holdInsideSafeZone(wasFrozen);
+    if (!frozen) for (const e of this.enemies) {
       e.flash = Math.max(0, e.flash - dt);
       e.hurtFlash = Math.max(0, (e.hurtFlash || 0) - dt);
-      e.x = e.originX + Math.sin(this.elapsed * enemyType(e.kind).swaySpeed + e.phase) * e.range;
+      e.x = e.originX + Math.sin(this.worldElapsed * enemyType(e.kind).swaySpeed + e.phase) * e.range;
     }
-    // Swept bullet collisions prevent fast projectiles tunneling through enemies.
-    for (const b of this.bullets) {
+    // Swept bullet collisions prevent fast projectiles tunneling through enemies. Rounds belong to
+    // the shaft, so inside a chamber they hang exactly where they were -- including any fired from
+    // in there, which is the whole idea of standing in stopped time.
+    if (!frozen) for (const b of this.bullets) {
       if (!b.alive) continue;
       b.previousY = b.y; b.previousX = b.x;
       b.x += b.vx * dt; b.y += b.vy * dt;
@@ -412,7 +447,9 @@ export class GameModel {
         if (b.hits.size > b.pierce) { b.alive = false; break; }
       }
     }
-    for (const e of this.enemies) {
+    // Contact with the shaft's inhabitants is part of the shaft: inside a chamber they cannot
+    // reach the player, which is what makes it safe.
+    if (!frozen) for (const e of this.enemies) {
       if (!e.alive || Math.abs(p.x - e.x) > 24) continue;
       const topCrossing = p.vy > 0 && oldY + 15 <= e.y - 10 && p.y + 15 >= e.y - 10;
       if (topCrossing && e.stompable) {
@@ -424,49 +461,64 @@ export class GameModel {
       if (land) {
         p.y = land.y - 15; p.vy = 0; p.grounded = land.id; this.lastAirShot = -Infinity;
         this.emit('land', p.x, land.y);
-        this.settleLanding();
+        this.settleLanding(land);
         // A collapsing ledge still reloads in full; it just starts counting from this moment.
         if (this.collapse.land(land)) this.events.push({ type: 'crack', x: p.x, y: land.y, value: this.collapse.delay });
       }
     }
-    for (const gone of this.collapse.tick(dt, this.platforms)) {
+    for (const gone of frozen ? [] : this.collapse.tick(dt, this.platforms)) {
       this.events.push({ type: 'collapse', x: gone.x + gone.width / 2, y: gone.y, value: gone.width });
       if (p.grounded === gone.id) p.grounded = -1;
     }
     if (this.platforms.some(f => f.state === 'broken')) this.platforms = this.platforms.filter(f => f.state !== 'broken');
-    if (this.boss.enabled) this.tickBoss(dt);
-    this.tickContainers(dt);
-    this.tickBubbles(dt);
-    if (this.coins.tick(dt, p, this.cameraY) > 0) this.events.push({ type: 'coin', x: p.x, y: p.y, value: this.coins.walletCoins });
+    if (this.boss.enabled && !frozen) this.tickBoss(dt);
+    if (!frozen) {
+      this.tickContainers(dt);
+      this.tickBubbles(dt);
+      if (this.coins.tick(dt, p, this.cameraY) > 0) this.events.push({ type: 'coin', x: p.x, y: p.y, value: this.coins.walletCoins });
+    }
+    // Picking things up and touching a chamber's own content are the player's doing, not the
+    // world's, so they keep working inside: the gun module waiting in a chamber has to be takeable.
     this.collectPickups();
-    if (this.heat.enabled) this.tickHeat(dt);
+    this.tickSafeZones();
+    this.tickDoodads(oldY);
+    if (this.heat.enabled && !frozen) this.tickHeat(dt);
+    // A contact check rather than a timer, and no chamber is cut where anything lethal stands, so
+    // this stays live: nothing about stopped time should make walking into lava survivable.
     this.tickLethalTerrain();
     // Invulnerability delays a drowning hit but can never cancel it: the debt is only cleared once
     // HealthSystem actually accepts the damage.
-    if (this.oxygen.tick(dt) && this.damage(1, 'oxygen')) this.oxygen.consumeDamage();
+    if (!frozen && this.oxygen.tick(dt) && this.damage(1, 'oxygen')) this.oxygen.consumeDamage();
     if (this.practice) {
       if (p.y > 840) { p.x = 225; p.y = 120; p.vy = 0; p.grounded = -1; this.ammo = this.stats.maxAmmo; this.lastAirShot = -Infinity; }
     } else {
       // The FINAL BOSS descends too, but it is won on the king's HP, not on metres. Banking that
       // descent would push TOTAL DEPTH past the planned 12 x 200m, and there is no section left to
       // complete, so depth accounting stops for the duration of the fight.
-      if (!fighting) {
+      if (!fighting && !frozen) {
         this.sectionDepth = Math.max(this.sectionDepth, (p.y - WORLD.startY) / WORLD.pixelsPerMeter);
         // Reaching the goal opens the way out; it never ends the SECTION by itself, so a fight,
         // a coin spray or a chase after a bubble is never cut short mid-action.
         if (!this.exit && this.stage.enabled && this.sectionDepth >= this.stage.sectionLength) this.openExit();
         this.enterExit();
-        this.enterShop();
       }
-      this.cameraY = Math.max(this.cameraY, p.y - WORLD.height * 0.37);
-      this.generate();
-      if (p.y > this.cameraY + WORLD.height + 50) this.killInstantly('fall');
+      // The doorway is reachable inside a chamber too, so this is the player's business rather than
+      // the world's and runs either way.
+      if (!fighting) this.enterShop();
+      if (!frozen) {
+        this.cameraY = Math.max(this.cameraY, p.y - WORLD.height * 0.37);
+        this.generate();
+        if (p.y > this.cameraY + WORLD.height + 50) this.killInstantly('fall');
+      }
     }
+    if (frozen) return;
     this.bullets = this.bullets.filter(b => b.alive && b.y < this.cameraY + WORLD.height + 150);
     this.platforms = this.platforms.filter(f => f.y > this.cameraY - 180);
     this.enemies = this.enemies.filter(e => e.alive && e.y > this.cameraY - 180);
     this.pickups = this.pickups.filter(item => !item.taken && item.y > this.cameraY - 180);
     this.hazards = this.hazards.filter(h => h.y + h.height > this.cameraY - 180);
+    this.doodads = this.doodads.filter(d => d.y + d.height > this.cameraY - 180);
+    this.safeZones = this.safeZones.filter(z => z.y + z.height > this.cameraY - 240);
   }
   /**
    * AREA 3's heat pass. Only hazards near the player are considered -- the run's whole hazard list
@@ -476,7 +528,7 @@ export class GameModel {
     const p = this.player;
     for (const hazard of this.hazards) {
       if (hazard.kind !== 'vent') continue;
-      const next = ventStateAt(hazard, this.elapsed);
+      const next = ventStateAt(hazard, this.worldElapsed);
       if (next !== hazard.state) {
         hazard.state = next;
         if (next !== 'idle') this.events.push({ type: 'vent', x: hazard.x + hazard.width / 2, y: hazard.y, value: next === 'warning' ? 0 : 1 });
@@ -572,6 +624,8 @@ export class GameModel {
     this.enemies = this.enemies.filter(e => e.y <= cut);
     this.pickups = this.pickups.filter(item => item.y <= cut);
     this.hazards = this.hazards.filter(h => h.y <= cut);
+    this.doodads = this.doodads.filter(d => d.y <= cut);
+    this.safeZones = this.safeZones.filter(z => z.y <= cut);
     const rows = this.platforms.filter((row): row is RoutePlatform => 'safeX' in row);
     const deepest = rows.reduce((low, row) => (row.y > low.y ? row : low), rows[0] ?? this.generator.lastRow);
     // Resume exactly one ordinary row-gap below the deepest row that survived, so the first new row
@@ -583,6 +637,74 @@ export class GameModel {
       startY: resume, previous: deepest,
     });
     this.nextChunk = Math.floor(resume / WORLD.chunkHeight);
+  }
+  /**
+   * A chamber has a roof. Nothing else in the shaft does -- there has never been a ceiling to hit --
+   * but a room that the gunboots fire you out through the top of is not a room. LASER's recoil alone
+   * clears the chamber height, so without this, shooting inside one launches the player back into
+   * the shaft and out of the stopped time they just walked into.
+   *
+   * Only applies to a player who was ALREADY inside at the start of the step, so falling in through
+   * the opening from above still works; the way out is the way in, sideways.
+   */
+  private holdInsideSafeZone(wasInside: boolean) {
+    if (!wasInside) return;
+    const p = this.player;
+    const zone = this.safeZones.find(z => p.x > z.x && p.x < z.x + z.width);
+    if (!zone) return;
+    const roof = zone.y + 6;
+    if (p.y >= roof) return;
+    p.y = roof;
+    if (p.vy < 0) p.vy = 0;
+  }
+
+  /**
+   * DOODADS. Landing on one from above fills CHARGE and bounces, and that is all it does: it is
+   * scenery, not an enemy, so nothing here touches COMBO, the kill count, COIN, or damage. The
+   * chain carries on, which is the point -- it is somewhere to reload when nothing is alive nearby.
+   *
+   * One contact fires once. The bounce alone would usually see to that, but the guard is explicit
+   * so a small bounce could never turn into a free hover.
+   */
+  private tickDoodads(oldY: number) {
+    const p = this.player;
+    const touching = this.doodads.find(d => d.active && p.x + 9 > d.x && p.x - 9 < d.x + d.width && p.y + 15 > d.y - 2 && p.y - 15 < d.y + d.height);
+    if (!touching) { this.doodadContact = null; return; }
+    if (this.doodadContact === touching.id) return;
+    // Only from above, and only while falling: brushing one sideways or clipping it from below is
+    // just scenery, exactly as it is for an enemy.
+    const fromAbove = p.vy > 0 && oldY + 15 <= touching.y + 2 && p.y + 15 >= touching.y;
+    if (!fromAbove) return;
+    this.doodadContact = touching.id;
+    p.y = touching.y - 15;
+    p.vy = this.up * DOODAD_RULES.bounce;
+    p.grounded = -1;
+    this.reloadCharge();
+    this.lastAirShot = -Infinity;
+    this.events.push({ type: 'doodad', x: touching.x + touching.width / 2, y: touching.y, value: this.combo });
+  }
+  /**
+   * A chamber's own content. A COIN VEIN pays straight into the wallet through CoinSystem, once;
+   * the gun module and the shop are the existing systems, reached by the existing paths, so nothing
+   * about a weapon or a purchase can behave differently for being found in here.
+   */
+  private tickSafeZones() {
+    const p = this.player;
+    for (const zone of this.safeZones) {
+      if (zone.taken || zone.content?.kind !== 'coinVein') continue;
+      const vein = this.coinVeinBounds(zone);
+      if (p.x + 9 < vein.x || p.x - 9 > vein.x + vein.width) continue;
+      if (p.y + 15 < vein.y || p.y - 15 > vein.y + vein.height) continue;
+      zone.taken = true;
+      const paid = this.coins.grant(SAFE_ZONE_RULES.coinVein.coins);
+      this.events.push({ type: 'coinVein', x: vein.x + vein.width / 2, y: vein.y, value: paid });
+    }
+  }
+  /** Where a chamber's COIN VEIN stands: against the back wall, on the floor. */
+  coinVeinBounds(zone: SafeZone) {
+    const { width, height } = SAFE_ZONE_RULES.coinVein;
+    const x = zone.side === -1 ? zone.x + 16 : zone.x + zone.width - 16 - width;
+    return { x, y: zone.y + zone.height - height, width, height };
   }
   /** Contact breaks a container too, so a stomp and a shot are equally valid keys. */
   private tickContainers(dt: number) {
@@ -642,6 +764,8 @@ export class GameModel {
     this.pickups = this.pickups.filter(item => item.y <= cut);
     this.hazards = this.hazards.filter(h => h.y <= cut);
     this.containers = this.containers.filter(box => box.y <= cut);
+    this.doodads = this.doodads.filter(d => d.y <= cut);
+    this.safeZones = this.safeZones.filter(z => z.y <= cut);
     const rows = this.platforms.filter((row): row is RoutePlatform => 'safeX' in row);
     const deepest = rows.reduce((low, row) => (row.y > low.y ? row : low), rows[0] ?? this.generator.frontierRow);
     const laid = this.generator.layExit(Math.max(cut, deepest.y + EXIT_RULES.depthMargin * WORLD.pixelsPerMeter), deepest);
@@ -780,7 +904,8 @@ export class GameModel {
     this.sectionDepth = 0; this.cameraY = 0; this.cooldown = 0; this.lastAirShot = -Infinity;
     this.platforms = [{ ...START_PLATFORM }]; this.enemies = []; this.bullets = []; this.nextChunk = 0;
     this.wallJumpUsed = 0; this.wallKick = 0; this.wallTouchSide = 0; this.wallTouchAge = Infinity;
-    this.pickups = []; this.hazards = []; p.vx = 0;
+    this.pickups = []; this.hazards = []; this.doodads = []; this.safeZones = []; p.vx = 0;
+    this.doodadContact = null; this.worldElapsed = 0;
     this.containers = []; this.bubbles = []; this.exit = null;
     // Coins already banked stay banked; only the ones still lying on the floor are swept up.
     this.coins.clearLoose();
@@ -868,12 +993,17 @@ export class GameModel {
     return tier;
   }
   /**
-   * What touching down on ordinary ground does, in one place: every kind of floor -- a plain ledge,
-   * a BREAK BLOCK, an AREA 4 collapsing ledge -- goes through this rather than repeating it.
+   * What touching down does, in one place: every kind of floor -- a plain ledge, a BREAK BLOCK, an
+   * AREA 4 collapsing ledge, a SAFE ZONE chamber -- goes through this rather than repeating it.
+   *
+   * Reloading and settling stay two separate jobs, and this is the reason they have to be: a
+   * chamber floor fills CHARGE and leaves the chain running, because shelter is not the ground a
+   * chain is banked on. "Reloaded, therefore settled" would collapse the two and make a SAFE ZONE
+   * the most expensive place in the game to stand.
    */
-  private settleLanding() {
+  private settleLanding(platform: Platform) {
     this.reloadCharge();
-    this.settleCombo();
+    if (platform.safeZone === undefined) this.settleCombo();
     // Touching down re-arms both walls: the lockout only ever stops riding ONE wall in mid-air.
     this.wallJumpUsed = 0;
     this.wallTouchAge = Infinity;
@@ -884,6 +1014,20 @@ export class GameModel {
       const chunk = this.generator.chunk(this.nextChunk++);
       this.platforms.push(...chunk.platforms); this.enemies.push(...chunk.enemies);
       this.pickups.push(...chunk.pickups); this.hazards.push(...chunk.hazards);
+      this.doodads.push(...chunk.doodads);
+      for (const zone of chunk.safeZones) {
+        this.safeZones.push(zone);
+        // Content is materialised through the systems that already own it, so a module found in a
+        // chamber and one found on a ledge are the same object taking the same path.
+        const content = zone.content;
+        if (!content) continue;
+        const centre = Math.round(zone.x + zone.width / 2), floor = zone.y + zone.height;
+        if (content.kind === 'gunModule') {
+          this.pickups.push(spawnGunModule(zone.id + 1, centre, floor - 34, content.module ?? STARTING_GUN_MODULE, content.bonus ?? 'heart'));
+        } else if (content.kind === 'shop') {
+          this.shop.placeEntrance(Math.round(centre - SHOP_DOOR.width / 2), Math.round(floor - SHOP_DOOR.height), SHOP_DOOR.width, SHOP_DOOR.height);
+        }
+      }
       this.containers.push(...chunk.containers);
       if (chunk.shopDoor) this.shop.placeEntrance(chunk.shopDoor.x, chunk.shopDoor.y, chunk.shopDoor.width, chunk.shopDoor.height);
     }

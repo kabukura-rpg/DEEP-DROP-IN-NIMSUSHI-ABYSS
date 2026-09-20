@@ -8,6 +8,7 @@ import { enemyType } from '../data/enemies';
 import { pickupType } from '../data/pickups';
 import { gunModule } from '../data/gunModules';
 import { AIR_CONTAINER_RULES, BREAK_BLOCK_RULES } from '../data/structures';
+import { SAFE_ZONE_RULES } from '../data/safeZone';
 import { hazardBounds, hazardType, type Hazard } from '../data/hazards';
 export interface GameBridge {
   direction: number; firing: boolean; active: boolean;
@@ -98,6 +99,10 @@ export class GameScene extends Phaser.Scene {
     if (event.type === 'jump') this.burst(event.x, event.y + 15, 0xb9ef70, 6);
     // A wall kick: the puff comes off the wall itself, so the push reads even at a glance.
     if (event.type === 'wallJump') { this.shake = Math.max(this.shake, 1.2); this.burst(event.x, event.y, 0xdff7a8, 10); }
+    // Bouncing off scenery: the same RELOADED note a landing gets, because that is what it is.
+    if (event.type === 'doodad') { this.burst(event.x, event.y, 0xb9ef70, 10); this.label(event.x, event.y - 20, 'RELOADED', '#b9ef70', 12); }
+    if (event.type === 'coinVein') { this.burst(event.x, event.y, 0xffd479, 20); this.label(event.x, event.y - 24, `COIN +${event.value}`, '#ffd479', 14); }
+    if (event.type === 'timeVoid' && event.value) this.label(event.x, event.y - 54, 'TIME VOID', '#9fe8f5', 15);
     // The chain being banked. It never opens a screen, so the shaft itself has to carry it.
     if (event.type === 'comboSettle') { this.flash = Math.max(this.flash, 0.08); this.burst(event.x, event.y, 0xf4e9ad, 24); this.label(event.x, event.y - 62, `${event.value} COMBO · ${event.stage ?? ''}`, '#f4e9ad', 16); }
     if (event.type === 'bossHit') { this.burst(event.x, event.y, 0xd9a0ff, 6); this.shake = Math.max(this.shake, 1.4); }
@@ -159,6 +164,40 @@ export class GameScene extends Phaser.Scene {
       // Motes drifting upward read as water without covering the play area.
       const x = 26 + (i * 131) % 398, y = ((i * 97 - this.model.elapsed * 26 - cam * 0.5) % 860 + 860) % 860;
       this.rect(x, y, 2, 3, theme.water.light, 0.22);
+    }
+    // SAFE ZONE chambers, drawn before the platforms so their own floor slab sits on top.
+    for (const zone of m.safeZones) {
+      const zy = zone.y - cam;
+      if (zy > 860 || zy + zone.height < -60) continue;
+      // A recess: darker than the shaft, lit from inside, with a lip you duck under to get in.
+      this.rect(zone.x, zy, zone.width, zone.height, 0x0c1418, 0.96);
+      this.rect(zone.x, zy, zone.width, 4, 0x2f5d63);
+      this.rect(zone.side === -1 ? zone.x : zone.x + zone.width - 4, zy, 4, zone.height, 0x2f5d63);
+      for (let i = 0; i < 4; i++) this.rect(zone.x + 10 + i * (zone.width - 20) / 4, zy + 8, 2, zone.height - 16, 0x9fe8f5, 0.06);
+      this.rect(zone.x + 8, zy + zone.height - 3, zone.width - 16, 3, 0x9fe8f5, 0.22);
+      // A COIN VEIN is the one content the chamber draws itself; a module and a doorway are their
+      // own objects and are drawn by the code that already owns them.
+      if (zone.content?.kind === 'coinVein' && !zone.taken) {
+        const v = m.coinVeinBounds(zone), vy = v.y - cam;
+        this.rect(v.x, vy, v.width, v.height, 0x3a2f14, 0.95);
+        this.graphics.lineStyle(2, 0xffd479, 0.9).strokeRect(v.x, vy, v.width, v.height);
+        for (let i = 0; i < 5; i++) this.rect(v.x + 6 + (i % 3) * 9, vy + 6 + Math.floor(i / 3) * 13, 6, 6, 0xffd479, 0.85);
+      }
+    }
+    // DOODADS: small fixtures on the shaft wall, unmistakably not enemies and not ledges.
+    for (const d of m.doodads) {
+      const dy = d.y - cam;
+      if (dy < -30 || dy > 830) continue;
+      const glow = 0.5 + Math.abs(Math.sin(this.model.elapsed * 1.8 + d.x)) * 0.25;
+      this.rect(d.x, dy, d.width, d.height, 0x4a4232);
+      this.rect(d.x, dy, d.width, 3, 0xd8c88a);
+      if (d.variant === 'lamp') {
+        this.rect(d.x + d.width / 2 - 5, dy - 9, 10, 9, 0x6b5f45);
+        this.rect(d.x + d.width / 2 - 3, dy - 6, 6, 5, 0xffe9a8, glow);
+        this.rect(d.x - 4, dy + 3, d.width + 8, 5, 0xffe9a8, 0.1 * glow);
+      } else {
+        for (let i = 4; i < d.width - 3; i += 10) this.rect(d.x + i, dy + 4, 5, d.height - 6, 0x2b271d);
+      }
     }
     for (const f of m.platforms) {
       const y = f.y - cam;
@@ -227,6 +266,7 @@ export class GameScene extends Phaser.Scene {
       }
     }
     // The shop doorway, when this SECTION happens to have one.
+    this.timeVoid(m, cam);
     const door = m.shop.entrance;
     if (door) {
       const dy = door.y - cam;
@@ -400,6 +440,33 @@ export class GameScene extends Phaser.Scene {
     const cx = x + width / 2, top = y + 4;
     this.graphics.fillStyle(0xffd2a0, 0.8 - wear * 0.45);
     this.graphics.fillTriangle(cx - 6, top, cx + 6, top, cx, top + 7);
+  }
+  /**
+   * TIMEVOID. Standing in a chamber stops the shaft outside it, and the player has to be able to
+   * see that at a glance -- so everything outside the chamber is dimmed behind a cold veil while
+   * the chamber itself stays lit. Deliberately an overlay rather than a panel: the run has not
+   * paused and must not look as though it has.
+   */
+  private timeVoid(m: GameModel, cam: number) {
+    const zone = m.safeZone;
+    if (!zone) return;
+    const top = zone.y - cam, bottom = top + zone.height;
+    const bandTop = Math.max(0, Math.min(800, top)), bandBottom = Math.max(0, Math.min(800, bottom));
+    const bandHeight = Math.max(0, bandBottom - bandTop);
+    // Four bands around the chamber, so the chamber itself is never covered.
+    this.rect(0, 0, WORLD.width, bandTop, 0x081016, 0.62);
+    this.rect(0, bandBottom, WORLD.width, Math.max(0, 800 - bandBottom), 0x081016, 0.62);
+    this.rect(0, bandTop, Math.max(0, zone.x), bandHeight, 0x081016, 0.62);
+    const right = zone.x + zone.width;
+    this.rect(right, bandTop, Math.max(0, WORLD.width - right), bandHeight, 0x081016, 0.62);
+    // A cold rim around the opening, and a still, unblinking marker.
+    this.graphics.lineStyle(2, 0x9fe8f5, 0.45).strokeRect(zone.x, top, zone.width, zone.height);
+    // Still, evenly spaced marks beside the opening: stopped time, drawn as something that is not
+    // moving. label2 is deliberately not used here -- it only carries the glyphs A, I and R.
+    for (let i = 0; i < 3; i++) {
+      const y = top + 14 + i * 6;
+      this.rect(zone.side === -1 ? right + 6 : zone.x - 26, y, 20, 2, 0x9fe8f5, 0.3 - i * 0.08);
+    }
   }
   /** Lava reads as a solid bright slab; a vent shows its warning before it ever fires. */
   private hazard(h: Hazard, cam: number) {

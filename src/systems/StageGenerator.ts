@@ -6,11 +6,16 @@ import { GUN_MODULE_SPAWN_CHANCE, rollGunModule } from '../data/gunModules';
 import { AIR_CONTAINER_RULES, BREAK_BLOCK_RULES, breakBlockWidth, EXIT_RULES, SHOP_DOOR, type AirContainer, type ShopDoor, type StageExit } from '../data/structures';
 import { SHOP_RULES } from '../data/shop';
 import { spawnHazard, type Hazard, type SpikeKind } from '../data/hazards';
+import { spawnDoodad, DOODAD_RULES, type Doodad } from '../data/doodads';
+import { rollSafeZoneContent, SAFE_ZONE_RULES, type SafeZone } from '../data/safeZone';
+import { rollGunModule as rollModuleForZone } from '../data/gunModules';
 import type { SectionPlan, WaterPhysics } from '../data/areas';
 
 export type { Enemy, EnemyKind } from '../data/enemies';
 export type { Pickup } from '../data/pickups';
 export type { Hazard } from '../data/hazards';
+export type { Doodad } from '../data/doodads';
+export type { SafeZone } from '../data/safeZone';
 import type { PlatformState } from './BreakablePlatformSystem';
 /**
  * One BREAK BLOCK, tracked on the platform that is the block. Present only on blocks, so
@@ -33,13 +38,18 @@ export interface Platform {
   state?: PlatformState;
   /** A block in a gate row that has to be shot open. Landing on it is an ordinary landing. */
   breakBlock?: BreakBlock;
+  /**
+   * The SAFE ZONE this slab is the floor of. Landing on it reloads but does NOT settle the chain,
+   * which is the one thing that makes a chamber shelter rather than ground.
+   */
+  safeZone?: number;
 }
 export interface RoutePlatform extends Platform { safeX: number; exitX: number; safeSide: -1 | 1 }
 export const START_PLATFORM: RoutePlatform = { id: -2, x: 155, y: 250, width: 140, safeX: 225, exitX: 307, safeSide: 1, breakable: false, state: 'stable' };
 export const canReachPlatform = (from: RoutePlatform, to: RoutePlatform, water?: WaterPhysics) => to.y > from.y && Math.abs(to.safeX - from.exitX) <= horizontalReach(to.y - from.y, water);
 
 /** Everything one row needs, whether it came from a SECTION plan or the shared depth curve. */
-interface RowTuning { minWidth: number; maxWidth: number; gap: number; enemyChance: number; flyChance: number; toughChance: number; heavyChance: number; comboBias: number; containerChance: number; maxOxygenGap: number; bubbleOffside: number; lavaPoolChance: number; lavaWallChance: number; ventChance: number; iceChance: number; iceOffside: number; breakableChance: number; maxBreakableRun: number; spikeChance: number; spikeKinds: readonly SpikeKind[] }
+interface RowTuning { minWidth: number; maxWidth: number; gap: number; enemyChance: number; flyChance: number; toughChance: number; heavyChance: number; comboBias: number; containerChance: number; maxOxygenGap: number; bubbleOffside: number; lavaPoolChance: number; lavaWallChance: number; ventChance: number; iceChance: number; iceOffside: number; breakableChance: number; maxBreakableRun: number; spikeChance: number; spikeKinds: readonly SpikeKind[]; doodadChance: number }
 export interface GenerationContext {
   /** Metres already descended this run; only used when no SECTION plan is supplied. */
   depthOffset?: number;
@@ -89,6 +99,14 @@ export class StageGenerator {
    * FINAL BOSS passes no sectionLength, which is why the arena has no gate rows at all.
    */
   private gates: number[] = [];
+  /** Section-local metres at which a SAFE ZONE chamber is cut, shallowest first. */
+  private chambers: number[] = [];
+  /**
+   * Which wall the next chamber is cut into. It alternates so a SECTION with several never puts
+   * them all down one side, and the FIRST one is drawn rather than fixed -- otherwise every SECTION
+   * with a single chamber would put it in the same wall, every seed, forever.
+   */
+  private nextChamberSide: -1 | 1 | 0 = 0;
   constructor(private random: () => number = Math.random, private context: GenerationContext = {}) {
     this.nextY = context.startY ?? 465;
     this.previous = context.previous ? { ...context.previous } : { ...START_PLATFORM };
@@ -100,6 +118,13 @@ export class StageGenerator {
     this.openKinds = this.pool.some(kind => ENEMY_TYPES[kind].spawnSlot !== 'guard');
     const gateCount = context.sectionLength ? context.plan?.breakBlockRows ?? 0 : 0;
     for (let i = 1; i <= gateCount; i++) this.gates.push(context.sectionLength! * i / (gateCount + 1));
+    // Chambers are spaced the same way, and kept clear of the opening and of the exit so one can
+    // never be cut where the way out has to be.
+    const chamberCount = context.sectionLength ? context.plan?.safeZoneCount ?? 0 : 0;
+    const usable = (context.sectionLength ?? 0) - SAFE_ZONE_RULES.depthMargin * 2;
+    for (let i = 1; i <= chamberCount; i++) {
+      this.chambers.push(SAFE_ZONE_RULES.depthMargin + usable * i / (chamberCount + 1));
+    }
   }
 
   /**
@@ -150,10 +175,11 @@ export class StageGenerator {
         breakableChance: quiet ? 0 : plan.breakableChance ?? 0, maxBreakableRun: plan.maxBreakableRun ?? Infinity,
         // SPIKE is instant death, so the opening grace period holds it back like everything lethal.
         spikeChance: quiet ? 0 : plan.spikeChance ?? 0, spikeKinds: plan.spikeKinds ?? [],
+        doodadChance: quiet ? 0 : plan.doodadChance ?? 0,
       };
     }
     const curve = difficultyAt((this.context.depthOffset ?? 0) + localDepth);
-    return { minWidth: curve.minWidth, maxWidth: curve.maxWidth, gap: curve.gap, enemyChance: curve.enemyChance, flyChance: curve.flyChance, toughChance: curve.spikeChance, heavyChance: curve.tankChance, comboBias: 0, containerChance: 0, maxOxygenGap: Infinity, bubbleOffside: 0, lavaPoolChance: 0, lavaWallChance: 0, ventChance: 0, iceChance: 0, iceOffside: 0, breakableChance: 0, maxBreakableRun: Infinity, spikeChance: 0, spikeKinds: [] };
+    return { minWidth: curve.minWidth, maxWidth: curve.maxWidth, gap: curve.gap, enemyChance: curve.enemyChance, flyChance: curve.flyChance, toughChance: curve.spikeChance, heavyChance: curve.tankChance, comboBias: 0, containerChance: 0, maxOxygenGap: Infinity, bubbleOffside: 0, lavaPoolChance: 0, lavaWallChance: 0, ventChance: 0, iceChance: 0, iceOffside: 0, breakableChance: 0, maxBreakableRun: Infinity, spikeChance: 0, spikeKinds: [], doodadChance: 0 };
   }
 
   private pick<T>(items: readonly T[]) { return items[Math.min(items.length - 1, Math.floor(this.random() * items.length))]; }
@@ -205,8 +231,8 @@ export class StageGenerator {
     return { floor, exit: { x: gateX, y: y - EXIT_RULES.height, width: EXIT_RULES.width, height: EXIT_RULES.height } };
   }
 
-  chunk(index: number): { platforms: RoutePlatform[]; enemies: Enemy[]; pickups: Pickup[]; hazards: Hazard[]; containers: AirContainer[]; exit?: StageExit; shopDoor?: ShopDoor } {
-    const platforms: RoutePlatform[] = [], enemies: Enemy[] = [], pickups: Pickup[] = [], hazards: Hazard[] = [], containers: AirContainer[] = [];
+  chunk(index: number): { platforms: RoutePlatform[]; enemies: Enemy[]; pickups: Pickup[]; hazards: Hazard[]; containers: AirContainer[]; doodads: Doodad[]; safeZones: SafeZone[]; exit?: StageExit; shopDoor?: ShopDoor } {
+    const platforms: RoutePlatform[] = [], enemies: Enemy[] = [], pickups: Pickup[] = [], hazards: Hazard[] = [], containers: AirContainer[] = [], doodads: Doodad[] = [], safeZones: SafeZone[] = [];
     let exit: StageExit | undefined, shopDoor: ShopDoor | undefined;
     const start = index * WORLD.chunkHeight, end = start + WORLD.chunkHeight;
     // Carry nextY and the previous safe exit across chunk boundaries: no compressed seams.
@@ -295,6 +321,8 @@ export class StageGenerator {
       if (this.context.oxygen) this.placeAir(tuning, platform, y, start, containers, enemies);
       if (this.context.heat) this.placeHeat(tuning, platform, y, width, start, pickups, hazards, enemies);
       this.placeSpikes(tuning, platform, y, width, start, hazards, enemies, containers);
+      this.placeDoodad(tuning, platform, y, start, doodads, hazards, enemies);
+      this.placeSafeZone(platform, y, localDepth, start, safeZones, platforms, hazards, enemies, containers);
       this.placeGunModule(platform, y, start, pickups, enemies, hazards);
       // One doorway per SECTION, on an ordinary ledge, clear of the opening and of the exit.
       if (this.context.shop && !this.shopPlaced && y >= start && !platform.breakable
@@ -307,7 +335,7 @@ export class StageGenerator {
       this.previous = platform;
       this.nextY += tuning.gap + this.random() * 28;
     }
-    return { platforms, enemies, pickups, hazards, containers, exit, shopDoor };
+    return { platforms, enemies, pickups, hazards, containers, doodads, safeZones, exit, shopDoor };
   }
 
   /**
@@ -331,6 +359,86 @@ export class StageGenerator {
     if (hazards.some(h => x > h.x - 22 && x < h.x + h.width + 22 && cy > h.y - 22 && cy < h.y + h.height + 22)) return;
     const roll = rollGunModule(this.random);
     pickups.push(spawnGunModule(this.id++, Math.round(x), Math.round(cy), roll.module, roll.bonus));
+  }
+  /**
+   * A DOODAD hangs in the open band between two rows, out of the lane the safe transfer flies
+   * through. Bouncing off one is a choice, never something a fall runs into: it sits where a player
+   * has to steer for it, which is exactly what makes it worth the detour when CHARGE is dry.
+   */
+  private placeDoodad(tuning: RowTuning, platform: RoutePlatform, y: number, start: number, doodads: Doodad[], hazards: Hazard[], enemies: Enemy[]) {
+    if (this.random() >= tuning.doodadChance) return;
+    const bandTop = this.previous.y + 70, bandBottom = y - 70;
+    if (bandBottom - bandTop < 20) return;
+    const bandY = Math.round(bandTop + (bandBottom - bandTop) * (0.3 + this.random() * 0.4));
+    // Outside the corridor the route actually falls through, with the same slack lava gets.
+    const corridorLeft = Math.min(this.previous.exitX, platform.safeX) - 54;
+    const corridorRight = Math.max(this.previous.exitX, platform.safeX) + 54;
+    const w = DOODAD_RULES.width;
+    const regions = [[WORLD.wall + 6, corridorLeft - 30], [corridorRight + 30, WORLD.width - WORLD.wall - 6]]
+      .filter(([a, b]) => b - a >= w + 8);
+    if (!regions.length) return;
+    const [left, right] = regions[Math.floor(this.random() * regions.length)];
+    const x = Math.round(left + this.random() * (right - left - w));
+    // Never inside anything lethal, and never buried in a patrol.
+    if (hazards.some(h => x < h.x + h.width + 10 && x + w > h.x - 10 && bandY < h.y + h.height + 14 && bandY + DOODAD_RULES.height > h.y - 14)) return;
+    if (enemies.some(e => Math.abs(e.y - bandY) < 40 && e.originX + e.range > x - 20 && e.originX - e.range < x + w + 20)) return;
+    if (y >= start) doodads.push(spawnDoodad(this.id++, x, bandY, this.random() < 0.5 ? 'lamp' : 'bracket'));
+  }
+
+  /**
+   * A SAFE ZONE chamber, cut into one wall in the band above this row. It brings its own floor, and
+   * that floor is an EXTRA landing surface rather than a replacement for the row's own -- so a
+   * chamber can never make the route unreachable, only offer somewhere else to put your feet.
+   *
+   * Everything that could make the way in unfair is refused outright rather than worked around: a
+   * chamber is skipped when its mouth would sit on SPIKE, on a BREAK BLOCK, on an air container, on
+   * a patrol, or on top of the row's own ledge. Skipping costs nothing; a chamber nobody can enter
+   * without dying costs the player a run.
+   */
+  private placeSafeZone(platform: RoutePlatform, y: number, localDepth: number, start: number, zones: SafeZone[], platforms: RoutePlatform[], hazards: Hazard[], enemies: Enemy[], containers: AirContainer[]) {
+    if (!this.chambers.length || localDepth < this.chambers[0]) return;
+    // Past the clearance kept for the exit, the chance has gone: drop it rather than cut a chamber
+    // where the way out has to be. A SECTION that skips one is fine; one that blocks its exit is not.
+    const ceiling = (this.context.sectionLength ?? Infinity) - SAFE_ZONE_RULES.depthMargin;
+    if (localDepth > ceiling) { this.chambers.shift(); return; }
+    const bandTop = this.previous.y + 40, bandBottom = y - 30;
+    const height = SAFE_ZONE_RULES.height, floorHeight = SAFE_ZONE_RULES.floorHeight;
+    if (bandBottom - bandTop < height + floorHeight + 20) return;
+    const side: -1 | 1 = this.nextChamberSide !== 0 ? this.nextChamberSide : (this.random() < 0.5 ? -1 : 1);
+    const width = SAFE_ZONE_RULES.width;
+    const x = side === -1 ? WORLD.wall : WORLD.width - WORLD.wall - width;
+    // Sit the chamber so its floor is comfortably inside the band.
+    const floorY = Math.round(bandBottom - floorHeight);
+    const top = floorY - height;
+    const mouth = { x, y: top, width, height: height + floorHeight };
+    const overlaps = (ox: number, ow: number, oy: number, oh: number) =>
+      ox < mouth.x + mouth.width + 12 && ox + ow > mouth.x - 12 && oy < mouth.y + mouth.height + 12 && oy + oh > mouth.y - 12;
+    if (hazards.some(h => overlaps(h.x, h.width, h.y, h.height))) return;
+    if (containers.some(c => overlaps(c.x, c.width, c.y, c.height))) return;
+    if (enemies.some(e => overlaps(e.originX - e.range - 16, e.range * 2 + 32, e.y - 20, 40))) return;
+    if (platforms.some(f => overlaps(f.x, f.width, f.y - 4, 20))) return;
+    // The row's own ledge must not stick into the mouth either.
+    if (overlaps(platform.x, platform.width, platform.y - 4, 20)) return;
+    this.chambers.shift();
+    this.nextChamberSide = side === -1 ? 1 : -1;
+    if (y < start) return;
+    const roll = rollSafeZoneContent(this.random);
+    const module = roll === 'gunModule' ? rollModuleForZone(this.random) : undefined;
+    const zone: SafeZone = {
+      id: this.id++, side, x, y: top, width, height,
+      content: { kind: roll, module: module?.module, bonus: module?.bonus },
+      taken: false,
+    };
+    zones.push(zone);
+    // The floor is a real platform so all the ordinary landing code applies unchanged; only the
+    // `safeZone` marker tells GameModel not to bank a chain on it.
+    platforms.push({
+      id: this.id++, x, y: floorY, width,
+      safeSide: side === -1 ? 1 : -1,
+      safeX: side === -1 ? x + width - 26 : x + 26,
+      exitX: side === -1 ? x + width + 12 : x - 12,
+      breakable: false, state: 'stable', safeZone: zone.id,
+    });
   }
   /**
    * SPIKE. It kills outright, so every one of these rules is a safety rule rather than a flavour:
