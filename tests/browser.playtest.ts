@@ -1,6 +1,6 @@
 import { GameModel, plainBullet } from '../src/systems/GameModel';
 import { scene, bridge, start, pause, audio } from '../src/main';
-import type { RoutePlatform } from '../src/systems/StageGenerator';
+import type { Platform, RoutePlatform } from '../src/systems/StageGenerator';
 import { spawnEnemy, type Enemy, type EnemyKind } from '../src/data/enemies';
 import { AREAS, type SectionId, PLANNED_TOTAL_DEPTH } from '../src/data/areas';
 import { WORLD } from '../src/data/balance';
@@ -16,6 +16,9 @@ import { watchForAssists } from './assistWatch';
 import { COMBO_TIERS, comboTierFor } from '../src/data/combo';
 import { isSpike } from '../src/data/hazards';
 import { BREAK_BLOCK_RULES } from '../src/data/structures';
+import { COIN_VALUES } from '../src/data/coins';
+import { COIN_HIGH_RULES } from '../src/data/coinHigh';
+import { SHOP_ITEMS, shopItem, shopPrice } from '../src/data/shop';
 import type Phaser from 'phaser';
 
 // A development-only HTML entry, not imported by index.html or emitted in dist.
@@ -674,6 +677,179 @@ button('CHARGE：初期8 と 最後の1射', async () => {
     key('Space', true); await wait(200); key('Space', false); await wait(80);
     bridge.onEvent = original;
     assert(shots === 0, `${id}：0 では撃てない`);
+  }
+  bridge.active = false;
+});
+// Phase 3: the money loop -- what a coin is worth, which stones pay, and what a full meter does.
+button('REWARD BLOCK：見た目で判別・確定 10 COIN', async () => {
+  start(); const model = scene.model;
+  model.platforms = []; model.enemies = []; model.hazards = []; model.doodads = []; model.containers = [];
+  model.pickups = []; model.safeZones = []; model.bullets = [];
+  model.player.invincible = 99;
+  // A row with one REWARD BLOCK beside one ordinary block, so the two are on screen together.
+  const y = 420, width = 120;
+  const reward: Platform = { id: 9900, x: WORLD.wall, y, width, breakable: false, state: 'stable', breakBlock: { hits: 0, durability: 1, slot: 0, reward: true } };
+  const plain: Platform = { id: 9901, x: WORLD.wall + width, y, width, breakable: false, state: 'stable', breakBlock: { hits: 0, durability: 1, slot: 1, reward: false } };
+  model.platforms = [reward, plain];
+  model.player.x = plain.x + width / 2; model.player.y = y - 120; model.player.vy = 0; model.player.grounded = -1;
+  model.ammo = model.stats.maxAmmo;
+  await wait(200);
+  assert(reward.breakBlock!.reward === true && plain.breakBlock!.reward === false, '生成時点で reward / normal が決まっている');
+  assert(reward.breakBlock!.hits === 0 && plain.breakBlock!.hits === 0, 'どちらもまだ無傷（壊す前から区別できる）');
+  output.textContent += `\n見た目: reward=${reward.breakBlock!.reward} normal=${plain.breakBlock!.reward}（金の亀裂とCOINで描き分け）`;
+  // Shoot the ordinary one first: it must pay nothing at all.
+  for (let i = 0; i < 200 && plain.state !== 'broken'; i++) {
+    keepAwake();
+    model.player.x = plain.x + width / 2; model.player.y = y - 120; model.player.vy = 0; model.player.grounded = -1; model.ammo = model.stats.maxAmmo;
+    key('Space', true); await wait(1000 / 60); key('Space', false); await wait(16);
+  }
+  const afterPlain = model.coins.coins.length + model.coins.scoreCoins;
+  output.textContent += `\n通常BLOCK破壊: COIN ${afterPlain}`;
+  assert(plain.state === 'broken', '通常 BREAK BLOCK を撃ち抜けた');
+  assert(afterPlain === 0, '通常 BLOCK は 0 COIN');
+  // Now the reward block.
+  for (let i = 0; i < 200 && reward.state !== 'broken'; i++) {
+    keepAwake();
+    model.player.x = reward.x + width / 2; model.player.y = y - 120; model.player.vy = 0; model.player.grounded = -1; model.ammo = model.stats.maxAmmo;
+    key('Space', true); await wait(1000 / 60); key('Space', false); await wait(16);
+  }
+  const loose = model.coins.coins;
+  const value = loose.reduce((sum, c) => sum + c.value, 0) + model.coins.scoreCoins;
+  output.textContent += `\nREWARD BLOCK破壊: LARGE ${loose.filter(c => c.denomination === 'large').length} / 合計 ${value} / kills ${model.kills} / COMBO ${model.combo}`;
+  assert(reward.state === 'broken', 'REWARD BLOCK を撃ち抜けた');
+  assert(value === COIN_VALUES.large, `REWARD BLOCK は確定で LARGE COIN = ${COIN_VALUES.large}`);
+  assert(loose.every(c => c.denomination === 'large'), '落ちるのは LARGE COIN');
+  assert(model.kills === 0 && model.combo === 0, 'BLOCK 破壊は撃破でも COMBO でもない');
+  // Collect it: value reaches both totals.
+  const next = model.coins.coins[0];
+  if (next) { model.player.x = next.x; model.player.y = next.y; model.player.vy = 0; await wait(200); }
+  output.textContent += `\n回収: wallet ${model.coins.walletCoins} / score ${model.coins.scoreCoins}`;
+  assert(model.coins.walletCoins === COIN_VALUES.large, `拾うと wallet +${COIN_VALUES.large}`);
+  assert(model.coins.scoreCoins === COIN_VALUES.large, 'scoreCoins にも同額');
+  bridge.active = false;
+});
+button('COMBO 8 着地 → +100 → COIN HIGH', async () => {
+  start(); const model = scene.model;
+  model.platforms = []; model.enemies = []; model.hazards = []; model.doodads = []; model.containers = [];
+  model.pickups = []; model.safeZones = [];
+  model.player.invincible = 99;
+  const paid: string[] = [];
+  const original = bridge.onEvent;
+  bridge.onEvent = (event, game) => { original(event, game); if (event.type === 'comboSettle') paid.push(`${event.value}:${event.stage}`); };
+  // Stack a chain in the air by stomping, exactly as a run does, then land on an ordinary ledge.
+  model.player.y = 160; model.player.vy = 0; model.player.grounded = -1;
+  for (let n = 0; n < 8; n++) {
+    model.enemies = [enemy('slime', model.player.x, model.player.y + 40, 9800 + n)];
+    model.player.vy = 320;
+    await until(() => model.combo === n + 1, 4000);
+  }
+  const chain = model.combo;
+  assert(chain === 8, `空中で 8 COMBO を積んだ（${chain}）`);
+  assert(model.coinHigh.active === false, '着地前は COIN HIGH ではない');
+  // The stomps themselves drop SMALL COIN, so measure the settlement as a delta rather than a total.
+  const meterBefore = model.coinHigh.meter;
+  const purseBefore = { wallet: model.coins.walletCoins, score: model.coins.scoreCoins };
+  const ledge: RoutePlatform = { id: 9850, x: WORLD.wall, y: model.player.y + 90, width: WORLD.width - WORLD.wall * 2, safeX: model.player.x, exitX: model.player.x, safeSide: 1, breakable: false, state: 'stable' };
+  model.platforms = [ledge]; model.enemies = [];
+  await until(() => model.player.grounded === ledge.id, 5000);
+  await wait(150);
+  output.textContent += `\n着地精算: ${paid.join(' , ')} / wallet ${purseBefore.wallet}→${model.coins.walletCoins} / meter ${meterBefore.toFixed(0)}→${model.coinHigh.meter.toFixed(0)} / HIGH ${model.coinHigh.active}`;
+  assert(paid.length === 1, '着地精算は1回だけ');
+  assert(model.coins.walletCoins - purseBefore.wallet === COMBO_TIERS[0].coins, `8 COMBO 着地で wallet +${COMBO_TIERS[0].coins} COIN`);
+  assert(model.coins.scoreCoins - purseBefore.score === COMBO_TIERS[0].coins, 'scoreCoins にも +100');
+  assert(paid[0].includes('+100'), 'HUD ラベルが +100 を示す');
+  assert(model.coinHigh.meter > meterBefore, `+100 でメーターが跳ね上がった（${meterBefore.toFixed(0)}→${model.coinHigh.meter.toFixed(0)}）`);
+  assert(model.coinHigh.active, '8 COMBO 着地から COIN HIGH に入れる');
+  assert(model.state === 'playing' && !model.paused, '精算でプレイは止まらない');
+  bridge.onEvent = original;
+  bridge.active = false;
+});
+button('COIN HIGH：射程と威力が上がり、終了で元へ戻る', async () => {
+  start(); const model = scene.model;
+  model.platforms = []; model.enemies = []; model.hazards = []; model.doodads = []; model.containers = [];
+  model.pickups = []; model.safeZones = []; model.bullets = [];
+  model.player.invincible = 99;
+  model.player.x = 225; model.player.y = 200; model.player.vy = 0; model.player.grounded = -1;
+  model.ammo = model.stats.maxAmmo;
+  const fireOnce = async () => {
+    // ACTION is edge-triggered and the module has its own fire interval, so give it a few frames
+    // and a few attempts rather than assuming one press always produces a round.
+    for (let attempt = 0; attempt < 12; attempt++) {
+      keepAwake();
+      model.bullets = [];
+      model.player.x = 225; model.player.y = 200; model.player.vy = 0; model.player.grounded = -1; model.ammo = model.stats.maxAmmo;
+      key('Space', true); await wait(1000 / 60); key('Space', false);
+      for (let f = 0; f < 6 && !model.bullets.length; f++) { model.player.y = 200; model.player.vy = 0; model.player.grounded = -1; await wait(16); }
+      if (model.bullets.length) return model.bullets[0];
+    }
+    throw new Error(`射撃できなかった: state=${model.state} ammo=${model.ammo}/${model.stats.maxAmmo} grounded=${model.player.grounded}`);
+  };
+  const before = await fireOnce();
+  assert(!!before, '通常状態で射撃できた');
+  const baseline = { damage: before.damage, range: before.range };
+  assert(!model.coinHigh.active, '発動前は COIN HIGH ではない');
+  // Fill the meter with real coins, collected the ordinary way.
+  model.coins.burst(model.player.x, model.player.y, Math.ceil(COIN_HIGH_RULES.threshold / COIN_VALUES.large), () => 0.5, 'large');
+  for (let i = 0; i < 200 && model.coins.coins.length; i++) {
+    keepAwake();
+    const next = model.coins.coins[0];
+    model.player.x = next.x; model.player.y = next.y; model.player.vy = 0; model.player.grounded = -1;
+    await wait(16);
+  }
+  output.textContent += `\nメーター: ${model.coinHigh.meter.toFixed(0)}/${COIN_HIGH_RULES.threshold} / HIGH ${model.coinHigh.active}`;
+  assert(model.coinHigh.active, 'COIN を集めて COIN HIGH に入った');
+  const during = await fireOnce();
+  output.textContent += `\n威力 ${baseline.damage}→${during.damage} / 射程 ${baseline.range.toFixed(0)}→${during.range.toFixed(0)}`;
+  assert(during.damage > baseline.damage, `HIGH 中は威力が上がる（${baseline.damage}→${during.damage}）`);
+  assert(during.range > baseline.range, `HIGH 中は射程が伸びる（${baseline.range.toFixed(0)}→${during.range.toFixed(0)}）`);
+  // Let it run out with no further coins.
+  await until(() => !model.coinHigh.active, (COIN_HIGH_RULES.activeSeconds + 6) * 1000);
+  const after = await fireOnce();
+  output.textContent += `\n終了後: 威力 ${after.damage} / 射程 ${after.range.toFixed(0)}`;
+  assert(!model.coinHigh.active, 'COIN を取らなければ COIN HIGH は終わる');
+  assert(after.damage === baseline.damage && after.range === baseline.range, '終了後は完全に通常値へ戻る');
+  bridge.active = false;
+});
+button('SHOP：3商品・AREA価格・購入', async () => {
+  const height = SAFE_ZONE_RULES.height, width = SAFE_ZONE_RULES.width, floorY = 320;
+  for (const area of [1, 3] as const) {
+    start();
+    const model = scene.model;
+    model.jumpToStage(area, 1);
+    model.platforms = []; model.enemies = []; model.pickups = []; model.hazards = []; model.doodads = []; model.containers = [];
+    const zone = { id: 9950, side: -1 as const, x: WORLD.wall, y: floorY - height, width, height,
+      content: { kind: 'shop' as const }, taken: false };
+    model.safeZones = [zone];
+    model.platforms = [{ id: 9951, x: zone.x, y: floorY, width, breakable: false, state: 'stable' as const, safeZone: zone.id }];
+    model.player.invincible = 99;
+    model.combo = 12;
+    model.coins.walletCoins = 5000; model.coins.scoreCoins = 5000;
+    const centre = Math.round(zone.x + width / 2);
+    model.shop.placeEntrance(centre - 33, floorY - 66, 66, 66);
+    model.player.x = centre; model.player.y = floorY - 33; model.player.vy = 0; model.player.grounded = -1;
+    await until(() => scene.model.state === 'shop', 5000);
+    const offers = model.shop.offers;
+    output.textContent += `\nAREA ${area} SHOP: ${offers.map(o => `${o.name} ${o.price}`).join(' / ')}`;
+    assert(offers.length === 3, `AREA ${area}：3商品が並ぶ`);
+    assert(new Set(offers.map(o => o.item)).size === 3, `AREA ${area}：3商品はすべて別物（重複なし）`);
+    assert(offers.every(o => o.price === shopPrice(shopItem(o.item), area)), `AREA ${area}：原作 Normal Mode の AREA 価格`);
+    assert(offers.every(o => SHOP_ITEMS.some(i => i.id === o.item)), '売り物は原作6種のみ（武器は売らない）');
+    if (area === 1) {
+      const wallet = model.coins.walletCoins, score = model.coins.scoreCoins;
+      const item = shopItem(offers[0].item);
+      const hp = model.hp, maxHp = model.stats.maxHp, maxAmmo = model.stats.maxAmmo;
+      assert(model.buyShopItem(0) === 'bought', `${item.name} を購入できた`);
+      output.textContent += `\n購入: ${item.name} -${offers[0].price} / wallet ${wallet}→${model.coins.walletCoins} / score ${score}→${model.coins.scoreCoins}`;
+      assert(model.coins.walletCoins === wallet - offers[0].price, 'wallet だけが減る');
+      assert(model.coins.scoreCoins === score, 'scoreCoins は減らない');
+      const grewHp = model.hp - hp, grewMax = model.stats.maxHp - maxHp, grewAmmo = model.stats.maxAmmo - maxAmmo;
+      output.textContent += `\n効果: HP +${grewHp} / 最大HP +${grewMax} / 最大CHARGE +${grewAmmo}`;
+      assert(grewMax === item.maxHp, `${item.name}：最大HP +${item.maxHp}`);
+      assert(grewAmmo === item.maxCharge, `${item.name}：最大CHARGE +${item.maxCharge}`);
+      assert(model.buyShopItem(0) === 'soldOut', '同じスロットは二度買えない');
+      assert(model.combo === 12, 'SHOP で COMBO は維持される');
+    }
+    scene.model.closeShop();
   }
   bridge.active = false;
 });

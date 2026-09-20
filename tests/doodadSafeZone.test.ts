@@ -7,7 +7,7 @@ import { COMBO_TIERS } from '../src/data/combo';
 import { StageGenerator, type Platform, type RoutePlatform } from '../src/systems/StageGenerator';
 import { areaConfig, type AreaId, type SectionId } from '../src/data/areas';
 import { spawnEnemy } from '../src/data/enemies';
-import { spawnGunModule } from '../src/data/pickups';
+import { spawnGunModule, type Pickup } from '../src/data/pickups';
 import { OXYGEN_RULES } from '../src/systems/OxygenSystem';
 
 /**
@@ -617,6 +617,78 @@ describe('SAFE ZONE content reaches the existing systems', () => {
     // The table's own shape, not a number somebody liked: gunModule and coinVein share a weight.
     expect(counts.gunModule / counts.coinVein).toBeGreaterThan(0.8);
     expect(counts.gunModule / counts.coinVein).toBeLessThan(1.25);
+  });
+});
+
+describe('GUN MODULE, SHOP and COIN VEIN are SAFE ZONE content and nothing else', () => {
+  /** Every chunk of one whole SECTION, exactly as the model would build it. */
+  const sweep = (area: AreaId, section: SectionId, seed: number) => {
+    const config = areaConfig(area);
+    const pixels = config.sectionLength * WORLD.pixelsPerMeter;
+    const chunks = Math.ceil((WORLD.startY + pixels) / WORLD.chunkHeight) + 1;
+    const generator = new StageGenerator(seeded(seed), {
+      plan: config.plans![section - 1], enemyPool: config.enemyPool, water: config.water,
+      oxygen: config.gimmicks?.oxygen === true, heat: config.gimmicks?.heat === true,
+      breakable: config.gimmicks?.breakablePlatforms === true, sectionLength: config.sectionLength,
+    });
+    const pickups: Pickup[] = [], zones: SafeZone[] = [], containers: unknown[] = [];
+    for (let chunk = 0; chunk < chunks; chunk++) {
+      const built = generator.chunk(chunk);
+      pickups.push(...built.pickups); zones.push(...built.safeZones); containers.push(...built.containers);
+      // The generator no longer has a way to report a doorway at all.
+      expect('shopDoor' in built).toBe(false);
+    }
+    return { pickups, zones, containers };
+  };
+
+  it('lays no weapon crate and no shop doorway anywhere in the shaft', () => {
+    let seenZones = 0;
+    for (const area of [1, 2, 3, 4] as AreaId[]) {
+      for (const section of [1, 2, 3] as SectionId[]) {
+        for (let seed = 1; seed <= 12; seed++) {
+          const built = sweep(area, section, seed * 613);
+          expect(built.pickups.filter(item => item.kind === 'gunModule')).toEqual([]);
+          seenZones += built.zones.length;
+        }
+      }
+    }
+    // Chambers really are being built, so the absence above is meaningful.
+    expect(seenZones).toBeGreaterThan(0);
+  });
+
+  it('still lays the AREA gimmicks the shaft owns, which are not SAFE ZONE rewards', () => {
+    // AREA 2's air containers and AREA 3's ice are stage furniture, untouched by this change.
+    const air = sweep(2, 2, 4242);
+    expect(air.containers.length).toBeGreaterThan(0);
+    const heat = sweep(3, 2, 4242);
+    expect(heat.pickups.some(item => item.kind === 'ice')).toBe(true);
+  });
+
+  it('is the only place a run finds a module, a shop or a vein', () => {
+    const kinds = new Set<string>();
+    for (let seed = 1; seed <= 200; seed++) {
+      for (const zone of sweep(1, 2, seed * 277).zones) if (zone.content) kinds.add(zone.content.kind);
+    }
+    expect([...kinds].sort()).toEqual(['coinVein', 'gunModule', 'shop']);
+  });
+
+  it('materialises a chamber module as the same crate the shaft used to lay', () => {
+    const game = new GameModel(false, seeded(31));
+    game.jumpToStage(1, 1);
+    // Drive a run until a chamber with a weapon in it has been built.
+    let found: Pickup | undefined;
+    for (let i = 0; i < 6000 && !found; i++) {
+      game.player.invincible = 99;
+      game.step(1 / 120, 0, false);
+      found = game.pickups.find(item => item.kind === 'gunModule');
+      if (game.state === 'over') { game.player.y = game.cameraY + 100; game.hp = 4; game.state = 'playing'; }
+    }
+    if (!found) return;   // that seed simply never rolled one; the sweep above covers the rule
+    const zone = game.safeZones.find(z => z.content?.kind === 'gunModule');
+    expect(zone).toBeTruthy();
+    expect(found.module).toBeTruthy();
+    expect(found.x).toBeGreaterThan(zone!.x);
+    expect(found.x).toBeLessThan(zone!.x + zone!.width);
   });
 });
 

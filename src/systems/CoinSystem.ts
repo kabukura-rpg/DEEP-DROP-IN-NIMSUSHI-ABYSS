@@ -55,11 +55,17 @@ export class CoinSystem {
    * Move every loose coin, drop the ones that timed out or fell behind the camera, and collect the
    * ones the player touched. Returns how many were picked up and what they were worth, so the caller
    * can make noise about it and feed the COIN HIGH meter; the totals are already updated.
+   *
+   * `stopped` marks a coin as being in stopped time -- out in the shaft while the player stands in
+   * a SAFE ZONE. Such a coin does not move, does not age and cannot be swept up, and it is not culled
+   * either: it is waiting for the world to start again, exactly as a round in flight is. A coin in
+   * the chamber with the player carries on as normal, which is what makes a mined COIN VEIN
+   * collectable rather than a pile hanging in the air.
    */
-  tick(dt: number, player: { x: number; y: number }, cameraY: number) {
+  tick(dt: number, player: { x: number; y: number }, cameraY: number, stopped?: (coin: Coin) => boolean) {
     let collected = 0, earned = 0;
     for (const coin of this.coins) {
-      if (coin.taken) continue;
+      if (coin.taken || stopped?.(coin)) continue;
       coin.life -= dt;
       // Close enough and the coin comes to the player: a spray left behind by a fight should not
       // be lost simply because the player is falling faster than it is.
@@ -84,8 +90,9 @@ export class CoinSystem {
         collected++;
       }
     }
-    // A coin that timed out or slid above the view is simply gone: no second chance.
-    this.coins = this.coins.filter(c => !c.taken && c.life > 0 && c.y > cameraY - 120 && c.y < cameraY + WORLD.height + 200);
+    // A coin that timed out or slid above the view is simply gone: no second chance. One in stopped
+    // time is exempt -- its clock is not running, so it cannot have run out.
+    this.coins = this.coins.filter(c => !c.taken && (stopped?.(c) || (c.life > 0 && c.y > cameraY - 120 && c.y < cameraY + WORLD.height + 200)));
     return { collected, earned };
   }
 

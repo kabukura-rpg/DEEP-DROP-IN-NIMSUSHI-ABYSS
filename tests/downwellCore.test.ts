@@ -221,7 +221,9 @@ describe('Downwell core: COMBO is settled by landing', () => {
       game, settled,
       combo: game.combo,
       reloaded: game.ammo === game.stats.maxAmmo,
-      coins: game.coins.walletCoins + game.coins.coins.length - before.coins,
+      // Value, not pickups: a settled chain is paid straight in, and anything lying loose in the
+      // shaft is counted at what it is actually worth.
+      coins: game.coins.walletCoins + game.coins.coins.reduce((sum, c) => sum + c.value, 0) - before.coins,
       maxCharge: game.stats.maxAmmo - before.maxAmmo,
       hearts: game.hp - before.hp + (game.health.maxHp - before.maxHp) + (game.health.overflowHealing - before.overflow),
     };
@@ -234,15 +236,21 @@ describe('Downwell core: COMBO is settled by landing', () => {
       expect({ combo, chain: r.combo, reloaded: r.reloaded }).toEqual({ combo, chain: 0, reloaded: true });
     }
   });
-  it('pays COIN from 8, COIN + CHARGE from 15, and COIN + CHARGE + LIFE from 25', () => {
+  it('pays a flat 100 at every tier, as the original does', () => {
+    // What deepens with the chain is what comes WITH the money, never the money itself.
+    for (const tier of COMBO_TIERS) expect(tier.coins).toBe(100);
+  });
+  it('pays 100 from 8, 100 + CHARGE from 15, and 100 + CHARGE + LIFE from 25', () => {
     const expected: [number, number, number, number][] = [
       // combo, coins, maxCharge, hearts
-      [8, COMBO_TIERS[0].coins, 0, 0],
-      [14, COMBO_TIERS[0].coins, 0, 0],
-      [15, COMBO_TIERS[1].coins, 1, 0],
-      [24, COMBO_TIERS[1].coins, 1, 0],
-      [25, COMBO_TIERS[2].coins, 1, 1],
-      [40, COMBO_TIERS[2].coins, 1, 1],
+      [8, 100, 0, 0],
+      [14, 100, 0, 0],
+      [15, 100, 1, 0],
+      [24, 100, 1, 0],
+      [25, 100, 1, 1],
+      [40, 100, 1, 1],
+      // Far past the top tier: still the top tier, still once.
+      [100, 100, 1, 1],
     ];
     for (const [combo, coins, maxCharge, hearts] of expected) {
       const r = settle(combo);
@@ -250,6 +258,16 @@ describe('Downwell core: COMBO is settled by landing', () => {
       expect({ combo, chain: r.combo }).toEqual({ combo, chain: 0 });
       expect({ combo, settled: r.settled?.value }).toEqual({ combo, settled: combo });
     }
+  });
+  it('pays the settled 100 into BOTH totals, not onto the floor', () => {
+    const r = settle(8);
+    // Awarded rather than scattered: nothing to catch, nothing to lose.
+    expect(r.game.coins.coins).toHaveLength(0);
+    expect(r.game.coins.walletCoins).toBe(100);
+    expect(r.game.coins.scoreCoins).toBe(100);
+    // And the label the HUD reads says what was paid.
+    expect(r.settled?.stage).toBe(COMBO_TIERS[0].label);
+    expect(COMBO_TIERS.map(t => t.label)).toEqual(['+100', '+100 + CHARGE', '+100 + CHARGE + LIFE']);
   });
   it('pays the deepest tier once, never the tiers below it as well', () => {
     expect(comboTierFor(7)).toBeUndefined();

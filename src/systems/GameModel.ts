@@ -502,11 +502,16 @@ export class GameModel {
     if (!frozen) {
       this.tickContainers(dt);
       this.tickBubbles(dt);
-      const picked = this.coins.tick(dt, p, this.cameraY);
-      if (picked.collected > 0) {
-        this.earnCoins(picked.earned, p.x, p.y);
-        this.events.push({ type: 'coin', x: p.x, y: p.y, value: this.coins.walletCoins });
-      }
+    }
+    // Money runs on the same rule as rounds: a coin out in the shaft hangs in stopped time, while
+    // one inside the chamber falls, ages and can be swept up. That is what makes a mined COIN VEIN
+    // something the player collects rather than a pile frozen in mid-air -- and it is why a coin
+    // taken in a chamber still feeds the COIN HIGH meter even though the meter's decay is stopped.
+    const held = stoppedWorld ? (coin: { x: number; y: number }) => !insideSafeZone(stoppedWorld, coin.x, coin.y) : undefined;
+    const picked = this.coins.tick(dt, p, this.cameraY, held);
+    if (picked.collected > 0) {
+      this.earnCoins(picked.earned, p.x, p.y);
+      this.events.push({ type: 'coin', x: p.x, y: p.y, value: this.coins.walletCoins });
     }
     // Picking things up and touching a chamber's own content are the player's doing, not the
     // world's, so they keep working inside: the gun module waiting in a chamber has to be takeable.
