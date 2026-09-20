@@ -104,8 +104,23 @@ export const UPGRADE_TUNING = {
     chainRadius: 26,
   },
   heartBalloon: {
+    /**
+     * DESIGN TUNING — ORIGINAL VALUE NOT VERIFIED.
+     *
+     * The SHAPE is confirmed: the original's balloon reduces the fall rate while it is held, pops
+     * and explodes when an enemy touches it, and comes back on the next floor. The MULTIPLIER is
+     * not published anywhere, and this is not a reproduction of it.
+     *
+     * It was 0.6, which measured out at a 67% longer traversal on EVERY section -- terminal speed
+     * 520 -> 312 -- on an item that survives a whole section 42% of the time and is handed back at
+     * every SECTION start regardless. In a game whose only pressure is falling speed, that is the
+     * largest difficulty lever in the build, and playtesting called it exactly that.
+     *
+     * 0.82 keeps a fall the player can feel is gentler without turning the run into slow motion.
+     * MEASUREMENT REQUIRED: replace this the moment the original's rate is measured.
+     */
     /** Multiplier on fall speed while the balloon is alive. */
-    fallMultiplier: 0.6,
+    fallMultiplier: 0.82,
     /** Where it rides, and how quickly it follows. */
     offsetY: -46,
     follow: 6,

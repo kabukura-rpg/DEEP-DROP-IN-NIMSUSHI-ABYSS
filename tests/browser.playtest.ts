@@ -7,7 +7,8 @@ import { WORLD } from '../src/data/balance';
 import { pickupType } from '../src/data/pickups';
 import { GUN_MODULES } from '../src/data/gunModules';
 import { DOODAD_RULES, spawnDoodad } from '../src/data/doodads';
-import { spikePlatform } from '../src/data/structures';
+import { SPIKE_PLATFORM_RULES, spikePlatform } from '../src/data/structures';
+import { UPGRADE_TUNING } from '../src/data/upgrades';
 import { UPGRADES } from '../src/data/upgrades';
 import { spawnCorpse } from '../src/data/corpses';
 import { SAFE_ZONE_RULES, insideSafeZone, type SafeZoneContentKind } from '../src/data/safeZone';
@@ -2503,6 +2504,80 @@ button('FULL RUN 1-1 → GAME CLEAR（補助なし）', async () => {
   output.textContent += `\n店 ${seen.shops} 回 / 購入 ${seen.bought} / 武器交換 ${seen.gunSwaps} / 最終武器 ${model.gun.short} / BOSS入場時 ${gunAtBossEntry}`;
   output.textContent += `\nCLEAR TIME ${clearTime} · BOSS TIME ${bossTime}`;
 });
+/**
+ * PHASE 7B-2 -- 設計調整した2値が実機で効いているかだけを見る。
+ *
+ * どちらも「本家の値を再現した」ものではない。ここで確かめるのは、
+ *   罠床: 着地では痛くない / 予告が見える / 予告中は無傷 / 立ち止まれば被弾 / 即離脱なら回避
+ *   風船: 落下が遅くなるが、スローモーションにはならない
+ * の2点だけで、Botがクリアできるかは条件に入れない。
+ */
+button('7B-2: 罠床の予告と風船の落下', async () => {
+  start();
+  await until(() => scene.model.state === 'playing', 8000);
+  const model = scene.model;
+  pause();
+  model.paused = false;
+
+  // ---- CATACOMBS spike ------------------------------------------------------------------------
+  const arm = () => {
+    model.platforms = []; model.enemies = []; model.hazards = []; model.doodads = []; model.safeZones = [];
+    const ledge: Platform = { id: 7001, x: 120, y: 500, width: 160, breakable: false, state: 'stable', spikePlatform: spikePlatform() };
+    model.platforms = [ledge];
+    model.health.heal(9);
+    model.player.invincible = 0;
+    model.player.x = ledge.x + 26; model.player.y = 420; model.player.vy = 240; model.player.grounded = -1;
+    for (let i = 0; i < 400 && model.player.grounded !== ledge.id; i++) model.step(1 / 120, 0, false);
+    return ledge;
+  };
+  const run7 = (seconds: number, direction: number) => {
+    for (let i = 0; i < Math.round(seconds * 120); i++) model.step(1 / 120, direction, false);
+  };
+
+  const landed = arm();
+  assert(model.player.grounded === landed.id, '罠床に着地した');
+  assert(landed.spikePlatform!.state === 'warning', '着地した瞬間から予告が出る');
+  const hpOnLanding = model.hp;
+  run7(SPIKE_PLATFORM_RULES.warning - 0.05, 0);
+  assert(landed.spikePlatform!.state === 'warning', `予告が ${SPIKE_PLATFORM_RULES.warning}s 続く`);
+  assert(model.hp === hpOnLanding, '予告中は一切ダメージがない');
+  run7(0.1, 0);
+  assert(landed.spikePlatform!.state === 'active', '予告が明けると棘が出る');
+  assert(model.hp === hpOnLanding - SPIKE_PLATFORM_RULES.damage, `立ち止まっていれば被弾する (HP ${hpOnLanding} → ${model.hp})`);
+
+  const escaping = arm();
+  const hpEscape = model.hp;
+  model.jump();
+  run7(SPIKE_PLATFORM_RULES.warning + SPIKE_PLATFORM_RULES.active + 0.1, -1);
+  assert(model.hp === hpEscape, '即ジャンプ＋離脱なら無傷');
+  void escaping;
+
+  const stepping = arm();
+  const hpStep = model.hp;
+  run7(SPIKE_PLATFORM_RULES.warning + SPIKE_PLATFORM_RULES.active + 0.1, -1);
+  assert(model.hp === hpStep, '即座に端から降りても無傷');
+  void stepping;
+  output.textContent += `\n  予告 ${SPIKE_PLATFORM_RULES.warning}s / 展開 ${SPIKE_PLATFORM_RULES.active}s（旧 0.95s から短縮・DESIGN TUNING）`;
+
+  // ---- HEART BALLOON --------------------------------------------------------------------------
+  const terminal = (balloon: boolean) => {
+    const m = scene.model;
+    if (balloon) m.upgrades.grant('heartBalloon');
+    m.jumpToStage(1, 1);
+    m.player.y = 200; m.player.vy = 0;
+    for (let i = 0; i < 480; i++) { m.platforms = []; m.player.grounded = -1; m.step(1 / 120, 0, false); }
+    return m.player.vy;
+  };
+  const plain = terminal(false);
+  start(); await until(() => scene.model.state === 'playing', 8000); pause(); scene.model.paused = false;
+  const floated = terminal(true);
+  const ratio = floated / plain;
+  output.textContent += `\n  終端速度 ${Math.round(plain)} → ${Math.round(floated)} px/s (実測比 ${ratio.toFixed(2)})`;
+  assert(Math.abs(ratio - UPGRADE_TUNING.heartBalloon.fallMultiplier) < 0.02, `風船の減速が ${UPGRADE_TUNING.heartBalloon.fallMultiplier} で効いている (実測 ${ratio.toFixed(2)})`);
+  assert(ratio > 0.7, `スローモーション化していない (旧 0.60 → 現 ${ratio.toFixed(2)})`);
+  pause();
+});
+
 /**
  * 最終 REST POINT の NEXT -- 人間が踏む導線そのもの。
  *

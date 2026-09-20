@@ -6,7 +6,7 @@ import { areaConfig, type SectionId } from '../src/data/areas';
 import { horizontalReach } from '../src/data/difficulty';
 import { SPIKE_PLATFORM_RULES, spikePlatform } from '../src/data/structures';
 import { DOODAD_RULES } from '../src/data/doodads';
-import { WORLD } from '../src/data/balance';
+import { BALANCE, JUMP, WORLD } from '../src/data/balance';
 import type { SafeZone } from '../src/data/safeZone';
 import type { Hazard } from '../src/data/hazards';
 
@@ -100,28 +100,103 @@ describe('SPIKE PLATFORM: ground that turns, and never kills', () => {
     expect(game.hp).toBe(hp);
   });
 
-  it('warns for long enough to walk off the widest ledge it is laid on', () => {
-    // The fairness of the whole mechanic. If the warning is shorter than the time it takes to cross
-    // the ledge, a player who lands on the guaranteed landing spot cannot leave, and the hit stops
-    // being a mistake. Measured against the real plan widths, in both AREAs that use these.
+  it('lets a player who reacts at once get away, and hits one who stands still', () => {
+    // The fairness of the whole mechanic, restated.
+    //
+    // The old requirement was that the warning outlast a WALK to the far side of the widest ledge.
+    // That has been withdrawn: walking the full width is the slowest escape there is, and sizing
+    // the window around it left the trap with no pressure. What has to hold is that the escapes a
+    // player actually reaches for all work -- and that doing nothing does not.
     for (const [area, sectionId] of [[2, 1], [2, 2], [2, 3], [4, 1], [4, 2], [4, 3]] as const) {
       const sectionPlan = areaConfig(area).plans![sectionId - 1];
       const width = Math.round((sectionPlan.platformWidth[0] + sectionPlan.platformWidth[1]) / 2);
-      const game = new GameModel(false, seeded(5));
-      game.jumpToStage(area, sectionId);
-      game.platforms = []; game.enemies = []; game.hazards = []; game.doodads = []; game.safeZones = [];
-      const ledge: Platform = { id: 9, x: WORLD.wall + 60, y: 500, width, breakable: false, state: 'stable', spikePlatform: spikePlatform() };
-      game.platforms = [ledge];
-      game.player.invincible = 99;
-      // Land at the far end from the way out -- the worst case the route can hand a player.
-      game.player.x = ledge.x + 26; game.player.y = 400; game.player.vy = 240; game.player.grounded = -1;
-      for (let i = 0; i < 400 && game.player.grounded !== ledge.id; i++) game.step(1 / 120, 0, false);
-      expect({ area, sectionId, landed: game.player.grounded }).toEqual({ area, sectionId, landed: ledge.id });
-      let seconds = 0;
-      for (let i = 0; i < 1200 && game.player.grounded === ledge.id; i++) { game.step(1 / 120, 1, false); seconds += 1 / 120; }
-      expect({ area, sectionId, escapable: seconds < SPIKE_PLATFORM_RULES.warning }).toEqual({ area, sectionId, escapable: true });
+
+      /** Land on the trap at its far end -- the worst spot the route can hand a player. */
+      const armed = () => {
+        const game = new GameModel(false, seeded(5));
+        game.jumpToStage(area, sectionId);
+        game.platforms = []; game.enemies = []; game.hazards = []; game.doodads = []; game.safeZones = [];
+        const ledge: Platform = { id: 9, x: WORLD.wall + 60, y: 500, width, breakable: false, state: 'stable', spikePlatform: spikePlatform() };
+        game.platforms = [ledge];
+        game.player.invincible = 0;
+        game.player.x = ledge.x + 26; game.player.y = 400; game.player.vy = 240; game.player.grounded = -1;
+        for (let i = 0; i < 400 && game.player.grounded !== ledge.id; i++) game.step(1 / 120, 0, false);
+        expect({ area, sectionId, landed: game.player.grounded }).toEqual({ area, sectionId, landed: ledge.id });
+        expect({ area, sectionId, state: ledge.spikePlatform!.state }).toEqual({ area, sectionId, state: 'warning' });
+        return { game, ledge, hp: game.hp };
+      };
+      const past = (game: GameModel) => {
+        const until = SPIKE_PLATFORM_RULES.warning + SPIKE_PLATFORM_RULES.active + 0.1;
+        for (let i = 0; i < Math.round(until * 120); i++) game.step(1 / 120, 0, false);
+      };
+
+      // Standing still is what the trap is FOR.
+      const still = armed();
+      past(still.game);
+      expect({ area, sectionId, hurt: still.game.hp < still.hp }).toEqual({ area, sectionId, hurt: true });
+
+      // Jumping AND steering off. Worth being precise about why the steering is not optional: a
+      // jump peaks at 61px and is back down in about 0.73s, while the danger lasts warning +
+      // active = 1.55s. No vertical hop can outlast that, so leaving the FLOOR is never enough on
+      // its own -- the escape is leaving the PLATFORM, and the jump is what buys the time to do it.
+      const jumped = armed();
+      expect(jumped.game.jump()).toBe(true);
+      for (let i = 0; i < Math.round((SPIKE_PLATFORM_RULES.warning + SPIKE_PLATFORM_RULES.active + 0.1) * 120); i++) {
+        jumped.game.step(1 / 120, -1, false);
+      }
+      expect({ area, sectionId, escaped: jumped.game.hp === jumped.hp }).toEqual({ area, sectionId, escaped: true });
+
+      // So is stepping off the near edge, which is what the far-end landing is closest to.
+      const stepped = armed();
+      for (let i = 0; i < Math.round((SPIKE_PLATFORM_RULES.warning + SPIKE_PLATFORM_RULES.active + 0.1) * 120); i++) {
+        stepped.game.step(1 / 120, -1, false);
+      }
+      expect({ area, sectionId, escaped: stepped.game.hp === stepped.hp }).toEqual({ area, sectionId, escaped: true });
     }
   });
+
+  it('never hurts on the frame of the landing, and never before the warning is over', () => {
+    const game = bare();
+    game.player.invincible = 0;
+    const ledge = onSpikeGround(game);
+    const hp = game.hp;
+    // Armed on contact, and nothing taken for the whole visible window -- to the last frame of it.
+    expect(ledge.spikePlatform!.state).toBe('warning');
+    expect(game.hp).toBe(hp);
+    for (let i = 0; i < Math.round(SPIKE_PLATFORM_RULES.warning * 120) - 2; i++) {
+      game.step(1 / 120, 0, false);
+      expect(ledge.spikePlatform!.state).toBe('warning');
+      expect(game.hp).toBe(hp);
+    }
+  });
+
+  it('is escaped by LEAVING the platform, not merely by leaving the floor', () => {
+    // A consequence of the numbers rather than a choice: a jump is airborne for about 0.73s and the
+    // danger runs for warning + active. While active outlasts a hop, a player who jumps straight up
+    // and holds no direction comes back down into the spikes. Recorded here so the property is
+    // visible if either number is ever retuned.
+    const airborne = 2 * (JUMP.impulse / BALANCE.gravity);
+    expect(airborne).toBeLessThan(SPIKE_PLATFORM_RULES.warning + SPIKE_PLATFORM_RULES.active);
+
+    const game = bare();
+    game.player.invincible = 0;
+    const ledge = onSpikeGround(game);
+    const hp = game.hp;
+    expect(game.jump()).toBe(true);
+    tick(game, SPIKE_PLATFORM_RULES.warning + SPIKE_PLATFORM_RULES.active + 0.1);
+    expect(game.hp).toBe(hp - SPIKE_PLATFORM_RULES.damage);
+  });
+
+  it('keeps the reaction window long enough to see and act on', () => {
+    // DESIGN TUNING, not a reproduction: the original's timing is not published. What is asserted
+    // here is the property the number has to satisfy, not the number itself.
+    expect(SPIKE_PLATFORM_RULES.warning).toBeGreaterThanOrEqual(0.4);
+    // And short enough that the trap is a trap. The withdrawn requirement -- outlasting a walk
+    // across the widest ledge these plans lay -- must NOT hold any more.
+    const widest = Math.max(...[2, 4].flatMap(area => areaConfig(area as 2 | 4).plans!.map(p => p.platformWidth[1])));
+    expect(SPIKE_PLATFORM_RULES.warning).toBeLessThan(widest / BALANCE.moveSpeed);
+  });
+
   it('costs exactly one heart through HealthSystem, with the ordinary invulnerability', () => {
     const game = bare();
     game.player.invincible = 0;

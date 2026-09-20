@@ -133,13 +133,23 @@ export const SPIKE_PLATFORM_RULES = {
   /**
    * Seconds between the landing that arms it and the spikes emerging.
    *
-   * Derived from the shaft's own geometry rather than picked: a player who lands on the guaranteed
-   * landing spot of the widest CATACOMBS ledge needs 0.81s at moveSpeed to walk off the far side,
-   * so anything under that makes the hit unavoidable instead of a mistake. This is that worst case
-   * plus a margin to read the warning in. MEASUREMENT REQUIRED -- the original's own figure is not
-   * measured, and if these platform widths change this has to be measured again with them.
+   * DESIGN TUNING — ORIGINAL VALUE NOT VERIFIED.
+   *
+   * The SHAPE is confirmed: the original's catacomb traps are differently coloured platforms that
+   * release spikes shortly after being stood on, and the description of them is that they make the
+   * player move quickly. The TIMING is not published and this is not a reproduction of it.
+   *
+   * It was 0.95, derived so that a player landing on the guaranteed landing spot of the WIDEST
+   * ledge could WALK to the far side and off it. That requirement has been withdrawn: walking the
+   * full width of a ledge is the slowest escape there is, and sizing the window around it left the
+   * trap with no pressure at all. Jumping leaves the floor on the same frame, stepping off an edge
+   * is immediate, and a round of recoil is another way out -- none of them need 0.95s.
+   *
+   * What the window must still guarantee is that nothing hurts on the frame of the landing, that
+   * the warning is visible for its whole length, and that a player who reacts at once gets away.
+   * A player who stands still is meant to be hit. MEASUREMENT REQUIRED.
    */
-  warning: 0.95,
+  warning: 0.65,
   /**
    * Seconds the spikes stay up. Deliberately shorter than HealthSystem's invulnerability window, so
    * one pass through a live platform costs exactly one heart: a player who mistimes it is punished

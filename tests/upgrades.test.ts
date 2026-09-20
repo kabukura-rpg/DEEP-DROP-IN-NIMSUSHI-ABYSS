@@ -338,6 +338,44 @@ describe('HEART BALLOON', () => {
     expect(game.events.some(e => e.type === 'balloon')).toBe(true);
   });
 
+  it('holds the terminal speed at the tuned share, and hands it straight back when it pops', () => {
+    // DESIGN TUNING — ORIGINAL VALUE NOT VERIFIED. The original reduces the fall rate while the
+    // balloon is held; the share is not published. This pins what DEEP DROP actually does so a
+    // later measured value replaces a number somebody can see rather than a feel nobody recorded.
+    expect(UPGRADE_TUNING.heartBalloon.fallMultiplier).toBe(0.82);
+
+    const game = run(['heartBalloon']);
+    // Kept in open air: the shaft keeps generating floors underneath, and a landing would reset
+    // the very velocity being measured.
+    const freefall = (seconds: number) => {
+      for (let i = 0; i < Math.round(seconds * 120); i++) {
+        game.platforms = []; game.player.grounded = -1;
+        game.step(1 / 120, 0, false);
+      }
+    };
+    game.player.y = 200; game.player.vy = 0;
+    freefall(3);
+    const slowed = game.player.vy;
+    expect(slowed).toBeCloseTo(game.stats.maxFallSpeed * UPGRADE_TUNING.heartBalloon.fallMultiplier, 0);
+
+    // Popped mid-fall: the cap is gone on the very next steps, not at the next SECTION.
+    game.balloon!.alive = false;
+    freefall(2);
+    expect(game.player.vy).toBeGreaterThan(slowed);
+    expect(game.player.vy).toBeCloseTo(game.stats.maxFallSpeed, 0);
+  });
+
+  it('is forgotten entirely by a new run', () => {
+    const game = run(['heartBalloon']);
+    expect(game.balloon?.alive).toBe(true);
+    const fresh = new GameModel(false, seeded(3));
+    expect(fresh.upgrades.has('heartBalloon')).toBe(false);
+    expect(fresh.balloon).toBeNull();
+    fresh.player.y = 200; fresh.player.vy = 0;
+    for (let i = 0; i < 360; i++) { fresh.platforms = []; fresh.player.grounded = -1; fresh.step(1 / 120, 0, false); }
+    expect(fresh.player.vy).toBeCloseTo(fresh.stats.maxFallSpeed, 0);
+  });
+
   it('comes back at the next SECTION and not before', () => {
     const game = run(['heartBalloon']);
     game.balloon!.alive = false;
