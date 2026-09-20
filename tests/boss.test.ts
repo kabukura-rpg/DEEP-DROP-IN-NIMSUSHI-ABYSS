@@ -9,6 +9,8 @@ import { GUN_MODULE_IDS } from '../src/data/gunModules';
 import { SHOP_ITEMS, shopPrice, ABYSS_SHOP_AREA } from '../src/data/shop';
 import { UPGRADE_TUNING } from '../src/data/upgrades';
 import { atNimushi, defeatNimushi, fighting, intoTheAbyss, laneOf, pin, round, seeded, shootBody, shootEye, STEP, tick } from './nimushi';
+import { BOSS_PHYSICS } from '../src/data/bossPhysics';
+import { BALANCE } from '../src/data/balance';
 
 describe('THE ABYSS opens after 4-3, and is not a thirteenth SECTION', () => {
   it('lands in a staging room rather than straight into a fight', () => {
@@ -318,13 +320,28 @@ describe('gravity is a sign, and every direction reads it', () => {
     expect(up.player.vy).toBeGreaterThan(0);
   });
 
-  it('leaves LEFT and RIGHT exactly as they were', () => {
+  /**
+   * Turning the world over must not mirror the controls: RIGHT is still right and LEFT is still
+   * left with the pull running upward.
+   *
+   * This used to assert that the two modes moved the player by an IDENTICAL distance. That stopped
+   * being true when the fight got its own physics layer -- the arena runs at moveSpeed 180 while the
+   * shaft runs at 350 -- and the equality was never the property worth protecting anyway. What
+   * matters is the sign, and that the speed is the mode's own rather than an accident.
+   */
+  it('leaves LEFT and RIGHT pointing the same way, at the mode\'s own speed', () => {
     const down = normal(), up = atNimushi(16);
     const dx0 = down.player.x, ux0 = up.player.x;
     down.moveHorizontal(0.1, 1); up.moveHorizontal(0.1, 1);
-    expect(down.player.x - dx0).toBeCloseTo(up.player.x - ux0, 6);
+    expect(down.player.x - dx0).toBeGreaterThan(0);
+    expect(up.player.x - ux0).toBeGreaterThan(0);
+    expect(down.player.x - dx0).toBeCloseTo(BALANCE.moveSpeed * 0.1, 6);
+    expect(up.player.x - ux0).toBeCloseTo(BOSS_PHYSICS.moveSpeed * 0.1, 6);
+
+    const dx1 = down.player.x, ux1 = up.player.x;
     down.moveHorizontal(0.1, -1); up.moveHorizontal(0.1, -1);
-    expect(down.player.x).toBeCloseTo(up.player.x - (ux0 - dx0), 6);
+    expect(down.player.x - dx1).toBeLessThan(0);
+    expect(up.player.x - ux1).toBeLessThan(0);
   });
 
   it('stomps from above in the shaft and from below in the ABYSS', () => {

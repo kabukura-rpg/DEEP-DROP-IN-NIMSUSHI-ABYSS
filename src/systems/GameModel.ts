@@ -13,6 +13,7 @@ import { AIR_CONTAINER_RULES, BREAK_BLOCK_RULES, EXIT_RULES, LIMBO_HAZARD_RULES,
 import { DOODAD_RULES, spawnDoodad, type Doodad } from '../data/doodads';
 import { CORPSE_RULES, spawnCorpse, type Corpse } from '../data/corpses';
 import { insideSafeZone, SAFE_ZONE_RULES, type SafeZone } from '../data/safeZone';
+import { BOSS_PHYSICS, GRAVITY_DIRECTION, type BattlePhysics } from '../data/bossPhysics';
 import { spawnEnemy } from '../data/enemies';
 import { ABYSS_SHOP_AREA, shopItem, type ShopOffer } from '../data/shop';
 import { CHARGE_AMMO_BONUS, gunModule, rollGunModule, STARTING_GUN_MODULE, volley, volleyRecoil, type GunModuleId, type ShotBoost } from '../data/gunModules';
@@ -243,7 +244,26 @@ export class GameModel {
    * A sign rather than a rotation, deliberately. The HUD, the text, the shaft walls and LEFT/RIGHT
    * are all exactly where they were: what is inverted is the physics, not the screen.
    */
-  private gravity: 1 | -1 = 1;
+  /**
+   * The physics the PLAYER obeys right now: the run's, or NIMUSHI's.
+   *
+   * Controls are shared and identical in both modes; only the response differs. The switch is the
+   * ABYSS itself -- from the moment the staging room opens, the player is on NIMUSHI's terms -- so
+   * nothing about a normal SECTION can reach the fight and nothing about the fight can reach a
+   * SECTION. A new run starts at `abyssStage: 'none'` and is therefore on normal physics with no
+   * reset step to forget.
+   *
+   * `stats` remains the run's own, because upgrades and gun modules are carried into the fight and
+   * keep working: only the three movement numbers are mode-specific.
+   */
+  get physics(): BattlePhysics {
+    return this.inBossMode ? BOSS_PHYSICS : this.stats;
+  }
+  /** True from the moment THE ABYSS opens, through the inversion, to the end of the fight. */
+  get inBossMode() { return this.abyssStage !== 'none' || this.state === 'boss'; }
+
+  /** Which way the pull runs. Direction only -- the MAGNITUDE comes from `physics`. */
+  private gravity: 1 | -1 = GRAVITY_DIRECTION.normal;
   get gravitySign(): 1 | -1 { return this.gravity; }
   /** True while the ABYSS is pulling the player up the screen. */
   get inverted() { return this.gravity === -1; }
@@ -340,7 +360,7 @@ export class GameModel {
     Object.assign(this.stats, sanitizeTuning(values));
     // Preserve spent rounds when resizing the magazine; no implicit mid-air reload.
     this.ammo = Math.max(0, Math.min(this.stats.maxAmmo, this.ammo + this.stats.maxAmmo - oldMax));
-    this.player.vy = Math.min(this.player.vy, this.stats.maxFallSpeed);
+    this.player.vy = Math.min(this.player.vy, this.physics.maxFallSpeed);
   }
   resetPhysicsTuning() { this.setPhysicsTuning(defaultTuning()); }
   /** Present only for submerged areas; undefined restores the ordinary instant movement. */
@@ -386,13 +406,13 @@ export class GameModel {
     if (this.wallJumpUsed !== 0 && this.wallSide === -this.wallJumpUsed) this.wallJumpUsed = 0;
     if (!water) {
       p.vx = 0;
-      p.x = Math.max(this.leftEdge, Math.min(this.rightEdge, p.x + (input * this.stats.moveSpeed + this.wallKick) * dt));
+      p.x = Math.max(this.leftEdge, Math.min(this.rightEdge, p.x + (input * this.physics.moveSpeed + this.wallKick) * dt));
       this.decayWallKick(dt);
       this.noteWallTouch();
       return;
     }
     // Submerged: steer towards the input speed instead of snapping to it, and drift on release.
-    p.vx += (input * this.stats.moveSpeed - p.vx) * Math.min(1, water.responsiveness * dt);
+    p.vx += (input * this.physics.moveSpeed - p.vx) * Math.min(1, water.responsiveness * dt);
     const next = Math.max(this.leftEdge, Math.min(this.rightEdge, p.x + (p.vx + this.wallKick) * dt));
     if (next === p.x) p.vx = 0;
     p.x = next;
@@ -429,7 +449,7 @@ export class GameModel {
       this.jetpackFuel = Math.max(0, this.jetpackFuel - dt);
       this.jetpackActive = true;
       const p = this.player;
-      const drift = this.stats.maxFallSpeed * UPGRADE_TUNING.safetyJetpack.fallMultiplier;
+      const drift = this.physics.maxFallSpeed * UPGRADE_TUNING.safetyJetpack.fallMultiplier;
       // Measured along the pull: in the ABYSS "too fast" is climbing the screen too fast.
       if (this.along(p.vy) > drift) p.vy = drift * this.gravity;
       this.events.push({ type: 'jetpack', x: p.x, y: p.y, value: this.jetpackFuel });
@@ -477,7 +497,7 @@ export class GameModel {
      */
     const descent = this.along(p.vy);
     const braked = descent > 0 ? Math.max(descent - kick, 0) : descent;
-    p.vy = Math.max(-this.stats.maxFallSpeed, Math.min(this.stats.maxFallSpeed, braked * this.gravity));
+    p.vy = Math.max(-this.physics.maxFallSpeed, Math.min(this.physics.maxFallSpeed, braked * this.gravity));
     this.lastAirShot = this.elapsed;
     // The muzzle is at the boots, which is the gravity-facing end of the player, and the volley
     // leaves it along the pull. Only the y half turns over: `vx` is untouched, so NOPPY's tilt,
@@ -640,7 +660,7 @@ export class GameModel {
       const lift = this.balloon?.alive ? UPGRADE_TUNING.heartBalloon.fallMultiplier : 1;
       // Accumulated along the pull and written back with its sign, so HEART BALLOON still softens
       // "falling" in the ABYSS even though falling there means climbing the screen.
-      const fall = Math.min(this.stats.maxFallSpeed * lift, this.along(p.vy) + this.stats.gravity * (this.water?.gravity ?? 1) * dt);
+      const fall = Math.min(this.physics.maxFallSpeed * lift, this.along(p.vy) + this.physics.gravity * (this.water?.gravity ?? 1) * dt);
       p.vy = fall * this.gravity;
     }
     // Nothing special is needed to keep a gate row openable. A row is several blocks edge to edge,
@@ -1568,7 +1588,7 @@ export class GameModel {
     this.inversionTimer -= dt;
     if (!this.inversionFlipped && this.inversionTimer <= ABYSS.reverse) {
       this.inversionFlipped = true;
-      this.setGravity(-1);
+      this.setGravity(GRAVITY_DIRECTION.boss);
       this.events.push({ type: 'gravityFlip', x: this.player.x, y: this.player.y, value: 1 });
     }
     if (this.inversionTimer > 0) return;
@@ -1725,7 +1745,7 @@ export class GameModel {
     this.player.y = this.sealY + ABYSS.inversionDrop + 10;
     this.player.vy = 0;
     this.abyssStage = 'fight';
-    this.setGravity(-1);
+    this.setGravity(GRAVITY_DIRECTION.boss);
     this.openArena();
     return true;
   }
