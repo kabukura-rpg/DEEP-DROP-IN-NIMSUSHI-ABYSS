@@ -45,6 +45,12 @@ export class GameScene extends Phaser.Scene {
     if (import.meta.env.DEV && this.terrainWatch) {
       (window as unknown as { __terrainWatch: unknown }).__terrainWatch = this.terrainWatch;
     }
+    // DEV only: the live model, so `__speed`, `__bossTest` and a human at the console can all see
+    // what the run is actually doing. A getter rather than a snapshot, because `startRun` replaces
+    // the model and a captured reference would quietly go stale.
+    if (import.meta.env.DEV) {
+      Object.defineProperty(window, '__model', { configurable: true, get: () => this.model });
+    }
     // DEV only: swap the SPEED PROFILE of the run in progress, so the shipped physics and the old
     // pre-fidelity ones can be felt back to back in a real AREA. `__speed('legacy')` / `('video')`.
     if (import.meta.env.DEV) {

@@ -10,6 +10,7 @@ import { PhysicsPanel } from './ui/PhysicsPanel';
 import { comboFeedback } from './systems/ComboFeedback';
 import { AREAS, TOTAL_SECTIONS } from './data/areas';
 import { shopItem, type ShopOffer } from './data/shop';
+import { enterBossTest, type BossTestTarget } from './dev/bossTest';
 
 const app = document.querySelector<HTMLDivElement>('#app')!;
 app.innerHTML = `
@@ -83,6 +84,13 @@ const bridge: GameBridge = {
 const scene = new GameScene(bridge);
 const game = new Phaser.Game({ type: Phaser.AUTO, parent: 'game', width: 450, height: 800, backgroundColor: '#10191c', pixelArt: true, antialias: false, scene: [scene], scale: { mode: Phaser.Scale.FIT, autoCenter: Phaser.Scale.CENTER_BOTH }, input: { activePointers: 4 }, audio: { noAudio: true }, callbacks: { postBoot: () => { ready = true; } } });
 physicsPanel = new PhysicsPanel($('physics-tuning'), () => scene.model, () => { lastHud = ''; updateHud(scene.model); });
+// DEV only: `__bossTest()` for the dormant fight, or `__bossTest('phase3')` / `('rage')` to start
+// part-way in. The stretch shortcuts set NIMUSHI's HP as a debug fixture and let its own systems
+// pick the stretch up from it -- nothing here forces a phase.
+if (import.meta.env.DEV) {
+  (window as unknown as { __bossTest: (t?: BossTestTarget) => string }).__bossTest =
+    (target = 'phase1') => bossTest(target);
+}
 
 function setOverlay(content: string) {
   if (content) { introAnimation?.cancel(); $('stage-intro').hidden = true; }
@@ -126,6 +134,24 @@ function start(practice = false) {
   $('touch-controls').classList.add('visible');
   $('overlay').classList.remove('result-overlay');
 }
+/**
+ * DEVELOPMENT ONLY: start a run and drop straight into the NIMUSHI fight.
+ *
+ * A debug utility for playtesting the boss without clearing AREA 1-4 first. It reuses the ordinary
+ * `start()` so the overlay, audio, HUD and controls come up exactly as they do for a real run --
+ * only the destination differs. The normal route to the fight is untouched and still has its own
+ * end-to-end browser check.
+ */
+function bossTest(target: BossTestTarget = 'phase1') {
+  if (!import.meta.env.DEV) return 'BOSS TEST is development only';
+  if (!ready) return 'not ready yet';
+  start();
+  const report = enterBossTest(scene.model, target);
+  $('run-status').textContent = `BOSS TEST / ${target.toUpperCase()}`;
+  lastHud = ''; updateHud(scene.model);
+  return report;
+}
+
 function showTitle() {
   mode = 'title'; bridge.active = false;
   if (ready) { clearInput(); scene.startRun(); lastHud = ''; updateHud(scene.model); }
@@ -135,6 +161,14 @@ function showTitle() {
   $('touch-controls').classList.remove('visible');
   setOverlay(`<div class="title-content"><div class="pill"><span></span> 4 AREAS · 12 SECTIONS</div><div class="title-symbol">↓</div><h2>DEEP<br><span>DROP</span><i>01</i></h2><p>深く潜れ。弾が尽きる、その前に。</p><button id="start" class="primary-button">潜降開始 <span>↘</span></button><button id="practice" class="text-button">操作を試す <span>CONTROL LAB →</span></button><div class="title-hint desktop-hint">MOVE <b>← →</b><span>·</span> SHOOT <b>SPACE</b></div><div class="title-hint mobile-hint">左右をホールドで移動 · タップで射撃<br>FIREボタン長押しで連射</div></div><span class="overlay-bottom">6 BULLETS. ONE WAY DOWN.</span>`);
   $('start').onclick = () => start(); $('practice').onclick = () => start(true);
+  // DEV only: a BOSS TEST button beside the ordinary ones. The markup is added here rather than in
+  // the title template so that a production build has no trace of it at all.
+  if (import.meta.env.DEV) {
+    const button = document.createElement('button');
+    button.id = 'boss-test'; button.className = 'text-button'; button.textContent = 'BOSS TEST';
+    button.onclick = () => bossTest('phase1');
+    $('practice').insertAdjacentElement('afterend', button);
+  }
 }
 let pausedFrom: 'playing' | 'boss' = 'playing';
 function pause() {

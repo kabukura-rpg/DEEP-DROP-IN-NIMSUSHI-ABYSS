@@ -4,6 +4,8 @@ import { BALANCE } from '../src/data/balance';
 import { BOSS_PHYSICS, GRAVITY_DIRECTION } from '../src/data/bossPhysics';
 import { atNimushi, fighting, intoTheAbyss, STEP, tick, shootEye, defeatNimushi } from './nimushi';
 import { GUN_MODULES, type GunModuleId } from '../src/data/gunModules';
+import { enterBossTest } from '../src/dev/bossTest';
+import { NIMUSHI, FINAL_RAGE_RATIO } from '../src/data/nimushi';
 
 /**
  * NORMAL / BOSS PHYSICS ISOLATION.
@@ -163,5 +165,66 @@ describe('the staging room runs on boss physics too', () => {
     intoTheAbyss(g);
     expect(g.abyssStage).not.toBe('staging');
     expect(g.physics).toBe(BOSS_PHYSICS);
+  });
+});
+
+/**
+ * The BOSS TEST shortcut. A development-only playtest utility, pinned here so its guarantees hold --
+ * it is NOT an acceptance test for the fight, and it does not stand in for the browser check that
+ * still walks 4-3 -> FINAL REST -> NEXT -> THE ABYSS -> seal -> reversal end to end.
+ */
+describe('BOSS TEST shortcut', () => {
+  const fresh = () => new GameModel(false);
+
+  it('starts the fight in a realistic clean run state', () => {
+    const g = fresh();
+    const report = enterBossTest(g, 'phase1');
+    expect(g.state).toBe('boss');
+    expect(g.abyssStage).toBe('fight');
+    expect(g.gravitySign).toBe(GRAVITY_DIRECTION.boss);
+    expect(g.physics).toBe(BOSS_PHYSICS);
+    expect(g.hp).toBe(g.stats.maxHp);
+    expect(g.ammo).toBe(g.stats.maxAmmo);
+    expect(g.gun.module.id).toBe('machine');
+    expect(g.upgrades.acquired).toEqual([]);
+    expect(g.boss.hp).toBe(NIMUSHI.maxHp);
+    expect(g.boss.defeated).toBe(false);
+    expect(g.bossTime).toBeLessThan(0.001);
+    expect(report).toContain('BOSS TEST -> phase1');
+  });
+
+  it('puts each stretch shortcut in that stretch, at that HP', () => {
+    for (const [target, phase, ratio] of [['phase2', 2, 0.75], ['phase3', 3, 0.5], ['phase4', 4, 0.25]] as const) {
+      const g = fresh();
+      enterBossTest(g, target);
+      expect({ target, phase: g.boss.phaseId }).toEqual({ target, phase });
+      expect(g.boss.hp).toBe(Math.round(NIMUSHI.maxHp * ratio));
+    }
+  });
+
+  it('puts RAGE inside its trigger rather than one hit away from it', () => {
+    const g = fresh();
+    enterBossTest(g, 'rage');
+    expect(g.boss.hp / NIMUSHI.maxHp).toBeLessThan(FINAL_RAGE_RATIO);
+    expect(g.boss.phaseId).toBe(4);
+  });
+
+  it('rejects an unknown target instead of starting something', () => {
+    const g = fresh();
+    const before = g.state;
+    expect(enterBossTest(g, 'phase9' as never)).toContain('unknown target');
+    expect(g.state).toBe(before);
+  });
+
+  it('leaks nothing into the next run', () => {
+    const used = fresh();
+    enterBossTest(used, 'rage');
+    const next = fresh();
+    expect(next.inBossMode).toBe(false);
+    expect(next.gravitySign).toBe(GRAVITY_DIRECTION.normal);
+    expect(next.abyssStage).toBe('none');
+    expect(next.stage.label).toBe('1-1');
+    expect(next.physics.gravity).toBe(BALANCE.gravity);
+    expect(next.boss.enabled).toBe(false);
   });
 });
