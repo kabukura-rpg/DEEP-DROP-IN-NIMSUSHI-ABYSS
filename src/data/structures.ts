@@ -125,10 +125,15 @@ export interface SpikePlatform {
 
 export const SPIKE_PLATFORM_RULES = {
   /**
-   * Seconds between the landing that arms it and the spikes emerging. Long enough to read and to
-   * leave, short enough that a platform is never a rest. MEASUREMENT REQUIRED.
+   * Seconds between the landing that arms it and the spikes emerging.
+   *
+   * Derived from the shaft's own geometry rather than picked: a player who lands on the guaranteed
+   * landing spot of the widest CATACOMBS ledge needs 0.81s at moveSpeed to walk off the far side,
+   * so anything under that makes the hit unavoidable instead of a mistake. This is that worst case
+   * plus a margin to read the warning in. MEASUREMENT REQUIRED -- the original's own figure is not
+   * measured, and if these platform widths change this has to be measured again with them.
    */
-  warning: 0.55,
+  warning: 0.95,
   /**
    * Seconds the spikes stay up. Deliberately shorter than HealthSystem's invulnerability window, so
    * one pass through a live platform costs exactly one heart: a player who mistimes it is punished

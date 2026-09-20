@@ -100,6 +100,28 @@ describe('SPIKE PLATFORM: ground that turns, and never kills', () => {
     expect(game.hp).toBe(hp);
   });
 
+  it('warns for long enough to walk off the widest ledge it is laid on', () => {
+    // The fairness of the whole mechanic. If the warning is shorter than the time it takes to cross
+    // the ledge, a player who lands on the guaranteed landing spot cannot leave, and the hit stops
+    // being a mistake. Measured against the real plan widths, in both AREAs that use these.
+    for (const [area, sectionId] of [[2, 1], [2, 2], [2, 3], [4, 1], [4, 2], [4, 3]] as const) {
+      const sectionPlan = areaConfig(area).plans![sectionId - 1];
+      const width = Math.round((sectionPlan.platformWidth[0] + sectionPlan.platformWidth[1]) / 2);
+      const game = new GameModel(false, seeded(5));
+      game.jumpToStage(area, sectionId);
+      game.platforms = []; game.enemies = []; game.hazards = []; game.doodads = []; game.safeZones = [];
+      const ledge: Platform = { id: 9, x: WORLD.wall + 60, y: 500, width, breakable: false, state: 'stable', spikePlatform: spikePlatform() };
+      game.platforms = [ledge];
+      game.player.invincible = 99;
+      // Land at the far end from the way out -- the worst case the route can hand a player.
+      game.player.x = ledge.x + 26; game.player.y = 400; game.player.vy = 240; game.player.grounded = -1;
+      for (let i = 0; i < 400 && game.player.grounded !== ledge.id; i++) game.step(1 / 120, 0, false);
+      expect({ area, sectionId, landed: game.player.grounded }).toEqual({ area, sectionId, landed: ledge.id });
+      let seconds = 0;
+      for (let i = 0; i < 1200 && game.player.grounded === ledge.id; i++) { game.step(1 / 120, 1, false); seconds += 1 / 120; }
+      expect({ area, sectionId, escapable: seconds < SPIKE_PLATFORM_RULES.warning }).toEqual({ area, sectionId, escapable: true });
+    }
+  });
   it('costs exactly one heart through HealthSystem, with the ordinary invulnerability', () => {
     const game = bare();
     game.player.invincible = 0;

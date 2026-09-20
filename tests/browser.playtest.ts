@@ -1425,13 +1425,99 @@ button('休憩UI 4サイズ検証', async () => {
   }
 });
 
-// AREA 2: play 2-1 -> rest -> 2-2 -> rest -> 2-3 -> rest -> 3-1 with keyboard input only, steering
-// for air when the tank runs low, and check the supply behaves at every boundary.
-button('2-1 → 3-1 を通常プレイ', async () => {
+
+// AREA 2: play 2-1 -> rest -> 2-2 -> rest -> 2-3 -> rest -> 3-1 with keyboard input only, meeting
+// the ground that turns and surviving it, and check CATACOMBS behaves at every boundary.
+button('2-1 → 3-1 を通常プレイ（CATACOMBS）', async () => {
   keepAwake(); start(); await until(() => bridge.active, 8000);
   const model = scene.model;
   model.jumpToStage(2, 1);
-  assert(model.oxygen.enabled && model.oxygen.remaining === model.oxygen.max, `2-1 開始で酸素満タン (${model.oxygen.remaining.toFixed(1)}s)`);
+  assert(!model.oxygen.enabled && model.containers.length === 0 && model.water === undefined, 'AREA 2 に水・酸素・コンテナはない');
+  assert(!model.heat.enabled, 'AREA 2 に熱ギミックはない');
+  await wait(60);
+  const deadline = performance.now() + 420000;
+  let direction = 0, firing = false, playingHp = model.hp;
+  let landedOnTrap = 0, warned = 0, spiked = 0, spikeHits = 0, lethal = 0;
+  const rests: string[] = [];
+  let shopsSeen = 0;
+  const seenStates = new Set<string>();
+  const steer = (next: number) => {
+    if (next === direction) return;
+    if (direction) key(direction < 0 ? 'KeyA' : 'KeyD', false);
+    direction = next;
+    if (direction) key(direction < 0 ? 'KeyA' : 'KeyD', true);
+  };
+  const act = (on: boolean) => { if (on !== firing) { key('Space', on); firing = on; } };
+  const original = bridge.onEvent;
+  bridge.onEvent = (event, game) => {
+    original(event, game);
+    if (event.type !== 'spikePlatform') return;
+    if (event.value === 0) warned++;
+    if (event.value === 1) spiked++;
+  };
+  while (performance.now() < deadline) {
+    if (model.state === 'over') {
+      bridge.onEvent = original;
+      throw new Error(`${model.stage.label} で死亡 (死因 ${model.health.deathCause?.cause} / 即死 ${model.health.deathCause?.instant} / ${Math.floor(model.sectionDepth)}m)`);
+    }
+    if (model.state === 'shop') {
+      steer(0); act(false);
+      shopsSeen++;
+      document.getElementById('shop-close')?.click();
+      await wait(120);
+      continue;
+    }
+    if (model.state === 'upgrade') {
+      steer(0); act(false);
+      await until(() => !!document.getElementById('upgrade-0'), 8000);
+      const cleared = model.stage.label;
+      assert(model.hp === playingHp, `${cleared} クリアで休憩：HPは ${model.hp}/${model.health.maxHp} のまま回復しない`);
+      document.getElementById('upgrade-0')!.click();
+      document.getElementById('upgrade-confirm')!.click();
+      await wait(90);
+      rests.push(cleared);
+      if (model.stage.label === '3-1') break;
+      continue;
+    }
+    keepAwake();
+    playingHp = model.hp;
+    lethal += model.hazards.filter(h => h.lethal).length;
+    for (const f of model.platforms) if (f.spikePlatform) seenStates.add(f.spikePlatform.state);
+    const ground = model.platforms.find(p => p.id === model.player.grounded) as RoutePlatform | undefined;
+    if (ground?.spikePlatform && ground.spikePlatform.state !== 'safe') landedOnTrap++;
+    const next = model.platforms.filter(p => p.y > model.player.y + 15).sort((a, b) => a.y - b.y)[0] as RoutePlatform | undefined;
+    const target = ground ? ground.exitX + ground.safeSide * 3 : next?.safeX;
+    const gate = model.exit ? gateHeading(model, ground) : undefined;
+    const block = model.platforms.filter(f => f.breakBlock && f.state !== 'broken' && f.y > model.player.y - 4).sort((a, b) => a.y - b.y)[0];
+    const overBlock = !!block && model.player.x + 9 > block.x && model.player.x - 9 < block.x + block.width;
+    const working = !!ground?.breakBlock || (!ground && overBlock);
+    act(working && model.ammo > 0);
+    const heading = working ? (block ? block.x + block.width / 2 : model.player.x) : (gate ?? target);
+    steer(heading === undefined || Math.abs(heading - model.player.x) < 3 ? 0 : Math.sign(heading - model.player.x));
+    if (model.health.lastDamage?.cause === 'spike' && model.player.invincible > 0.9) spikeHits++;
+    output.textContent = `AREA 2 をキーボード入力のみで通常プレイ\n${model.stage.label} ${Math.floor(model.sectionDepth)} / ${model.sectionLength}m\nHP ${model.hp}/${model.health.maxHp} · 罠床着地 ${landedOnTrap} · warning ${warned} · spikes ${spiked}\n休憩 ${rests.join(' → ') || 'なし'}`;
+    await wait(20);
+  }
+  steer(0); act(false); pause();
+  bridge.onEvent = original;
+  output.textContent += `\n結果: 休憩 ${rests.join(' → ')} / warning ${warned} / spikes ${spiked} / 致死hazard ${lethal} / SHOP ${shopsSeen}`;
+  assert(rests.join(' ') === '2-1 2-2 2-3', `2-1 → 2-2 → 2-3 を通常プレイで踏破 (${rests.join(' → ')})`);
+  assert(model.stage.label === '3-1' && model.stage.progress.area === 3, `AREA 2 クリア後に AREA 3 / 3-1 へ (${model.stage.label})`);
+  assert(lethal === 0, 'AREA 2 を通して即死hazardは一度も生成されない');
+  assert(warned > 0, `罠床が warning を出した (${warned} 回)`);
+  assert(spiked > 0, `罠床が実際に spikes を展開した (${spiked} 回)`);
+  assert(seenStates.has('safe'), '罠床は待機状態も持つ');
+  assert(model.hp > 0, `即死せず AREA 2 を踏破した (HP ${model.hp}/${model.health.maxHp})`);
+  assert(model.oxygen.enabled === false, 'AREA 3 へ入るまで酸素は無効のまま');
+});
+
+// AREA 2: play 3-1 -> rest -> 3-2 -> rest -> 3-3 -> rest -> 3-1 with keyboard input only, steering
+// for air when the tank runs low, and check the supply behaves at every boundary.
+button('3-1 → 4-1 を通常プレイ（AQUIFER）', async () => {
+  keepAwake(); start(); await until(() => bridge.active, 8000);
+  const model = scene.model;
+  model.jumpToStage(3, 1);
+  assert(model.oxygen.enabled && model.oxygen.remaining === model.oxygen.max, `3-1 開始で酸素満タン (${model.oxygen.remaining.toFixed(1)}s)`);
   await wait(60);
   const deadline = performance.now() + 320000;
   let direction = 0, lowest = model.oxygen.max, collected = 0, playingHp = model.hp, lastAir = model.oxygen.max;
@@ -1487,94 +1573,19 @@ button('2-1 → 3-1 を通常プレイ', async () => {
     const gate = model.exit ? gateHeading(model, ground) : undefined;
     const heading = gate ?? target;
     steer(heading === undefined || Math.abs(heading - model.player.x) < 3 ? 0 : Math.sign(heading - model.player.x));
-    output.textContent = `AREA 2 をキーボード入力のみで通常プレイ\n${model.stage.label} ${Math.floor(model.sectionDepth)} / ${model.sectionLength}m\nOXYGEN ${model.oxygen.remaining.toFixed(1)}s (最低 ${lowest.toFixed(1)}s)\nHP ${model.hp}/${model.health.maxHp} · 取得 ${collected} · 休憩 ${rests.join(' → ') || 'なし'}`;
-    await wait(20);
-  }
-  steer(0); pause();
-  assert(rests.join(' ') === '2-1 2-2 2-3', `2-1 → 2-2 → 2-3 を通常プレイで踏破 (${rests.join(' → ')})`);
-  assert(model.stage.label === '3-1', `AREA 2 クリア後に AREA 3 / 3-1 へ (${model.stage.label})`);
-  // AREA 3 brings its own pickups; what must be gone is every air source.
-  assert(!model.oxygen.enabled && model.pickups.every(p => p.kind !== 'oxygenBubble') && model.containers.length === 0 && model.bubbles.length === 0, 'AREA 3 では酸素・コンテナ・泡が消える');
-  assert(model.water === undefined, 'AREA 3 では水中物理が解除される');
-  // Air pockets are deliberately rare late in the area, so only the refills themselves are required.
-  assert(collected > 0, `酸素を ${collected} 回補給（すべてコンテナ由来の泡）`);
-  assert(!('sheltered' in (model as object)) && !('airPockets' in (model as object)), '固定AIRスペースと sheltered 依存が残っていない');
-  assert(lowest < model.oxygen.max, `酸素が実際に消費された (最低 ${lowest.toFixed(1)}s)`);
-});
-
-// AREA 3: play 3-1 -> rest -> 3-2 -> rest -> 3-3 -> rest -> 4-1 with keyboard input only, taking ice
-// when the gauge climbs, and check heat behaves at every boundary.
-button('3-1 → 4-1 を通常プレイ', async () => {
-  keepAwake(); start(); await until(() => bridge.active, 8000);
-  const model = scene.model;
-  model.jumpToStage(3, 1);
-  assert(model.heat.enabled && model.heat.value === 0, `3-1 開始でHEAT 0% (${model.heat.value.toFixed(0)}%)`);
-  assert(!model.oxygen.enabled && model.containers.length === 0 && model.water === undefined, 'AREA 2 の酸素・コンテナ・水中物理は無効');
-  const deadline = performance.now() + 320000;
-  let direction = 0, peak = 0, ice = 0, lastHeat = 0, nearMax = 0, playingHp = model.hp, vents = 0;
-  const rests: string[] = [];
-  let shopsSeen = 0;
-  const steer = (next: number) => {
-    if (next === direction) return;
-    if (direction) key(direction < 0 ? 'KeyA' : 'KeyD', false);
-    direction = next;
-    if (direction) key(direction < 0 ? 'KeyA' : 'KeyD', true);
-  };
-  while (performance.now() < deadline) {
-    if (model.state === 'over') throw new Error(`${model.stage.label} で死亡 (${model.health.deathCause?.cause}, HEAT ${model.heat.value.toFixed(0)}%)`);
-    // A SHOP stops the world until it is dismissed, so a play loop has to answer the door.
-    if (model.state === 'shop') {
-      steer(0);
-      shopsSeen++;
-      document.getElementById('shop-close')?.click();
-      await wait(120);
-      continue;
-    }
-    if (model.state === 'upgrade') {
-      steer(0);
-      const frozen = model.heat.value;
-      await until(() => !!document.getElementById('upgrade-0'), 8000);
-      assert(model.heat.value === frozen, `${model.stage.label} 休憩中はHEATが動かない (${frozen.toFixed(0)}%)`);
-      assert(model.hp === playingHp, `${model.stage.label} 休憩でHP維持 ${model.hp}/${model.health.maxHp}`);
-      rests.push(model.stage.label);
-      document.getElementById('upgrade-0')!.click();
-      document.getElementById('upgrade-confirm')!.click();
-      await wait(90);
-      if (model.stage.progress.area === 4) break;
-      assert(model.heat.value < 1 && model.ammo === model.stats.maxAmmo, `${model.stage.label} 開始でHEAT 0%・CHARGE満タン（COMBO ${model.combo} は跨いで維持）`);
-      playingHp = model.hp; peak = 0; lastHeat = 0;
-      continue;
-    }
-    keepAwake();
-    playingHp = model.hp;
-    peak = Math.max(peak, model.heat.value);
-    nearMax = Math.max(nearMax, model.heat.nearby);
-    if (model.heat.value < lastHeat - 10) ice++;
-    lastHeat = model.heat.value;
-    vents += model.hazards.filter(h => h.state === 'warning').length ? 1 : 0;
-    const ground = model.platforms.find(p => p.id === model.player.grounded) as RoutePlatform | undefined;
-    const next = model.platforms.filter(p => p.y > model.player.y + 15).sort((a, b) => a.y - b.y)[0] as RoutePlatform | undefined;
-    let target = ground ? ground.exitX + ground.safeSide * 3 : next?.safeX;
-    if (!ground && model.heat.value > 45) {
-      // Hot: take the shard even though it sits nearer the lava. That is the AREA 3 decision.
-      const shard = model.pickups.filter(p => !p.taken && p.kind === 'ice' && p.y > model.player.y && p.y < model.player.y + 200).sort((a, b) => a.y - b.y)[0];
-      if (shard && Math.abs(shard.x - model.player.x) < 170) target = shard.x;
-    }
-    // A SECTION now ends at the gate; gateHeading knows how to leave a ledge to reach it.
-    const gate = model.exit ? gateHeading(model, ground) : undefined;
-    const heading = gate ?? target;
-    steer(heading === undefined || Math.abs(heading - model.player.x) < 3 ? 0 : Math.sign(heading - model.player.x));
-    output.textContent = `AREA 3 をキーボード入力のみで通常プレイ\n${model.stage.label} ${Math.floor(model.sectionDepth)} / ${model.sectionLength}m\nHEAT ${model.heat.value.toFixed(0)}% (最大 ${peak.toFixed(0)}%) ${model.heat.stage}\nHP ${model.hp}/${model.health.maxHp} · ICE ${ice} · 休憩 ${rests.join(' → ') || 'なし'}`;
+    output.textContent = `AREA 3 をキーボード入力のみで通常プレイ\n${model.stage.label} ${Math.floor(model.sectionDepth)} / ${model.sectionLength}m\nOXYGEN ${model.oxygen.remaining.toFixed(1)}s (最低 ${lowest.toFixed(1)}s)\nHP ${model.hp}/${model.health.maxHp} · 取得 ${collected} · 休憩 ${rests.join(' → ') || 'なし'}`;
     await wait(20);
   }
   steer(0); pause();
   assert(rests.join(' ') === '3-1 3-2 3-3', `3-1 → 3-2 → 3-3 を通常プレイで踏破 (${rests.join(' → ')})`);
   assert(model.stage.label === '4-1', `AREA 3 クリア後に AREA 4 / 4-1 へ (${model.stage.label})`);
-  assert(!model.heat.enabled && model.heat.value === 0, 'AREA 4 でHEATが無効化される');
-  assert(model.hazards.length === 0 && model.pickups.filter(k => pickupType(k.kind).category === 'environment').length === 0,
-    'AREA 4 で溶岩・噴出口・アイスが消える');
-  assert(model.water === undefined, 'AREA 4 は通常物理');
-  assert(peak > 5 && nearMax > 0, `HEATが実際に熱源で上昇した (最大 ${peak.toFixed(0)}%, 最寄り熱源 ${nearMax.toFixed(1)}/s)`);
+  // LIMBO brings its own furniture; what must be gone is every air source and the water.
+  assert(!model.oxygen.enabled && model.pickups.every(p => p.kind !== 'oxygenBubble') && model.containers.length === 0 && model.bubbles.length === 0, 'AREA 4 では酸素・コンテナ・泡が消える');
+  assert(model.water === undefined, 'AREA 4 では水中物理が解除される');
+  // Air pockets are deliberately rare late in the area, so only the refills themselves are required.
+  assert(collected > 0, `酸素を ${collected} 回補給（すべてコンテナ由来の泡）`);
+  assert(!('sheltered' in (model as object)) && !('airPockets' in (model as object)), '固定AIRスペースと sheltered 依存が残っていない');
+  assert(lowest < model.oxygen.max, `酸素が実際に消費された (最低 ${lowest.toFixed(1)}s)`);
 });
 
 // AREA 4: play 4-1 -> rest -> 4-2 -> rest -> 4-3 -> rest -> FINAL BOSS with keyboard input only,
