@@ -1,6 +1,24 @@
 import type { EnemyKind } from './enemies';
 import type { AreaGimmicks, SectionPlan, WaterPhysics } from './areas';
 
+/**
+ * THE DEMON KING -- preserved, no longer wired to anything.
+ *
+ * This was the FINAL BOSS before THE ABYSS replaced it: a king that held station BELOW the falling
+ * player, took damage anywhere on its body, and ran four phases whose recipes were the areas'
+ * own systems replayed. NIMUSHI is a different fight in every respect -- armoured body, one weak
+ * point, its own five attacks, and gravity pulling the other way -- so none of this is reachable
+ * in play any more.
+ *
+ * It is kept rather than deleted for one reason that is not sentiment: PHASE 3, MAGMA WRATH, is the
+ * last place the magma mechanics (the heat gauge, lava, vents, ice, the fire roster) are described
+ * as a working recipe. AREA 3 became the AQUIFER in Phase 4 and THE ABYSS's four stretches are
+ * CAVERN / CATACOMB / AQUIFER / LIMBO, so magma now has no home in normal play OR in the fight.
+ * HeatSystem, the hazards and the fire enemies all still exist and still work; this file is the
+ * recipe that says how they went together, so reviving them is a matter of pointing something at
+ * it rather than reconstructing it.
+ */
+
 /** Every attack telegraphs before it can hurt anything. No pattern may skip the wind-up. */
 export interface BossAttack {
   id: 'magicShot' | 'sweep';

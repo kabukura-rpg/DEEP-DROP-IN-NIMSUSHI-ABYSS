@@ -142,3 +142,27 @@
 .shop-item small{display:block;font-size:8px;line-height:1.7;color:#aba3c4;margin-top:4px}
 .shop-item b{display:block;font-size:11px;color:#dfe9cf;margin-top:6px;letter-spacing:1px}
 @media(max-height:700px){.purse span{font-size:10px}.shop-item{min-height:54px;padding:10px}.shop-item small{display:none}.shop-purse{padding:9px 0;margin-bottom:11px}}
+
+/*
+ * NIMUSHI's voice. Screen-space and the right way up, exactly like every other piece of the HUD:
+ * the ABYSS inverts the physics, never the interface.
+ */
+.boss-line {
+  position: absolute;
+  left: 50%;
+  bottom: 27%;
+  transform: translateX(-50%);
+  max-width: 78%;
+  padding: 10px 16px;
+  border: 1px solid rgba(255, 143, 168, 0.55);
+  border-radius: 10px;
+  background: rgba(20, 8, 16, 0.86);
+  color: #ffd7e2;
+  font-size: 14px;
+  line-height: 1.45;
+  letter-spacing: 0.04em;
+  text-align: center;
+  white-space: pre-line;
+  pointer-events: none;
+  z-index: 6;
+}

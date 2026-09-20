@@ -3,19 +3,21 @@ import { StageGenerator, START_PLATFORM, type Enemy, type Platform, type RoutePl
 import { OxygenSystem } from './OxygenSystem';
 import { HeatSystem } from './HeatSystem';
 import { BreakablePlatformSystem, BREAK_RULES } from './BreakablePlatformSystem';
-import { BossFightSystem } from './BossFightSystem';
+import { NimushiBossSystem, type NimushiSignal, type TapiocaCup } from './NimushiBossSystem';
 import { GunModuleSystem } from './GunModuleSystem';
 import { CoinSystem } from './CoinSystem';
 import { CoinHighSystem } from './CoinHighSystem';
 import { ShopSystem } from './ShopSystem';
 import { coinsFor, type Coin } from '../data/coins';
-import { AIR_CONTAINER_RULES, BREAK_BLOCK_RULES, EXIT_RULES, LIMBO_HAZARD_RULES, PLATFORM_THICKNESS, SHOP_DOOR, SPIKE_PLATFORM_RULES, type AirBubble, type AirContainer, type StageExit } from '../data/structures';
-import { DOODAD_RULES, type Doodad } from '../data/doodads';
+import { AIR_CONTAINER_RULES, BREAK_BLOCK_RULES, EXIT_RULES, LIMBO_HAZARD_RULES, PLATFORM_THICKNESS, SHOP_DOOR, SPIKE_PLATFORM_RULES, breakBlockWidth, spikePlatform, type AirBubble, type AirContainer, type StageExit } from '../data/structures';
+import { DOODAD_RULES, spawnDoodad, type Doodad } from '../data/doodads';
 import { CORPSE_RULES, spawnCorpse, type Corpse } from '../data/corpses';
 import { insideSafeZone, SAFE_ZONE_RULES, type SafeZone } from '../data/safeZone';
-import { shopItem, type ShopOffer } from '../data/shop';
+import { spawnEnemy } from '../data/enemies';
+import { ABYSS_SHOP_AREA, shopItem, type ShopOffer } from '../data/shop';
 import { CHARGE_AMMO_BONUS, gunModule, rollGunModule, STARTING_GUN_MODULE, volley, volleyRecoil, type GunModuleId, type ShotBoost } from '../data/gunModules';
-import { BOSS, type BossPhase } from '../data/boss';
+import { ABYSS, abyssPhase, TOMATO, type AbyssPhase } from '../data/abyss';
+import { NIMUSHI, NIMUSHI_LINES, STRAW_BEAM, TAPIOCA_CUP } from '../data/nimushi';
 import { hazardBounds, hazardType, ventStateAt, type Hazard } from '../data/hazards';
 import { pickupType, spawnGunModule, spawnPickup, type Pickup } from '../data/pickups';
 import { HealthSystem, type DamageCause } from './HealthSystem';
@@ -26,7 +28,7 @@ import { StageProgressionSystem } from './StageProgressionSystem';
 import type { AreaId, SectionId } from '../data/areas';
 import { enemyType } from '../data/enemies';
 import { defaultTuning, sanitizeTuning, type PhysicsTuning } from './PhysicsTuning';
-export type GameEvent = { type: 'shot' | 'empty' | 'land' | 'kill' | 'hurt' | 'upgrade' | 'over' | 'heal' | 'boss' | 'clear' | 'oxygen' | 'section' | 'ice' | 'vent' | 'crack' | 'collapse' | 'bossHit' | 'bossTelegraph' | 'bossFire' | 'bossPhase' | 'bossDown' | 'gunModule' | 'coin' | 'shopOpen' | 'shopBuy' | 'exitReady' | 'exit' | 'containerBreak' | 'blockCrack' | 'blockBreak' | 'jump' | 'wallJump' | 'comboSettle' | 'doodad' | 'timeVoid' | 'coinVein' | 'coinHigh' | 'spikePlatform' | 'explosion' | 'corpse' | 'balloon' | 'jetpack'; x: number; y: number; value?: number; stomp?: boolean; lifeUps?: number; overflow?: number; combo?: number; stage?: string; areaCleared?: string | null; bonus?: 'heart' | 'charge'; source?: { id: number; kind: Enemy['kind']; x: number; y: number } };
+export type GameEvent = { type: 'shot' | 'empty' | 'land' | 'kill' | 'hurt' | 'upgrade' | 'over' | 'heal' | 'boss' | 'clear' | 'oxygen' | 'section' | 'ice' | 'vent' | 'crack' | 'collapse' | 'bossHit' | 'bossTelegraph' | 'bossFire' | 'bossPhase' | 'bossDown' | 'gunModule' | 'coin' | 'shopOpen' | 'shopBuy' | 'exitReady' | 'exit' | 'containerBreak' | 'blockCrack' | 'blockBreak' | 'jump' | 'wallJump' | 'comboSettle' | 'doodad' | 'timeVoid' | 'coinVein' | 'coinHigh' | 'spikePlatform' | 'explosion' | 'corpse' | 'balloon' | 'jetpack' | 'gravityFlip' | 'bossEye' | 'bossRage' | 'bossStart' | 'tomato' | 'bossLine' | 'seal'; x: number; y: number; value?: number; stomp?: boolean; lifeUps?: number; overflow?: number; combo?: number; stage?: string; areaCleared?: string | null; bonus?: 'heart' | 'charge'; source?: { id: number; kind: Enemy['kind']; x: number; y: number } };
 /**
  * Who fired a round.
  *
@@ -64,6 +66,13 @@ export interface Bullet {
  */
 export const sweeps = (previous: number, current: number, lo: number, hi: number) =>
   Math.max(previous, current) >= lo && Math.min(previous, current) <= hi;
+
+/**
+ * The id a round records when it has already spent itself on NIMUSHI's eye. Enemy ids are positive,
+ * so a negative one cannot collide with an enemy and the ordinary "one hit per target, then check
+ * the piercing budget" rule covers the boss without a rule of its own.
+ */
+const NIMUSHI_TARGET = -1;
 
 /** A plain downward round, exactly as MACHINE GUN fires it. Useful for fixtures and drops. */
 export const plainBullet = (x: number, y: number, damage = 1, size = 4): Bullet => ({
@@ -108,10 +117,41 @@ export class GameModel {
   readonly oxygen = new OxygenSystem();
   readonly heat = new HeatSystem();
   readonly collapse = new BreakablePlatformSystem();
-  readonly boss = new BossFightSystem();
+  readonly boss = new NimushiBossSystem();
   readonly gun = new GunModuleSystem();
   readonly coins = new CoinSystem();
   readonly shop = new ShopSystem();
+  /**
+   * Where the run is inside THE ABYSS.
+   *
+   *   none      -- an ordinary SECTION, or the title screen.
+   *   staging   -- the room past 4-3: the final shop, the seal, ordinary downward gravity.
+   *   inverting -- the reversal itself. The world is held still for the length of it.
+   *   fight     -- NIMUSHI. Gravity pulls up and stays that way until the run ends.
+   */
+  abyssStage: 'none' | 'staging' | 'inverting' | 'fight' = 'none';
+  private inversionTimer = 0;
+  private inversionFlipped = false;
+  /**
+   * How many SAFE ZONE chambers this run has actually stepped into. Counted during ordinary play
+   * only, because what it decides is what the ABYSS offers a run that never once took shelter.
+   */
+  safeZoneVisitCount = 0;
+  private insideZone = false;
+  /**
+   * Metres climbed since the world turned over. Deliberately its OWN number: the fight goes back up
+   * the way the run came down, and TOTAL DEPTH must not be given any of it to subtract.
+   */
+  bossAscent = 0;
+  /** What NIMUSHI is saying, and how much longer it hangs there. Any input dismisses it. */
+  bossLine: { text: string; timer: number } | null = null;
+  private sealY = 0;
+  /** The deepest arena row laid so far, measured along the pull. */
+  private abyssFrontier = 0;
+  private nextAbyssId = -4000;
+  /** Which wall the next arena row hangs from. Alternated, so the fall lane swaps sides. */
+  private abyssSide: -1 | 1 = -1;
+  private shopReturn: 'playing' | 'boss' = 'playing';
   /** AREA 2's sealed air containers, and the bubbles a broken one released. */
   containers: AirContainer[] = [];
   bubbles: AirBubble[] = [];
@@ -533,6 +573,13 @@ export class GameModel {
   }
   step(dt: number, direction: number, firing: boolean) {
     if (!this.running) return;
+    if (this.bossLine) {
+      this.bossLine.timer -= dt;
+      if (this.bossLine.timer <= 0) this.bossLine = null;
+    }
+    // GRAVITY REVERSED is the one beat the fight is allowed to hold. Nothing simulates through it:
+    // no falling, no firing, no attacks -- the world is being turned over underneath the player.
+    if (this.abyssStage === 'inverting') { this.tickInversion(dt); return; }
     // The fight can end part-way through this step, so remember what we entered it as.
     const fighting = this.state === 'boss';
     this.elapsed += dt;
@@ -553,6 +600,11 @@ export class GameModel {
       this.events.push({ type: 'timeVoid', x: p.x, y: p.y, value: frozen ? 1 : 0 });
     }
     if (!frozen) this.worldElapsed += dt;
+    // Counted on ORDINARY play only. What it decides is what a run that never once took shelter is
+    // offered at the bottom, so a chamber met inside the ABYSS itself must not pay for it.
+    const sheltering = this.safeZone !== null;
+    if (sheltering && !this.insideZone && this.abyssStage === 'none') this.safeZoneVisitCount++;
+    this.insideZone = sheltering;
     // The meter drains on WORLD time. Standing in a chamber stops the shaft, so it stops the drain
     // too -- but collecting in there still credits it, because picking a coin up is the player's
     // own action and those never stop. Decay frozen, pickup live.
@@ -581,6 +633,9 @@ export class GameModel {
     // arrives here as `firing`, so there is no second path that could shoot from the ground.
     const pressed = firing && !this.actionHeld;
     this.actionHeld = firing;
+    // NIMUSHI's dialogue is skippable, and ACTION is what skips it: a line must never be something
+    // the player has to wait out with their thumb on the button.
+    if (pressed && this.bossLine) this.bossLine = null;
     const wall = this.wallJumpSide(direction);
     if (p.grounded !== -1) {
       // Standing: the gunboots are not in use. The gun is still ticked with the trigger released so
@@ -661,16 +716,41 @@ export class GameModel {
           continue;
         }
       }
-      if (this.boss.enabled && !this.boss.defeated) {
-        const body = this.boss.body;
-        // Measured against the round's real width, the same way enemies are: a wide PUNCHER or a
-        // BIG BULLET that visibly overlaps the king must not read as a miss.
-        if (b.x + b.size > body.x && b.x - b.size < body.x + body.width && b.y >= body.y && b.previousY <= body.y + body.height) {
-          if (this.boss.damage(b.damage)) this.events.push({ type: 'bossDown', x: this.boss.x, y: this.boss.y });
-          this.events.push({ type: 'bossHit', x: b.x, y: body.y, value: this.boss.ratio });
-          // One hit per round, so a piercing LASER can never multi-hit the king.
+      if (this.boss.active) {
+        // A cup is the one thing in the fight that is NOT the weak-point rule: it is an object in
+        // the world with HP, and shooting it down is the answer to being caught between the two.
+        const cup = this.boss.cups.find(c => c.alive
+          && Math.abs(b.x - c.x) < TAPIOCA_CUP.width / 2 + b.size
+          && sweeps(b.previousY, b.y, c.y - TAPIOCA_CUP.height / 2, c.y + TAPIOCA_CUP.height / 2));
+        if (cup) {
+          if (this.boss.hitCup(cup, b.damage)) this.events.push({ type: 'kill', x: cup.x, y: cup.y, value: 0, stomp: false });
           b.alive = false;
           continue;
+        }
+        // The body is armour and the eye is the fight. EVERY player-side source -- the gunboots,
+        // the drone, a hot casing, a popping gem, a gunpowder round -- arrives here and is asked
+        // the same question, so there is no source that gets a different answer. A round that
+        // meets a shut eye is a round that met an eyelid: absorbed, worth nothing.
+        // Never the same round twice, however many frames it spends inside NIMUSHI. This is what
+        // keeps a piercing LASER to ONE hit on the weak point rather than grinding it down while
+        // it passes through -- the same rule an ordinary enemy gets, through the same set.
+        const part = b.hits.has(NIMUSHI_TARGET) ? null : this.boss.hitTest(b);
+        if (part) {
+          const landed = part === 'eye' ? this.boss.hitEye(b.damage) : [];
+          if (landed.length) {
+            for (const signal of landed) this.onBossSignal(signal);
+            this.events.push({ type: 'bossHit', x: b.x, y: this.boss.eye.y, value: this.boss.ratio });
+            // Counted against the round's own piercing exactly as an enemy is, so a LASER behaves
+            // like a LASER here too rather than getting a boss-specific rule.
+            b.hits.add(NIMUSHI_TARGET);
+            if (b.hits.size > b.pierce) b.alive = false;
+          } else {
+            // Armour, or an eyelid. The round is stopped and nothing is credited.
+            b.hits.add(NIMUSHI_TARGET);
+            this.events.push({ type: 'bossHit', x: b.x, y: b.y, value: -1 });
+            b.alive = false;
+          }
+          if (!b.alive) continue;
         }
       }
       // A block is a wall: it stops the round and takes one hit off its own durability. Checked
@@ -743,7 +823,7 @@ export class GameModel {
       if (p.grounded === gone.id) p.grounded = -1;
     }
     if (this.platforms.some(f => f.state === 'broken')) this.platforms = this.platforms.filter(f => f.state !== 'broken');
-    if (this.boss.enabled && !frozen) this.tickBoss(dt);
+    if (this.boss.enabled && !frozen) this.tickNimushi(dt);
     if (!frozen) {
       this.tickContainers(dt);
       this.tickBubbles(dt);
@@ -793,10 +873,15 @@ export class GameModel {
       }
       // The doorway is reachable inside a chamber too, so this is the player's business rather than
       // the world's and runs either way.
-      if (!fighting) this.enterShop();
+      // The doorway is the player's business rather than the world's, so it runs inside stopped
+      // time -- and inside the ABYSS staging room, which is the one place a 'boss' state shops.
+      if (!fighting || this.abyssStage === 'staging') this.enterShop();
       if (!frozen) {
         this.cameraY = this.leadCamera(p.y);
         this.generate();
+        this.generateAbyss();
+        if (this.abyssStage === 'staging') this.tickSeal();
+        if (this.abyssStage === 'fight') this.bossAscent = Math.max(this.bossAscent, (this.sealY - p.y) / ABYSS.pixelsPerMeter);
         // Left behind by the view, whichever way the view is travelling. Deliberately NOT the same
         // thing as the ABYSS boundary catching up: that is its own death with its own cause.
         if (this.aheadOfCamera(p.y, 50)) this.killInstantly('fall');
@@ -1005,65 +1090,118 @@ export class GameModel {
     if (this.upgrades.has('gunpowderBlocks')) this.gunpowderChain(block);
   }
   /**
-   * The FINAL BOSS, inside the ordinary simulation step. Its attacks only ever reach the player
-   * through the same HealthSystem path as anything else, so invulnerability and death accounting
-   * behave exactly as they do in the areas.
+   * NIMUSHI, inside the ordinary simulation step.
+   *
+   * The boss owns its own machine and its own entities; this is only the collision half. Every way
+   * the fight can hurt the player goes through HealthSystem exactly as a slime or a spike does, so
+   * invulnerability, COMBO and death accounting need no boss-specific rules -- and the ONE thing
+   * that does not is being overtaken by the boundary, which is not damage but the end of the run.
    */
-  private tickBoss(dt: number) {
+  private tickNimushi(dt: number) {
     const p = this.player;
-    for (const signal of this.boss.update(dt, p)) {
-      if (signal.kind === 'phase') { this.enterBossPhase(signal.phase); this.events.push({ type: 'bossPhase', x: p.x, y: p.y, value: signal.phase.id, stage: signal.phase.name }); }
-      if (signal.kind === 'telegraph') this.events.push({ type: 'bossTelegraph', x: this.boss.x, y: this.boss.y, value: signal.side, stage: signal.attack });
-      if (signal.kind === 'fire') this.events.push({ type: 'bossFire', x: this.boss.x, y: this.boss.y, value: signal.side, stage: signal.attack });
-      if (signal.kind === 'cleared') { this.clearBoss(); return; }
-    }
-    if (this.boss.defeated) return;
-    // Contact with the king costs a heart; it is never stompable and never lethal on its own.
+    for (const signal of this.boss.update(dt, p, this.random)) this.onBossSignal(signal);
+    if (!this.boss.active) return;
+    // Contact with the body. Reachable on purpose: NIMUSHI hangs directly ahead along the pull, so
+    // a player who keeps falling into it pays for it. It is never stompable and never lethal alone.
     const body = this.boss.body;
-    if (p.x + 9 > body.x && p.x - 9 < body.x + body.width && p.y + 15 > body.y && p.y - 15 < body.y + body.height) this.damage(1, 'bossContact');
-    for (const shot of this.boss.shots) {
-      if (Math.abs(shot.x - p.x) < 14 && Math.abs(shot.y - p.y) < 20) { this.damage(1, 'bossShot'); shot.y = -Infinity; }
+    if (p.x + 9 > body.x && p.x - 9 < body.x + body.width && p.y + 15 > body.y && p.y - 15 < body.y + body.height) {
+      this.damage(NIMUSHI.contactDamage, 'bossContact');
     }
-    if (this.boss.danger !== null && this.boss.dangerousAt(p.x)) this.damage(1, 'bossSweep');
-    this.boss.shots = this.boss.shots.filter(shot => Number.isFinite(shot.y));
+    for (const pearl of this.boss.tapiocas) {
+      if (Math.abs(pearl.x - p.x) > pearl.size + 12 || Math.abs(pearl.y - p.y) > pearl.size + 17) continue;
+      if (this.damage(pearl.damage, 'bossShot')) pearl.life = 0;
+    }
+    for (const cup of this.boss.cups) {
+      if (!cup.alive) continue;
+      if (Math.abs(cup.x - p.x) > TAPIOCA_CUP.width / 2 + 9 || Math.abs(cup.y - p.y) > TAPIOCA_CUP.height / 2 + 15) continue;
+      this.damage(TAPIOCA_CUP.damage, 'bossContact');
+    }
+    for (const beam of this.boss.beams) {
+      // The warning line cannot hurt. That is the whole contract of the attack: the player is shown
+      // the column, at full length, before anything in it is dangerous.
+      if (beam.state !== 'live') continue;
+      if (Math.abs(beam.x - p.x) > beam.width / 2 + 9) continue;
+      this.damage(STRAW_BEAM.damage, 'bossSweep');
+    }
+    // Overtaken. Not damage and not an out-of-bounds fall: a separate ending with its own cause.
+    if (this.boss.caught(p.y)) this.killInstantly('crush');
   }
-  /**
-   * A phase change swaps the generation recipe and hands the area systems over, mid-descent. The
-   * previous phase's leftovers are cleared so nothing from AREA 2 lingers into AREA 3's fire.
-   */
-  private enterBossPhase(phase: BossPhase) {
+
+  /** Everything the fight reports, turned into world changes and events in one place. */
+  private onBossSignal(signal: NimushiSignal) {
     const p = this.player;
-    this.oxygen.reset(phase.gimmicks?.oxygen === true);
-    this.heat.reset(phase.gimmicks?.heat === true);
-    this.collapse.reset(phase.plan.breakDelay ?? BREAK_RULES.delay);
-    if (!this.oxygen.enabled) { this.containers = []; this.bubbles = []; this.pickups = this.pickups.filter(item => item.kind !== 'oxygenBubble'); }
-    if (!this.heat.enabled) { this.hazards = []; this.pickups = this.pickups.filter(item => item.kind !== 'ice'); }
-    if (!phase.gimmicks?.breakablePlatforms) for (const platform of this.platforms) { platform.breakable = false; platform.state = 'stable'; }
-    p.vx = 0;
-    // The shaft is generated a screen and a half ahead, so simply switching recipes would leave the
-    // player falling through ~12s of the OLD phase's terrain while the NEW phase's gauge is already
-    // draining -- long enough that PHASE 2 could strand them with no air in reach at all. Cut the
-    // unseen tail off and restart the recipe just past the camera, carrying the deepest row that
-    // stays so reachability across the seam is still guaranteed.
-    const cut = Math.max(p.y + 240, this.cameraY + WORLD.height);
-    this.platforms = this.platforms.filter(row => row.y <= cut);
-    this.enemies = this.enemies.filter(e => e.y <= cut);
-    this.pickups = this.pickups.filter(item => item.y <= cut);
-    this.hazards = this.hazards.filter(h => h.y <= cut);
-    this.doodads = this.doodads.filter(d => d.y <= cut);
-    this.safeZones = this.safeZones.filter(z => z.y <= cut);
-    const rows = this.platforms.filter((row): row is RoutePlatform => 'safeX' in row);
-    const deepest = rows.reduce((low, row) => (row.y > low.y ? row : low), rows[0] ?? this.generator.lastRow);
-    // Resume exactly one ordinary row-gap below the deepest row that survived, so the first new row
-    // is as reachable as any other. Anything else can hand the generator an impossible jump.
-    const resume = deepest.y + phase.plan.gap;
-    this.generator = new StageGenerator(this.random, {
-      plan: phase.plan, enemyPool: phase.enemyPool, water: phase.water,
-      oxygen: this.oxygen.enabled, heat: this.heat.enabled, breakable: phase.gimmicks?.breakablePlatforms === true,
-      startY: resume, previous: deepest,
-    });
-    this.nextChunk = Math.floor(resume / WORLD.chunkHeight);
+    if (signal.kind === 'started') {
+      // BOSS TIME starts HERE and nowhere else: not at 4-3 CLEAR, not at the shop, not at the
+      // reversal, and not when the arena opened. The first round into the eye is the start.
+      this.events.push({ type: 'bossStart', x: p.x, y: p.y, stage: NIMUSHI.name });
+    } else if (signal.kind === 'phase') {
+      this.enterAbyssPhase(signal.phase);
+      this.events.push({ type: 'bossPhase', x: p.x, y: p.y, value: signal.phase.id, stage: signal.phase.name });
+    } else if (signal.kind === 'eye') {
+      this.events.push({ type: 'bossEye', x: this.boss.x, y: this.boss.eye.y, value: signal.open ? 1 : 0 });
+    } else if (signal.kind === 'prep') {
+      this.events.push({ type: 'bossTelegraph', x: this.boss.x, y: this.boss.y, stage: signal.attack });
+    } else if (signal.kind === 'attack') {
+      this.events.push({ type: 'bossFire', x: this.boss.x, y: this.boss.y, stage: signal.attack });
+    } else if (signal.kind === 'clones') {
+      this.summonClones(signal.count, signal.y);
+    } else if (signal.kind === 'rage') {
+      this.events.push({ type: 'bossRage', x: this.boss.x, y: this.boss.y, value: this.boss.ratio });
+    } else if (signal.kind === 'line') {
+      this.bossLine = { text: signal.text, timer: NIMUSHI_LINES.hold };
+      this.events.push({ type: 'bossLine', x: this.boss.x, y: this.boss.y, stage: signal.text });
+    } else if (signal.kind === 'defeated') {
+      this.events.push({ type: 'bossDown', x: this.boss.x, y: this.boss.y });
+    } else if (signal.kind === 'cleared') {
+      this.clearBoss();
+    }
   }
+
+  /**
+   * にむし分身. They are spawned into the ORDINARY enemy list, which is the point: a clone dies to
+   * the same round, pays the same COMBO, drops the same COIN and leaves the same body for KNIFE AND
+   * FORK. Which kind is used is the stretch's business -- LIMBO's are declared unstompable on the
+   * type, so nothing here has to remember that LIMBO has no footholds.
+   */
+  private summonClones(count: number, y: number) {
+    const pool = this.boss.phase.clonePool;
+    const span = WORLD.width - WORLD.wall * 2 - 60;
+    for (let i = 0; i < count; i++) {
+      const kind = pool[Math.min(pool.length - 1, Math.floor(this.random() * pool.length))];
+      const x = WORLD.wall + 30 + span * ((i + 0.5) / count);
+      const enemy = spawnEnemy(kind, this.nextAbyssId--, x, y + (this.random() - 0.5) * 90, 34, this.random() * Math.PI * 2, 'open');
+      this.enemies.push(enemy);
+    }
+  }
+
+  /**
+   * A stretch of the ABYSS gives way to the next one, mid-ascent.
+   *
+   * Everything AHEAD of the view is cut and rebuilt from the recipe the new stretch names, so the
+   * player is not left climbing twelve seconds of the previous environment while the new one's
+   * gauge is already running. It is also where the fight sheds anything it no longer needs, which
+   * is what keeps a long battle from accumulating entities it will never show again.
+   */
+  private enterAbyssPhase(phase: AbyssPhase) {
+    this.oxygen.reset(phase.gimmicks?.oxygen === true);
+    this.heat.reset(false);
+    if (!this.oxygen.enabled) {
+      this.containers = []; this.bubbles = [];
+      this.pickups = this.pickups.filter(item => item.kind !== 'oxygenBubble');
+    }
+    this.hazards = [];
+    const edge = this.gravity > 0 ? this.cameraY + WORLD.height : this.cameraY;
+    const behind = (y: number) => this.along(y - edge) <= 0;
+    this.platforms = this.platforms.filter(row => behind(row.y));
+    this.enemies = this.enemies.filter(e => behind(e.y));
+    this.pickups = this.pickups.filter(item => behind(item.y));
+    this.doodads = this.doodads.filter(d => behind(d.y));
+    this.containers = this.containers.filter(box => behind(box.y));
+    this.abyssFrontier = edge;
+    this.abyssSide = -1;
+    this.layAbyssBatch(phase, true);
+  }
+
   /**
    * A chamber has a roof. Nothing else in the shaft does -- there has never been a ceiling to hit --
    * but a room that the gunboots fire you out through the top of is not a room. LASER's recoil alone
@@ -1111,6 +1249,8 @@ export class GameModel {
     p.grounded = -1;
     this.reloadCharge();
     this.lastAirShot = -Infinity;
+    // Spent by the bounce, where the doodad says so. Only THE ABYSS's are.
+    if (touching.consumable) { touching.active = false; this.doodadContact = null; }
     this.events.push({ type: 'doodad', x: touching.x + touching.width / 2, y: touching.y, value: this.combo });
   }
   /**
@@ -1151,6 +1291,9 @@ export class GameModel {
     const p = this.player;
     for (const box of this.containers) {
       if (box.broken) { box.debris = Math.max(0, box.debris - dt); continue; }
+      // THE ABYSS's containers are shot open and nothing else: swimming into one does not break
+      // it, so air in the arena always costs a round.
+      if (box.shotOnly) continue;
       if (p.x + 9 > box.x && p.x - 9 < box.x + box.width && p.y + 15 > box.y && p.y - 15 < box.y + box.height) this.breakContainer(box);
     }
     this.containers = this.containers.filter(box => (!box.broken || box.debris > 0) && !this.behindCamera(this.trailingEdge(box.y, box.height), 180));
@@ -1191,7 +1334,7 @@ export class GameModel {
         this.events.push({ type: 'oxygen', x: bubble.x, y: bubble.y, value: restored });
       }
     }
-    this.bubbles = this.bubbles.filter(b => !b.taken && b.life > 0 && b.y > this.cameraY - 90);
+    this.bubbles = this.bubbles.filter(b => !b.taken && b.life > 0 && !this.behindCamera(b.y, 90));
   }
   /**
    * The goal has been reached: cut the unseen shaft below and lay the exit floor just past the
@@ -1226,6 +1369,9 @@ export class GameModel {
   private enterShop() {
     const p = this.player;
     if (!this.shop.touches(p.x, p.y) || !this.shop.enter()) return;
+    // Remembered rather than assumed: the ABYSS staging room shops from the 'boss' state, and
+    // closing the shelf there must not drop the run back into an ordinary SECTION.
+    this.shopReturn = this.state === 'boss' ? 'boss' : 'playing';
     this.state = 'shop';
     this.events.push({ type: 'shopOpen', x: p.x, y: p.y, value: this.coins.walletCoins });
   }
@@ -1233,7 +1379,7 @@ export class GameModel {
   closeShop() {
     if (this.state !== 'shop') return false;
     this.shop.close();
-    this.state = 'playing';
+    this.state = this.shopReturn;
     return true;
   }
   /**
@@ -1273,6 +1419,8 @@ export class GameModel {
         this.events.push({ type: 'gunModule', x: item.x, y: item.y, stage: gunModule(id).name, bonus, value: bonus === 'charge' ? CHARGE_AMMO_BONUS : 1 });
         continue;
       }
+      if (type.effect === 'heal') { this.heal(type.value); continue; }
+      if (type.effect === 'tomato') { this.takeTomato(item.x, item.y); continue; }
       const restored = type.effect === 'oxygen' ? this.oxygen.add(type.value) : this.heat.relieve(type.value);
       this.events.push({ type: type.effect === 'oxygen' ? 'oxygen' : 'ice', x: item.x, y: item.y, value: restored });
     }
@@ -1300,23 +1448,215 @@ export class GameModel {
     this.completedDepth += this.stage.sectionLength;
     const advance = this.stage.advance();
     // The boss has no section of its own, so the banked metres must not be counted twice.
-    if (advance.boss) { this.startBossFight(); return true; }
+    // 4-3 CLEAR does NOT open the fight. It opens the staging room: a shop, a seal, and then the
+    // reversal. NIMUSHI is not met until the player has broken their own way down to it.
+    if (advance.boss) { this.startAbyss(); return true; }
     this.state = 'playing'; this.startSection();
     return true;
   }
-  /** Opens the FINAL BOSS: the descent carries on, with the king holding station below. */
-  private startBossFight() {
+  /**
+   * THE ABYSS opens. Ordinary downward gravity, a hand-laid room, and no depth goal: the run is at
+   * the bottom of the well and everything from here is preparation for what is under it.
+   */
+  private startAbyss() {
     this.sectionDepth = 0;
     this.state = 'boss';
+    this.abyssStage = 'staging';
     this.startSection();
+    this.buildStaging();
+  }
+  /**
+   * The staging room, laid by hand rather than rolled.
+   *
+   * Everything in it is GUARANTEED, which is exactly why it is not generated: a shop that might not
+   * appear and a seal that might not be reachable are not acceptable at the last moment before the
+   * FINAL BOSS. Three ledges to fall down, a chamber, and a sealed floor.
+   */
+  private buildStaging() {
+    const top = START_PLATFORM.y;
+    this.platforms = [{ ...START_PLATFORM }];
+    for (let i = 1; i <= 2; i++) {
+      const left = i % 2 === 1;
+      const x = left ? WORLD.wall + 22 : WORLD.width - WORLD.wall - 22 - ABYSS.ledgeWidth;
+      this.platforms.push({ id: this.nextAbyssId--, x, y: top + ABYSS.ledgeGap * i, width: ABYSS.ledgeWidth });
+    }
+    // The chamber. A SAFE ZONE like any other, so its floor reloads without banking a chain and
+    // the world outside it stops while the player is deciding what to spend their last COIN on.
+    const width = SAFE_ZONE_RULES.width, height = SAFE_ZONE_RULES.height;
+    const zoneY = top + ABYSS.shopDepth;
+    const zone: SafeZone = {
+      id: this.nextAbyssId--, side: 1, x: WORLD.width - WORLD.wall - width,
+      y: zoneY, width, height, content: null, taken: false,
+    };
+    this.safeZones.push(zone);
+    const floor = zoneY + height;
+    this.platforms.push({ id: this.nextAbyssId--, x: zone.x, y: floor, width, safeZone: zone.id });
+    // A ledge under the mouth, so the chamber is stepped into rather than dropped past.
+    this.platforms.push({ id: this.nextAbyssId--, x: WORLD.wall + 20, y: floor + 30, width: 120 });
+    const centre = Math.round(zone.x + width / 2);
+    if (this.safeZoneVisitCount > 0) {
+      this.shop.stockForSection(this.random, ABYSS_SHOP_AREA);
+      this.shop.placeEntrance(Math.round(centre - SHOP_DOOR.width / 2), Math.round(floor - SHOP_DOOR.height), SHOP_DOOR.width, SHOP_DOOR.height);
+    } else {
+      // A run that never once stepped into a chamber is handed the TOMATO instead of the shelf.
+      // There is nothing to buy it with and nothing to choose: it is simply there, on the floor.
+      this.pickups.push(spawnPickup('tomato', this.nextAbyssId--, centre, floor - 26));
+    }
+    // The seal. An ordinary BREAK BLOCK row, so it is opened with the gunboots exactly as a gate
+    // row is, GUNPOWDER BLOCKS chains through it, and a REWARD BLOCK still pays.
+    this.sealY = top + ABYSS.sealDepth;
+    const slot = breakBlockWidth();
+    for (let i = 0; i < BREAK_BLOCK_RULES.count; i++) {
+      const x = Math.round(WORLD.wall + slot * i);
+      const right = i === BREAK_BLOCK_RULES.count - 1 ? WORLD.width - WORLD.wall : Math.round(WORLD.wall + slot * (i + 1));
+      this.platforms.push({
+        id: this.nextAbyssId--, x, y: this.sealY, width: right - x,
+        breakBlock: { hits: 0, durability: BREAK_BLOCK_RULES.durability, slot: i, reward: this.random() < BREAK_BLOCK_RULES.rewardChance },
+      });
+    }
+    this.events.push({ type: 'seal', x: WORLD.width / 2, y: this.sealY, value: BREAK_BLOCK_RULES.count });
+  }
+  /** TOMATO: through the very same LIFE UP and magazine growth every other source uses. */
+  private takeTomato(x: number, y: number) {
+    const before = this.health.maxHp;
+    this.health.lifeUp(TOMATO.maxHp);
+    this.growMaxCharge(TOMATO.maxCharge);
+    this.events.push({ type: 'tomato', x, y, value: TOMATO.maxCharge, lifeUps: this.health.maxHp - before });
+  }
+  /** Falling far enough past the broken seal is what turns the world over. */
+  private tickSeal() {
+    if (this.abyssStage !== 'staging') return;
+    if (this.player.y < this.sealY + ABYSS.inversionDrop) return;
+    this.abyssStage = 'inverting';
+    this.inversionTimer = ABYSS.hold + ABYSS.reverse;
+    this.inversionFlipped = false;
+    this.player.vy = 0;
+    this.events.push({ type: 'gravityFlip', x: this.player.x, y: this.player.y, value: 0 });
+  }
+  /**
+   * GRAVITY REVERSED. A held beat while the shaft realises what has happened, then the flip itself,
+   * and only then does NIMUSHI's arena open. Nothing simulates during it.
+   */
+  private tickInversion(dt: number) {
+    this.inversionTimer -= dt;
+    if (!this.inversionFlipped && this.inversionTimer <= ABYSS.reverse) {
+      this.inversionFlipped = true;
+      this.setGravity(-1);
+      this.events.push({ type: 'gravityFlip', x: this.player.x, y: this.player.y, value: 1 });
+    }
+    if (this.inversionTimer > 0) return;
+    this.abyssStage = 'fight';
+    this.openArena();
+  }
+  /** The arena opens: the staging room is cleared, NIMUSHI hangs above, and the ascent begins. */
+  private openArena() {
+    const p = this.player;
+    this.platforms = []; this.enemies = []; this.bullets = []; this.doodads = [];
+    this.safeZones = []; this.hazards = []; this.containers = []; this.bubbles = [];
+    this.pickups = this.pickups.filter(item => !item.taken && item.kind === 'gunModule');
+    this.shop.reset();
+    this.exit = null;
+    // Set outright rather than eased: `leadCamera` only ever travels WITH the pull, and the pull
+    // has just reversed, so asking it to follow would leave the view where the descent left it.
+    // The arena opening is the one moment the camera is allowed to jump.
+    this.cameraY = p.y - WORLD.height * (this.gravity > 0 ? 0.37 : 0.63);
+    this.bossAscent = 0;
+    this.boss.start(p.y, this.gravity);
+    const phase = abyssPhase(1);
+    this.oxygen.reset(phase.gimmicks?.oxygen === true);
+    this.heat.reset(false);
+    this.abyssFrontier = this.gravity > 0 ? this.cameraY + WORLD.height : this.cameraY;
+    this.layAbyssBatch(phase, true);
+    this.events.push({ type: 'boss', x: p.x, y: p.y, stage: NIMUSHI.name });
+    this.events.push({ type: 'bossPhase', x: p.x, y: p.y, value: phase.id, stage: phase.name });
+  }
+  /**
+   * The arena's own terrain, laid AGAINST the pull as the player climbs into it.
+   *
+   * Deliberately not the SECTION generator: an ABYSS stretch is four or five lines of recipe rather
+   * than a whole area, because the fight's content is NIMUSHI and the terrain is only the stage it
+   * happens on. What each stretch is FOR is the one mechanic it names.
+   */
+  private generateAbyss() {
+    if (this.abyssStage !== 'fight' || !this.boss.enabled) return;
     const phase = this.boss.phase;
-    this.boss.start(this.player.y);
-    this.enterBossPhase(phase);
-    this.events.push({ type: 'boss', x: this.player.x, y: this.player.y, stage: this.stage.label });
+    const edge = this.gravity > 0 ? this.cameraY + WORLD.height : this.cameraY;
+    const ahead = edge + WORLD.height * this.gravity;
+    while (this.along(ahead - this.abyssFrontier) > 0) {
+      this.abyssFrontier += phase.rowGap * this.gravity;
+      this.layAbyssRow(phase, this.abyssFrontier);
+    }
+  }
+  /** A stretch's opening rows, including the heart the first three are guaranteed. */
+  private layAbyssBatch(phase: AbyssPhase, opening: boolean) {
+    for (let i = 0; i < 4; i++) {
+      this.abyssFrontier += phase.rowGap * this.gravity;
+      this.layAbyssRow(phase, this.abyssFrontier);
+    }
+    if (!opening || !phase.heart) return;
+    // One guaranteed heart per stretch, in reach of the opening rows. LIMBO has none, on purpose.
+    const x = Math.round(WORLD.wall + 40 + this.random() * (WORLD.width - WORLD.wall * 2 - 80));
+    const y = this.abyssFrontier - phase.rowGap * 1.5 * this.gravity;
+    this.pickups.push(spawnPickup('heart', this.nextAbyssId--, x, y, this.random() * Math.PI * 2));
+  }
+  /**
+   * One arena row.
+   *
+   * Everything on a row hangs from ONE wall and the other side is left open, alternating as the
+   * rows go by. That is not decoration: a doodad the player cannot get off is a trampoline, and a
+   * trampoline in an arena with a boundary closing behind it is a death sentence -- the player
+   * bounces in place while NIMUSHI hauls the fight away from them. AREA 4 learned the same lesson
+   * about LIMBO, and this is the same answer: always leave a lane to fall through.
+   */
+  private layAbyssRow(phase: AbyssPhase, y: number) {
+    const roll = this.random;
+    const span = WORLD.width - WORLD.wall * 2;
+    const side = this.abyssSide;
+    this.abyssSide = side === -1 ? 1 : -1;
+    /** Anchor a box of this width against the row's own wall, clear of the open lane. */
+    const anchor = (boxWidth: number) => Math.round(side === -1
+      ? WORLD.wall + 10 + roll() * Math.max(1, span / 2 - 20 - boxWidth)
+      : WORLD.width - WORLD.wall - 10 - boxWidth - roll() * Math.max(1, span / 2 - 20 - boxWidth));
+    if (!phase.groundless) {
+      const [minWidth, maxWidth] = phase.ledgeWidth;
+      const width = Math.round(minWidth + roll() * (maxWidth - minWidth));
+      const x = anchor(width);
+      if (roll() < phase.breakBlockChance) {
+        // A short run of blocks rather than a full gate: an obstacle in the arena, not a wall.
+        const slot = breakBlockWidth();
+        const first = side === -1 ? 0 : BREAK_BLOCK_RULES.count - 2;
+        for (let i = first; i < first + 2; i++) {
+          const bx = Math.round(WORLD.wall + slot * i);
+          this.platforms.push({
+            id: this.nextAbyssId--, x: bx, y, width: Math.round(slot),
+            breakBlock: { hits: 0, durability: BREAK_BLOCK_RULES.durability, slot: i, reward: roll() < BREAK_BLOCK_RULES.rewardChance },
+          });
+        }
+      } else {
+        const row: Platform = { id: this.nextAbyssId--, x, y, width };
+        // CATACOMB's delayed spikes, under inverted gravity: the face that arms them and the face
+        // the teeth come out of are both `surfaceOf`, so the mechanic needs no mirrored copy.
+        if (roll() < phase.spikeChance) row.spikePlatform = spikePlatform();
+        this.platforms.push(row);
+      }
+    }
+    if (roll() < phase.doodadChance) {
+      const dx = anchor(DOODAD_RULES.width);
+      this.doodads.push(spawnDoodad(this.nextAbyssId--, dx, y - phase.rowGap * 0.45 * this.gravity, roll() < 0.5 ? 'lamp' : 'bracket', true));
+    }
+    if (roll() < phase.containerChance) {
+      const cx = anchor(AIR_CONTAINER_RULES.size);
+      this.containers.push({
+        id: this.nextAbyssId--, x: cx, y: y - phase.rowGap * 0.6 * this.gravity,
+        width: AIR_CONTAINER_RULES.size, height: AIR_CONTAINER_RULES.size,
+        broken: false, debris: 0, shotOnly: true,
+      });
+    }
   }
   /** Ends the run as GAME CLEAR. Called by the fight once the king has finished collapsing. */
   clearBoss() {
     if (this.state !== 'boss') return false;
+    this.abyssStage = 'none';
     // Capture the fight length before the system is torn down; the result screen reads it after.
     this.bossClearTime = this.boss.elapsed;
     this.boss.reset();
@@ -1337,12 +1677,29 @@ export class GameModel {
     this.paused = false; this.state = 'playing'; this.startSection();
     return true;
   }
+  /** Development only: straight to the ABYSS staging room, shop, seal and all. */
   jumpToBoss() {
     if (this.practice) return false;
     this.stage.jumpToBoss();
     this.completedDepth = this.stage.plannedDepthBefore();
     this.paused = false;
-    this.startBossFight();
+    this.startAbyss();
+    return true;
+  }
+  /**
+   * Development only: straight into the arena with NIMUSHI dormant and at full HP. It skips the
+   * staging room and the reversal, and NOTHING else -- the fight starts where it always starts,
+   * asleep, with the first weak-point hit still to be earned.
+   */
+  jumpToNimushi() {
+    if (this.practice) return false;
+    if (!this.jumpToBoss()) return false;
+    this.sealY = START_PLATFORM.y + ABYSS.sealDepth;
+    this.player.y = this.sealY + ABYSS.inversionDrop + 10;
+    this.player.vy = 0;
+    this.abyssStage = 'fight';
+    this.setGravity(-1);
+    this.openArena();
     return true;
   }
   /**
@@ -1641,6 +1998,9 @@ export class GameModel {
   }
   private finish() { if (this.state === 'over' || this.state === 'clear') return; this.state = 'over'; this.emit('over', this.player.x, this.player.y); }
   private generate() {
+    // THE ABYSS lays its own terrain, by hand in the staging room and from the stretch recipe in
+    // the arena. The SECTION generator has no business in either.
+    if (this.abyssStage !== 'none') return;
     while (!this.generator.finished && this.nextChunk * WORLD.chunkHeight < this.cameraY + WORLD.height + WORLD.chunkHeight) {
       const chunk = this.generator.chunk(this.nextChunk++);
       this.platforms.push(...chunk.platforms); this.enemies.push(...chunk.enemies);

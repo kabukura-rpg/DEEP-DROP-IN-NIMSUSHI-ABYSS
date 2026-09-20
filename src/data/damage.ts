@@ -13,9 +13,10 @@ export const DAMAGE_LABELS: Record<DamageCause, string> = {
   heat: 'THE HEAT',
   lava: 'LAVA',
   fall: 'THE FALL',
-  bossContact: 'THE DEMON KING',
-  bossShot: 'MAGIC SHOT',
-  bossSweep: 'DEMON SWEEP',
+  bossContact: 'NIMUSHI',
+  bossShot: 'TAPIOCA',
+  bossSweep: 'THE STRAW BEAM',
+  crush: 'THE RISING DEEP',
 };
 /** Falls back to a neutral line rather than leaking an id when the cause is unknown. */
 export const damageLabel = (cause?: DamageCause | null) => (cause && DAMAGE_LABELS[cause]) || 'THE DEPTHS';

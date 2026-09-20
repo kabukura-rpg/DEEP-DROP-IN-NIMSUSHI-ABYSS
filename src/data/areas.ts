@@ -262,7 +262,7 @@ export const AREAS: readonly AreaConfig[] = [
   },
 ];
 
-export const FINAL_STAGE = { id: 'boss', label: 'FINAL BOSS', name: 'DEMON KING' } as const;
+export const FINAL_STAGE = { id: 'boss', label: 'FINAL BOSS', name: 'NIMUSHI' } as const;
 
 export const areaConfig = (id: AreaId, areas: readonly AreaConfig[] = AREAS) => areas.find(a => a.id === id) ?? areas[0];
 export const TOTAL_SECTIONS = AREAS.reduce((count, area) => count + area.sections, 0);

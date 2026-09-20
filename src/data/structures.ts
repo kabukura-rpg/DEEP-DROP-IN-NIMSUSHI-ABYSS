@@ -34,6 +34,12 @@ export interface AirContainer {
   broken: boolean;
   /** Counts down the shatter animation once broken, purely cosmetic. */
   debris: number;
+  /**
+   * THE ABYSS's containers only. Swimming into one does NOT break it: air in the boss arena always
+   * costs a round, which is what stops the aquifer stretch being answered by simply falling through
+   * it. AREA 3's own containers leave this unset and still break on contact.
+   */
+  shotOnly?: boolean;
 }
 
 export const AIR_CONTAINER_RULES = {

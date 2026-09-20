@@ -3,7 +3,8 @@ import { PLANNED_TOTAL_DEPTH } from '../src/data/areas';
 import { GameModel } from '../src/systems/GameModel';
 import { GameAudio, EVENT_SOUNDS, eventSound, type SoundId } from '../src/systems/Audio';
 import { DAMAGE_LABELS, damageLabel } from '../src/data/damage';
-import { BOSS } from '../src/data/boss';
+import { NIMUSHI } from '../src/data/nimushi';
+import { defeatNimushi, shootEye } from './nimushi';
 import { spawnEnemy } from '../src/data/enemies';
 import type { GameEvent } from '../src/systems/GameModel';
 
@@ -88,24 +89,30 @@ describe('C1: audio never crashes the run', () => {
 });
 
 describe('H2: a won fight can never become a loss', () => {
-  /** A boss fight already decided, with the player one hit from death. */
+  /**
+   * A boss fight already decided, with the player one hit from death.
+   *
+   * NIMUSHI is taken down the only way anything can take it down: real rounds through an open eye.
+   * There is no HP write here and there is no path to one -- which is itself the point, because the
+   * thing under test is what happens AFTER the fight is won.
+   */
   function onePointFromVictory() {
     const game = new GameModel(false, seeded(21));
-    game.jumpToBoss();
-    tick(game, 1);
+    game.jumpToNimushi();
+    // Brought down to one heart BEFORE the fight is decided: once it is, the victory is sealed and
+    // HealthSystem refuses damage outright -- which is the very thing being tested.
     while (game.hp > 1) { game.player.invincible = 0; game.damage(1, 'enemy'); }
     expect(game.hp).toBe(1);
-    game.boss.damage(BOSS.maxHp);
-    expect(game.boss.defeated).toBe(true);
+    expect(defeatNimushi(game)).toBe(true);
     return game;
   }
 
-  it('seals the victory the moment the king falls', () => {
+  it('seals the victory the moment NIMUSHI falls', () => {
     const game = onePointFromVictory();
     expect(game.victorySealed).toBe(true);
   });
 
-  it.each(['enemy', 'spike', 'tank', 'oxygen', 'heat', 'bossShot', 'bossSweep', 'bossContact'] as const)(
+  it.each(['enemy', 'spike', 'tank', 'oxygen', 'heat', 'bossShot', 'bossSweep', 'bossContact', 'crush'] as const)(
     'ignores %s damage during the defeat sequence', cause => {
       const game = onePointFromVictory();
       for (let i = 0; i < 40; i++) { game.player.invincible = 0; game.damage(99, cause); }
@@ -123,7 +130,7 @@ describe('H2: a won fight can never become a loss', () => {
   it('reaches GAME CLEAR even while a spike demon keeps touching the player', () => {
     const game = onePointFromVictory();
     game.enemies = [spawnEnemy('spikeDemon', 900, game.player.x, game.player.y)];
-    for (let i = 0; i < Math.round((BOSS.defeatDelay + 0.4) * 120); i++) {
+    for (let i = 0; i < Math.round((NIMUSHI.defeatDelay + 0.4) * 120); i++) {
       game.player.invincible = 0;
       if (game.enemies[0]) { game.enemies[0].x = game.player.x; game.enemies[0].y = game.player.y; }
       game.step(1 / 120, 0, false);
@@ -165,8 +172,10 @@ describe('H3: the run reports what actually killed it', () => {
   });
 
   it('names the boss attacks the way the result screen shows them', () => {
-    expect(damageLabel('bossShot')).toBe('MAGIC SHOT');
-    expect(damageLabel('bossSweep')).toBe('DEMON SWEEP');
+    expect(damageLabel('bossShot')).toBe('TAPIOCA');
+    expect(damageLabel('bossSweep')).toBe('THE STRAW BEAM');
+    expect(damageLabel('bossContact')).toBe('NIMUSHI');
+    expect(damageLabel('crush')).toBe('THE RISING DEEP');
   });
 
   it('keeps every existing cause flowing through the same HealthSystem path', () => {
@@ -187,7 +196,12 @@ describe('M1: CLEAR TIME covers the whole run', () => {
     tick(game, 5);
     const beforeBoss = game.elapsed;
     expect(beforeBoss).toBeGreaterThan(4.9);
-    game.jumpToBoss();
+    // Straight into the arena, then one real round through the eye: BOSS TIME starts THERE, not
+    // when the ABYSS opened and not when the world turned over.
+    game.jumpToNimushi();
+    tick(game, 3);
+    expect(game.bossTime).toBe(0);
+    shootEye(game, 1);
     tick(game, 3);
     expect(game.elapsed).toBeGreaterThan(beforeBoss);
     // The fight is a strict subset of the run.
@@ -232,10 +246,9 @@ describe('M2: the FINAL BOSS shows the banked total, not 000m', () => {
 
   it('keeps the planned run total on GAME CLEAR', () => {
     const game = new GameModel(false, seeded(23));
-    game.jumpToBoss();
-    tick(game, 2);
-    game.boss.damage(BOSS.maxHp);
-    tick(game, BOSS.defeatDelay + 0.3);
+    game.jumpToNimushi();
+    expect(defeatNimushi(game)).toBe(true);
+    tick(game, NIMUSHI.defeatDelay + 0.3);
     expect(game.state).toBe('clear');
     expect(Math.round(game.totalDepth)).toBe(PLANNED_TOTAL_DEPTH);
   });

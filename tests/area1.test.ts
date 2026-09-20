@@ -74,6 +74,7 @@ describe('AREA 1 enemy roster', () => {
     // Shape, not colour, separates the two groups: every type has its own, and no silhouette is
     // ever reused across the stompable boundary.
     const silhouettes = Object.values(ENEMY_TYPES).map(t => t.silhouette);
+    expect(silhouettes.length).toBe(22);
     expect(new Set(silhouettes).size).toBe(silhouettes.length);
     const soft = new Set(Object.values(ENEMY_TYPES).filter(t => t.stompable).map(t => t.silhouette));
     for (const type of Object.values(ENEMY_TYPES)) expect(soft.has(type.silhouette)).toBe(type.stompable);

@@ -248,6 +248,16 @@ export class GameScene extends Phaser.Scene {
         this.label2(x, y + bob, label);
         continue;
       }
+      if (type.silhouette === 'heart' || type.silhouette === 'tomato') {
+        const big = type.silhouette === 'tomato';
+        const r = big ? 15 : 11;
+        this.graphics.fillStyle(type.color, 0.95).fillCircle(x - r * 0.45, y + bob - r * 0.2, r * 0.7);
+        this.graphics.fillStyle(type.color, 0.95).fillCircle(x + r * 0.45, y + bob - r * 0.2, r * 0.7);
+        this.graphics.fillStyle(type.color, 0.95).fillTriangle(x - r, y + bob, x + r, y + bob, x, y + bob + r * 1.2);
+        if (big) { this.rect(x - 3, y + bob - r - 6, 6, 8, 0x6fbf5f); this.rect(x - 10, y + bob - r - 3, 20, 4, 0x6fbf5f); }
+        else this.rect(x - r * 0.5, y + bob - r * 0.5, 4, 4, 0xffffff, 0.85);
+        continue;
+      }
       if (type.silhouette === 'shard') {
         this.graphics.fillStyle(type.color, 0.95).fillTriangle(x, y + bob - 15, x - 10, y + bob + 4, x + 10, y + bob + 4);
         this.graphics.fillStyle(0xe8fbff, 0.95).fillTriangle(x, y + bob - 8, x - 5, y + bob + 3, x + 5, y + bob + 3);
@@ -669,50 +679,114 @@ export class GameScene extends Phaser.Scene {
     }
     this.rect(-8, 760, 466, 40, theme.rift.void, 0.35);
   }
-  /** The king, its wind-ups and its shots. Telegraphs are always the loudest thing on screen. */
+  /**
+   * NIMUSHI, everything it has put in the air, and the deep closing in underneath.
+   *
+   * The pose comes from the state machine rather than from timers read a second time here, so the
+   * sprite can never disagree with what the fight actually is. Nothing in this method is flipped
+   * for inverted gravity: the world is drawn in world coordinates and the CAMERA is what turned
+   * over, which is the whole reason the HUD stays the right way up.
+   */
   private boss(cam: number) {
     const fight = this.model.boss;
     if (!fight.enabled) return;
+    const m = this.model;
+
+    // The rising deep. Drawn first and across the whole shaft: it is the floor of the arena and
+    // the thing the player is being pushed away from.
+    const edge = fight.boundaryY - cam;
+    if (edge < 830 && edge > -200) {
+      const depth = Math.max(0, 820 - edge);
+      this.rect(-8, edge, 466, depth + 40, 0x2a0d18, 0.92);
+      this.rect(-8, edge, 466, 5, 0xff4d7a, 0.8);
+      for (let i = 0; i < 18; i++) {
+        const x = 18 + i * 24;
+        const bob = Math.sin(this.model.elapsed * 3 + i) * 4;
+        this.graphics.fillStyle(0xff4d7a, 0.55).fillTriangle(x, edge + 2, x + 10, edge - 18 - bob, x + 20, edge + 2);
+      }
+    }
+
+    // Cups: the half of the pincer that comes from below.
+    for (const cup of fight.cups) {
+      const cy = cup.y - cam;
+      if (cy < -80 || cy > 880) continue;
+      const w = 46, h = 64;
+      const warning = cup.state === 'warning';
+      const beat = warning ? 0.35 + Math.abs(Math.sin(this.model.elapsed * 14)) * 0.5 : 0.9;
+      this.rect(cup.x - w / 2, cy - h / 2, w, h, 0x3a2b33, 0.95);
+      this.rect(cup.x - w / 2 + 4, cy - h / 2 + 8, w - 8, h - 14, 0xc79a6b, 0.8);
+      for (let i = 0; i < 5; i++) this.rect(cup.x - 14 + (i % 3) * 12, cy + 4 + Math.floor(i / 3) * 10, 8, 8, 0x2a1b20);
+      // The straw, and the flare that says it is about to fire.
+      this.rect(cup.x + 10, cy - h / 2 - 22, 6, 30, 0xf0e6ef, beat);
+      if (warning || cup.state === 'firing') {
+        for (let i = 0; i < 9; i++) this.rect(cup.x + 11, cy - h / 2 - 28 - i * 18, 4, 10, 0xff9ab4, beat * (1 - i / 10));
+      }
+    }
+
+    // The straw beam. The warning line is drawn at FULL length and is unmistakably not the beam.
+    for (const beam of fight.beams) {
+      if (beam.state === 'warning') {
+        const beat = 0.25 + Math.abs(Math.sin(this.model.elapsed * 16)) * 0.55;
+        this.rect(beam.x - 2, 0, 4, 800, 0xffe9a8, beat);
+        this.rect(beam.x - beam.width / 2, 0, beam.width, 800, 0xffe9a8, beat * 0.12);
+      } else {
+        this.rect(beam.x - beam.width / 2, 0, beam.width, 800, 0xf0e6ef, 0.9);
+        this.rect(beam.x - beam.width / 2 + 6, 0, beam.width - 12, 800, 0xffffff, 0.7);
+        this.rect(beam.x - 4, 0, 8, 800, 0xffc4cf, 0.95);
+      }
+    }
+
+    // Pearls.
+    for (const pearl of fight.tapiocas) {
+      const py = pearl.y - cam;
+      if (py < -30 || py > 840) continue;
+      this.graphics.fillStyle(0x1b1016, 0.95).fillCircle(pearl.x, py, pearl.size);
+      this.graphics.fillStyle(0x6b4a58, 0.8).fillCircle(pearl.x - pearl.size * 0.3, py - pearl.size * 0.3, pearl.size * 0.4);
+    }
+
     const body = fight.body, y = body.y - cam;
-    const winding = fight.action?.state === 'telegraph';
-    const live = fight.action?.state === 'active';
+    if (y > 860 || y + body.height < -220) return;
+    const pose = fight.pose;
+    const dead = pose === 'dead';
+    const rage = pose === 'rage' || fight.rageActive;
+    // Hood and hair: brown under a dog hood, which is what makes the thing recognisable at all.
+    const hood = dead ? 0x4a3f45 : rage ? 0x7a2038 : 0x5d4a6b;
+    const hair = dead ? 0x5a4a3a : 0x9a6b3f;
+    this.rect(body.x - 6, y - 6, body.width + 12, body.height + 12, rage ? 0xff4d7a : 0x9d7bd8, dead ? 0.08 : 0.16);
+    // Ears, one each side, flopping a little.
+    const flop = this.reducedMotion ? 0 : Math.sin(this.model.elapsed * 2.2) * 3;
+    this.rect(body.x - 4, y + 6 + flop, 30, 52, hood);
+    this.rect(body.x + body.width - 26, y + 6 - flop, 30, 52, hood);
+    this.rect(body.x, y, body.width, body.height, hood);
+    this.rect(body.x + 16, y + 14, body.width - 32, body.height - 30, hair, 0.85);
+    // The huge hands, one holding the cup it will never put down.
+    this.rect(body.x - 22, y + body.height - 26, 34, 30, hood);
+    this.rect(body.x + body.width - 12, y + body.height - 26, 34, 30, hood);
+    this.rect(body.x + body.width + 2, y + body.height - 54, 22, 30, 0xc79a6b, 0.9);
+    this.rect(body.x + body.width + 10, y + body.height - 74, 5, 24, 0xf0e6ef, 0.9);
 
-    // A sweep marks the exact band it will scour, before it ever hurts, and stays marked while
-    // live. Drawing anything wider than fight.sweepBand would teach the player that the warning
-    // lies -- they would flee a stripe that never actually hurts them.
-    const band = fight.sweepBand;
-    if (band && (winding || live)) {
-      const side = fight.action?.side ?? fight.danger ?? -1;
-      const beat = winding ? 0.1 + Math.abs(Math.sin(this.model.elapsed * 11)) * 0.18 : 0.34;
-      this.rect(band.x, 0, band.width, 800, 0xff4d7a, beat);
-      const edge = side === -1 ? band.x + band.width : band.x;
-      for (let i = 0; i < 26; i++) this.rect(edge + (side === -1 ? -6 - i : 4 + i), 0, 2, 800, 0xff9ab4, beat * (1 - i / 26));
+    // The eye, on the face that looks down at the player. This is the fight.
+    const eye = fight.eye, ey = eye.y - cam;
+    if (fight.eyeOpen) {
+      const glow = pose === 'damage' ? 0xffffff : rage ? 0xff4d7a : 0xffe9a8;
+      this.rect(eye.x - 4, ey - 4, eye.width + 8, eye.height + 8, glow, 0.25);
+      this.graphics.fillStyle(0xf7f2f7, 0.97).fillEllipse(fight.x, ey + eye.height / 2, eye.width, eye.height);
+      const look = Math.max(-12, Math.min(12, (m.player.x - fight.x) * 0.12));
+      this.graphics.fillStyle(rage ? 0xff2e5c : 0x2a1b20, 1).fillEllipse(fight.x + look, ey + eye.height / 2, 22, eye.height * 0.8);
+      this.rect(fight.x + look - 3, ey + 6, 5, 5, 0xffffff, 0.9);
+    } else {
+      // Shut: a hard seam, so "invulnerable" is legible without reading a bar.
+      this.rect(eye.x, ey + eye.height / 2 - 3, eye.width, 6, 0x2a1b20);
+      this.rect(eye.x + 4, ey + eye.height / 2 - 6, eye.width - 8, 4, hair, 0.7);
     }
-    if (y > 830 || y + body.height < -40) return;
-
-    if (winding && fight.action?.attack.id === 'magicShot') {
-      // Three columns light up exactly where the shots will rise.
+    // Casting: the cup-hand is raised and the air around it lights up.
+    if (pose === 'cast') {
       const beat = 0.2 + Math.abs(Math.sin(this.model.elapsed * 13)) * 0.5;
-      for (const offset of [-26, 0, 26]) for (let i = 0; i < 12; i++) this.rect(fight.x + offset - 2, y - 16 - i * 22, 4, 12, 0xd9a0ff, beat * (1 - i / 14));
+      for (let i = 0; i < 10; i++) this.rect(fight.x - 3 + (i % 3 - 1) * 26, y + body.height + 10 + i * 16, 6, 10, 0xffe9a8, beat * (1 - i / 12));
     }
-    const glow = winding ? 0xffd2a0 : 0xc0a7ed;
-    this.rect(body.x - 4, y - 4, body.width + 8, body.height + 8, 0x9d7bd8, fight.defeated ? 0.1 : 0.18);
-    this.rect(body.x, y, body.width, body.height, fight.defeated ? 0x4a3f63 : 0x2c2140);
-    this.rect(body.x + 6, y + 6, body.width - 12, body.height - 20, glow, fight.defeated ? 0.25 : 0.55);
-    // Horns and eyes: a silhouette that reads as the source of the attacks.
-    this.graphics.fillStyle(glow).fillTriangle(body.x + 8, y, body.x + 16, y - 26, body.x + 26, y);
-    this.graphics.fillStyle(glow).fillTriangle(body.x + body.width - 26, y, body.x + body.width - 16, y - 26, body.x + body.width - 8, y);
-    if (!fight.defeated) {
-      this.rect(fight.x - 22, y + 20, 13, 9, 0xff4d7a); this.rect(fight.x + 9, y + 20, 13, 9, 0xff4d7a);
-      for (let i = 0; i < 5; i++) this.rect(body.x + 10 + i * 17, y + body.height, 8, 10 + (i % 2) * 6, 0x2c2140);
-    }
-    for (const shot of fight.shots) {
-      const sy = shot.y - cam;
-      if (sy < -20 || sy > 820) continue;
-      this.rect(shot.x - 5, sy - 9, 10, 18, 0xd9a0ff);
-      this.rect(shot.x - 2, sy - 15, 4, 8, 0xffffff, 0.8);
-    }
+    if (dead) for (let i = 0; i < 8; i++) this.rect(body.x + i * 21, y + body.height, 10, 12 + (i % 3) * 8, hood, 0.4);
   }
+
   private enemy(e: Enemy, cam: number) {
     const x = Math.round(e.x), y = Math.round(e.y - cam);
     if (y < -30 || y > 830) return;
@@ -816,6 +890,20 @@ export class GameScene extends Phaser.Scene {
       this.rect(x - 8, y - 20 + drift, 16, 4, 0x0b0710);
       for (let i = -1; i <= 1; i += 2) this.rect(x + i * 5 - 1.5, y - 8 + drift, 3, 5, 0xe6d8ff, 0.9);
       for (let i = -2; i <= 2; i++) this.rect(x + i * 5 - 1, y + 8 + drift, 2, 7 + Math.abs(i) * 3, color, 0.35);
+    }
+    if (type.silhouette === 'nimushi' || type.silhouette === 'nimushiBarbed') {
+      // A little hooded thing: NIMUSHI in miniature, so where it came from is never in doubt.
+      // The LIMBO variant wears the same hood with a crown of barbs, because the shape -- never
+      // the colour -- is what says whether a thing can be stood on.
+      const barbed = type.silhouette === 'nimushiBarbed';
+      const bob = Math.sin(this.model.elapsed * 4 + e.phase) * 3;
+      const hood = barbed ? 0x7a2038 : 0x9a7bc8;
+      if (barbed) for (let i = -1; i <= 1; i++) this.graphics.fillStyle(0xfbe3da).fillTriangle(x + i * 9 - 5, y - 15 + bob, x + i * 9, y - 28 + bob, x + i * 9 + 5, y - 15 + bob);
+      this.rect(x - 13, y - 16 + bob, 26, 24, hood);
+      this.rect(x - 15, y - 12 + bob, 6, 13, hood); this.rect(x + 9, y - 12 + bob, 6, 13, hood);
+      this.rect(x - 9, y - 10 + bob, 18, 11, 0x9a6b3f, 0.9);
+      for (let i = -1; i <= 1; i += 2) this.rect(x + i * 5 - 1.5, y - 6 + bob, 3, 4, 0x1b1016);
+      this.rect(x - 5, y + 8 + bob, 10, 7, 0xc79a6b, 0.9);
     }
     if (type.silhouette === 'bulwark') {
       this.rect(x - 20, y - 19, 40, 9, 0x4a3f63);

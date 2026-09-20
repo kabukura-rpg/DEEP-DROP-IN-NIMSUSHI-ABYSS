@@ -36,6 +36,11 @@ export const EVENT_SOUNDS: Record<GameEvent['type'], SoundId | null> = {
   coin: 'land', containerBreak: 'kill',
   shopOpen: 'upgrade', shopBuy: 'upgrade', exitReady: 'upgrade', exit: 'upgrade',
   bossHit: null, bossTelegraph: null, bossFire: null, bossPhase: null, bossDown: null,
+  // THE ABYSS. The reversal and FINAL RAGE are the two moments the fight stops for, so they take
+  // the loudest voices there are; the eye borrows the landing knock for shutting and opening, and
+  // a line of dialogue is deliberately silent.
+  gravityFlip: 'over', bossRage: 'over', bossEye: 'land', bossLine: null, bossStart: 'upgrade',
+  seal: null, tomato: 'upgrade',
 };
 /** The sound an event should make, or null when it is silent. Never throws on an unknown type. */
 export const eventSound = (type: GameEvent['type']): SoundId | null => EVENT_SOUNDS[type] ?? null;

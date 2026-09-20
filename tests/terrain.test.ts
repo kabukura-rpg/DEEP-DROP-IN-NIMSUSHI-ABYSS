@@ -175,14 +175,17 @@ describe('instant-death SPIKE is legacy: no normal AREA lays any', () => {
     // simply by naming it in a plan.
     for (const kind of SPIKE_KINDS) expect(HAZARD_TYPES[kind].lethal).toBe(true);
   });
-  it('never reaches the FINAL BOSS arena', () => {
-    const game = new GameModel(false, seeded(9091));
-    game.jumpToBoss();
-    for (let i = 0; i < 120 * 40 && game.state === 'boss'; i++) {
-      game.player.invincible = 99;
-      game.step(1 / 120, 0, false);
-      expect(game.hazards.filter(h => isSpike(h.kind))).toEqual([]);
-      expect(game.platforms.filter(p => p.breakBlock)).toEqual([]);
+  it('never reaches THE ABYSS, in the staging room or in the arena', () => {
+    for (const enter of [(g: GameModel) => g.jumpToBoss(), (g: GameModel) => g.jumpToNimushi()]) {
+      const game = new GameModel(false, seeded(9091));
+      enter(game);
+      for (let i = 0; i < 120 * 40 && game.state === 'boss'; i++) {
+        game.player.invincible = 99;
+        game.step(1 / 120, 0, false);
+        // Instant-death SPIKE is legacy terrain and no part of THE ABYSS lays any. BREAK BLOCK is
+        // a different thing entirely and IS laid here -- the seal is one, by design.
+        expect(game.hazards.filter(h => isSpike(h.kind))).toEqual([]);
+      }
     }
   });
 });

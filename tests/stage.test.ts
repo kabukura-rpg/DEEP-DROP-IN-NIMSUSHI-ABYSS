@@ -208,11 +208,19 @@ describe('final boss and game clear', () => {
     expect([game.state, game.stage.boss]).toEqual(['upgrade', false]);
     game.selectUpgrade(game.upgrades.choices[0].id);
     expect(game.confirmUpgrade()).toBe(true);
+    // 4-3 CLEAR opens THE ABYSS -- the staging room -- rather than the fight itself. NIMUSHI is
+    // not met until the player has shopped, broken the seal and had the world turned over.
     expect([game.state, game.stage.label]).toEqual(['boss', 'FINAL BOSS']);
-    expect(game.events.filter(e => e.type === 'boss')).toHaveLength(1);
+    expect(game.abyssStage).toBe('staging');
+    expect(game.boss.enabled).toBe(false);
+    expect(game.gravitySign).toBe(1);
     expect(game.completeSection()).toBe(false);
-    game.step(1, 1, true);
+    game.step(1 / 120, 1, true);
     expect(game.state).toBe('boss');
+    game.jumpToNimushi();
+    expect(game.abyssStage).toBe('fight');
+    expect(game.boss.enabled).toBe(true);
+    expect(game.events.filter(e => e.type === 'boss').length).toBeGreaterThanOrEqual(1);
     expect(game.clearBoss()).toBe(true);
     expect(game.state).toBe('clear');
     expect(game.events.filter(e => e.type === 'clear')).toHaveLength(1);

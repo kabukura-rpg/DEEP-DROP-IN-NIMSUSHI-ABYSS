@@ -21,22 +21,28 @@ export interface ShopItemDef {
   maxCharge: number;
   /** Permanent Max HP added, through HealthSystem's own LIFE UP. */
   maxHp: number;
-  /** Price by AREA index 1..4. The original's Normal Mode table; Hard Mode is not modelled. */
-  prices: readonly [number, number, number, number];
+  /**
+   * Price by AREA index 1..5. Indices 1-4 are the original's Normal Mode table; index 5 is THE
+   * ABYSS, the guaranteed shelf immediately before the FINAL BOSS. Hard Mode is not modelled.
+   */
+  prices: readonly [number, number, number, number, number];
 }
 
 export const SHOP_ITEMS: readonly ShopItemDef[] = [
-  { id: 'riceBall', name: 'おにぎり', effect: 'HPを1回復。満タンなら余剰回復（LIFE UP）へ。', hearts: 1, maxCharge: 0, maxHp: 0, prices: [300, 500, 700, 900] },
-  { id: 'sushi', name: 'すし', effect: 'HPを2回復。満タンなら余剰回復（LIFE UP）へ。', hearts: 2, maxCharge: 0, maxHp: 0, prices: [500, 700, 900, 1100] },
-  { id: 'battery', name: 'バッテリー', effect: '最大CHARGE +1。弾倉も満タンになる。', hearts: 0, maxCharge: 1, maxHp: 0, prices: [150, 350, 550, 750] },
-  { id: 'carBattery', name: 'カーバッテリー', effect: '最大CHARGE +2。弾倉も満タンになる。', hearts: 0, maxCharge: 2, maxHp: 0, prices: [250, 450, 650, 850] },
-  { id: 'energyDrink', name: 'エナジードリンク', effect: 'HPを1回復し、最大CHARGE +1。', hearts: 1, maxCharge: 1, maxHp: 0, prices: [400, 600, 800, 1000] },
-  { id: 'curry', name: 'カレー', effect: '最大HP +1。新しいハートは満タンで増える。', hearts: 0, maxCharge: 0, maxHp: 1, prices: [1000, 1200, 1400, 1600] },
+  { id: 'riceBall', name: 'おにぎり', effect: 'HPを1回復。満タンなら余剰回復（LIFE UP）へ。', hearts: 1, maxCharge: 0, maxHp: 0, prices: [300, 500, 700, 900, 1100] },
+  { id: 'sushi', name: 'すし', effect: 'HPを2回復。満タンなら余剰回復（LIFE UP）へ。', hearts: 2, maxCharge: 0, maxHp: 0, prices: [500, 700, 900, 1100, 1300] },
+  { id: 'battery', name: 'バッテリー', effect: '最大CHARGE +1。弾倉も満タンになる。', hearts: 0, maxCharge: 1, maxHp: 0, prices: [150, 350, 550, 750, 950] },
+  { id: 'carBattery', name: 'カーバッテリー', effect: '最大CHARGE +2。弾倉も満タンになる。', hearts: 0, maxCharge: 2, maxHp: 0, prices: [250, 450, 650, 850, 1050] },
+  { id: 'energyDrink', name: 'エナジードリンク', effect: 'HPを1回復し、最大CHARGE +1。', hearts: 1, maxCharge: 1, maxHp: 0, prices: [400, 600, 800, 1000, 1200] },
+  { id: 'curry', name: 'カレー', effect: '最大HP +1。新しいハートは満タンで増える。', hearts: 0, maxCharge: 0, maxHp: 1, prices: [1000, 1200, 1400, 1600, 1800] },
 ];
 
 export const shopItem = (id: ShopItemId) => SHOP_ITEMS.find(item => item.id === id) ?? SHOP_ITEMS[0];
 
-/** What this good costs in that AREA. Clamped, so an index outside 1..4 still has a price. */
+/** The price column THE ABYSS's guaranteed shelf is quoted from. */
+export const ABYSS_SHOP_AREA = 5;
+
+/** What this good costs in that AREA. Clamped, so an index outside 1..5 still has a price. */
 export const shopPrice = (item: ShopItemDef, area: AreaId | number) =>
   item.prices[Math.max(0, Math.min(item.prices.length - 1, Math.round(area) - 1))];
 

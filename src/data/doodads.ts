@@ -19,6 +19,16 @@ export interface Doodad {
   variant: DoodadVariant;
   /** False once something has consumed it. Ordinary doodads never set this; breakable ones will. */
   active: boolean;
+  /**
+   * Spent by the bounce that used it. THE ABYSS's doodads are, and the shaft's are not.
+   *
+   * Out in the shaft an everlasting doodad is harmless: a player who wants to bounce on the same
+   * lamp forever is only wasting their own time. In the arena it is a trap -- the bounce throws
+   * them AGAINST the pull, gravity brings them straight back onto it, and a player who never
+   * steers sideways is held in place while NIMUSHI hauls the fight away and the deep closes in
+   * behind them. One bounce each removes the trap without removing the reload.
+   */
+  consumable?: boolean;
 }
 
 export const DOODAD_RULES = {
@@ -35,6 +45,6 @@ export const DOODAD_RULES = {
   height: 12,
 } as const;
 
-export const spawnDoodad = (id: number, x: number, y: number, variant: DoodadVariant): Doodad => ({
-  id, x, y, width: DOODAD_RULES.width, height: DOODAD_RULES.height, variant, active: true,
+export const spawnDoodad = (id: number, x: number, y: number, variant: DoodadVariant, consumable = false): Doodad => ({
+  id, x, y, width: DOODAD_RULES.width, height: DOODAD_RULES.height, variant, active: true, consumable,
 });

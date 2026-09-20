@@ -337,7 +337,8 @@ describe('SHOTGUN stays the close-range shove', () => {
 describe('shootable and stompable are two separate questions', () => {
   it('states both for every enemy in the catalogue', () => {
     const kinds = Object.keys(ENEMY_TYPES) as EnemyKind[];
-    expect(kinds.length).toBe(20);
+    // Twenty from the shaft, plus NIMUSHI's two: the clone and its LIMBO variant.
+    expect(kinds.length).toBe(22);
     for (const kind of kinds) {
       expect({ kind, shootable: typeof ENEMY_TYPES[kind].shootable }).toEqual({ kind, shootable: 'boolean' });
       expect({ kind, stompable: typeof ENEMY_TYPES[kind].stompable }).toEqual({ kind, stompable: 'boolean' });

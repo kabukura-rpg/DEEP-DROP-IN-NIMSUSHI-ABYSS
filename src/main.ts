@@ -20,7 +20,7 @@ app.innerHTML = `
     <div class="cabinet-top"><span><i></i> SHAFT_01</span><span id="zone">SURFACE ZONE</span></div>
     <div id="game-frame">
       <div id="game" aria-label="縦落下アクションのプレイ画面"></div>
-      <div id="hud" class="hud"><div id="boss-bar" class="boss-bar" hidden><span class="boss-name">DEMON KING <b id="boss-phase"></b></span><div class="boss-track"><i id="boss-fill"></i></div><small id="boss-percent">100%</small></div><div class="hud-top"><div><span class="hud-label"><b id="stage-label">1-1</b>DEPTH</span><div class="depth-number"><span id="depth">000</span><small id="depth-goal">/ 200m</small></div></div><div class="purse"><span id="coin-wallet">COIN 0</span><small id="coin-score">SCORE 0</small><div id="coin-high" class="coin-high"><div class="coin-high-bar"><i id="coin-high-fill"></i></div><b id="coin-high-state">HIGH</b></div></div><button id="pause" class="pause-button" aria-label="ポーズ" disabled>Ⅱ</button></div><div class="hud-status"><div><div id="hearts" aria-label="HP 4">♥ ♥ ♥ ♥</div><small id="life-gauge"></small></div><div class="ammo-group"><span id="ammo-label">AMMO</span><div id="ammo"></div><b id="gun-module" class="gun-module">MG</b></div></div><div id="oxygen" class="oxygen" hidden><span class="oxygen-label">OXYGEN <b id="oxygen-state"></b></span><div class="oxygen-bar"><i id="oxygen-fill"></i></div><small id="oxygen-seconds">12.0s</small></div><div id="heat" class="heat" hidden><span class="heat-label">HEAT <b id="heat-state"></b></span><div class="heat-bar"><i id="heat-fill"></i></div><small id="heat-percent">0%</small></div><div id="stage-intro" class="stage-intro" hidden aria-live="polite"></div><div id="combo" class="combo" hidden></div><div id="gun-toast" class="gun-toast" hidden aria-live="polite"></div><div id="practice-label" hidden>CONTROL LAB <span>落下 → 射撃 → 着地</span></div><div class="depth-progress"><div id="progress"></div></div></div>
+      <div id="hud" class="hud"><div id="boss-bar" class="boss-bar" hidden><span class="boss-name">NIMUSHI <b id="boss-phase"></b></span><div class="boss-track"><i id="boss-fill"></i></div><small id="boss-percent">100%</small></div><div class="hud-top"><div><span class="hud-label"><b id="stage-label">1-1</b>DEPTH</span><div class="depth-number"><span id="depth">000</span><small id="depth-goal">/ 200m</small></div></div><div class="purse"><span id="coin-wallet">COIN 0</span><small id="coin-score">SCORE 0</small><div id="coin-high" class="coin-high"><div class="coin-high-bar"><i id="coin-high-fill"></i></div><b id="coin-high-state">HIGH</b></div></div><button id="pause" class="pause-button" aria-label="ポーズ" disabled>Ⅱ</button></div><div class="hud-status"><div><div id="hearts" aria-label="HP 4">♥ ♥ ♥ ♥</div><small id="life-gauge"></small></div><div class="ammo-group"><span id="ammo-label">AMMO</span><div id="ammo"></div><b id="gun-module" class="gun-module">MG</b></div></div><div id="oxygen" class="oxygen" hidden><span class="oxygen-label">OXYGEN <b id="oxygen-state"></b></span><div class="oxygen-bar"><i id="oxygen-fill"></i></div><small id="oxygen-seconds">12.0s</small></div><div id="heat" class="heat" hidden><span class="heat-label">HEAT <b id="heat-state"></b></span><div class="heat-bar"><i id="heat-fill"></i></div><small id="heat-percent">0%</small></div><div id="stage-intro" class="stage-intro" hidden aria-live="polite"></div><div id="combo" class="combo" hidden></div><div id="gun-toast" class="gun-toast" hidden aria-live="polite"></div><div id="boss-line" class="boss-line" hidden aria-live="polite"></div><div id="practice-label" hidden>CONTROL LAB <span>落下 → 射撃 → 着地</span></div><div class="depth-progress"><div id="progress"></div></div></div>
       <div id="overlay" class="overlay"></div>
       <div id="touch-controls"><button id="left-control" aria-label="左移動">←</button><button id="fire-control" aria-label="射撃">FIRE<span>↓</span></button><button id="right-control" aria-label="右移動">→</button></div>
     </div>
@@ -67,6 +67,12 @@ const bridge: GameBridge = {
     if (event.type === 'exitReady') showToast('EXIT OPEN', '下へ進む扉が現れた');
     if (event.type === 'gunModule') showToast(String(event.stage), event.bonus === 'charge' ? `AMMO MAX +${event.value}` : `HP +${event.value}`);
     if (event.type === 'bossPhase') showBossPhase(Number(event.value), String(event.stage));
+    // The one beat the fight holds. The banner is screen-space and stays the right way up, which
+    // is the whole point of inverting the physics rather than rotating the view.
+    if (event.type === 'gravityFlip' && event.value) showToast('GRAVITY REVERSED', '重力が反転した');
+    if (event.type === 'bossStart') showToast('BOSS TIME', String(event.stage));
+    if (event.type === 'bossRage') showToast('FINAL RAGE', 'NIMUSHI が本気になった');
+    if (event.type === 'tomato') showToast('TOMATO', `MAX HP +10 / MAX CHARGE +${event.value}`);
     if (event.type === 'upgrade') showSectionClear(model, event.stage || model.stage.label, event.areaCleared || null);
     if (event.type === 'boss') showBoss(model);
     if (event.type === 'clear') showClear(model);
@@ -250,8 +256,8 @@ function showBossPhase(phase: number, name: string) {
 }
 function showBoss(model: GameModel) {
   mode = 'boss'; clearInput();
-  $('run-status').textContent = 'FINAL BOSS / DEMON KING';
-  $('zone').textContent = 'FINAL · DEMON KING';
+  $('run-status').textContent = 'FINAL BOSS / NIMUSHI';
+  $('zone').textContent = 'FINAL · NIMUSHI';
   setOverlay(''); lastHud = ''; updateHud(model);
   $('touch-controls').classList.add('visible');
   bridge.active = true;
@@ -269,7 +275,7 @@ function showClear(model: GameModel) {
   // and rest/upgrade selection are all already excluded. BOSS TIME is the fight on its own.
   const mmss = (seconds: number) => `${Math.floor(seconds / 60)}:${String(Math.floor(seconds % 60)).padStart(2, '0')}`;
   const clearTime = mmss(model.elapsed), bossTime = mmss(model.bossTime);
-  setOverlay(`<div class="panel-content result-content clear-content"><div class="eyebrow">RUN COMPLETE</div><h2>GAME CLEAR.<span>DEMON KING DEFEATED</span></h2><div class="result-depth"><small>TOTAL DEPTH</small><strong>${depth}<span>m</span></strong></div><div class="result-stats"><div><span>TOTAL KILLS</span><b>${model.kills}</b></div><div><span>MAX COMBO</span><b>${model.maxCombo}</b></div><div><span>UPGRADES</span><b>${upgrades}</b></div><div><span>SCORE</span><b>${model.score.toLocaleString()}</b></div><div><span>CLEAR TIME</span><b>${clearTime}</b></div><div><span>BOSS TIME</span><b>${bossTime}</b></div></div><button id="play-again" class="primary-button">PLAY AGAIN <span>↻</span></button><button id="clear-home" class="text-button">タイトルへ</button></div>`);
+  setOverlay(`<div class="panel-content result-content clear-content"><div class="eyebrow">RUN COMPLETE</div><h2>GAME CLEAR.<span>NIMUSHI DEFEATED</span></h2><div class="result-depth"><small>TOTAL DEPTH</small><strong>${depth}<span>m</span></strong></div><div class="result-stats"><div><span>TOTAL KILLS</span><b>${model.kills}</b></div><div><span>MAX COMBO</span><b>${model.maxCombo}</b></div><div><span>UPGRADES</span><b>${upgrades}</b></div><div><span>SCORE</span><b>${model.score.toLocaleString()}</b></div><div><span>CLEAR TIME</span><b>${clearTime}</b></div><div><span>BOSS TIME</span><b>${bossTime}</b></div></div><button id="play-again" class="primary-button">PLAY AGAIN <span>↻</span></button><button id="clear-home" class="text-button">タイトルへ</button></div>`);
   $('play-again').onclick = () => start();
   $('clear-home').onclick = showTitle;
 }
@@ -339,9 +345,13 @@ function updateHud(model: GameModel) {
     $('boss-fill').style.width = `${Math.max(0, model.boss.ratio) * 100}%`;
     $('boss-percent').textContent = `${Math.ceil(model.boss.ratio * 100)}%`;
     $('boss-phase').textContent = `PHASE ${model.boss.phaseId}`;
-    bossBar.dataset.state = model.boss.defeated ? 'down' : model.boss.climax ? 'climax' : 'fight';
-    bossBar.setAttribute('aria-label', `魔王HP ${Math.ceil(model.boss.ratio * 100)}%`);
+    bossBar.dataset.state = model.boss.defeated ? 'down' : model.boss.rageActive ? 'climax' : 'fight';
+    bossBar.setAttribute('aria-label', `NIMUSHI HP ${Math.ceil(model.boss.ratio * 100)}%`);
   }
+  // NIMUSHI's own voice. Screen-space, dismissable, and never in the way of the controls.
+  const line = $('boss-line');
+  line.hidden = !model.bossLine;
+  if (model.bossLine) line.textContent = model.bossLine.text;
   const heat = $('heat');
   heat.hidden = !model.heat.enabled;
   if (model.heat.enabled) {

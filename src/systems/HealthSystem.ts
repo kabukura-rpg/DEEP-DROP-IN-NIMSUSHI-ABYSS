@@ -6,8 +6,10 @@
 export const HEALTH_RULES = { overflowPerLife: 4, fillNewHeart: true, invincibilitySeconds: 1 } as const;
 export type DamageCause =
   | 'enemy' | 'spike' | 'tank' | 'oxygen' | 'heat' | 'lava' | 'fall'
-  /** The FINAL BOSS hurts in three distinguishable ways, so a death report can name which. */
-  | 'bossContact' | 'bossShot' | 'bossSweep';
+  /** The FINAL BOSS hurts in distinguishable ways, so a death report can name which. */
+  | 'bossContact' | 'bossShot' | 'bossSweep'
+  /** Caught by the ABYSS boundary. Never ordinary damage: being overtaken ends the run. */
+  | 'crush';
 export interface HealthLoss { cause: DamageCause; instant: boolean; amount: number }
 export interface HealingResult { restored: number; overflow: number; lifeUps: number }
 

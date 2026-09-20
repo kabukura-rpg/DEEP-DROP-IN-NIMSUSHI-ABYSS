@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { GameModel } from '../src/systems/GameModel';
 import { reachExit } from './exitHelper';
-import { BOSS } from '../src/data/boss';
+import { NIMUSHI } from '../src/data/nimushi';
 import { GunModuleSystem } from '../src/systems/GunModuleSystem';
 import {
   CHARGE_AMMO_BONUS, GUN_MODULES, GUN_MODULE_IDS, STARTING_GUN_MODULE, gunModule, volley, volleyRecoil,
@@ -151,13 +151,18 @@ describe('LASER', () => {
     for (let i = 0; i < 40; i++) { game.platforms = []; game.pickups = []; game.player.y = 180; game.player.vy = 0; game.step(1 / 120, 0, false); }
     expect(game.kills).toBe(3);
   });
-  it('only ever lands one hit on the king, however far it pierces', () => {
+  it('only ever lands one hit on NIMUSHI, however far it pierces', () => {
     const game = new GameModel(false, seeded(4));
-    game.jumpToBoss();
+    game.jumpToNimushi();
+    game.platforms = []; game.doodads = [];
     game.gun.equip('laser');
     const before = game.boss.hp;
+    // Straight up the shaft at the eye, from a column the beam actually passes through.
+    game.player.x = game.boss.x;
+    game.player.y = game.boss.face + 300;
+    game.player.grounded = -1;
     game.shoot();
-    for (let i = 0; i < 90; i++) game.step(1 / 120, 0, false);
+    for (let i = 0; i < 90; i++) { game.player.invincible = 99; game.step(1 / 120, 0, false); }
     expect(before - game.boss.hp).toBe(GUN_MODULES.laser.projectileDamage);
   });
   it('has a narrower profile than the heavy weapons', () => {
@@ -461,20 +466,23 @@ describe('gun modules across the run', () => {
     expect(game.state).toBe('boss');
     expect(game.gun.id).toBe('shotgun');
   });
-  it.each(GUN_MODULE_IDS)('%s can damage the king', id => {
+  it.each(GUN_MODULE_IDS)('%s can reach NIMUSHI\'s eye', id => {
     const game = new GameModel(false, seeded(21));
-    game.jumpToBoss();
+    game.jumpToNimushi();
+    game.platforms = []; game.doodads = [];
     game.gun.equip(id);
     game.stats.maxAmmo = 40; game.ammo = 40;
     const before = game.boss.hp;
     const reach = gunModule(id).range;
-    for (let i = 0; i < 360; i++) {
+    for (let i = 0; i < 480; i++) {
       game.player.invincible = 99; game.ammo = 40;
       game.player.x = game.boss.x;
-      // A short-range weapon only reaches the king by diving at it, which the fight allows down
-      // to BOSS.minGap. A long-range one simply fires from where it already is.
-      if (reach < BOSS.restGap) game.player.y = game.boss.y - Math.max(BOSS.minGap, reach * 0.55);
-      game.step(1 / 120, 0, true);
+      // A short-range weapon only reaches the eye by diving at NIMUSHI, which the fight allows
+      // down to minGap. A long-range one simply fires from where it already is.
+      game.player.vy = 0;
+      game.player.y = game.boss.face + Math.min(reach * 0.6, 320);
+      // Pulsed: BURST and the other single-shot modules fire once per PRESS, not per frame.
+      game.step(1 / 120, 0, i % 8 < 4);
     }
     expect(game.boss.hp).toBeLessThan(before);
   });
