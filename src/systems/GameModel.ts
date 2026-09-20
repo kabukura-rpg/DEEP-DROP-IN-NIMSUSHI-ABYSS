@@ -97,6 +97,8 @@ export class GameModel {
    * a pause: `running` stays true and the simulation keeps stepping.
    */
   get timeFrozen() { return this.safeZone !== null; }
+  /** The last TIMEVOID state announced through an event, so both halves of a move can raise one. */
+  private timeVoidOn = false;
   get victorySealed() { return this.state === 'clear' || (this.boss.enabled && this.boss.defeated); }
   get hp() { return this.health.currentHp; }
   set hp(value: number) { this.health.currentHp = value; }
@@ -347,11 +349,17 @@ export class GameModel {
     this.health.tick(dt);
     this.wallTouchAge += dt;
     const oldY = p.y;
-    const wasFrozen = this.timeFrozen;
     this.moveHorizontal(dt, direction);
     // Decided after the move, so stepping into a chamber takes effect on the very frame it happens.
     const frozen = this.timeFrozen;
-    if (frozen !== wasFrozen) this.events.push({ type: 'timeVoid', x: p.x, y: p.y, value: frozen ? 1 : 0 });
+    // Compared against what was last announced rather than against this step's own starting value:
+    // the vertical half of the move lands at the END of a step, so reading the flag twice around
+    // moveHorizontal only ever catches a player crossing the mouth sideways and silently misses one
+    // dropping in through the top.
+    if (frozen !== this.timeVoidOn) {
+      this.timeVoidOn = frozen;
+      this.events.push({ type: 'timeVoid', x: p.x, y: p.y, value: frozen ? 1 : 0 });
+    }
     if (!frozen) this.worldElapsed += dt;
     const ground = this.platforms.find(f => f.id === p.grounded);
     if (ground && p.x + 9 > ground.x && p.x - 9 < ground.x + ground.width) p.vy = 0;
@@ -385,17 +393,25 @@ export class GameModel {
       this.fireGun(dt, direction, firing);
     }
     p.y += p.vy * dt;
-    this.holdInsideSafeZone(wasFrozen);
+    // `frozen` is sampled before the vertical move, which is exactly the question the roof asks:
+    // someone already in the chamber is held under it, someone still falling toward it is not.
+    this.holdInsideSafeZone(frozen);
     if (!frozen) for (const e of this.enemies) {
       e.flash = Math.max(0, e.flash - dt);
       e.hurtFlash = Math.max(0, (e.hurtFlash || 0) - dt);
       e.x = e.originX + Math.sin(this.worldElapsed * enemyType(e.kind).swaySpeed + e.phase) * e.range;
     }
-    // Swept bullet collisions prevent fast projectiles tunneling through enemies. Rounds belong to
-    // the shaft, so inside a chamber they hang exactly where they were -- including any fired from
-    // in there, which is the whole idea of standing in stopped time.
-    if (!frozen) for (const b of this.bullets) {
+    // Swept bullet collisions prevent fast projectiles tunneling through enemies.
+    //
+    // TIMEVOID stops the world OUTSIDE the chamber, and a round is part of whichever side of the
+    // mouth it is on. So this is decided per round rather than for the whole list: one already in
+    // flight out in the shaft hangs exactly where it was, while one fired inside keeps flying and
+    // keeps colliding, because time has never stopped in there. A round that leaves the chamber
+    // crosses into stopped time and holds there until the player steps back out.
+    const stoppedWorld = frozen ? this.safeZone : null;
+    for (const b of this.bullets) {
       if (!b.alive) continue;
+      if (stoppedWorld && !insideSafeZone(stoppedWorld, b.x, b.y)) continue;
       b.previousY = b.y; b.previousX = b.x;
       b.x += b.vx * dt; b.y += b.vy * dt;
       // Reach is a weapon trait: PUNCHER dies quickly, LASER runs the length of the shaft.
@@ -511,8 +527,11 @@ export class GameModel {
         if (p.y > this.cameraY + WORLD.height + 50) this.killInstantly('fall');
       }
     }
+    // Spent rounds are dropped even in stopped time: a player bouncing on a doodad and firing would
+    // otherwise grow the list for as long as they stay in there. Culling live rounds by camera band
+    // is the world's job, so that half waits until time runs again.
+    this.bullets = this.bullets.filter(b => b.alive && (frozen || b.y < this.cameraY + WORLD.height + 150));
     if (frozen) return;
-    this.bullets = this.bullets.filter(b => b.alive && b.y < this.cameraY + WORLD.height + 150);
     this.platforms = this.platforms.filter(f => f.y > this.cameraY - 180);
     this.enemies = this.enemies.filter(e => e.alive && e.y > this.cameraY - 180);
     this.pickups = this.pickups.filter(item => !item.taken && item.y > this.cameraY - 180);

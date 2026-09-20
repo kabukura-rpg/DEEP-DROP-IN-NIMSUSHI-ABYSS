@@ -347,6 +347,179 @@ describe('TIMEVOID: the world outside a chamber stops', () => {
   });
 });
 
+describe('SAFE ZONE mouth: entry is crossing the opening, not landing on the floor', () => {
+  /** A chamber low enough that the approach is a real fall, and the player out in the shaft beside it. */
+  function approach(gap = 40, fallSpeed = 0) {
+    const game = bare();
+    const { zone, floor } = withChamber(game, null, 520);
+    // Right of the mouth plane, above the chamber, falling: the ordinary way a player arrives.
+    game.player.x = zone.x + zone.width + gap;
+    game.player.y = 200; game.player.vy = fallSpeed; game.player.grounded = -1;
+    game.events.length = 0;
+    return { game, zone, floor };
+  }
+  /** Steer toward the mouth until time stops, reporting what the player was doing at that moment. */
+  function crossInward(game: GameModel, seconds = 4) {
+    for (let i = 0; i < Math.round(seconds * 120); i++) {
+      game.step(1 / 120, -1, false);
+      // The announced state, not the raw getter: this is the frame the rest of the game is told
+      // time has stopped, so measuring it proves the cue lands before the floor does.
+      if (game.events.some(e => e.type === 'timeVoid' && e.value === 1)) {
+        return { crossed: true, grounded: game.player.grounded, y: game.player.y, landed: game.events.some(e => e.type === 'land') };
+      }
+      if (game.events.some(e => e.type === 'land')) {
+        return { crossed: false, grounded: game.player.grounded, y: game.player.y, landed: true };
+      }
+    }
+    return { crossed: false, grounded: game.player.grounded, y: game.player.y, landed: false };
+  }
+
+  it('turns TIMEVOID on the moment the mouth is crossed, in mid-air, before any landing', () => {
+    const { game, floor } = approach();
+    const entry = crossInward(game);
+    expect(entry.crossed).toBe(true);
+    expect(game.timeFrozen).toBe(true);
+    // The whole point: still falling, nothing underfoot, and the floor never touched.
+    expect(entry.grounded).toBe(-1);
+    expect(entry.landed).toBe(false);
+    expect(entry.y).toBeLessThan(floor.y);
+    expect(game.events.some(e => e.type === 'timeVoid' && e.value === 1)).toBe(true);
+  });
+  it('crosses before landing however far out and however fast the player is falling', () => {
+    // Every approach a player can actually make, from a standing step to terminal velocity.
+    for (const gap of [10, 20, 40, 80]) {
+      for (const fall of [0, 260, 520]) {
+        const { game } = approach(gap, fall);
+        const entry = crossInward(game);
+        expect([gap, fall, entry.crossed, entry.landed]).toEqual([gap, fall, true, false]);
+        expect(entry.grounded).toBe(-1);
+      }
+    }
+  });
+  it('banks nothing on the way in: the chain and CHARGE are untouched until the floor', () => {
+    const { game, floor } = approach();
+    game.ammo = 3; game.combo = 13;
+    const entry = crossInward(game);
+    expect(entry.crossed).toBe(true);
+    // Crossing the mouth is not a landing, so neither of the two landing effects has fired.
+    expect(game.ammo).toBe(3);
+    expect(game.combo).toBe(13);
+    expect(game.events.some(e => e.type === 'comboSettle')).toBe(false);
+    // Then the floor itself reloads without banking, exactly as before.
+    tick(game, 2, -1);
+    expect(game.player.grounded).toBe(floor.id);
+    expect(game.ammo).toBe(game.stats.maxAmmo);
+    expect(game.combo).toBe(13);
+    expect(game.events.some(e => e.type === 'comboSettle')).toBe(false);
+  });
+  it('lets the player walk back out sideways, which starts the world again', () => {
+    const { game, zone, floor } = approach();
+    tick(game, 3, -1);
+    expect(game.timeFrozen).toBe(true);
+    expect(game.player.grounded).toBe(floor.id);
+    // Left and right alone are enough to leave -- no jump, which is what makes it work on a phone.
+    let left = false;
+    for (let i = 0; i < 480 && !left; i++) { game.step(1 / 120, 1, false); left = !game.timeFrozen; }
+    expect(left).toBe(true);
+    // The mouth plane itself is already outside, so leaving registers on the very pixel.
+    expect(game.player.x).toBeGreaterThanOrEqual(zone.x + zone.width);
+    expect(game.events.some(e => e.type === 'timeVoid' && e.value === 0)).toBe(true);
+  });
+  it('is a plain rectangle test, so it never asks how the player got there', () => {
+    const { zone } = approach();
+    const mouth = zone.x + zone.width;
+    // A point level with the middle of the chamber, a hair either side of the opening.
+    const midY = zone.y + zone.height / 2;
+    expect(insideSafeZone(zone, mouth - 1, midY)).toBe(true);
+    expect(insideSafeZone(zone, mouth + 1, midY)).toBe(false);
+    // Well above the floor, and moving upward through it: still inside.
+    expect(insideSafeZone(zone, mouth - 20, zone.y + 10)).toBe(true);
+  });
+});
+
+describe('TIMEVOID: rounds stop on the shaft side of the mouth only', () => {
+  /** The player airborne inside a chamber, able to fire, with a round already hanging out in the shaft. */
+  function inChamber() {
+    const game = bare();
+    const { zone, floor } = withChamber(game, null, 320);
+    game.player.x = zone.x + zone.width / 2;
+    // High under the chamber roof: the gunboots fire downward, so this is the headroom a round
+    // needs to travel a measurable distance before it reaches the floor and the shaft beyond it.
+    game.player.y = floor.y - 92; game.player.vy = 0; game.player.grounded = -1;
+    game.ammo = game.stats.maxAmmo;
+    game.enemies = []; game.containers = [];
+    game.events.length = 0;
+    expect(game.timeFrozen).toBe(true);
+    return { game, zone, floor };
+  }
+  const round = (x: number, y: number, vy: number) => ({
+    x, y, previousX: x, previousY: y, vx: 0, vy, damage: 1, size: 4, pierce: 0,
+    pierceBlocks: false, blocks: new Set<number>(), range: 900, travelled: 0, beam: false,
+    hits: new Set<number>(), alive: true,
+  });
+
+  it('holds a player round left out in the shaft', () => {
+    const { game } = inChamber();
+    game.bullets = [round(300, 200, 400)];
+    const shot = game.bullets[0];
+    tick(game, 1.5);
+    expect(shot.y).toBe(200);
+    expect(shot.travelled).toBe(0);
+  });
+  it('holds a round travelling upward through the shaft, whoever fired it', () => {
+    // Enemies deal contact damage today, so nothing of theirs is in flight yet. The rule is decided
+    // by where a round is rather than who fired it, so it already covers one when it arrives.
+    const { game } = inChamber();
+    game.bullets = [round(300, 500, -520)];
+    const incoming = game.bullets[0];
+    tick(game, 1.5);
+    expect(incoming.y).toBe(500);
+  });
+  it('flies a round fired inside the chamber', () => {
+    const { game, zone } = inChamber();
+    game.step(1 / 120, 0, true);
+    expect(game.bullets.length).toBeGreaterThan(0);
+    const fired = game.bullets[0];
+    expect(insideSafeZone(zone, fired.x, fired.y)).toBe(true);
+    const start = fired.y;
+    tick(game, 0.05);
+    // The gunboots point down, so "moving" here means further down the chamber.
+    expect(fired.y).toBeGreaterThan(start);
+    expect(fired.travelled).toBeGreaterThan(0);
+  });
+  it('lets a round fired inside still hit something', () => {
+    const { game, zone, floor } = inChamber();
+    game.enemies = [spawnEnemy('slime', 91, game.player.x, floor.y - 30, 40, 0, 'open')];
+    const target = game.enemies[0];
+    expect(insideSafeZone(zone, target.x, target.y)).toBe(true);
+    game.step(1 / 120, 0, true);
+    tick(game, 0.4);
+    expect(target.alive).toBe(false);
+  });
+  it('stops a round fired inside once it leaves the chamber', () => {
+    const { game, zone } = inChamber();
+    game.step(1 / 120, 0, true);
+    const fired = game.bullets[0];
+    tick(game, 1.5);
+    // It ran out past the chamber and met the stopped world waiting on the other side.
+    expect(insideSafeZone(zone, fired.x, fired.y)).toBe(false);
+    const parked = fired.y;
+    tick(game, 1);
+    expect(fired.y).toBe(parked);
+  });
+  it('starts the shaft rounds again the moment the player steps out', () => {
+    const { game } = inChamber();
+    game.bullets = [round(300, 200, 400)];
+    const shot = game.bullets[0];
+    tick(game, 1);
+    expect(shot.y).toBe(200);
+    for (let i = 0; i < 600 && game.timeFrozen; i++) game.step(1 / 120, 1, false);
+    expect(game.timeFrozen).toBe(false);
+    tick(game, 0.2);
+    expect(shot.y).toBeGreaterThan(200);
+  });
+});
+
 describe('SAFE ZONE content reaches the existing systems', () => {
   it('hands over a gun module, keeping the chain', () => {
     const game = bare(false);

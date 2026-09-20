@@ -8,7 +8,7 @@ import { pickupType } from '../src/data/pickups';
 import { UPGRADES } from '../src/data/upgrades';
 import { GUN_MODULES } from '../src/data/gunModules';
 import { DOODAD_RULES, spawnDoodad } from '../src/data/doodads';
-import { SAFE_ZONE_RULES } from '../src/data/safeZone';
+import { SAFE_ZONE_RULES, insideSafeZone } from '../src/data/safeZone';
 import { spawnGunModule } from '../src/data/pickups';
 // The watchdog behind the word "unassisted" lives in its own file so it can be unit-tested; see
 // tests/assistWatch.test.ts, which proves it restores the model and still tells cheating from play.
@@ -390,6 +390,101 @@ button('SAFE ZONE content：MODULE / SHOP / COIN VEIN', async () => {
   bridge.active = false;
 });
 // Phase 2A: the wall kick, and the gunboots behaving like boots.
+button('SAFE ZONE：横穴へ左右だけで進入', async () => {
+  start(); const model = scene.model;
+  model.platforms = []; model.pickups = []; model.hazards = []; model.doodads = []; model.containers = [];
+  model.enemies = []; model.bullets = [];
+  // A chamber low enough that the approach down the shaft is a real fall.
+  const floorY = 520, height = SAFE_ZONE_RULES.height, width = SAFE_ZONE_RULES.width;
+  const zone = { id: 9600, side: -1 as const, x: WORLD.wall, y: floorY - height, width, height, content: null, taken: false };
+  model.safeZones = [zone];
+  model.platforms = [{ id: 9601, x: zone.x, y: floorY, width, breakable: false, state: 'stable' as const, safeZone: zone.id }];
+  model.combo = 13; model.ammo = 3;
+  model.player.invincible = 99;
+  // Out in the shaft, to the right of the mouth and well above the chamber floor.
+  model.player.x = zone.x + width + 40; model.player.y = 200; model.player.vy = 0; model.player.grounded = -1;
+  await wait(120);
+  assert(!model.timeFrozen, '入る前は TIMEVOID ではない');
+  // Nothing but LEFT -- no jump, no fire. This is the whole mobile control set.
+  let entry: { y: number; grounded: number; ammo: number; combo: number } | null = null;
+  key('KeyA', true);
+  for (let i = 0; i < 400 && !entry; i++) {
+    keepAwake();
+    if (model.timeFrozen) entry = { y: model.player.y, grounded: model.player.grounded, ammo: model.ammo, combo: model.combo };
+    else if (model.player.grounded !== -1) break;
+    await wait(8);
+  }
+  output.textContent += `\n進入: y ${entry ? entry.y.toFixed(1) : '-'} / grounded ${entry ? entry.grounded : model.player.grounded} / 床 ${floorY}`;
+  assert(entry !== null, '左右移動だけで横穴の口を通り TIMEVOID になる');
+  assert(entry!.grounded === -1, '進入した瞬間はまだ空中（床への着地は不要）');
+  assert(entry!.y < floorY - 15, `SAFE ZONE floor へ着地する前に TIMEVOID ON (y ${entry!.y.toFixed(1)} < ${floorY - 15})`);
+  assert(entry!.ammo === 3 && entry!.combo === 13, '口を通っただけでは CHARGE も COMBO も動かない');
+  // Then the floor does its own job, unchanged.
+  for (let i = 0; i < 400 && model.player.grounded !== 9601; i++) { keepAwake(); key('KeyA', true); await wait(16); }
+  key('KeyA', false);
+  await wait(120);
+  output.textContent += `\n着地: CHARGE ${model.ammo}/${model.stats.maxAmmo} / COMBO ${model.combo}`;
+  assert(model.player.grounded === 9601, '続けて SAFE ZONE floor に着地する');
+  assert(model.ammo === model.stats.maxAmmo, '床で CHARGE 全回復');
+  assert(model.combo === 13, '床では COMBO を精算しない');
+  // And back out the same way it came in.
+  key('KeyD', true);
+  for (let i = 0; i < 300 && model.timeFrozen; i++) { keepAwake(); model.player.y = floorY - 15; model.player.vy = 0; await wait(16); }
+  key('KeyD', false);
+  assert(!model.timeFrozen, '左右移動だけで横穴から出られる');
+  assert(model.combo === 13, '出ても COMBO は維持される');
+  bridge.active = false;
+});
+button('TIMEVOID：外の弾は止まり中で撃った弾は動く', async () => {
+  start(); const model = scene.model;
+  model.platforms = []; model.pickups = []; model.hazards = []; model.doodads = []; model.containers = [];
+  model.enemies = []; model.bullets = [];
+  const floorY = 320, height = SAFE_ZONE_RULES.height, width = SAFE_ZONE_RULES.width;
+  const zone = { id: 9700, side: -1 as const, x: WORLD.wall, y: floorY - height, width, height, content: null, taken: false };
+  model.safeZones = [zone];
+  model.platforms = [{ id: 9701, x: zone.x, y: floorY, width, breakable: false, state: 'stable' as const, safeZone: zone.id }];
+  model.player.invincible = 99;
+  model.player.x = zone.x + width / 2; model.player.y = floorY - 92; model.player.vy = 0; model.player.grounded = -1;
+  model.ammo = model.stats.maxAmmo;
+  // One round left out in the shaft heading down, one heading up: the shape of anything the world
+  // might have in flight, whoever fired it. Enemies deal contact damage today, so nothing of theirs
+  // exists yet -- the rule is decided by where a round is, not by who it belongs to.
+  const falling = plainBullet(300, 180); falling.vy = 420;
+  const rising = plainBullet(300, 500); rising.vy = -520;
+  model.bullets = [falling, rising];
+  await wait(120);
+  assert(model.timeFrozen, 'SAFE ZONE の中にいる');
+  const outsideBefore = { fall: falling.y, rise: rising.y };
+  await wait(1200);
+  output.textContent += `\n外の弾: 下向き ${outsideBefore.fall.toFixed(1)}→${falling.y.toFixed(1)} / 上向き ${outsideBefore.rise.toFixed(1)}→${rising.y.toFixed(1)}`;
+  assert(Math.abs(falling.y - outsideBefore.fall) < 0.001, 'SAFE ZONE 外の弾は止まっている');
+  assert(Math.abs(rising.y - outsideBefore.rise) < 0.001, 'SAFE ZONE 外を上ってくる弾も止まっている');
+  // Fire from inside. The player is airborne in there, so ACTION is the gun.
+  const fired: typeof model.bullets = [];
+  for (let i = 0; i < 40 && fired.length === 0; i++) {
+    keepAwake();
+    model.player.y = floorY - 92; model.player.vy = 0; model.player.grounded = -1;
+    key('Space', true); await wait(1000 / 60); key('Space', false);
+    fired.push(...model.bullets.filter(b => b !== falling && b !== rising && insideSafeZone(zone, b.x, b.y)));
+    await wait(16);
+  }
+  assert(fired.length > 0, 'SAFE ZONE 内で射撃できる');
+  const shot = fired[0];
+  const shotBefore = shot.y;
+  for (let i = 0; i < 12; i++) { keepAwake(); model.player.y = floorY - 92; model.player.vy = 0; model.player.grounded = -1; await wait(16); }
+  output.textContent += `\n中で撃った弾: ${shotBefore.toFixed(1)}→${shot.y.toFixed(1)} / travelled ${shot.travelled.toFixed(1)}`;
+  assert(Math.abs(shot.y - shotBefore) > 0.5 || shot.travelled > 0.5, 'SAFE ZONE 内で撃った弾は普通に飛ぶ');
+  // The outside pair still has not budged while that one flew.
+  assert(Math.abs(falling.y - outsideBefore.fall) < 0.001 && Math.abs(rising.y - outsideBefore.rise) < 0.001, '中の弾が動いても外の弾は止まったまま');
+  // Step out: the shaft starts again.
+  key('KeyD', true);
+  for (let i = 0; i < 300 && model.timeFrozen; i++) { keepAwake(); model.player.y = floorY - 15; model.player.vy = 0; model.player.grounded = 9701; await wait(16); }
+  key('KeyD', false);
+  await wait(200);
+  assert(!model.timeFrozen, 'SAFE ZONE を出た');
+  assert(falling.y > outsideBefore.fall, '外へ出ると外の弾が動き出す');
+  bridge.active = false;
+});
 button('WALL JUMP：壁キック', async () => {
   start(); const model = scene.model;
   model.platforms = []; model.enemies = []; model.hazards = [];
