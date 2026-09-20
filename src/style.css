@@ -166,3 +166,32 @@
   pointer-events: none;
   z-index: 6;
 }
+
+/*
+ * The rest panel at its widest -- four cards after YOUTH, with a long list of upgrades already
+ * held -- on the shortest screen the game supports.
+ *
+ * Everything above NEXT is allowed to give way before NEXT itself is: the card list takes whatever
+ * height is left and scrolls inside it. A confirm button pushed below the fold is not a layout
+ * that merely looks cramped, it is a run that cannot be continued without knowing to scroll.
+ */
+/*
+ * Keyed on the frame being narrow as well as on the window being short: at 390x844 the cabinet is
+ * 9:16 of the width, so the panel has ~693px to live in however tall the phone is.
+ */
+@media (max-height: 760px), (max-width: 650px) {
+  .overlay.rest-overlay { align-items: stretch; }
+  .rest-overlay .upgrade-content {
+    display: flex;
+    flex-direction: column;
+    max-height: 100%;
+    min-height: 0;
+  }
+  .rest-overlay .upgrade-list {
+    flex: 1 1 auto;
+    min-height: 0;
+    overflow-y: auto;
+    -webkit-overflow-scrolling: touch;
+  }
+  .rest-overlay .primary-button { flex: 0 0 auto; }
+}

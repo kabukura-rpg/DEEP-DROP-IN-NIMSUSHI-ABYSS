@@ -181,7 +181,7 @@ button('PC連射 → 着地', async () => {
   window.clearInterval(sample);
   assert(model.ammo === 0, `Space長押しで6発消費 (${model.ammo})`);
   assert(model.player.x > startX + 80, 'D長押しで横移動');
-  assert(minimumVelocity >= 0 && endY > 250, '連射中も下降し続け、上昇しない');
+  assert(minimumVelocity >= 0 && endY > 250, `連射中も下降し続け、上昇しない (最小vy ${Math.round(minimumVelocity)} / y ${Math.round(endY)})`);
   key('KeyA', true); await simulationTime(0.42); key('KeyA', false); await until(() => model.player.grounded === -2);
   assert(model.player.grounded === -2 && model.ammo === model.stats.maxAmmo, 'Aで戻って着地、全弾リロード');
 });
@@ -230,29 +230,41 @@ button('GAME OVER → RETRY', async () => {
 button('休憩 HP2 → 選択・確定', async () => {
   start(); scene.model = new GameModel(false, () => .999, 'stage');
   const model = scene.model; model.damage(2); model.ammo = 2;
+  // APPLE is what the follow-up check measures, so it is the card taken. Everything else is put
+  // out of the draw rather than hoping it comes up first.
+  for (const id of model.upgrades.pool.map(u => u.id)) { if (id !== 'apple') model.upgrades.grant(id); }
   const y = model.player.y, elapsed = model.elapsed, immunity = model.player.invincible;
   model.completeSection('browser-rest');
   await until(() => !!document.getElementById('upgrade-confirm'));
   assert(model.hp === 2, '休憩に入ってもHP 2/4');
-  assert(document.querySelectorAll('.upgrade-card').length === 3, 'カード3枚');
+  assert(document.querySelectorAll('.upgrade-card').length === 1, '残り1種なのでカード1枚');
   assert((document.getElementById('upgrade-confirm') as HTMLButtonElement).disabled, '未選択ではNEXT無効');
   await wait(500); model.damage(1, 'oxygen'); model.killInstantly('lava');
   assert(model.hp === 2 && model.player.y === y && model.elapsed === elapsed && model.player.invincible === immunity, '休憩中はHP・物理・無敵時間・環境ダメージ停止');
-  output.textContent += '\nAPPLEを選択し、NEXTで確定してください';
-});
-button('休憩後のHPを検証', async () => {
-  const model = scene.model;
+  // Taken here rather than by hand, so the check below measures APPLE every time it is run.
+  const index = model.upgrades.choices.findIndex(u => u.id === 'apple');
+  assert(index >= 0, 'APPLE が提示されている');
+  document.getElementById(`upgrade-${index}`)!.click();
+  document.getElementById('upgrade-confirm')!.click();
+  await wait(60);
   assert(model.state === 'playing' && model.hp === 4 && model.health.overflowHealing === 2, 'APPLE確定後HP 4/4・余剰2');
-  assert(model.upgrades.acquired.length === 1, '選択1回だけ適用');
+  assert(model.upgrades.acquired.includes('apple'), 'APPLE が適用された');
   pause();
 });
-button('満タンFOOD → LIFE UP', async () => {
+button('満タンAPPLE → LIFE UP', async () => {
   start(); scene.model = new GameModel(false, () => .999, 'stage');
-  const model = scene.model; model.completeSection('food-full');
+  const model = scene.model;
+  // APPLE is the card under test, so it is the card that gets taken. Reaching for whichever one
+  // happens to be first makes this a test of the draw rather than of overflow healing.
+  model.upgrades.grant('youth');
+  for (const id of model.upgrades.pool.map(u => u.id)) { if (id !== 'apple') model.upgrades.grant(id); }
+  model.completeSection('food-full');
   await until(() => !!document.getElementById('upgrade-confirm'));
-  document.getElementById('upgrade-0')!.click(); document.getElementById('upgrade-confirm')!.click();
+  const index = model.upgrades.choices.findIndex(u => u.id === 'apple');
+  assert(index >= 0, 'APPLE が提示されている');
+  document.getElementById(`upgrade-${index}`)!.click(); document.getElementById('upgrade-confirm')!.click();
   await wait(30);
-  assert(model.hp === 5 && model.health.maxHp === 5 && model.health.overflowHealing === 0, '満タンでFOOD → HP 5/5・余剰0');
+  assert(model.hp === 5 && model.health.maxHp === 5 && model.health.overflowHealing === 0, '満タンでAPPLE → HP 5/5・余剰0');
   pause();
 });
 // Phase 2B: scenery that reloads, chambers cut into the shaft, and the stopped time inside one.
@@ -1780,7 +1792,11 @@ async function restLayoutAt(width: number, height: number) {
     const Model = app.scene.model.constructor as new (practice: boolean, random: () => number, mode: 'stage') => GameModel;
     app.scene.model = new Model(false, Math.random, 'stage');
     const model = app.scene.model;
-    // Seven confirmed upgrades: the widest realistic "取得済み強化" list.
+    // YOUTH first, so every size is measured at the WIDEST the panel ever gets: four cards rather
+    // than three. Leaving it to the draw made this check depend on whether YOUTH happened to come
+    // up, which is the sort of thing a layout test must never rest on.
+    model.upgrades.grant('youth');
+    // Seven more confirmed upgrades: the widest realistic "取得済み強化" list.
     for (let i = 1; i <= 7; i++) {
       model.completeSection(`layout-${i}`);
       await until(() => !!win.document.getElementById('upgrade-confirm'), 8000);
@@ -1801,6 +1817,7 @@ async function restLayoutAt(width: number, height: number) {
       nextBottom: Math.round(next.bottom), viewport: win.innerHeight,
       nextVisible: next.bottom <= win.innerHeight && next.top >= 0,
       nextTappable: hit?.id === 'upgrade-confirm',
+      hit: hit ? `${hit.tagName}#${hit.id}.${hit.className}` : 'none',
     };
     // Returning to play from the same panel must still work at this size.
     win.document.getElementById('upgrade-0')!.click();
@@ -1812,8 +1829,8 @@ async function restLayoutAt(width: number, height: number) {
 button('休憩UI 4サイズ検証', async () => {
   for (const [width, height] of REST_SIZES) {
     const r = await restLayoutAt(width, height);
-    output.textContent += `\n${r.size} · NEXT ${r.nextBottom} / ${r.viewport} · 強化${r.stacks}個`;
-    assert(r.cards === 3 && !r.overlapping && r.readable, `${r.size}：カード3枚が重ならず読める`);
+    output.textContent += `\n${r.size} · NEXT ${r.nextBottom} / ${r.viewport} · 強化${r.stacks}個 · hit ${r.hit}`;
+    assert(r.cards === 4 && !r.overlapping && r.readable, `${r.size}：カード4枚が重ならず読める`);
     assert(r.nextVisible && r.nextTappable, `${r.size}：NEXTが初期表示内でタップ可能`);
     assert(r.resumed, `${r.size}：NEXTで通常ゲームへ復帰`);
   }
