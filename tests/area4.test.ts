@@ -468,3 +468,62 @@ describe('LIMBO runs on doodads alone', () => {
     expect(game.events.some(e => e.type === 'comboSettle')).toBe(false);
   });
 });
+
+/**
+ * The question this AREA has to answer: with the ground taken away as a reload, can a descent still
+ * get to the bottom? This drives the real model with the policy a player uses -- walk off whatever
+ * you are standing on, take a doodad when CHARGE is low, step clear of one when it is not -- and
+ * requires that every seed reaches the way out without ever touching a floor outside the chamber.
+ */
+describe('LIMBO can be descended on doodads alone', () => {
+  function descend(sectionId: SectionId, seed: number, maxSeconds = 180) {
+    const game = new GameModel(false, seeded(seed));
+    game.jumpToStage(4, sectionId);
+    let sawExit = false, dryFrames = 0;
+    const stoodOn = new Set<number>();
+    for (let i = 0; i < maxSeconds * 120; i++) {
+      game.player.invincible = 99;
+      if (game.state !== 'playing') return { reached: true, dryFrames, stoodOn };
+      if (game.exit) sawExit = true;
+      if (game.ammo === 0) dryFrames++;
+      const p = game.player;
+      const ground = game.platforms.find(f => f.id === p.grounded);
+      if (ground && ground.safeZone === undefined && ground.id >= 0) stoodOn.add(ground.id);
+      const below = game.doodads.filter(d => d.y > p.y + 10).sort((a, b) => a.y - b.y)[0];
+      let dir = 0;
+      if (ground) dir = ground.x + ground.width / 2 > WORLD.width / 2 ? -1 : 1;
+      else if (below) {
+        const over = p.x + 9 > below.x && p.x - 9 < below.x + below.width;
+        const want = game.ammo < game.stats.maxAmmo / 2;
+        if (over && !want) dir = below.x - WORLD.wall > WORLD.width - WORLD.wall - (below.x + below.width) ? -1 : 1;
+        else if (!over && want) dir = Math.sign(below.x + below.width / 2 - p.x);
+      }
+      game.step(1 / 120, dir, false);
+    }
+    return { reached: sawExit, dryFrames, stoodOn };
+  }
+
+  it('reaches the way out on every seed, with no floor to fall back on', () => {
+    for (const sectionId of SECTIONS) {
+      for (let seed = 1; seed <= 30; seed++) {
+        const run = descend(sectionId, seed * 733);
+        expect({ sectionId, seed, reached: run.reached }).toEqual({ sectionId, seed, reached: true });
+        // Distinct pieces of ordinary ground the descent ever stood on. The SECTION's own start
+        // platform is one, and 4-1's opening keeps a couple of calm rows before the AREA begins;
+        // past that there is nothing out there to touch down on at all.
+        const allowed = sectionId === 1 ? 3 : 1;
+        expect({ sectionId, seed, rested: run.stoodOn.size <= allowed }).toEqual({ sectionId, seed, rested: true });
+      }
+    }
+  });
+
+  it('never strands a descent with an empty magazine', () => {
+    // The soft-lock this AREA could produce: CHARGE gone, nothing to bounce off, and no ground that
+    // is not a trap. Across 90 descents the magazine never reached zero for a single frame.
+    let worstDry = 0;
+    for (const sectionId of SECTIONS) {
+      for (let seed = 1; seed <= 30; seed++) worstDry = Math.max(worstDry, descend(sectionId, seed * 733).dryFrames);
+    }
+    expect(worstDry).toBe(0);
+  });
+});

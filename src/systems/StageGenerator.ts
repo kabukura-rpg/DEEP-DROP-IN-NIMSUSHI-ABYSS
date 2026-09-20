@@ -88,6 +88,12 @@ export interface GenerationContext {
    */
   sectionLength?: number;
 }
+/**
+ * Width of the clear fall lane LIMBO keeps open through each band. Wide enough for the player plus
+ * room to steer into it, narrow enough that the rest of the row still carries doodads.
+ * PROVISIONAL / MEASUREMENT REQUIRED.
+ */
+const LIMBO_FALL_LANE = 124;
 const DEFAULT_POOL: readonly EnemyKind[] = ['slime', 'bat', 'armoredSlime', 'tank'];
 
 export class StageGenerator {
@@ -119,6 +125,8 @@ export class StageGenerator {
    * with a single chamber would put it in the same wall, every seed, forever.
    */
   private nextChamberSide: -1 | 1 | 0 = 0;
+  /** Which side LIMBO's clear fall lane sits on next. Alternates so a descent always has a way past. */
+  private doodadLane = 0;
   constructor(private random: () => number = Math.random, private context: GenerationContext = {}) {
     this.nextY = context.startY ?? 465;
     this.previous = context.previous ? { ...context.previous } : { ...START_PLATFORM };
@@ -362,10 +370,14 @@ export class StageGenerator {
    * A DOODAD hangs in the open band between two rows.
    *
    * Where ground exists it is kept out of the lane the safe transfer flies through, so bouncing off
-   * one is a choice rather than something a fall blunders into. Where there is NO ground -- LIMBO,
-   * whose rows are barbs the fall passes through -- that rule has nothing left to protect: there is
-   * no landing to keep clear, the player's whole path is the fall, and holding the middle of the
-   * shaft empty would starve the one thing out there that reloads the gunboots.
+   * one is a choice rather than something a fall blunders into.
+   *
+   * Where there is NO ground -- LIMBO, whose rows are barbs the fall passes through -- that lane is
+   * not a route between ledges any more, but something still has to be kept clear. Doodads are the
+   * AREA's only reload, so they are dense; dense enough, left unchecked, to carpet the shaft and
+   * turn a descent into an endless trampoline with no way down. LIMBO therefore reserves a fall lane
+   * of its own, alternating from row to row, so a way past is always open and finding it is a matter
+   * of steering rather than luck.
    */
   private placeDoodad(tuning: RowTuning, platform: RoutePlatform, y: number, start: number, doodads: Doodad[], hazards: Hazard[], enemies: Enemy[]) {
     if (this.random() >= tuning.doodadChance) return;
@@ -375,12 +387,22 @@ export class StageGenerator {
     const w = DOODAD_RULES.width;
     // Outside the corridor the route actually falls through, with the same slack lava gets --
     // unless the SECTION has no landable ground at all, in which case the whole shaft is fair game.
-    const corridorLeft = Math.min(this.previous.exitX, platform.safeX) - 54;
-    const corridorRight = Math.max(this.previous.exitX, platform.safeX) + 54;
-    const regions = tuning.groundless
-      ? [[WORLD.wall + 6, WORLD.width - WORLD.wall - 6]]
-      : [[WORLD.wall + 6, corridorLeft - 30], [corridorRight + 30, WORLD.width - WORLD.wall - 6]]
-          .filter(([a, b]) => b - a >= w + 8);
+    // The lane to keep open. Where a route exists it is that route. Where none does it is a band of
+    // the shaft that walks across from row to row, so consecutive bands never close the same side and
+    // a descent always has somewhere to go.
+    let laneLeft: number, laneRight: number;
+    if (tuning.groundless) {
+      const inner = WORLD.width - WORLD.wall * 2;
+      const centre = WORLD.wall + inner * (this.doodadLane % 2 ? 0.28 : 0.72);
+      this.doodadLane++;
+      laneLeft = centre - LIMBO_FALL_LANE / 2;
+      laneRight = centre + LIMBO_FALL_LANE / 2;
+    } else {
+      laneLeft = Math.min(this.previous.exitX, platform.safeX) - 54;
+      laneRight = Math.max(this.previous.exitX, platform.safeX) + 54;
+    }
+    const regions = [[WORLD.wall + 6, laneLeft - 8], [laneRight + 8, WORLD.width - WORLD.wall - 6]]
+      .filter(([from, to]) => to - from >= w + 8);
     if (!regions.length) return;
     const [left, right] = regions[Math.floor(this.random() * regions.length)];
     const x = Math.round(left + this.random() * (right - left - w));
