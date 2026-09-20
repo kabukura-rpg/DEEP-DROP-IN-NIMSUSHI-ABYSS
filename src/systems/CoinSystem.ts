@@ -19,6 +19,12 @@ export class CoinSystem {
   walletCoins = 0;
   /** COIN MAGNET widens the pull. The tuned radius itself is left alone. */
   attractMultiplier = 1;
+  /**
+   * Which way loose money falls, as a sign on the screen's y axis. +1 down the shaft, -1 in the
+   * ABYSS. Money is a free body like anything else, so it turns over with the world rather than
+   * raining the wrong way through an inverted fight.
+   */
+  gravitySign: 1 | -1 = 1;
   private get attractRadius() { return this.rules.magnetRadius * this.attractMultiplier; }
   private nextId = 1;
 
@@ -37,7 +43,8 @@ export class CoinSystem {
         id: this.nextId++,
         x, y,
         vx: (random() * 2 - 1) * this.rules.burstSpread,
-        vy: -this.rules.burstSpeed * (0.6 + random() * 0.6),
+        // Popped away from the pull, so a burst always reads as a spray out of whatever broke.
+        vy: -this.rules.burstSpeed * (0.6 + random() * 0.6) * this.gravitySign,
         denomination, value: each,
         life: this.rules.lifetime,
         taken: false,
@@ -82,7 +89,8 @@ export class CoinSystem {
         coin.vx += (dx / distance) * pull;
         coin.vy += (dy / distance) * pull;
       }
-      coin.vy = Math.min(this.rules.maxFallSpeed, coin.vy + this.rules.gravity * dt);
+      const drop = Math.min(this.rules.maxFallSpeed, coin.vy * this.gravitySign + this.rules.gravity * dt);
+      coin.vy = drop * this.gravitySign;
       coin.x += coin.vx * dt;
       coin.y += coin.vy * dt;
       // Coins bounce off the shaft walls instead of sliding out of the world.

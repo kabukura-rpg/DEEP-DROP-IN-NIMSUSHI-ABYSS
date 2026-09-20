@@ -9,7 +9,7 @@ import { CoinSystem } from './CoinSystem';
 import { CoinHighSystem } from './CoinHighSystem';
 import { ShopSystem } from './ShopSystem';
 import { coinsFor, type Coin } from '../data/coins';
-import { AIR_CONTAINER_RULES, BREAK_BLOCK_RULES, EXIT_RULES, LIMBO_HAZARD_RULES, SHOP_DOOR, SPIKE_PLATFORM_RULES, type AirBubble, type AirContainer, type StageExit } from '../data/structures';
+import { AIR_CONTAINER_RULES, BREAK_BLOCK_RULES, EXIT_RULES, LIMBO_HAZARD_RULES, PLATFORM_THICKNESS, SHOP_DOOR, SPIKE_PLATFORM_RULES, type AirBubble, type AirContainer, type StageExit } from '../data/structures';
 import { DOODAD_RULES, type Doodad } from '../data/doodads';
 import { CORPSE_RULES, spawnCorpse, type Corpse } from '../data/corpses';
 import { insideSafeZone, SAFE_ZONE_RULES, type SafeZone } from '../data/safeZone';
@@ -54,6 +54,17 @@ export interface Bullet {
   beam: boolean;
   hits: Set<number>; alive: boolean;
 }
+/**
+ * Does the segment a projectile swept this step touch the band [lo, hi]?
+ *
+ * The test this replaces -- "it is past the top NOW and was above the bottom BEFORE" -- is this
+ * same question asked of something that can only ever travel downward. Rounds now travel either
+ * way, so it is asked of the swept segment instead. For a downward round the two are identical,
+ * which is why nothing in the ordinary run moves as a result of the generalisation.
+ */
+export const sweeps = (previous: number, current: number, lo: number, hi: number) =>
+  Math.max(previous, current) >= lo && Math.min(previous, current) <= hi;
+
 /** A plain downward round, exactly as MACHINE GUN fires it. Useful for fixtures and drops. */
 export const plainBullet = (x: number, y: number, damage = 1, size = 4): Bullet => ({
   source: 'player',
@@ -183,12 +194,74 @@ export class GameModel {
   private wallTouchSide: -1 | 0 | 1 = 0;
   private wallTouchAge = Infinity;
   /**
-   * Which way "up" is for every impulse the player receives -- a jump, a wall jump, and the
-   * gunboots' recoil all go through this one value. The FINAL BOSS is planned to invert gravity
-   * later; this exists so that becomes a change here rather than a hunt through the model. It is
-   * NOT inverted anywhere yet, and projectile direction is deliberately still its own thing.
+   * WHICH WAY THE WORLD PULLS, as a sign on the screen's own y axis.
+   *
+   *   +1  the ordinary run: the player falls down the screen, the gunboots fire down, the recoil
+   *       throws them up, the view descends.
+   *   -1  the ABYSS: every one of those turns over, and nothing else does.
+   *
+   * A sign rather than a rotation, deliberately. The HUD, the text, the shaft walls and LEFT/RIGHT
+   * are all exactly where they were: what is inverted is the physics, not the screen.
    */
-  private readonly up = -1;
+  private gravity: 1 | -1 = 1;
+  get gravitySign(): 1 | -1 { return this.gravity; }
+  /** True while the ABYSS is pulling the player up the screen. */
+  get inverted() { return this.gravity === -1; }
+  /**
+   * Which way "up" is for every impulse the player receives -- a jump, a wall jump, the gunboots'
+   * recoil, and the rounds three of the twenty upgrades fire away from the floor. Always the
+   * opposite of the pull, whichever way the pull currently points.
+   */
+  private get up() { return -this.gravity; }
+  /** A distance or a velocity measured ALONG the pull: positive is falling, negative is rising. */
+  private along(value: number) { return value * this.gravity; }
+  /** The player's leading edge: their feet in the shaft, the top of their head in the ABYSS. */
+  private get lead() { return 15 * this.gravity; }
+  /** The face of a slab that gravity presses the player onto -- its top, or its underside. */
+  private surfaceOf(f: Platform) {
+    return this.gravity > 0 ? f.y : f.y + (f.breakBlock ? BREAK_BLOCK_RULES.thickness : PLATFORM_THICKNESS);
+  }
+  /** The edge of a box that trails the view: its bottom in the shaft, its top in the ABYSS. */
+  private trailingEdge(y: number, height = 0) { return this.gravity > 0 ? y + height : y; }
+  /**
+   * True when the player crossed `face` during this step while travelling WITH gravity. One test
+   * decides a landing, a stomp and a doodad bounce, whichever way down happens to be.
+   */
+  private crossedWithGravity(before: number, after: number, face: number) {
+    return this.along(after - face) >= 0 && this.along(before - face) <= 0;
+  }
+  /** Out past the leading edge of the view, along the pull. */
+  private aheadOfCamera(y: number, margin: number) {
+    const edge = this.gravity > 0 ? this.cameraY + WORLD.height + margin : this.cameraY - margin;
+    return this.along(y - edge) >= 0;
+  }
+  /** Fallen behind the trailing edge of the view, against the pull. */
+  private behindCamera(y: number, margin: number) {
+    const edge = this.gravity > 0 ? this.cameraY - margin : this.cameraY + WORLD.height + margin;
+    return this.along(y - edge) <= 0;
+  }
+  /**
+   * Where the view sits. It only ever travels WITH gravity -- down the shaft, up the ABYSS -- and
+   * holds the player 37% of a frame behind its leading edge, which in the ABYSS puts them 37% up
+   * from the bottom so NIMUSHI above and the boundary below are both in shot.
+   */
+  private leadCamera(py: number) {
+    const want = py - WORLD.height * (this.gravity > 0 ? 0.37 : 0.63);
+    return this.gravity > 0 ? Math.max(this.cameraY, want) : Math.min(this.cameraY, want);
+  }
+  /**
+   * Turn the world over, or turn it back. Velocity is cleared rather than mirrored: the moment the
+   * pull reverses, whatever the player was doing under the old one is finished.
+   */
+  private setGravity(sign: 1 | -1) {
+    if (this.gravity === sign) return false;
+    this.gravity = sign;
+    this.coins.gravitySign = sign;
+    this.player.vy = 0;
+    this.player.grounded = -1;
+    this.lastAirShot = -Infinity;
+    return true;
+  }
   /**
    * The world's own clock. It stops while the player is inside a SAFE ZONE, which is what TIMEVOID
    * is: `elapsed` keeps running for the player (recoil recovery, animation), while everything that
@@ -317,7 +390,8 @@ export class GameModel {
       this.jetpackActive = true;
       const p = this.player;
       const drift = this.stats.maxFallSpeed * UPGRADE_TUNING.safetyJetpack.fallMultiplier;
-      if (p.vy > drift) p.vy = drift;
+      // Measured along the pull: in the ABYSS "too fast" is climbing the screen too fast.
+      if (this.along(p.vy) > drift) p.vy = drift * this.gravity;
       this.events.push({ type: 'jetpack', x: p.x, y: p.y, value: this.jetpackFuel });
       return;
     }
@@ -345,12 +419,16 @@ export class GameModel {
     const kick = volleyRecoil(def, this.stats) * recovery;
     p.vy = Math.max(-this.stats.maxFallSpeed, Math.min(this.stats.maxFallSpeed, p.vy + this.up * kick));
     this.lastAirShot = this.elapsed;
+    // The muzzle is at the boots, which is the gravity-facing end of the player, and the volley
+    // leaves it along the pull. Only the y half turns over: `vx` is untouched, so NOPPY's tilt,
+    // PUNCHER's parallel lanes, TRIPLE's fan and SHOTGUN's spread are the same shapes mirrored.
+    const muzzle = p.y + 21 * this.gravity;
     for (const shot of volley(def, this.stats, aim, this.shotBoost)) {
       const x = p.x + shot.offsetX;
       this.bullets.push({
         source: 'player',
-        x, y: p.y + 21, previousY: p.y + 21, previousX: x,
-        vx: shot.vx, vy: shot.vy, damage: shot.damage, size: shot.size, pierce: shot.pierce,
+        x, y: muzzle, previousY: muzzle, previousX: x,
+        vx: shot.vx, vy: shot.vy * this.gravity, damage: shot.damage, size: shot.size, pierce: shot.pierce,
         pierceBlocks: shot.blockPiercing, blocks: new Set(),
         range: shot.range, travelled: 0, beam: shot.beam, hits: new Set(), alive: true,
       });
@@ -488,7 +566,10 @@ export class GameModel {
       // A live HEART BALLOON slows the descent. It multiplies the terminal speed rather than the
       // gravity, so the fall is gentler without the controls feeling different.
       const lift = this.balloon?.alive ? UPGRADE_TUNING.heartBalloon.fallMultiplier : 1;
-      p.vy = Math.min(this.stats.maxFallSpeed * lift, p.vy + this.stats.gravity * (this.water?.gravity ?? 1) * dt);
+      // Accumulated along the pull and written back with its sign, so HEART BALLOON still softens
+      // "falling" in the ABYSS even though falling there means climbing the screen.
+      const fall = Math.min(this.stats.maxFallSpeed * lift, this.along(p.vy) + this.stats.gravity * (this.water?.gravity ?? 1) * dt);
+      p.vy = fall * this.gravity;
     }
     // Nothing special is needed to keep a gate row openable. A row is several blocks edge to edge,
     // so stepping off one onto its neighbour is an ordinary landing and reloads in full, exactly as
@@ -599,7 +680,7 @@ export class GameModel {
       for (const block of this.platforms) {
         if (!block.breakBlock || block.state === 'broken') continue;
         if (b.x + b.size < block.x || b.x - b.size > block.x + block.width) continue;
-        if (b.y < block.y || b.previousY > block.y + BREAK_BLOCK_RULES.thickness) continue;
+        if (!sweeps(b.previousY, b.y, block.y, block.y + BREAK_BLOCK_RULES.thickness)) continue;
         // Never the same block twice, however many frames a round spends inside one. This is what
         // lets a LASER cross a row without grinding a single block down on its own.
         if (b.blocks.has(block.id)) continue;
@@ -610,14 +691,14 @@ export class GameModel {
       if (!b.alive) continue;
       for (const box of this.containers) {
         if (box.broken) continue;
-        if (b.x > box.x - b.size && b.x < box.x + box.width + b.size && b.y >= box.y && b.previousY <= box.y + box.height) {
+        if (b.x > box.x - b.size && b.x < box.x + box.width + b.size && sweeps(b.previousY, b.y, box.y, box.y + box.height)) {
           this.breakContainer(box); b.alive = false; break;
         }
       }
       if (!b.alive) continue;
       // `shootable: false` is a real answer, not a miss: the round passes over such an enemy and
       // carries on to whatever is behind it. Landing on one is then the only way through.
-      const targets = this.enemies.filter(e => e.alive && e.shootable !== false && !b.hits.has(e.id) && Math.abs(b.x - e.x) < 15 + b.size && b.previousY <= e.y + 15 && b.y >= e.y - 15).sort((a, z) => a.y - z.y);
+      const targets = this.enemies.filter(e => e.alive && e.shootable !== false && !b.hits.has(e.id) && Math.abs(b.x - e.x) < 15 + b.size && sweeps(b.previousY, b.y, e.y - 15, e.y + 15)).sort((a, z) => this.along(a.y - z.y));
       for (const e of targets) {
         b.hits.add(e.id); e.hp -= b.damage; e.flash = 0.1;
         if (e.hp <= 0) this.kill(e, false);
@@ -628,9 +709,12 @@ export class GameModel {
     // reach the player, which is what makes it safe.
     if (!frozen) for (const e of this.enemies) {
       if (!e.alive || Math.abs(p.x - e.x) > 24) continue;
-      const topCrossing = p.vy > 0 && oldY + 15 <= e.y - 10 && p.y + 15 >= e.y - 10;
+      // The face gravity brings the player down onto: an enemy's head in the shaft, its underside
+      // in the ABYSS. The same crossing, the same stomp, mirrored -- nothing here knows which.
+      const crown = e.y - 10 * this.gravity;
+      const topCrossing = this.along(p.vy) > 0 && this.crossedWithGravity(oldY + this.lead, p.y + this.lead, crown);
       if (topCrossing && e.stompable) {
-        this.kill(e, true); p.y = e.y - 28; p.vy = -this.stats.bounce; p.grounded = -1;
+        this.kill(e, true); p.y = e.y - 28 * this.gravity; p.vy = this.up * this.stats.bounce; p.grounded = -1;
         // BLAST MODULE rides a STOMP and nothing else: not a doodad bounce, not a chamber floor.
         // The stomped enemy is excluded because it is already dead -- killing it twice would count
         // its COMBO twice and drop its COIN twice.
@@ -640,11 +724,15 @@ export class GameModel {
         }
       } else if ((topCrossing || Math.abs(p.y - e.y) < 25) && p.invincible <= 0) this.hurt(e);
     }
-    if (p.vy >= 0 && p.grounded === -1) {
-      const land = this.platforms.filter(f => !f.limboHazard && f.state !== 'broken' && p.x + 9 > f.x && p.x - 9 < f.x + f.width && oldY + 15 <= f.y && p.y + 15 >= f.y).sort((a, b) => a.y - b.y)[0];
+    if (this.along(p.vy) >= 0 && p.grounded === -1) {
+      // The first slab met ALONG the pull, which is the shallowest one in the shaft and the
+      // highest one in the ABYSS. `surfaceOf` picks the face the player actually arrives on.
+      const land = this.platforms.filter(f => !f.limboHazard && f.state !== 'broken' && p.x + 9 > f.x && p.x - 9 < f.x + f.width
+        && this.crossedWithGravity(oldY + this.lead, p.y + this.lead, this.surfaceOf(f))).sort((a, b) => this.along(a.y - b.y))[0];
       if (land) {
-        p.y = land.y - 15; p.vy = 0; p.grounded = land.id; this.lastAirShot = -Infinity;
-        this.emit('land', p.x, land.y);
+        const face = this.surfaceOf(land);
+        p.y = face - this.lead; p.vy = 0; p.grounded = land.id; this.lastAirShot = -Infinity;
+        this.emit('land', p.x, face);
         this.settleLanding(land);
         // A collapsing ledge still reloads in full; it just starts counting from this moment.
         if (this.collapse.land(land)) this.events.push({ type: 'crack', x: p.x, y: land.y, value: this.collapse.delay });
@@ -707,22 +795,24 @@ export class GameModel {
       // the world's and runs either way.
       if (!fighting) this.enterShop();
       if (!frozen) {
-        this.cameraY = Math.max(this.cameraY, p.y - WORLD.height * 0.37);
+        this.cameraY = this.leadCamera(p.y);
         this.generate();
-        if (p.y > this.cameraY + WORLD.height + 50) this.killInstantly('fall');
+        // Left behind by the view, whichever way the view is travelling. Deliberately NOT the same
+        // thing as the ABYSS boundary catching up: that is its own death with its own cause.
+        if (this.aheadOfCamera(p.y, 50)) this.killInstantly('fall');
       }
     }
     // Spent rounds are dropped even in stopped time: a player bouncing on a doodad and firing would
     // otherwise grow the list for as long as they stay in there. Culling live rounds by camera band
     // is the world's job, so that half waits until time runs again.
-    this.bullets = this.bullets.filter(b => b.alive && (frozen || b.y < this.cameraY + WORLD.height + 150));
+    this.bullets = this.bullets.filter(b => b.alive && (frozen || !this.aheadOfCamera(b.y, 150)));
     if (frozen) return;
-    this.platforms = this.platforms.filter(f => f.y > this.cameraY - 180);
-    this.enemies = this.enemies.filter(e => e.alive && e.y > this.cameraY - 180);
-    this.pickups = this.pickups.filter(item => !item.taken && item.y > this.cameraY - 180);
-    this.hazards = this.hazards.filter(h => h.y + h.height > this.cameraY - 180);
-    this.doodads = this.doodads.filter(d => d.y + d.height > this.cameraY - 180);
-    this.safeZones = this.safeZones.filter(z => z.y + z.height > this.cameraY - 240);
+    this.platforms = this.platforms.filter(f => !this.behindCamera(f.y, 180));
+    this.enemies = this.enemies.filter(e => e.alive && !this.behindCamera(e.y, 180));
+    this.pickups = this.pickups.filter(item => !item.taken && !this.behindCamera(item.y, 180));
+    this.hazards = this.hazards.filter(h => !this.behindCamera(this.trailingEdge(h.y, h.height), 180));
+    this.doodads = this.doodads.filter(d => !this.behindCamera(this.trailingEdge(d.y, d.height), 180));
+    this.safeZones = this.safeZones.filter(z => !this.behindCamera(this.trailingEdge(z.y, z.height), 240));
   }
   /**
    * AREA 3's heat pass. Only hazards near the player are considered -- the run's whole hazard list
@@ -775,9 +865,12 @@ export class GameModel {
       if (spikes.state === 'safe') continue;
       spikes.timer -= dt;
       if (spikes.state === 'active') {
-        // Standing in the teeth, or brushing them on the way past.
-        const top = platform.y - SPIKE_PLATFORM_RULES.reach;
-        if (p.x + 9 > platform.x && p.x - 9 < platform.x + platform.width && p.y + 15 > top && p.y - 15 < platform.y + 6) {
+        // Standing in the teeth, or brushing them on the way past. The teeth stand out of the face
+        // the player lands on, so in the ABYSS they point down the screen with everything else.
+        const face = this.surfaceOf(platform);
+        const tip = face - SPIKE_PLATFORM_RULES.reach * this.gravity, root = face + 6 * this.gravity;
+        const lo = Math.min(tip, root), hi = Math.max(tip, root);
+        if (p.x + 9 > platform.x && p.x - 9 < platform.x + platform.width && p.y + 15 > lo && p.y - 15 < hi) {
           this.damage(SPIKE_PLATFORM_RULES.damage, 'spike');
         }
       }
@@ -810,7 +903,9 @@ export class GameModel {
     for (const row of this.platforms) {
       if (!row.limboHazard) continue;
       if (p.x + 9 < row.x || p.x - 9 > row.x + row.width) continue;
-      if (p.y + 15 < row.y - LIMBO_HAZARD_RULES.reach || p.y - 15 > row.y + 12) continue;
+      const face = this.surfaceOf(row);
+      const tip = face - LIMBO_HAZARD_RULES.reach * this.gravity, root = face + 12 * this.gravity;
+      if (p.y + 15 < Math.min(tip, root) || p.y - 15 > Math.max(tip, root)) continue;
       if (this.damage(LIMBO_HAZARD_RULES.damage, 'spike')) {
         this.events.push({ type: 'spikePlatform', x: p.x, y: row.y, value: 1 });
       }
@@ -830,7 +925,8 @@ export class GameModel {
     for (const corpse of this.corpses) {
       if (corpse.claimed) continue;
       corpse.life -= dt;
-      corpse.vy = Math.min(CORPSE_RULES.maxFallSpeed, corpse.vy + CORPSE_RULES.gravity * dt);
+      const drop = Math.min(CORPSE_RULES.maxFallSpeed, this.along(corpse.vy) + CORPSE_RULES.gravity * dt);
+      corpse.vy = drop * this.gravity;
       corpse.y += corpse.vy * dt;
       if (!eats) continue;
       if (Math.abs(p.x - corpse.x) > CORPSE_RULES.radius || Math.abs(p.y - corpse.y) > CORPSE_RULES.radius + 12) continue;
@@ -843,7 +939,7 @@ export class GameModel {
         this.heal(UPGRADE_TUNING.knifeAndFork.heal);
       }
     }
-    this.corpses = this.corpses.filter(c => !c.claimed && c.life > 0 && c.y > this.cameraY - 120 && c.y < this.cameraY + WORLD.height + 200);
+    this.corpses = this.corpses.filter(c => !c.claimed && c.life > 0 && !this.behindCamera(c.y, 120) && !this.aheadOfCamera(c.y, 200));
   }
   /**
    * HEART BALLOON. It rides above the player, softening the fall, until something walks into it.
@@ -858,7 +954,8 @@ export class GameModel {
     const balloon = this.balloon;
     if (!balloon || !balloon.alive) return;
     const p = this.player, tuning = UPGRADE_TUNING.heartBalloon;
-    const want = { x: p.x, y: p.y + tuning.offsetY };
+    // Above the player's head, which is the side gravity is NOT pulling them towards.
+    const want = { x: p.x, y: p.y + tuning.offsetY * this.gravity };
     const ease = Math.min(1, tuning.follow * dt);
     balloon.x += (want.x - balloon.x) * ease;
     balloon.y += (want.y - balloon.y) * ease;
@@ -1002,10 +1099,14 @@ export class GameModel {
     if (this.doodadContact === touching.id) return;
     // Only from above, and only while falling: brushing one sideways or clipping it from below is
     // just scenery, exactly as it is for an enemy.
-    const fromAbove = p.vy > 0 && oldY + 15 <= touching.y + 2 && p.y + 15 >= touching.y;
+    // The gravity-facing face of the doodad: its top in the shaft, its underside in the ABYSS.
+    // The 2px tolerance the old test carried is kept, measured along the pull.
+    const face = this.gravity > 0 ? touching.y : touching.y + touching.height;
+    const fromAbove = this.along(p.vy) > 0
+      && this.crossedWithGravity(oldY + this.lead - 2 * this.gravity, p.y + this.lead, face);
     if (!fromAbove) return;
     this.doodadContact = touching.id;
-    p.y = touching.y - 15;
+    p.y = face - this.lead;
     p.vy = this.up * DOODAD_RULES.bounce;
     p.grounded = -1;
     this.reloadCharge();
@@ -1052,7 +1153,7 @@ export class GameModel {
       if (box.broken) { box.debris = Math.max(0, box.debris - dt); continue; }
       if (p.x + 9 > box.x && p.x - 9 < box.x + box.width && p.y + 15 > box.y && p.y - 15 < box.y + box.height) this.breakContainer(box);
     }
-    this.containers = this.containers.filter(box => (!box.broken || box.debris > 0) && box.y > this.cameraY - 180);
+    this.containers = this.containers.filter(box => (!box.broken || box.debris > 0) && !this.behindCamera(this.trailingEdge(box.y, box.height), 180));
   }
   /**
    * Break one container. It restores nothing by itself: what it does is release bubbles, and only
@@ -1262,7 +1363,7 @@ export class GameModel {
     this.corpses = []; this.timeoutBubbles = [];
     // A HEART BALLOON is one per SECTION: gone when something pops it, back at the next opening.
     this.balloon = this.upgrades.has('heartBalloon')
-      ? { x: p.x, y: p.y + UPGRADE_TUNING.heartBalloon.offsetY, alive: true }
+      ? { x: p.x, y: p.y + UPGRADE_TUNING.heartBalloon.offsetY * this.gravity, alive: true }
       : null;
     this.jetpackFuel = UPGRADE_TUNING.safetyJetpack.fuelSeconds;
     this.doodadContact = null; this.worldElapsed = 0;
@@ -1412,7 +1513,7 @@ export class GameModel {
     this.coins.burst(enemy.x, enemy.y, money.count, this.random, money.denomination);
     // A body, for the two upgrades that care. Laid whether or not the run holds either: whether it
     // is worth anything is their question, not the kill's.
-    if (type.leavesCorpse) this.corpses.push(spawnCorpse(this.nextCorpseId++, enemy.x, enemy.y));
+    if (type.leavesCorpse) this.corpses.push(spawnCorpse(this.nextCorpseId++, enemy.x, enemy.y, this.gravity));
     const points = Math.round(100 * this.multiplier * (stomp ? 1.5 : 1));
     this.killScore += points; this.events.push({ type: 'kill', x: enemy.x, y: enemy.y, value: points, stomp, combo: this.combo });
   }

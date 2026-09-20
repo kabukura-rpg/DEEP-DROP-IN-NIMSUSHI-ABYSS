@@ -29,5 +29,10 @@ export const CORPSE_RULES = {
   height: 12,
 } as const;
 
-export const spawnCorpse = (id: number, x: number, y: number): Corpse =>
-  ({ id, x, y, vy: -60, life: CORPSE_RULES.lifetime, claimed: false });
+/**
+ * `gravitySign` is which way the world is pulling when the body drops: +1 down the shaft, -1 in
+ * the ABYSS. A corpse is thrown clear of the kill against the pull and then falls with it, so an
+ * inverted fight leaves bodies drifting up the screen rather than raining the wrong way.
+ */
+export const spawnCorpse = (id: number, x: number, y: number, gravitySign: 1 | -1 = 1): Corpse =>
+  ({ id, x, y, vy: -60 * gravitySign, life: CORPSE_RULES.lifetime, claimed: false });

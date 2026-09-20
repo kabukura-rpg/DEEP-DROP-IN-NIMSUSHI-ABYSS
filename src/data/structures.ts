@@ -176,3 +176,14 @@ export const LIMBO_HAZARD_RULES = {
   /** How far the barbs stand above the row, for drawing and for the hitbox. MEASUREMENT REQUIRED. */
   reach: 14,
 } as const;
+
+/**
+ * How thick a plain ledge is.
+ *
+ * It has never mattered before: gravity pulled one way, so a floor was a line at `y` and the only
+ * face anything could arrive on was its top. The ABYSS inverts the pull, and a player falling
+ * upward lands on the UNDERSIDE of a ledge -- which needs the slab to have a thickness that
+ * collision agrees with. This is the figure the view already draws them at, named once so the two
+ * cannot drift apart.
+ */
+export const PLATFORM_THICKNESS = 16;
