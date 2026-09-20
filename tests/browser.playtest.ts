@@ -2272,6 +2272,21 @@ function descendPlan(model: GameModel): { target: number | undefined; fire: bool
     target = routeTarget;
   }
 
+  // Airborne over a SPIKE PLATFORM that is already armed: the teeth stand 16px proud of the
+  // surface, so falling through that column costs a heart whether or not the run means to land.
+  // Standing on one is handled above; this is the other half, and it is the half that was killing
+  // the run in CATACOMBS -- HP bled away a heart at a time on ledges it was only passing.
+  if (!ground) {
+    const armed = model.platforms.filter(f => f.spikePlatform && f.spikePlatform.state !== 'safe'
+      && f.spikePlatform.state !== 'cooldown' && f.y > p.y - 30 && f.y < p.y + 260
+      && p.x + 14 > f.x && p.x - 14 < f.x + f.width);
+    if (armed.length) {
+      const row = armed.sort((a, b) => a.y - b.y)[0];
+      const leftRoom = row.x - WORLD.wall - 14, rightRoom = WORLD.width - WORLD.wall - (row.x + row.width) - 14;
+      target = leftRoom > rightRoom ? row.x - 26 : row.x + row.width + 26;
+    }
+  }
+
   // Given two ways down, take the one that is not going to turn into spikes underfoot.
   if (!model.exit && next?.spikePlatform) {
     const safer = model.platforms
@@ -2308,7 +2323,11 @@ function descendPlan(model: GameModel): { target: number | undefined; fire: bool
   // The core of the game: shoot what is under you, and use the recoil to brake a long fall.
   const threat = model.enemies.some(e => e.alive && Math.abs(e.x - p.x) < 34 && e.y > p.y && e.y < p.y + 430);
   // A ledge with something unstompable standing on it is worth clearing before landing on it.
-  fire = fire || threat || p.vy > 360;
+  //
+  // Braking a long fall is a luxury; clearing what is in the way is not. Spending the last rounds
+  // on the brake is how the run arrived in CATACOMBS at CHARGE 0 with a spike platform underneath
+  // and nothing left to answer it with, so the brake only runs while there is ammo to spare.
+  fire = fire || threat || (p.vy > 360 && model.ammo > 2);
   return { target, fire };
 }
 
