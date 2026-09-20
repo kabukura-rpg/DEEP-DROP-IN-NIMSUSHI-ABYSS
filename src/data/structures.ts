@@ -133,7 +133,8 @@ export const SPIKE_PLATFORM_RULES = {
   /**
    * Seconds between the landing that arms it and the spikes emerging.
    *
-   * DESIGN TUNING — ORIGINAL VALUE NOT VERIFIED.
+   * DESIGN TUNING — TOO SLOW VS ORIGINAL.
+   * ORIGINAL VALUE / TOTAL REACTION TIME MEASUREMENT REQUIRED.
    *
    * The SHAPE is confirmed: the original's catacomb traps are differently coloured platforms that
    * release spikes shortly after being stood on, and the description of them is that they make the
@@ -145,9 +146,21 @@ export const SPIKE_PLATFORM_RULES = {
    * trap with no pressure at all. Jumping leaves the floor on the same frame, stepping off an edge
    * is immediate, and a round of recoil is another way out -- none of them need 0.95s.
    *
-   * What the window must still guarantee is that nothing hurts on the frame of the landing, that
-   * the warning is visible for its whole length, and that a player who reacts at once gets away.
-   * A player who stands still is meant to be hit. MEASUREMENT REQUIRED.
+   * 0.65 IS NOT A FIDELITY TARGET EITHER. Playing the original and DEEP DROP side by side, this
+   * trap still fires later than the original's. The direction is confirmed and the amount is not:
+   * the next value comes from measurement, never from another estimate. Moving the right way once
+   * does not make a number correct, and 0.65 is exactly as unverified as 0.95 was.
+   *
+   * What must be measured is NOT this constant on its own but the whole staircase -- trigger,
+   * warning tint, extension animation, hitbox activation -- and the acceptance figure is the TOTAL
+   * REACTION TIME from the arming landing to the first frame the spikes can hurt. A trap whose
+   * warning is the right length but whose trigger and activation are staged differently still reads
+   * as slow, which is what the side-by-side comparison actually describes. See protocol D items
+   * 19-20 in docs/PHASE7C-1-SPEC.md for the seven frame indices to capture.
+   *
+   * What the window must still guarantee, at whatever length it ends up: nothing hurts on the frame
+   * of the landing, the warning is visible for its whole length, and a player who reacts at once
+   * gets away. A player who stands still is meant to be hit.
    */
   warning: 0.65,
   /**
