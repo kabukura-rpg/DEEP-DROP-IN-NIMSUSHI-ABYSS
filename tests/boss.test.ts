@@ -942,6 +942,120 @@ describe('BOSS TIME, CLEAR TIME and TOTAL DEPTH', () => {
   });
 });
 
+describe('the twenty upgrades inside an inverted fight', () => {
+  it('turns the upgrades that fire away from the floor over with everything else', () => {
+    for (const id of ['gunpowderBlocks', 'poppingGems'] as const) {
+      const game = atNimushi(100);
+      game.upgrades.grant(id);
+      game.bullets = [];
+      if (id === 'poppingGems') {
+        game.coins.burst(game.player.x, game.player.y, 1, seeded(3));
+        for (const coin of game.coins.coins) { coin.x = game.player.x; coin.y = game.player.y; }
+        game.step(STEP, 0, false);
+      } else {
+        game.platforms = [{ id: 5150, x: game.player.x - 40, y: game.player.y - 200, width: 80, breakBlock: { hits: 1, durability: 2, slot: 0, reward: false } }];
+        game.bullets.push(round(game.player.x, game.player.y - 200, 1));
+        game.step(STEP, 0, false);
+      }
+      const own = game.bullets.filter(b => b.source === (id === 'poppingGems' ? 'poppingGem' : 'gunpowderBlock'));
+      expect(own.length, id).toBeGreaterThan(0);
+      // Away from the floor, which under an inverted pull is DOWN the screen.
+      expect(own.every(b => b.vy > 0), id).toBe(true);
+    }
+  });
+
+  it('jumps off inverted ground with ROCKET JUMP and blasts under the feet', () => {
+    const game = atNimushi(101);
+    game.upgrades.grant('rocketJump');
+    game.platforms = [{ id: 606, x: game.player.x - 60, y: game.player.y - 40, width: 120 }];
+    game.player.grounded = 606;
+    game.events.length = 0;
+    expect(game.jump()).toBe(true);
+    expect(game.player.vy).toBeGreaterThan(0);
+    const blast = game.events.find(e => e.type === 'explosion');
+    expect(blast).toBeDefined();
+    // Under the feet -- and the feet point the way gravity pulls, which in the ABYSS is UP the
+    // screen. The jump itself goes the other way, which is what leaves the blast behind.
+    expect(blast!.y).toBeLessThan(game.player.y);
+  });
+
+  it('holds the fall back with SAFETY JETPACK and HEART BALLOON, along the pull', () => {
+    const jet = atNimushi(102);
+    jet.upgrades.grant('safetyJetpack');
+    jet.platforms = []; jet.doodads = [];
+    jet.ammo = 0; jet.player.grounded = -1; jet.player.vy = -520;
+    jet.step(STEP, 0, true);
+    expect(jet.jetpackActive).toBe(true);
+    // Still climbing, but far more slowly: "falling" is up the screen here.
+    expect(jet.player.vy).toBeLessThan(0);
+    expect(jet.player.vy).toBeGreaterThan(-520);
+
+    const balloon = atNimushi(103);
+    balloon.upgrades.grant('heartBalloon');
+    balloon.platforms = []; balloon.doodads = [];
+    balloon.balloon = { x: balloon.player.x, y: balloon.player.y + 46, alive: true };
+    balloon.player.grounded = -1; balloon.player.vy = 0;
+    tick(balloon, 2);
+    const held = balloon.player.vy;
+    const free = atNimushi(103);
+    free.platforms = []; free.doodads = [];
+    free.player.grounded = -1; free.player.vy = 0;
+    tick(free, 2);
+    expect(Math.abs(held)).toBeLessThan(Math.abs(free.player.vy));
+  });
+
+  it('gives DRONE and BLAST MODULE no way round the weak point', () => {
+    const drone = fighting(104);
+    const hp = drone.boss.hp;
+    shootBody(drone, 1, 'drone');
+    expect(drone.boss.hp).toBe(hp);
+    shootEye(drone, 1, 'drone');
+    expect(drone.boss.hp).toBe(hp - 1);
+
+    // BLAST MODULE rides a stomp, and NIMUSHI is not stompable -- so it never reaches it at all.
+    const blast = fighting(105);
+    const held = blast.boss.hp;
+    blast.upgrades.grant('blastModule');
+    blast.player.x = blast.boss.x;
+    blast.player.y = blast.boss.y;
+    blast.player.vy = -520;
+    blast.player.invincible = 0;
+    blast.step(STEP, 0, false);
+    expect(blast.boss.hp).toBe(held);
+  });
+
+  it('stops the WHOLE fight inside a TIMEOUT bubble, NIMUSHI included', () => {
+    const game = fighting(106);
+    game.upgrades.grant('timeout');
+    tick(game, 1);
+    // A non-lethal hit leaves stopped time exactly where it landed.
+    game.player.invincible = 0;
+    expect(game.damage(1, 'bossShot')).toBe(true);
+    expect(game.timeoutBubbles.length).toBe(1);
+    expect(game.timeFrozen).toBe(true);
+    const hp = game.boss.hp, state = game.boss.state, elapsed = game.boss.elapsed, deep = game.boss.deepY;
+    // Held inside the bubble. It is fixed where the hit landed and never follows the player, so a
+    // player who simply keeps falling leaves their own stopped time behind within a fraction of a
+    // second -- which is the Phase 5 rule, not something the fight changes.
+    const bubble = game.timeoutBubbles[0];
+    for (let i = 0; i < 1.5 / STEP; i++) {
+      game.player.x = bubble.x; game.player.y = bubble.y; game.player.vy = 0;
+      game.step(STEP, 0, false);
+    }
+    // MEASUREMENT REQUIRED: whether the original's TIMEOUT is meant to hold a boss still is not
+    // documented. The Phase 5 semantics are kept rather than carved out -- everything outside the
+    // player's own bubble stops, and NIMUSHI is outside it.
+    expect(game.boss.state).toBe(state);
+    expect(game.boss.hp).toBe(hp);
+    expect(game.boss.elapsed).toBe(elapsed);
+    expect(game.boss.deepY).toBe(deep);
+    // And the player keeps playing inside it.
+    game.bullets = [];
+    game.shoot();
+    expect(game.bullets.length).toBeGreaterThan(0);
+  });
+});
+
 describe('the camera and the view', () => {
   it('travels upward with the player and keeps NIMUSHI in frame', () => {
     const game = atNimushi(80);
