@@ -5,10 +5,11 @@ import { spawnEnemy, type Enemy, type EnemyKind } from '../src/data/enemies';
 import { AREAS, type SectionId, PLANNED_TOTAL_DEPTH } from '../src/data/areas';
 import { WORLD } from '../src/data/balance';
 import { pickupType } from '../src/data/pickups';
-import { UPGRADES } from '../src/data/upgrades';
 import { GUN_MODULES } from '../src/data/gunModules';
 import { DOODAD_RULES, spawnDoodad } from '../src/data/doodads';
 import { spikePlatform } from '../src/data/structures';
+import { UPGRADES } from '../src/data/upgrades';
+import { spawnCorpse } from '../src/data/corpses';
 import { SAFE_ZONE_RULES, insideSafeZone, type SafeZoneContentKind } from '../src/data/safeZone';
 import { spawnGunModule } from '../src/data/pickups';
 // The watchdog behind the word "unassisted" lives in its own file so it can be unit-tested; see
@@ -559,6 +560,364 @@ button('AREA 2/3/4 SAFE ZONE：各ギミックの freeze → 退出 → 再開',
       assert(spikes.state !== before, `AREA ${area}：退出すると罠床のサイクルが再開する`);
     }
   }
+  bridge.active = false;
+});
+// Phase 5: the original twenty. Grouped so one run of a check covers a whole bundle.
+button('UPGRADE：3択 / YOUTH後4択 / 重複なし', async () => {
+  start(); const model = scene.model;
+  model.completeSection('area-1/section-1');
+  await until(() => !!document.getElementById('upgrade-0'), 8000);
+  const cards = () => Array.from(document.querySelectorAll('.upgrade-card'));
+  output.textContent += `\n3択: ${model.upgrades.choices.map(c => c.name).join(' / ')}`;
+  assert(cards().length === 3, `YOUTHなしでは3枚 (${cards().length})`);
+  assert(new Set(model.upgrades.choices.map(c => c.id)).size === 3, '同一画面に重複なし');
+  assert(model.upgrades.choices.every(c => UPGRADES.some(u => u.id === c.id)), '原作20種から出ている');
+  const retired = ['mag', 'power', 'recoil', 'heart', 'speed', 'big', 'piercing', 'bounce', 'combo', 'food'];
+  assert(!model.upgrades.choices.some(c => retired.includes(c.id)), '旧独自Upgradeは出ない');
+  // NEXT is disabled until something is chosen: there is no skipping a REST.
+  assert(document.getElementById('upgrade-confirm')!.hasAttribute('disabled'), '選択前は NEXT できない');
+  document.getElementById('upgrade-0')!.click();
+  document.getElementById('upgrade-confirm')!.click();
+  await wait(120);
+  // YOUTH widens the NEXT rest, not this one.
+  model.upgrades.grant('youth');
+  model.completeSection('area-1/section-2');
+  await until(() => !!document.getElementById('upgrade-0'), 8000);
+  output.textContent += `\n4択: ${model.upgrades.choices.map(c => c.name).join(' / ')}`;
+  assert(cards().length === 4, `YOUTH後は4枚 (${cards().length})`);
+  assert(new Set(model.upgrades.choices.map(c => c.id)).size === 4, '4枚とも別の強化');
+  assert(!model.upgrades.choices.some(c => model.upgrades.acquired.includes(c.id)), '取得済みは再提示されない');
+  bridge.active = false;
+});
+button('UPGRADE 戦闘：BLAST / DRONE / HOT CASING / ROCKET JUMP / BALLOON', async () => {
+  // --- BLAST MODULE: a stomp takes the neighbours too -------------------------------------------
+  start(); let model = scene.model;
+  model.upgrades.grant('blastModule');
+  model.platforms = []; model.hazards = []; model.doodads = []; model.safeZones = [];
+  model.player.invincible = 99; model.combo = 0;
+  model.player.x = 225; model.player.y = 180; model.player.vy = 0; model.player.grounded = -1;
+  const stomped = enemy('slime', 225, 240, 9100);
+  const bystander = enemy('slime', 265, 240, 9101);
+  model.enemies = [stomped, bystander];
+  model.player.vy = 320;
+  await until(() => !bystander.alive, 5000);
+  output.textContent += `\nBLAST: 踏んだ敵 ${!stomped.alive} / 巻き込み ${!bystander.alive} / COMBO ${model.combo} / kills ${model.kills}`;
+  assert(!stomped.alive && !bystander.alive, 'BLAST MODULE：踏みつけで周囲も倒れる');
+  assert(model.combo === 2 && model.kills === 2, '二重カウントなし（COMBO 2 / kills 2）');
+
+  // --- DRONE: one extra round per trigger, no CHARGE ---------------------------------------------
+  start(); model = scene.model;
+  model.upgrades.grant('drone');
+  model.platforms = []; model.enemies = []; model.doodads = []; model.safeZones = [];
+  model.gun.equip('shotgun');
+  model.player.invincible = 99;
+  model.player.x = 225; model.player.y = 200; model.player.vy = 0; model.player.grounded = -1;
+  model.bullets = [];
+  const ammoBefore = model.ammo;
+  key('Space', true); await wait(1000 / 60); key('Space', false); await wait(80);
+  const droneRounds = model.bullets.filter(b => b.source === 'drone');
+  output.textContent += `\nDRONE: 弾 ${model.bullets.length} (うちdrone ${droneRounds.length}) / CHARGE ${ammoBefore}→${model.ammo}`;
+  assert(droneRounds.length === 1, 'SHOTGUNでも drone 弾は1発だけ');
+  assert(ammoBefore - model.ammo === GUN_MODULES.shotgun.ammoCost, 'drone 弾は CHARGE を消費しない');
+
+  // --- HOT CASING --------------------------------------------------------------------------------
+  start(); model = scene.model;
+  model.upgrades.grant('hotCasing');
+  model.platforms = []; model.enemies = []; model.doodads = []; model.safeZones = [];
+  model.player.invincible = 99;
+  model.player.x = 225; model.player.y = 200; model.player.vy = 0; model.player.grounded = -1;
+  model.bullets = [];
+  key('Space', true); await wait(1000 / 60); key('Space', false); await wait(80);
+  const casings = model.bullets.filter(b => b.source === 'casing');
+  output.textContent += `\nHOT CASING: 薬莢 ${casings.length} / 威力 ${casings[0]?.damage}`;
+  assert(casings.length === 1, '射撃1回につき薬莢1つ');
+  assert(Math.abs(casings[0].damage - GUN_MODULES.machine.projectileDamage * 0.5) < 1e-6, '薬莢は MACHINE の半分の威力');
+
+  // --- ROCKET JUMP -------------------------------------------------------------------------------
+  start(); model = scene.model;
+  model.platforms = []; model.enemies = []; model.doodads = []; model.safeZones = [];
+  const floor: RoutePlatform = { id: 9200, x: WORLD.wall, y: 400, width: WORLD.width - WORLD.wall * 2, safeX: 225, exitX: 225, safeSide: 1, breakable: false, state: 'stable' };
+  model.platforms = [floor];
+  model.player.invincible = 99;
+  model.player.x = 225; model.player.y = 385; model.player.vy = 0; model.player.grounded = floor.id;
+  model.jump();
+  const plainJump = Math.abs(model.player.vy);
+  start(); model = scene.model;
+  model.upgrades.grant('rocketJump');
+  model.platforms = [floor]; model.enemies = [enemy('slime', 250, 410, 9210)]; model.doodads = []; model.safeZones = [];
+  model.player.invincible = 99;
+  model.player.x = 225; model.player.y = 385; model.player.vy = 0; model.player.grounded = floor.id;
+  const victim = model.enemies[0];
+  model.jump();
+  await wait(80);
+  output.textContent += `\nROCKET JUMP: 通常 ${plainJump.toFixed(0)} → ${Math.abs(model.player.vy).toFixed(0)} / 足元の敵 ${!victim.alive}`;
+  assert(Math.abs(model.player.vy) > plainJump, '地上ジャンプが高くなる');
+  assert(!victim.alive, '足元で爆発して敵を倒す');
+
+  // --- HEART BALLOON -----------------------------------------------------------------------------
+  start(); model = scene.model;
+  model.upgrades.grant('heartBalloon');
+  model.jumpToStage(1, 1);
+  await wait(60);
+  model.platforms = []; model.enemies = []; model.doodads = []; model.safeZones = [];
+  model.player.invincible = 0;
+  model.player.x = 225; model.player.y = 300; model.player.vy = 0; model.player.grounded = -1;
+  assert(!!model.balloon?.alive, 'SECTION開始で風船がある');
+  const hpBefore = model.hp;
+  const balloon = model.balloon!;
+  balloon.x = 225; balloon.y = 300 - 46;
+  const popper = enemy('bat', balloon.x, balloon.y, 9300);
+  model.enemies = [popper];
+  for (let i = 0; i < 200 && balloon.alive; i++) {
+    keepAwake();
+    model.player.x = 225; model.player.y = 300; model.player.vy = 0;
+    popper.x = balloon.x; popper.y = balloon.y;
+    await wait(16);
+  }
+  output.textContent += `\nBALLOON: 割れた ${!balloon.alive} / 敵 ${!popper.alive} / HP ${hpBefore}→${model.hp}`;
+  assert(!balloon.alive, '敵が触れると風船が割れる');
+  assert(!popper.alive, '爆発で敵を倒す');
+  assert(model.hp === hpBefore, 'player は自分の爆発で傷つかない');
+  bridge.active = false;
+});
+button('UPGRADE コイン：MAGNET / POWERED / SICK / POPPING', async () => {
+  start(); const model = scene.model;
+  model.upgrades.grant('gemAttractor'); model.upgrades.grant('gemPowered');
+  model.upgrades.grant('gemSick'); model.upgrades.grant('poppingGems');
+  model.jumpToStage(1, 1);
+  await wait(60);
+  model.platforms = []; model.enemies = []; model.doodads = []; model.safeZones = []; model.containers = [];
+  model.player.invincible = 99;
+  model.player.x = 225; model.player.y = 200; model.player.vy = 0; model.player.grounded = -1;
+  assert(model.coins.attractMultiplier > 1, 'COIN MAGNET：吸引倍率が上がっている');
+  assert(model.coinHigh.durationMultiplier > 1, 'COIN SICK：HIGH 持続倍率が上がっている');
+  model.ammo = 0; model.bullets = []; model.coins.coins = [];
+  model.coins.burst(225, 200, 1, () => 0.5, 'large');
+  for (let i = 0; i < 200 && model.coins.coins.length; i++) {
+    keepAwake();
+    const coin = model.coins.coins[0];
+    model.player.x = coin.x; model.player.y = coin.y; model.player.vy = 0; model.player.grounded = -1;
+    await wait(16);
+  }
+  const popped = model.bullets.filter(b => b.source === 'poppingGem');
+  output.textContent += `\nLARGE COIN 回収: CHARGE 0→${model.ammo} / 上向き弾 ${popped.length}`;
+  assert(model.ammo === 5, 'COIN POWERED：LARGE で CHARGE +5');
+  assert(popped.length === 1, 'POPPING COINS：1枚につき上へ1発');
+  assert(popped[0].vy < 0, '上向きに撃っている');
+  // A settled chain is awarded, not dropped: neither upgrade may fire for it.
+  model.bullets = []; model.ammo = 1; model.combo = 8;
+  model.settleCombo();
+  await wait(60);
+  output.textContent += `\nCOMBO 精算後: CHARGE ${model.ammo} / 上向き弾 ${model.bullets.filter(b => b.source === 'poppingGem').length}`;
+  assert(model.bullets.filter(b => b.source === 'poppingGem').length === 0, '精算では POPPING COINS は撃たない');
+  assert(model.ammo === 1, '精算では COIN POWERED も回復しない');
+  bridge.active = false;
+});
+button('UPGRADE 死体：KNIFE & FORK / REST IN PIECES', async () => {
+  start(); let model = scene.model;
+  model.upgrades.grant('knifeAndFork');
+  model.platforms = []; model.enemies = []; model.doodads = []; model.safeZones = [];
+  model.player.invincible = 0;
+  model.damage(2);
+  model.player.invincible = 99;
+  const hurtHp = model.hp;
+  model.player.x = 225; model.player.y = 200; model.player.vy = 0; model.player.grounded = -1;
+  for (let i = 0; i < 10; i++) {
+    model.corpses = [spawnCorpse(i + 1, 225, 200)];
+    for (let f = 0; f < 10 && model.corpses.length; f++) { keepAwake(); model.player.x = 225; model.player.y = 200; await wait(16); }
+  }
+  output.textContent += `\nKNIFE & FORK: 食べた ${model.corpsesEaten} / HP ${hurtHp}→${model.hp}`;
+  assert(model.corpsesEaten === 10, '死体を10体食べた');
+  assert(model.hp === hurtHp + 1, '10体で HP +1');
+
+  start(); model = scene.model;
+  model.upgrades.grant('restInPieces');
+  model.platforms = []; model.doodads = []; model.safeZones = [];
+  model.player.invincible = 99;
+  model.player.x = 225; model.player.y = 200; model.player.vy = 0; model.player.grounded = -1;
+  const body = spawnCorpse(1, 225, 280); body.vy = 0;
+  model.corpses = [body];
+  const near = enemy('slime', 255, 280, 9400);
+  model.enemies = [near];
+  for (let i = 0; i < 300 && !body.claimed; i++) {
+    keepAwake();
+    model.player.x = 225; model.player.y = 200; model.player.vy = 0; model.player.grounded = -1;
+    body.x = 225; body.y = 280;
+    model.ammo = model.stats.maxAmmo;
+    key('Space', true); await wait(1000 / 60); key('Space', false); await wait(16);
+  }
+  output.textContent += `\nREST IN PIECES: 爆散 ${body.claimed} / 巻き込み ${!near.alive}`;
+  assert(body.claimed, '死体を撃つと爆散する');
+  assert(!near.alive, '爆発で近くの敵を巻き込む');
+  bridge.active = false;
+});
+button("UPGRADE 実用：REVERSE / JETPACK / TIMEOUT / MEMBER'S CARD", async () => {
+  // --- REVERSE ENGINEERING -------------------------------------------------------------------------
+  start(); let model = scene.model;
+  model.upgrades.grant('reverseEngineering');
+  model.platforms = []; model.enemies = []; model.doodads = []; model.safeZones = [];
+  model.player.invincible = 99;
+  model.player.x = 225; model.player.y = 200; model.player.vy = 0; model.player.grounded = -1;
+  const crate = spawnGunModule(9500, 225, 300, 'machine', 'heart');
+  model.pickups = [crate];
+  for (let i = 0; i < 300 && !crate.rerolled; i++) {
+    keepAwake();
+    model.player.x = 225; model.player.y = 200; model.player.vy = 0; model.player.grounded = -1;
+    crate.x = 225; crate.y = 300; model.ammo = model.stats.maxAmmo;
+    key('Space', true); await wait(1000 / 60); key('Space', false); await wait(16);
+  }
+  const drawn = { module: crate.module, bonus: crate.bonus };
+  output.textContent += `\nREVERSE: machine/heart → ${drawn.module}/${drawn.bonus} / crate 健在 ${!crate.taken}`;
+  assert(crate.rerolled === true, 'GUN MODULE を撃つと引き直される');
+  assert(model.pickups.includes(crate) && !crate.taken, 'crate は破壊されない');
+  for (let i = 0; i < 120; i++) {
+    keepAwake();
+    model.player.x = 225; model.player.y = 200; model.player.grounded = -1;
+    crate.x = 225; crate.y = 300; model.ammo = model.stats.maxAmmo;
+    key('Space', true); await wait(1000 / 60); key('Space', false); await wait(16);
+  }
+  assert(crate.module === drawn.module && crate.bonus === drawn.bonus, '2回目以降は引き直さない');
+
+  // --- SAFETY JETPACK -----------------------------------------------------------------------------
+  start(); model = scene.model;
+  model.upgrades.grant('safetyJetpack');
+  model.platforms = []; model.enemies = []; model.doodads = []; model.safeZones = [];
+  model.player.invincible = 99;
+  model.ammo = 0; model.bullets = [];
+  model.player.x = 225; model.player.y = 200; model.player.vy = model.stats.maxFallSpeed; model.player.grounded = -1;
+  const fuelBefore = model.jetpackFuel;
+  key('Space', true);
+  for (let i = 0; i < 40; i++) { keepAwake(); model.player.grounded = -1; await wait(16); }
+  key('Space', false);
+  output.textContent += `\nJETPACK: 燃料 ${fuelBefore.toFixed(1)}→${model.jetpackFuel.toFixed(1)} / vy ${model.player.vy.toFixed(0)} / 弾 ${model.bullets.length}`;
+  assert(model.jetpackFuel < fuelBefore, 'CHARGE 0 + ACTION で燃料を使う');
+  assert(model.bullets.length === 0, 'projectile は出ない');
+  assert(model.ammo === 0, 'CHARGE は増えない');
+  assert(model.player.vy < model.stats.maxFallSpeed, '落下が緩む');
+  const held = model.jetpackFuel;
+  await wait(600);
+  assert(model.jetpackFuel === held, 'ACTION を離すと燃料は減らない');
+
+  // --- TIMEOUT -------------------------------------------------------------------------------------
+  start(); model = scene.model;
+  model.upgrades.grant('timeout');
+  model.jumpToStage(1, 1);
+  await wait(60);
+  model.platforms = []; model.enemies = []; model.doodads = []; model.safeZones = []; model.bullets = [];
+  model.player.x = 225; model.player.y = 300; model.player.vy = 0; model.player.grounded = -1;
+  model.player.invincible = 0;
+  model.damage(1);
+  const bubble = model.timeoutBubbles[0];
+  assert(!!bubble, '被弾した位置に泡ができる');
+  assert(model.timeFrozen, '泡の中では TIMEVOID');
+  model.bullets = [plainBullet(bubble.x + bubble.radius + 90, 180)];
+  const outside = model.bullets[0];
+  for (let i = 0; i < 90; i++) { keepAwake(); model.player.invincible = 99; model.player.x = 225; model.player.y = 300; model.player.vy = 0; await wait(16); }
+  output.textContent += `\nTIMEOUT: 泡(${bubble.x.toFixed(0)},${bubble.y.toFixed(0)}) / 外の弾 y=${outside.y.toFixed(0)}`;
+  assert(outside.y === 180, '泡の中にいる間は外の弾が止まる');
+  model.player.x = bubble.x + bubble.radius + 220;
+  await wait(200);
+  assert(!model.timeFrozen, '泡を出ると解除される');
+  assert(bubble.x === 225 && bubble.y === 300, '泡は動かない（player に追従しない）');
+  assert(outside.y > 180, '出ると外の弾が動き出す');
+
+  // --- MEMBER'S CARD ---------------------------------------------------------------------------------
+  start(); model = scene.model;
+  model.upgrades.grant('membersCard');
+  model.jumpToStage(2, 1);
+  await wait(60);
+  const full = model.shop.offers.map(o => shopPrice(shopItem(o.item), 2));
+  output.textContent += `\nMEMBER'S CARD: ${model.shop.offers.map((o, i) => `${o.name} ${full[i]}→${o.price}`).join(' / ')}`;
+  assert(model.shop.offers.every((o, i) => o.price === Math.round(full[i] * 0.9)), 'SHOP が 10% 引き');
+  const early = model.safeZones.concat();
+  assert(model.stage.sectionPlan !== undefined, 'SECTION plan がある');
+  // The guaranteed chamber is cut near the top, so it is already generated at the opening.
+  await wait(200);
+  const shops = model.safeZones.filter(z => z.content?.kind === 'shop');
+  output.textContent += `\nSECTION序盤の chamber: ${model.safeZones.length} (うち SHOP ${shops.length})`;
+  assert(model.safeZones.length >= 1, 'SECTION 序盤に chamber がある');
+  assert(shops.length >= 1, 'そのうち少なくとも1つが SHOP');
+  void early;
+  bridge.active = false;
+});
+button('UPGRADE × AREA：Catacombs火薬 / Aquifer死体 / Limbo燃料', async () => {
+  // --- AREA 2 CATACOMBS + GUNPOWDER BLOCKS -------------------------------------------------------
+  start(); let model = scene.model;
+  model.upgrades.grant('gunpowderBlocks');
+  model.jumpToStage(2, 2);
+  await wait(80);
+  model.enemies = []; model.doodads = []; model.safeZones = [];
+  model.player.invincible = 99;
+  const width = 70;
+  const row: Platform[] = Array.from({ length: 5 }, (_, i) => ({
+    id: 9600 + i, x: WORLD.wall + i * width, y: 420, width,
+    breakable: false, state: 'stable' as const,
+    breakBlock: { hits: 0, durability: 1, slot: i, reward: i === 2 },
+  }));
+  model.platforms = row;
+  model.bullets = [];
+  row[0].breakBlock!.hits = 0;
+  model.player.x = row[0].x + 20; model.player.y = 300; model.player.vy = 0; model.player.grounded = -1;
+  for (let i = 0; i < 200 && row[4].state !== 'broken'; i++) {
+    keepAwake();
+    model.player.x = row[0].x + 20; model.player.y = 300; model.player.vy = 0; model.player.grounded = -1;
+    model.ammo = model.stats.maxAmmo;
+    key('Space', true); await wait(1000 / 60); key('Space', false); await wait(16);
+  }
+  const powder = model.bullets.filter(b => b.source === 'gunpowderBlock');
+  const value = model.coins.coins.reduce((sum, c) => sum + c.value, 0) + model.coins.scoreCoins;
+  output.textContent += `\nAREA2 + GUNPOWDER: 割れた ${row.filter(b => b.state === 'broken').length}/5 / 誘爆弾 ${powder.length} / COIN ${value}`;
+  assert(row.every(b => b.state === 'broken'), '誘爆で1列すべて割れる');
+  assert(powder.length === row.length, 'ブロック1個につき1発');
+  assert(value === 10, '誘爆で割れた REWARD BLOCK も 10 COIN 出す');
+  assert(model.kills === 0 && model.combo === 0, 'ブロック破壊は撃破でも COMBO でもない');
+
+  // --- AREA 3 AQUIFER + KNIFE & FORK --------------------------------------------------------------
+  start(); model = scene.model;
+  model.upgrades.grant('knifeAndFork');
+  model.jumpToStage(3, 1);
+  await wait(80);
+  assert(model.oxygen.enabled, 'AREA 3 で酸素が有効');
+  model.platforms = []; model.enemies = []; model.doodads = []; model.safeZones = []; model.containers = [];
+  model.player.invincible = 99;
+  model.player.x = 225; model.player.y = 200; model.player.vy = 0; model.player.grounded = -1;
+  const fish = enemy('fish', 225, 260, 9700);
+  model.enemies = [fish];
+  for (let i = 0; i < 300 && fish.alive; i++) {
+    keepAwake();
+    model.player.x = 225; model.player.y = 200; model.player.vy = 0; model.player.grounded = -1;
+    fish.x = 225; fish.y = 260; model.ammo = model.stats.maxAmmo;
+    key('Space', true); await wait(1000 / 60); key('Space', false); await wait(16);
+  }
+  await wait(120);
+  output.textContent += `\nAREA3 + KNIFE&FORK: 死体 ${model.corpses.length} / 食べた ${model.corpsesEaten}`;
+  assert(!fish.alive, 'AREA 3 の敵を倒した');
+  assert(model.corpses.length + model.corpsesEaten > 0, '水中でも死体が残る');
+
+  // --- AREA 4 LIMBO + GEM POWERED / SAFETY JETPACK ------------------------------------------------
+  start(); model = scene.model;
+  model.upgrades.grant('gemPowered'); model.upgrades.grant('safetyJetpack');
+  model.jumpToStage(4, 2);
+  await wait(80);
+  model.platforms = []; model.enemies = []; model.safeZones = []; model.doodads = [];
+  model.player.invincible = 99;
+  model.ammo = 0; model.jetpackFuel = 0;
+  model.player.x = 225; model.player.y = 200; model.player.vy = 300; model.player.grounded = -1;
+  model.doodads = [spawnDoodad(9800, 225 - DOODAD_RULES.width / 2, 320, 'lamp')];
+  for (let i = 0; i < 200 && model.jetpackFuel === 0; i++) { keepAwake(); await wait(16); }
+  output.textContent += `\nAREA4 + JETPACK: doodad で燃料 ${model.jetpackFuel.toFixed(1)} / CHARGE ${model.ammo}`;
+  assert(model.jetpackFuel > 0, 'LIMBO では床がなくても doodad で燃料が戻る');
+  model.ammo = 0; model.coins.coins = [];
+  model.doodads = [];
+  model.coins.burst(model.player.x, model.player.y, 1, () => 0.5, 'small');
+  for (let i = 0; i < 200 && model.coins.coins.length; i++) {
+    keepAwake();
+    const coin = model.coins.coins[0];
+    model.player.x = coin.x; model.player.y = coin.y; model.player.vy = 0; model.player.grounded = -1;
+    await wait(16);
+  }
+  output.textContent += `\nAREA4 + GEM POWERED: SMALL 回収で CHARGE ${model.ammo}`;
+  assert(model.ammo === 1, 'LIMBO でも COIN 回収で CHARGE +1');
   bridge.active = false;
 });
 // Phase 2A: the wall kick, and the gunboots behaving like boots.
