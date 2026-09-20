@@ -110,28 +110,70 @@ describe('CHARGE comes out of the air', () => {
   });
 });
 
-describe('being hit pushes the player out of NIMUSHI, never into it', () => {
-  it('shoves back along the pull, away from the boss', () => {
+/**
+ * A hit shoves the player toward the MIDDLE of the combat band.
+ *
+ * It used to push "away from NIMUSHI", described as never shoving the player into the deep. Both
+ * cannot hold: NIMUSHI is ahead along the pull and the deep is behind it. Measured, that version
+ * cost 31px of slack per hit and stacked -- 460px down to 366px over four hits -- which was the
+ * hit-into-pressure combo it was meant to prevent. The direction now comes from the geometry.
+ */
+describe('being hit pushes the player toward the middle of the band', () => {
+  const middleOf = (g: ReturnType<typeof fighting>) => (g.boss.face + g.boss.deepY) / 2;
+
+  it('pushes a player who is crowding NIMUSHI back out into the fight', () => {
     const g = fighting(70);
     tick(g, 1);
-    g.player.invincible = 0;
+    g.player.y = g.boss.face + 120 * -g.gravitySign;   // hard up against the face
     const before = g.boss.reach(g.player.y);
+    g.player.invincible = 0;
     g.damage(1, 'bossContact');
-    // Away from NIMUSHI means AGAINST the pull: `along` is positive toward it.
-    expect((g as unknown as { along(v: number): number }).along(g.player.vy)).toBeLessThan(0);
     expect(Math.abs(g.player.vy)).toBeCloseTo(BOSS_PHYSICS.hazardKnockback, 0);
     g.step(STEP, 0, false);
     expect(g.boss.reach(g.player.y)).toBeGreaterThan(before);
   });
 
-  it('never stacks into a shove toward the deep', () => {
+  it('lifts a player who is hit down near the deep, instead of burying them in it', () => {
     const g = fighting(71);
     tick(g, 1);
-    for (let i = 0; i < 5; i++) {
+    const along = (g as unknown as { along(v: number): number }).along.bind(g);
+    g.player.y = g.boss.deepY - 120 * g.gravitySign;   // low in the band
+    expect(g.player.y).toBeGreaterThan(middleOf(g));
+    const before = along(g.player.y - g.boss.deepY);
+    g.player.invincible = 0;
+    g.damage(1, 'bossContact');
+    // Toward the middle from below means AGAINST the pull -- up the screen, off the boundary.
+    expect(along(g.player.vy)).toBeGreaterThan(0);
+    g.step(STEP, 0, false);
+    expect(along(g.player.y - g.boss.deepY)).toBeGreaterThanOrEqual(before);
+  });
+
+  it('does not let repeated hits march the player into the deep', () => {
+    const g = fighting(72);
+    tick(g, 2);
+    const along = (g as unknown as { along(v: number): number }).along.bind(g);
+    const lead = () => along(g.player.y - g.boss.deepY);
+    const start = lead();
+    let worst = start;
+    for (let n = 0; n < 4 && g.state === 'boss'; n++) {
+      g.player.invincible = 0;
+      g.damage(1, 'bossContact');
+      for (let i = 0; i < 0.4 / STEP && g.state === 'boss'; i++) { g.player.invincible = 9; g.step(STEP, 0, false); }
+      worst = Math.min(worst, lead());
+    }
+    // The old version lost 31px of slack on every hit and never got it back. The shove is bounded
+    // by the midpoint now, so it cannot accumulate.
+    expect(worst).toBeGreaterThan(start - BOSS_PHYSICS.hazardKnockback);
+    expect(g.health.deathCause?.cause).not.toBe('crush');
+  });
+
+  it('never stacks into something violent', () => {
+    const g = fighting(73);
+    tick(g, 1);
+    for (let i = 0; i < 5 && g.state === 'boss'; i++) {
       g.player.invincible = 0;
       g.damage(1, 'bossContact');
       expect(Math.abs(g.player.vy)).toBeLessThanOrEqual(BOSS_PHYSICS.hazardKnockback + 0.001);
-      if (g.state !== 'boss') break;
     }
   });
 

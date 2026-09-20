@@ -1837,18 +1837,24 @@ export class GameModel {
     // unlucky contact is what made holding a combo feel arbitrary rather than risky.
     if (source) source.hurtFlash = 0.3;
     /**
-     * In the arena, a hit also shoves the player back along the pull -- away from NIMUSHI.
+     * In the arena, a hit also shoves the player toward the MIDDLE of the combat band.
      *
-     * Crowding the boss should cost more than a heart: it should put the player back out in the
-     * combat band, which is where the fight is meant to happen. The shove REPLACES the velocity
-     * rather than adding to it, so it can never stack into something violent, and it only ever
-     * pushes AWAY from NIMUSHI, so it can never become a hit that throws the player into the body.
+     * The first version pushed "away from NIMUSHI" and claimed it could never shove the player into
+     * the rising deep. Both cannot be true: NIMUSHI is ahead along the pull and the deep is behind
+     * it, so away from one IS toward the other. Measured, it cost 31px of slack per hit and stacked
+     * -- 460px down to 366px over four hits -- which is exactly the hit-into-pressure combo the
+     * shove was supposed to prevent.
      *
-     * The boundary is the reason this is modest and one-directional: a shove toward the deep would
-     * turn one mistimed hit into a death the player had no answer to.
+     * So the direction is chosen from the geometry rather than assumed. The band runs from
+     * NIMUSHI's face to the boundary, and a hit pushes toward its midpoint: crowding the boss still
+     * puts the player back out into the fight, and being hit down near the deep now lifts them off
+     * it instead of burying them in it. Either way the shove REPLACES the velocity rather than
+     * adding to it, so repeated hits cannot stack into something violent.
      */
-    if (this.inBossMode && this.hp > 0) {
-      this.player.vy = -BOSS_PHYSICS.hazardKnockback * this.gravity;
+    if (this.inBossMode && this.hp > 0 && this.boss.enabled) {
+      const middle = (this.boss.face + this.boss.deepY) / 2;
+      const toward = Math.sign(middle - this.player.y) || -this.gravity;
+      this.player.vy = toward * BOSS_PHYSICS.hazardKnockback;
     }
     this.events.push({ type: 'hurt', x: this.player.x, y: this.player.y, source: source ? { id: source.id, kind: source.kind, x: source.x, y: source.y } : undefined });
     return true;

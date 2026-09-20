@@ -101,22 +101,21 @@ describe('D. a weak-point hit buys room, and the loan is temporary', () => {
 });
 
 /**
- * E. DISTANCE IS THE PLAYER'S TO MANAGE -- with one deviation from the brief, recorded here.
+ * E. DISTANCE IS THE PLAYER'S TO MANAGE -- body contact is NOT a movement goal.
  *
- * The brief asks that a player who deliberately chases NIMUSHI be able to reach the body. As built,
- * they cannot, and the reason is structural rather than a tuning choice: the player's speed toward
- * NIMUSHI is capped at the arena's terminal speed, and a player who "charges" is doing exactly what
- * a player who does nothing does -- gravity is already giving them the maximum. There is no input
- * that closes faster, so "deliberate approach" and "passive drift" are the SAME motion.
+ * An earlier acceptance asked that a player who deliberately chases NIMUSHI be able to reach the
+ * body. That has been WITHDRAWN, and the reason is worth keeping: the player's speed toward NIMUSHI
+ * is capped at the arena's terminal speed, so "charging" and "doing nothing" are the same motion.
+ * The only way to make the body reachable by movement is `matchRatio < 1`, and that brings back the
+ * bug this controller exists to fix -- passive ascent walking the player into the body, which is
+ * what killed them in 2.28s.
  *
- * Given that, item 6 wins: passive ascent must never make body contact unavoidable. NIMUSHI matches
- * 90% of the player's pace and corrects toward `restGap`, so the gap settles rather than collapsing.
- *
- * What the player does still control is the OTHER direction. The gunboots brake, so firing holds
- * them back and not firing lets them ride in during NIMUSHI's attacks -- which is what these tests
- * assert, and what makes SHOTGUN's 260px reach usable without making the body a coin flip.
+ * So the baseline is: full match, a deadband, eye-hit pushback that decays, and a pressure boundary
+ * that is its own system. Body contact is a HAZARD that happens when an attack or a special
+ * movement breaks the band, not somewhere the player steers.
  */
 describe('E. distance is the player\'s to manage', () => {
+
   const closest = (seed: number, brake: boolean, seconds = 45) => {
     const g = fighting(seed);
     let min = Infinity, touched = false;
@@ -181,5 +180,34 @@ describe('F/G/H. the rest of the fight is unchanged', () => {
     const g = fighting(39);
     expect(defeatNimushi(g)).toBe(true);
     expect(g.boss.phaseId).toBe(4);
+  });
+});
+
+describe('the locked boss baseline', () => {
+  it('matches the player exactly -- anything less re-opens the collapse', () => {
+    // `matchRatio < 1` is the change that would make body contact reachable by movement, and it is
+    // the change that brings back passive ascent walking the player into the body. Locked at 1.
+    expect(NIMUSHI.matchRatio).toBe(1);
+  });
+
+  it('keeps the deadband, the decaying pushback and an independent boundary', () => {
+    expect(NIMUSHI.minGap).toBeLessThan(NIMUSHI.maxGap);
+    expect(NIMUSHI.pushPerHit).toBeGreaterThan(0);
+    expect(NIMUSHI.pushbackDecay).toBeGreaterThan(0);
+    // Station-keeping lapses while attacking; that is what lets an attack break the band at all.
+    expect(NIMUSHI.attackFollow).toBeLessThan(1);
+  });
+
+  it('never lets ordinary movement reach the body, on any seed', () => {
+    for (const seed of [90, 91, 92]) {
+      const g = fighting(seed);
+      let touched = false;
+      for (let i = 0; i < 30 / STEP && g.state === 'boss'; i++) {
+        g.player.invincible = 9;
+        g.step(STEP, Math.sin(i / 80) > 0 ? 1 : -1, false);
+        if (g.boss.reach(g.player.y) <= 0) touched = true;
+      }
+      expect({ seed, touched }).toEqual({ seed, touched: false });
+    }
   });
 });
