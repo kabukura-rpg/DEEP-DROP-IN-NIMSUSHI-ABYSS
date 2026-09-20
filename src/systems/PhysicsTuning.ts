@@ -1,10 +1,18 @@
 import { BALANCE, type Stats } from '../data/balance';
 
+/**
+ * The tuning ranges. These are the limits of the LAB, not statements about balance.
+ *
+ * Gravity, move and fall were widened when video measurement of the original put its scale
+ * equivalents at ~1680 / ~350 / ~930 -- above every one of the previous ceilings, which would have
+ * made the comparison profile unreachable. A bound that cannot express the thing being tested is
+ * not a safety feature.
+ */
 export const TUNING_FIELDS = [
-  { key: 'gravity', label: 'Gravity', min: 400, max: 1600, step: 50 },
+  { key: 'gravity', label: 'Gravity', min: 400, max: 2000, step: 50 },
   { key: 'shotRecoil', label: 'Shot Recoil', min: 60, max: 350, step: 10 },
-  { key: 'moveSpeed', label: 'Move Speed', min: 90, max: 300, step: 10 },
-  { key: 'maxFallSpeed', label: 'Max Fall', min: 250, max: 800, step: 20 },
+  { key: 'moveSpeed', label: 'Move Speed', min: 90, max: 400, step: 10 },
+  { key: 'maxFallSpeed', label: 'Max Fall', min: 250, max: 1000, step: 20 },
   { key: 'maxAmmo', label: 'Ammo', min: 2, max: 12, step: 1 },
 ] as const;
 export type TuningKey = typeof TUNING_FIELDS[number]['key'];

@@ -1,5 +1,6 @@
 import type { GameModel } from '../systems/GameModel';
 import { TUNING_FIELDS, defaultTuning, loadTuning, saveTuning, tuningVisible, type PhysicsTuning, type TuningKey } from '../systems/PhysicsTuning';
+import { SPEED_PROFILES } from '../data/speedProfiles';
 
 export class PhysicsPanel {
   private values: PhysicsTuning;
@@ -9,11 +10,20 @@ export class PhysicsPanel {
   constructor(private root: HTMLElement, private getModel: () => GameModel, private onChange: () => void) {
     try { this.storage = localStorage; } catch { /* Storage is optional. */ }
     this.values = loadTuning(this.storage);
-    root.innerHTML = `<button class="tuning-toggle" aria-expanded="false" aria-controls="tuning-body">PHYSICS TUNING <span>＋</span></button><div id="tuning-body" hidden><p class="tuning-note">練習のみ適用 · 自動保存<br>単発反動は全量、最速連射は約65%</p>${TUNING_FIELDS.map(f => `<div class="tuning-row"><span>${f.label}</span><output data-value="${f.key}"></output><button data-key="${f.key}" data-step="-1" aria-label="${f.label} を減らす">−</button><button data-key="${f.key}" data-step="1" aria-label="${f.label} を増やす">＋</button></div>`).join('')}<div class="tuning-bottom"><output class="physics-telemetry" aria-label="現在の落下速度"></output><button class="tuning-reset">RESET</button></div></div>`;
+    root.innerHTML = `<button class="tuning-toggle" aria-expanded="false" aria-controls="tuning-body">PHYSICS TUNING <span>＋</span></button><div id="tuning-body" hidden><p class="tuning-note">練習のみ適用 · 自動保存<br>単発反動は全量、最速連射は約65%</p><div class="tuning-presets">${Object.values(SPEED_PROFILES).map(p => `<button data-profile="${p.id}">${p.label}</button>`).join('')}</div>${TUNING_FIELDS.map(f => `<div class="tuning-row"><span>${f.label}</span><output data-value="${f.key}"></output><button data-key="${f.key}" data-step="-1" aria-label="${f.label} を減らす">−</button><button data-key="${f.key}" data-step="1" aria-label="${f.label} を増やす">＋</button></div>`).join('')}<div class="tuning-bottom"><output class="physics-telemetry" aria-label="現在の落下速度"></output><button class="tuning-reset">RESET</button></div></div>`;
     // Pointer tuning never steals the keyboard from A/D, arrows, Space, or Escape.
     root.addEventListener('pointerdown', e => { if ((e.target as HTMLElement).closest('button')) e.preventDefault(); });
     root.querySelector<HTMLButtonElement>('.tuning-toggle')!.onclick = () => this.setExpanded(!this.expanded);
     root.querySelector<HTMLButtonElement>('.tuning-reset')!.onclick = () => { this.values = defaultTuning(); this.apply(); };
+    // SPEED PROFILE presets: gravity, fall and move together, because they are one setting for the
+    // purpose of comparing against the original. Everything else on the panel is left alone.
+    root.querySelectorAll<HTMLButtonElement>('[data-profile]').forEach(button => {
+      button.onclick = () => {
+        const profile = SPEED_PROFILES[button.dataset.profile as keyof typeof SPEED_PROFILES];
+        this.values = { ...this.values, gravity: profile.gravity, maxFallSpeed: profile.maxFallSpeed, moveSpeed: profile.moveSpeed };
+        this.apply();
+      };
+    });
     root.querySelectorAll<HTMLButtonElement>('[data-key]').forEach(button => {
       button.onclick = () => {
         const key = button.dataset.key as TuningKey, field = TUNING_FIELDS.find(f => f.key === key)!;

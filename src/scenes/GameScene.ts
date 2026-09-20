@@ -1,7 +1,7 @@
 import Phaser from 'phaser';
 import { GameModel, type GameEvent } from '../systems/GameModel';
 import type { Enemy, Platform } from '../systems/StageGenerator';
-import { WORLD } from '../data/balance';
+import { WORLD, JUMP } from '../data/balance';
 import { comboFeedback } from '../systems/ComboFeedback';
 import { InputBuffer } from '../systems/InputBuffer';
 import { enemyType } from '../data/enemies';
@@ -11,6 +11,7 @@ import { AIR_CONTAINER_RULES, BREAK_BLOCK_RULES, LIMBO_HAZARD_RULES, SPIKE_PLATF
 import { SAFE_ZONE_RULES } from '../data/safeZone';
 import { hazardBounds, hazardType, type Hazard } from '../data/hazards';
 import { TerrainWatch } from '../dev/TerrainWatch';
+import { SPEED_PROFILES } from '../data/speedProfiles';
 export interface GameBridge {
   direction: number; firing: boolean; active: boolean;
   onFrame: (model: GameModel) => void;
@@ -43,6 +44,21 @@ export class GameScene extends Phaser.Scene {
     // DEV only; in a production build `terrainWatch` is null and this never runs.
     if (import.meta.env.DEV && this.terrainWatch) {
       (window as unknown as { __terrainWatch: unknown }).__terrainWatch = this.terrainWatch;
+    }
+    // DEV only: swap the SPEED PROFILE of the run in progress, so CURRENT and VIDEO can be felt
+    // back to back in a real AREA rather than only in CONTROL LAB. `__speed('video')` / `('current')`.
+    if (import.meta.env.DEV) {
+      (window as unknown as { __speed: (id: 'current' | 'video') => string }).__speed = (id) => {
+        const profile = SPEED_PROFILES[id];
+        if (!profile) return `unknown profile -- try ${Object.keys(SPEED_PROFILES).join(' or ')}`;
+        Object.assign(this.model.stats, {
+          gravity: profile.gravity, maxFallSpeed: profile.maxFallSpeed, moveSpeed: profile.moveSpeed,
+        });
+        const jump = Math.round((JUMP.impulse * JUMP.impulse) / (2 * profile.gravity));
+        return `${profile.label}: gravity ${profile.gravity}, fall ${profile.maxFallSpeed}, move ${profile.moveSpeed}`
+          + ` | ground jump is now ${jump}px (JUMP.impulse ${JUMP.impulse} is unchanged;`
+          + ` ${profile.jumpImpulseForSameArc} would restore the original arc)`;
+      };
     }
     this.graphics = this.add.graphics();
     this.keys = this.input.keyboard!.addKeys({ left: 'LEFT', right: 'RIGHT', a: 'A', d: 'D', space: 'SPACE' }) as Record<string, Phaser.Input.Keyboard.Key>;
