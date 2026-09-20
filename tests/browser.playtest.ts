@@ -77,7 +77,10 @@ function enemy(kind: EnemyKind, x: number, y: number, id: number): Enemy { retur
 button('通常のランを開始', async () => { start(); });
 // Requirement 22: play 1-1 -> rest -> 1-2 -> rest -> 1-3 -> rest -> 2-1 with keyboard input only.
 button('1-1 → 2-1 を通常プレイ', async () => {
-  start(); const model = scene.model, deadline = performance.now() + 260000;
+  // CAVERNS is the breakable-rich AREA now: 8 gate rows across its three SECTIONs, needing 14
+  // rounds at a minimum. A player opens one in a second or two; this bot hops and shoots in a crude
+  // cycle and simply needs longer for the same terrain.
+  start(); const model = scene.model, deadline = performance.now() + 420000;
   let direction = 0, playingHp = model.hp, firing = false;
   const rests: string[] = [];
   let shopsSeen = 0;
