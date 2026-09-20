@@ -10,6 +10,7 @@ import { gunModule } from '../data/gunModules';
 import { AIR_CONTAINER_RULES, BREAK_BLOCK_RULES, LIMBO_HAZARD_RULES, SPIKE_PLATFORM_RULES } from '../data/structures';
 import { SAFE_ZONE_RULES } from '../data/safeZone';
 import { hazardBounds, hazardType, type Hazard } from '../data/hazards';
+import { TerrainWatch } from '../dev/TerrainWatch';
 export interface GameBridge {
   direction: number; firing: boolean; active: boolean;
   onFrame: (model: GameModel) => void;
@@ -21,6 +22,12 @@ export class GameScene extends Phaser.Scene {
   private graphics!: Phaser.GameObjects.Graphics;
   private keys!: Record<string, Phaser.Input.Keyboard.Key>;
   private particles: Particle[] = [];
+  /**
+   * DEVELOPMENT ONLY. Null in a production build, where the guarded call site is dropped too.
+   * Reachable from the console as `__terrainWatch` -- play until the terrain misbehaves, then run
+   * `__terrainWatch.dump()` and paste what it prints.
+   */
+  private terrainWatch = import.meta.env.DEV ? new TerrainWatch() : null;
   private accumulator = 0;
   private freeze = 0;
   private flash = 0;
@@ -32,6 +39,11 @@ export class GameScene extends Phaser.Scene {
   private labels: { text: Phaser.GameObjects.Text; y: number; life: number }[] = [];
   constructor(private bridge: GameBridge) { super('Game'); }
   create() {
+    // Expose the recorder so a human who sees the terrain misbehave can dump the history at once.
+    // DEV only; in a production build `terrainWatch` is null and this never runs.
+    if (import.meta.env.DEV && this.terrainWatch) {
+      (window as unknown as { __terrainWatch: unknown }).__terrainWatch = this.terrainWatch;
+    }
     this.graphics = this.add.graphics();
     this.keys = this.input.keyboard!.addKeys({ left: 'LEFT', right: 'RIGHT', a: 'A', d: 'D', space: 'SPACE' }) as Record<string, Phaser.Input.Keyboard.Key>;
     this.input.keyboard!.addCapture(['SPACE', 'LEFT', 'RIGHT']);
@@ -202,6 +214,15 @@ export class GameScene extends Phaser.Scene {
       } else {
         for (let i = 4; i < d.width - 3; i += 10) this.rect(d.x + i, dy + 4, 5, d.height - 6, 0x2b271d);
       }
+    }
+    // DEVELOPMENT ONLY: record what this frame is about to draw, so the "blocks sometimes all
+    // change" report has evidence the next time it happens. The guard is a compile-time constant,
+    // so the watcher and this block are dropped entirely from a production build.
+    if (import.meta.env.DEV && this.terrainWatch) {
+      this.terrainWatch.observe(
+        m.platforms.filter(f => f.y - cam >= -20 && f.y - cam <= 820),
+        cam, m.stage.label, m.elapsed,
+      );
     }
     for (const f of m.platforms) {
       const y = f.y - cam;
