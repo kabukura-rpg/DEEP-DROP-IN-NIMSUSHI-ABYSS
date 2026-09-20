@@ -2182,9 +2182,22 @@ function gateHeading(model: GameModel, ground: RoutePlatform | undefined): numbe
 function descendPlan(model: GameModel): { target: number | undefined; fire: boolean } {
   const p = model.player;
   const ground = model.platforms.find(f => f.id === p.grounded) as RoutePlatform | undefined;
-  const next = model.platforms.filter(f => f.y > p.y + 15 && f.state !== 'broken').sort((a, b) => a.y - b.y)[0] as RoutePlatform | undefined;
+  // LIMBO's barbs are NOT a floor -- nothing lands on one -- so aiming at one as if it were the
+  // next landing walks the run straight into a heart's worth of damage for nothing.
+  const next = model.platforms
+    .filter(f => f.y > p.y + 15 && f.state !== 'broken' && !f.limboHazard)
+    .sort((a, b) => a.y - b.y)[0] as RoutePlatform | undefined;
   let target: number | undefined = ground ? ground.exitX + ground.safeSide * 3 : next?.safeX;
   let fire = false;
+
+  // CATACOMBS: landing on a SPIKE PLATFORM arms it, and standing there through the warning is a
+  // heart every cycle. Once it is armed the only thing worth doing is walking off the nearer end.
+  if (ground?.spikePlatform && ground.spikePlatform.state !== 'safe') {
+    const left = p.x - ground.x < ground.width / 2;
+    const exit = left ? ground.x - 16 : ground.x + ground.width + 16;
+    const inside = exit > WORLD.wall + 12 && exit < WORLD.width - WORLD.wall - 12;
+    return { target: inside ? exit : (left ? ground.x + ground.width + 16 : ground.x - 16), fire: false };
+  }
 
   // AREA 2: air is sealed in containers now. Low on air, go and break one, then chase what it
   // released -- the bubbles climb, so they have to be caught rather than collected.
@@ -2225,6 +2238,14 @@ function descendPlan(model: GameModel): { target: number | undefined; fire: bool
   const routeTarget = ground ? ground.exitX + ground.safeSide * 3 : next?.safeX;
   if (target !== undefined && model.hazards.some(h => target! > h.x - 22 && target! < h.x + h.width + 22 && h.y > p.y - 20 && h.y < p.y + 420)) {
     target = routeTarget;
+  }
+
+  // Given two ways down, take the one that is not going to turn into spikes underfoot.
+  if (!model.exit && next?.spikePlatform) {
+    const safer = model.platforms
+      .filter(f => f.y > p.y + 15 && f.state !== 'broken' && !f.limboHazard && !f.spikePlatform && f.y < next.y + 260)
+      .sort((a, b) => a.y - b.y)[0] as RoutePlatform | undefined;
+    if (safer) target = safer.safeX;
   }
 
   if (model.exit) target = gateHeading(model, ground);
@@ -2330,8 +2351,15 @@ button('FULL RUN 1-1 → GAME CLEAR（補助なし）', async () => {
         if (model.stage.progress.area === 3) areaNotes['AREA3'] = `最大HEAT ${maxHeat.toFixed(0)}%`;
         if (model.stage.progress.area === 4) areaNotes['AREA4'] = `着地${seen.landings}・ヒビ${seen.cracks}・崩落${seen.collapses}`;
         // Choose, the way a player does, rather than always taking the leftmost card. Survivability
-        // first, then damage: that is what carries a run into the FINAL BOSS.
-        const order = ['heart', 'food', 'power', 'mag', 'recoil', 'piercing', 'big', 'speed', 'combo', 'bounce'];
+        // first, then reach: that is what carries a run into THE ABYSS.
+        //
+        // This list named the PRE-Phase-5 upgrades until now, none of which exist any more -- so
+        // every id scored the same and the run silently took whichever card happened to be first.
+        const order = [
+          'apple', 'youth', 'candle', 'heartBalloon', 'knifeAndFork',
+          'laserSight', 'gemAttractor', 'membersCard', 'drone', 'blastModule',
+          'safetyJetpack', 'timeout', 'gemPowered', 'hotCasing', 'poppingGems',
+        ];
         const rank = (id: string) => { const i = order.indexOf(id); return i < 0 ? order.length : i; };
         let best = 0;
         model.upgrades.choices.forEach((choice, index) => { if (rank(choice.id) < rank(model.upgrades.choices[best].id)) best = index; });
