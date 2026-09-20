@@ -1,9 +1,9 @@
 import { WORLD } from './balance';
 
 /**
- * Fixed structures the generator places into the shaft: the way out of a SECTION, a shop doorway,
- * and AREA 2's air containers. All three are world objects the player walks into or breaks, never
- * things that happen to them automatically.
+ * Fixed structures the generator places into the shaft: the way out of a SECTION and AREA 2's air
+ * containers. Both are world objects the player walks into or breaks, never things that happen to
+ * them automatically.
  */
 
 /** The way out. Reaching 200m no longer ends a SECTION; walking into this does. */
@@ -19,8 +19,10 @@ export const EXIT_RULES = {
   floorHeight: 18,
 } as const;
 
-/** A shop doorway standing on an ordinary ledge. */
-export interface ShopDoor { x: number; y: number; width: number; height: number }
+/**
+ * A shop doorway. The shaft no longer lays one: a SHOP is SAFE ZONE content, so the only thing that
+ * opens a door onto the shelf is a chamber that rolled one, and this is the size it opens it at.
+ */
 export const SHOP_DOOR = { width: 66, height: 66 } as const;
 
 /**

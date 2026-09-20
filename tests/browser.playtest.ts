@@ -87,7 +87,7 @@ button('1-1 → 2-1 を通常プレイ', async () => {
   };
   const act = (on: boolean) => { if (on !== firing) { key('Space', on); firing = on; } };
   while (performance.now() < deadline) {
-    if (model.state === 'over') throw new Error(`${model.stage.label} で死亡`);
+    if (model.state === 'over') throw new Error(`${model.stage.label} で死亡 (死因 ${model.health.deathCause?.cause ?? '?'} / ${Math.floor(model.sectionDepth)}m / 休憩 ${rests.join(' → ') || 'なし'} / SHOP ${shopsSeen} / 武器 ${model.gun.id})`);
     // A SHOP stops the world until it is dismissed, so a play loop has to answer the door.
     if (model.state === 'shop') {
       steer(0); act(false);
