@@ -269,7 +269,7 @@ function showClear(model: GameModel) {
   best = Math.max(best, depth);
   try { localStorage.setItem('deep-drop-best', String(best)); } catch { /* Keep a session best if storage is unavailable. */ }
   $('side-best').textContent = String(best).padStart(3, '0');
-  $('run-status').textContent = 'DEMON KING DEFEATED';
+  $('run-status').textContent = 'NIMUSHI DEFEATED';
   const upgrades = model.upgrades.acquired.length;
   // model.elapsed only advances inside a running step, so it is play time: title screens, PAUSE
   // and rest/upgrade selection are all already excluded. BOSS TIME is the fight on its own.
@@ -367,7 +367,7 @@ function updateHud(model: GameModel) {
   $('combo').innerHTML = `<b>${model.combo}</b> COMBO <span>×${model.multiplier.toFixed(1)}</span>`;
   $('combo').dataset.tier = String(comboFeedback(model.combo).tier);
   $('progress').style.width = `${model.practice ? 0 : Math.min(100, model.sectionDepth / model.sectionLength * 100)}%`;
-  $('zone').textContent = model.practice ? 'CONTROL LAB' : model.stage.boss ? 'FINAL · DEMON KING' : `AREA ${model.stage.progress.area} · ${model.stage.areaName}`;
+  $('zone').textContent = model.practice ? 'CONTROL LAB' : model.stage.boss ? 'FINAL · NIMUSHI' : `AREA ${model.stage.progress.area} · ${model.stage.areaName}`;
 }
 
 $('pause').onclick = pause;
