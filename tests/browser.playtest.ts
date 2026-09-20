@@ -2287,13 +2287,11 @@ function descendPlan(model: GameModel): { target: number | undefined; fire: bool
     }
   }
 
-  // Given two ways down, take the one that is not going to turn into spikes underfoot.
-  if (!model.exit && next?.spikePlatform) {
-    const safer = model.platforms
-      .filter(f => f.y > p.y + 15 && f.state !== 'broken' && !f.limboHazard && !f.spikePlatform && f.y < next.y + 260)
-      .sort((a, b) => a.y - b.y)[0] as RoutePlatform | undefined;
-    if (safer) target = safer.safeX;
-  }
+  // A "prefer a ledge without spikes" rule used to live here and was removed: it fired on any
+  // spike platform, armed or not, and aimed at a ledge further down by its safeX -- which, while
+  // the run was still STANDING on something, replaced "step off this edge" with "stand exactly
+  // where you already are" and parked it for good. Choosing where to land is the airborne check
+  // above; on the ground the only job is to leave.
 
   if (model.exit) target = gateHeading(model, ground);
 
