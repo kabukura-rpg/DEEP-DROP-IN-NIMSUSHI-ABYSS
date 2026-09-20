@@ -67,7 +67,7 @@ describe('CHARGE comes out of the air', () => {
     }
   });
 
-  it('fills the magazine when shot, without grounding or settling the player', () => {
+  it('also opens to a round, for a player who has CHARGE to spare', () => {
     const g = fighting(67);
     tick(g, 3);
     const orb = g.containers.find(c => c.charge && !c.broken);
@@ -84,17 +84,28 @@ describe('CHARGE comes out of the air', () => {
     expect(g.events.some(e => e.type === 'comboSettle')).toBe(false);
   });
 
-  it('is not a pickup: flying through one does nothing', () => {
+  it('is taken by flying through it, at zero CHARGE', () => {
+    // The whole point of the change. Shoot-to-open was a soft-lock: the only source of CHARGE cost
+    // a round, so an empty magazine could never be refilled.
     const g = fighting(68);
     tick(g, 3);
     const orb = g.containers.find(c => c.charge && !c.broken);
     expect(orb).toBeDefined();
     g.ammo = 0;
+    g.combo = 4;
+    g.events.length = 0;
     g.player.x = orb!.x + orb!.width / 2;
     g.player.y = orb!.y + orb!.height / 2;
+    const falling = g.player.vy;
     g.step(STEP, 0, false);
-    expect(orb!.broken).toBe(false);
-    expect(g.ammo).toBe(0);
+    expect(orb!.broken).toBe(true);
+    expect(g.ammo).toBe(g.stats.maxAmmo);
+    // And taking one is not a landing.
+    expect(g.player.grounded).toBe(-1);
+    expect(g.player.vy).not.toBe(0);
+    expect(Math.sign(g.player.vy)).toBe(Math.sign(falling));
+    expect(g.combo).toBe(4);
+    expect(g.events.some(e => e.type === 'comboSettle')).toBe(false);
   });
 
   it('does not hand the magazine back by accident', () => {

@@ -883,35 +883,30 @@ describe('the four ABYSS environments', () => {
   /**
    * CHARGE comes out of the air, because there is nowhere to land.
    *
-   * This used to be LIMBO's floating doodad, reloading on a bounce. A bounce is a stop, so the
-   * supply line is now a CHARGE ORB: shot rather than stood on, so the magazine can be filled
-   * without the player ever interrupting their climb.
+   * This was LIMBO's floating doodad, reloading on a bounce -- and a bounce is a stop. It then spent
+   * one commit as a shoot-to-open orb, which was worse: the only source of CHARGE cost a round, so
+   * an empty magazine could never be refilled and the fight soft-locked. It is now taken by flying
+   * through it, which costs nothing and interrupts nothing.
    */
-  it('supplies CHARGE from a shootable orb rather than a landing', () => {
+  it('supplies CHARGE from an orb taken in flight', () => {
     const game = driveToPhase(4, 54);
     expect(game.boss.phaseId).toBe(4);
     tick(game, 3);
     const orb = game.containers.find(c => c.charge && !c.broken);
     expect(orb).toBeDefined();
 
-    // Swimming into it does nothing: it is not a pickup and not a platform.
     game.ammo = 0;
     game.player.x = orb!.x + orb!.width / 2;
     game.player.y = orb!.y + orb!.height / 2;
     game.player.grounded = -1;
     const flying = game.player.vy;
     game.step(STEP, 0, false);
-    expect(orb!.broken).toBe(false);
-    expect(game.ammo).toBe(0);
-
-    // A round fills the magazine, and leaves the player still falling and still airborne.
-    game.bullets.push(round(orb!.x + orb!.width / 2, orb!.y + orb!.height / 2, 1));
-    game.step(STEP, 0, false);
     expect(orb!.broken).toBe(true);
     expect(game.ammo).toBe(game.stats.maxAmmo);
+    // Collecting it is not a landing: still airborne, still falling the same way.
     expect(game.player.grounded).toBe(-1);
     expect(game.player.vy).not.toBe(0);
-    expect(Math.sign(game.player.vy)).toBe(Math.sign(flying) || Math.sign(game.player.vy));
+    expect(Math.sign(game.player.vy)).toBe(Math.sign(flying));
   });
 
   it('offers a CHARGE orb in every stretch', () => {

@@ -64,9 +64,28 @@ export const BOSS_PHYSICS: BattlePhysics & {
    * player had no answer to.
    */
   hazardKnockback: number;
+  /**
+   * How much harder the gunboots kick inside the arena.
+   *
+   * In the shaft, recoil is a light brake on a fall the player mostly wants. In the arena it is the
+   * player's ONLY vertical control: without it the fight is left-and-right and nothing else, and a
+   * curtain of tapioca can only be answered sideways. Multiplying the module's own recoil keeps
+   * every weapon's identity -- LASER still kicks harder than NOPPY -- while making the axis usable.
+   */
+  recoilMultiplier: number;
+  /**
+   * The fastest the gunboots can drive the player AGAINST the pull, in px/s.
+   *
+   * This is the line between a vertical dodge and an escape hatch. Firing buys height away from
+   * NIMUSHI for as long as CHARGE lasts and no faster than this, and the boundary keeps rising the
+   * whole time -- so the shaft below is somewhere to duck, never somewhere to hide.
+   */
+  maxThrust: number;
 } = {
   gravity: 900,
   maxFallSpeed: 520,
   moveSpeed: 180,
   hazardKnockback: 240,
+  recoilMultiplier: 2.2,
+  maxThrust: 300,
 };

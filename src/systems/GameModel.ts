@@ -261,6 +261,14 @@ export class GameModel {
   }
   /** True from the moment THE ABYSS opens, through the inversion, to the end of the fight. */
   get inBossMode() { return this.abyssStage !== 'none' || this.state === 'boss'; }
+  /**
+   * True only inside the ARENA itself -- past the seal, with gravity turned over.
+   *
+   * Narrower than `inBossMode` on purpose. The staging room is an ordinary descent with ordinary
+   * floors and ordinary gravity, and the arena's vertical thrust does not belong there: it launched
+   * the player away from the seal they were trying to reach, which is a shaft nobody could get down.
+   */
+  get inBossArena() { return this.abyssStage === 'fight'; }
 
   /** Which way the pull runs. Direction only -- the MAGNITUDE comes from `physics`. */
   private gravity: 1 | -1 = GRAVITY_DIRECTION.normal;
@@ -476,7 +484,9 @@ export class GameModel {
     const def = this.gun.module;
     this.ammo = Math.max(0, this.ammo - cost);
     const recovery = Math.max(0.65, Math.min(1, 0.65 + (this.elapsed - this.lastAirShot - def.fireInterval) / 0.18 * 0.35));
-    const kick = volleyRecoil(def, this.stats) * recovery;
+    // The arena's gunboots kick harder, because there they are the only vertical control there is.
+    // The MODULE's own recoil is what gets multiplied, so the weapons keep their relative identity.
+    const kick = volleyRecoil(def, this.stats) * recovery * (this.inBossArena ? BOSS_PHYSICS.recoilMultiplier : 1);
     /**
      * RECOIL IS A BRAKE, NEVER A THRUSTER.
      *
@@ -495,8 +505,20 @@ export class GameModel {
      * Nothing in the roster stops a 520 fall in one shot -- the surplus is only ever discarded, and
      * what no module can do any more is climb.
      */
+    /**
+     * The floor the kick can drive the player to, measured along the pull.
+     *
+     * In the shaft it is ZERO: recoil kills a descent and stops there, and the gunboots are a brake
+     * and never a thruster. That rule is the run's and is not relaxed.
+     *
+     * In NIMUSHI's arena it is negative, and that is the fight's second axis. Without it the player
+     * has LEFT and RIGHT and nothing else, so a curtain of tapioca can only ever be answered
+     * sideways. Holding fire slows the climb, then holds a hover, then drives the player back down
+     * the shaft -- as far as `maxThrust` and no further, while the boundary keeps rising.
+     */
+    const floor = this.inBossArena ? -BOSS_PHYSICS.maxThrust : 0;
     const descent = this.along(p.vy);
-    const braked = descent > 0 ? Math.max(descent - kick, 0) : descent;
+    const braked = descent <= floor ? descent : Math.max(descent - kick, floor);
     p.vy = Math.max(-this.physics.maxFallSpeed, Math.min(this.physics.maxFallSpeed, braked * this.gravity));
     this.lastAirShot = this.elapsed;
     // The muzzle is at the boots, which is the gravity-facing end of the player, and the volley
@@ -1347,8 +1369,8 @@ export class GameModel {
     box.broken = true; box.debris = AIR_CONTAINER_RULES.debrisTime;
     if (box.charge) {
       // A CHARGE ORB. It fills the magazine and nothing else: no bubbles, and deliberately NOT a
-      // landing, so it never settles a chain and never stops the player's climb. Shooting it is the
-      // whole interaction, which is what makes it usable without breaking the arena's one rule.
+      // landing, so it never settles a chain and never stops the player's climb. Reachable at zero
+      // CHARGE, because it is taken by flying through it rather than by spending a round on it.
       this.reloadCharge();
       this.events.push({ type: 'containerBreak', x: box.x + box.width / 2, y: box.y + box.height / 2, value: 0 });
       return;
@@ -1700,13 +1722,23 @@ export class GameModel {
       this.doodads.push(spawnDoodad(this.nextAbyssId--, dx, y - phase.rowGap * 0.45 * this.gravity, roll() < 0.5 ? 'lamp' : 'bracket', true));
     }
     if (roll() < phase.chargeOrbChance) {
-      // CHARGE ORB: shootable, floating, and never landed on. It replaces the landing reload that
-      // the arena no longer has, without asking the player to stop climbing to use it.
+      /**
+       * CHARGE ORB: taken by flying through it, NOT by shooting it.
+       *
+       * It was shoot-to-open, and that was a soft-lock: the one thing that refills CHARGE cost a
+       * round to open, so a player who ran dry could never get any back. Contact costs nothing, so
+       * the loop closes -- run out, go and get one, keep fighting.
+       *
+       * `shotOnly` is deliberately left off, so a round still opens one too. That is strictly more
+       * forgiving than contact alone and takes nothing away from a player who has CHARGE to spare.
+       * Touching it is not a landing: nothing here grounds the player, zeroes their fall or settles
+       * a chain, so collecting one never interrupts the climb.
+       */
       const ox = anchor(AIR_CONTAINER_RULES.size);
       this.containers.push({
         id: this.nextAbyssId--, x: ox, y: y - phase.rowGap * 0.3 * this.gravity,
         width: AIR_CONTAINER_RULES.size, height: AIR_CONTAINER_RULES.size,
-        broken: false, debris: 0, shotOnly: true, charge: true,
+        broken: false, debris: 0, charge: true,
       });
     }
     if (roll() < phase.containerChance) {
@@ -1851,7 +1883,7 @@ export class GameModel {
      * it instead of burying them in it. Either way the shove REPLACES the velocity rather than
      * adding to it, so repeated hits cannot stack into something violent.
      */
-    if (this.inBossMode && this.hp > 0 && this.boss.enabled) {
+    if (this.inBossArena && this.hp > 0 && this.boss.enabled) {
       const middle = (this.boss.face + this.boss.deepY) / 2;
       const toward = Math.sign(middle - this.player.y) || -this.gravity;
       this.player.vy = toward * BOSS_PHYSICS.hazardKnockback;
