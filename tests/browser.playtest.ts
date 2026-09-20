@@ -2311,11 +2311,23 @@ function descendPlan(model: GameModel): { target: number | undefined; fire: bool
   // Airborne directly over a gate row: keep the gunboots on it. Hopping off a block is only half
   // the move -- without this the run lands, jumps, lands and jumps again forever, which is exactly
   // what it did the first time the ACTION rule changed underneath it.
-  const blockBelow = model.platforms
+  //
+  // A gate row is FIVE blocks at the same y, so "the first one sorted by depth" is an arbitrary
+  // one of the five. Testing the player against that one means the rule only ever fires when they
+  // happen to be over the left-hand block; anywhere else the run hovers above an unbroken row
+  // doing nothing, which is exactly how a FULL RUN sat at 2-3 with a full magazine. Pick the block
+  // actually underfoot, and if there is none, go to the nearest one and open that.
+  const rowBelow = model.platforms
     .filter(f => f.breakBlock && f.state !== 'broken' && f.y > p.y)
-    .sort((a, b) => a.y - b.y)[0];
-  if (blockBelow && model.ammo > 0 && p.x + 9 > blockBelow.x && p.x - 9 < blockBelow.x + blockBelow.width) {
-    return { target: blockBelow.x + blockBelow.width / 2, fire: true };
+    .sort((a, b) => a.y - b.y);
+  if (rowBelow.length && model.ammo > 0) {
+    const depth = rowBelow[0].y;
+    const blocks = rowBelow.filter(f => f.y === depth);
+    const under = blocks.find(f => p.x + 9 > f.x && p.x - 9 < f.x + f.width);
+    const nearest = blocks.sort((a, b) =>
+      Math.abs(a.x + a.width / 2 - p.x) - Math.abs(b.x + b.width / 2 - p.x))[0];
+    const aim = under ?? nearest;
+    return { target: aim.x + aim.width / 2, fire: !!under };
   }
 
   // The core of the game: shoot what is under you, and use the recoil to brake a long fall.
