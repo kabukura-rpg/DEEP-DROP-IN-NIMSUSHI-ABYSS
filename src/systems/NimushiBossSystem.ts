@@ -2,8 +2,7 @@ import { WORLD } from '../data/balance';
 import { ABYSS, ABYSS_PHASES, abyssPhaseAt, type AbyssAttackId, type AbyssPhase } from '../data/abyss';
 import {
   FINAL_RAGE_RATIO, FULL_SCREEN_TAPIOCA, NIMUSHI, NIMUSHI_ATTACKS, NIMUSHI_CLONES, NIMUSHI_DYING_RATIO,
-  NIMUSHI_LINES, STRAW_BEAM, TAPIOCA_CUP, TAPIOCA_SHOWER, type NimushiPose, type NimushiState,
-} from '../data/nimushi';
+  NIMUSHI_LINES, STRAW_BEAM, TAPIOCA_CUP, TAPIOCA_SHOWER, type NimushiPose, type NimushiState, ATTACK_STATES } from '../data/nimushi';
 
 /** One pearl in the air. Shower pearls, cup spit and FULL SCREEN waves are all just these. */
 export interface Tapioca { id: number; x: number; y: number; vx: number; vy: number; size: number; life: number; damage: number }
@@ -64,6 +63,8 @@ export class NimushiBossSystem {
    * The furthest along the pull the player has managed to get. The deep is never allowed to fall
    * further behind THIS than `maxSlack`, which is what makes climbing worth anything.
    */
+  /** Extra target gap bought by weak-point damage, decaying back to `restGap`. */
+  private pushback = 0;
   mark = 0;
   /** Where the rising deep actually is, in world coordinates. */
   deepY = 0;
@@ -142,7 +143,7 @@ export class NimushiBossSystem {
 
   start(playerY: number, sign: 1 | -1) {
     this.enabled = true; this.sign = sign;
-    this.hp = NIMUSHI.maxHp; this.state = 'dormant'; this.phaseId = 1;
+    this.hp = NIMUSHI.maxHp; this.state = 'dormant'; this.phaseId = 1; this.pushback = 0;
     this.elapsed = 0; this.started = false; this.defeated = false; this.raged = false; this.taunted = false;
     this.x = WORLD.width / 2; this.y = playerY + NIMUSHI.restGap * sign;
     this.tapiocas = []; this.cups = []; this.beams = [];
@@ -152,7 +153,7 @@ export class NimushiBossSystem {
   }
   reset() {
     this.enabled = false; this.started = false; this.defeated = false; this.raged = false;
-    this.state = 'dormant'; this.hp = NIMUSHI.maxHp; this.elapsed = 0; this.phaseId = 1;
+    this.state = 'dormant'; this.hp = NIMUSHI.maxHp; this.elapsed = 0; this.phaseId = 1; this.pushback = 0;
     this.tapiocas = []; this.cups = []; this.beams = [];
     this.mark = 0; this.deepY = 0; this.windowDamage = 0;
   }
@@ -196,6 +197,8 @@ export class NimushiBossSystem {
     // it is holding -- and both are still capped, the shove by the ordinary gap clamp next frame
     // and the relief by `maxArena`, so a burst cannot bank unlimited safety out of one window.
     this.y += NIMUSHI.pushPerHit * amount * this.sign;
+    // Raise the TARGET too, or the controller would simply pull the shove straight back in.
+    this.pushback = Math.min(NIMUSHI.maxGap - NIMUSHI.restGap, this.pushback + NIMUSHI.pushPerHit * amount);
     this.deepY += ABYSS.pushRelief * amount * this.sign * -1;
     if (this.slack > ABYSS.maxSlack) this.deepY = this.mark - ABYSS.maxSlack * this.sign;
     signals.push({ kind: 'hurt' });
@@ -220,7 +223,7 @@ export class NimushiBossSystem {
     return true;
   }
 
-  update(dt: number, player: { x: number; y: number }, random: () => number): NimushiSignal[] {
+  update(dt: number, player: { x: number; y: number; vy: number }, random: () => number): NimushiSignal[] {
     const out: NimushiSignal[] = [];
     if (!this.enabled || !Number.isFinite(dt) || dt <= 0) return out;
     this.station(dt, player);
@@ -254,24 +257,66 @@ export class NimushiBossSystem {
    * It only slides across the shaft while the eye is open, so a wind-up marks the column the attack
    * will actually land in and the telegraph can never lie.
    */
-  private station(dt: number, player: { x: number; y: number }) {
+  /**
+   * Hold a fighting distance in front of the player.
+   *
+   * NIMUSHI matches the player's pace along the pull and corrects toward `restGap`; it does not flee
+   * at a speed of its own. That distinction is the whole fix. The old version cruised at a flat
+   * `ascentSpeed` of 150 while the player was pulled in at up to 520, so the gap shut at 370px/s and
+   * an untouched fight had the player inside the body in 2.28 seconds -- not a hard boss, a broken
+   * frame of reference.
+   *
+   * The player's own speed is the base term, so ordinary movement changes nothing about the gap.
+   * The correction only answers a gap that is ALREADY wrong, and it is capped at both ends so that
+   * recovering is firm without being a snap.
+   */
+  private station(dt: number, player: { x: number; y: number; vy: number }) {
     const haul = this.state === 'phaseTransition' ? NIMUSHI.transitionSpeed : 0;
-    this.y += (NIMUSHI.ascentSpeed + haul) * dt * this.sign;
     const gap = this.along(this.y - player.y);
-    if (gap < -NIMUSHI.bodyHeight / 2) {
+
+    // How fast the player is closing on the pull. Only motion TOWARD NIMUSHI is matched: a player
+    // braking with the gunboots should be allowed to fall behind, which is what opens the distance
+    // that SHOTGUN's short reach has to answer.
+    const closing = Math.max(0, this.along(player.vy));
+    // Station-keeping lapses while NIMUSHI is attacking, which is the window a player can use to
+    // close on the body if they decide the body is worth reaching.
+    const attacking = (Object.values(ATTACK_STATES) as string[]).includes(this.state);
+    const follow = closing * (attacking ? NIMUSHI.attackFollow : NIMUSHI.matchRatio);
+
+    /**
+     * The correction is a DEADBAND, not a pull toward one ideal distance.
+     *
+     * Between `minGap` and `maxGap` NIMUSHI keeps pace and leaves the distance where the player put
+     * it. Chasing `restGap` was tried and is wrong: it backs away from a player who has closed in,
+     * which puts SHOTGUN's 260px reach and PUNCHER's 330 permanently out of range and makes two of
+     * the seven modules dead weight in the one fight they are most wanted for.
+     *
+     * Outside the band it pulls firmly back. `pushback` widens the far edge rather than moving a
+     * setpoint, so the room a weak-point hit buys is not corrected away in the next two frames.
+     */
+    const inner = NIMUSHI.minGap;
+    const outer = NIMUSHI.maxGap + this.pushback;
+    const raw = gap < inner ? (inner - gap) * NIMUSHI.gapGain
+      : gap > outer ? (outer - gap) * NIMUSHI.gapGain
+        : 0;
+    const correction = Math.max(-NIMUSHI.maxCorrection, Math.min(NIMUSHI.maxCorrection, raw));
+    const speed = Math.max(0, Math.min(NIMUSHI.maxTrackSpeed, follow + correction + haul));
+    this.y += speed * dt * this.sign;
+
+    // The extra room a weak-point hit bought decays back to `restGap`, rather than being corrected
+    // away in the next frame or two.
+    this.pushback = Math.max(0, this.pushback - (NIMUSHI.pushPerHit / NIMUSHI.pushbackDecay) * dt);
+
+    // Hard bounds, kept as a backstop under the controller rather than as the mechanism.
+    const settled = this.along(this.y - player.y);
+    if (settled < -NIMUSHI.bodyHeight / 2) {
       // The player has gone clean past it. Never allowed to persist: NIMUSHI is what the fight is
       // climbing towards, so it is put back in front rather than left behind. The threshold is the
       // far side of the BODY rather than the centre, so diving INTO it -- and paying a heart for
       // being there -- is a thing the player can do rather than something the clamp erases.
       this.y = player.y + NIMUSHI.minGap * this.sign;
-    } else if (gap < NIMUSHI.minGap) {
-      // Backing away at a limited speed, which is what makes diving at it -- and paying for it --
-      // something the player can actually do.
-      const want = player.y + NIMUSHI.minGap * this.sign;
-      const step = NIMUSHI.retreatSpeed * dt;
-      this.y += Math.max(-step, Math.min(step, want - this.y));
-    } else if (gap > NIMUSHI.maxGap) {
-      this.y = player.y + NIMUSHI.maxGap * this.sign;
+    } else if (settled > NIMUSHI.maxGap + this.pushback) {
+      this.y = player.y + (NIMUSHI.maxGap + this.pushback) * this.sign;
     }
     if (this.state === 'eyeOpen' || this.state === 'dormant' || this.state === 'recovery') {
       const towards = Math.sign(player.x - this.x);

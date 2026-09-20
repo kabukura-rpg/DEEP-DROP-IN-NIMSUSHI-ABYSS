@@ -95,12 +95,12 @@ export const NIMUSHI = {
   minGap: 220,
   maxGap: 610,
   /**
-   * How fast NIMUSHI hauls the arena along the pull on its own.
+   * The pace NIMUSHI keeps when the player is not moving along the pull at all.
    *
-   * Well under the player's terminal fall, so the player sets the pace and NIMUSHI is the floor
-   * under it: fall faster and you close on the eye until `minGap` stops you, hold back with the
-   * gunboots' recoil and you drift out to `maxGap` and no further. Distance is the player's to
-   * manage, which is what makes SHOTGUN's 260px reach a real choice rather than a dead weapon.
+   * It is NO LONGER the whole story of how NIMUSHI moves -- see `gapGain` below. It used to be, and
+   * that was the bug: a flat 150px/s against a player being pulled in at 520 closed the gap at
+   * 370px/s, so an untouched controller put the player inside the body in 2.28 seconds. NIMUSHI now
+   * MATCHES the player and corrects for distance; this is only the floor under that.
    */
   ascentSpeed: 150,
   /**
@@ -119,6 +119,60 @@ export const NIMUSHI = {
    * so the shove can never throw it out of reach. MEASUREMENT REQUIRED.
    */
   pushPerHit: 24,
+
+  /**
+   * THE GAP CONTROLLER.
+   *
+   * NIMUSHI holds a distance rather than running away at a fixed speed. Its pace along the pull is
+   * the PLAYER's pace plus a correction proportional to how far the gap is from where it should be:
+   *
+   *   speed = playerSpeedAlongThePull + correction(gap)
+   *
+   * Matching the player is what makes the fight possible at all. A fixed speed cannot: whatever it
+   * is set to, a player falling faster closes on it every second until they are inside the body, and
+   * a player falling slower is left behind. Matching means ordinary movement holds the distance, and
+   * the correction is only there to recover from a gap that has already gone wrong.
+   *
+   * The correction is a DEADBAND between `minGap` and `maxGap`, not a pull toward one ideal
+   * distance: inside the band NIMUSHI leaves the gap where the player put it, so closing in to use
+   * SHOTGUN's 260px reach is a decision the fight respects rather than one it undoes. `gapGain` is
+   * per second, so being 100px inside the band's edge asks for 220px/s back. `maxCorrection` keeps
+   * a recovery firm rather than a teleport and `maxTrackSpeed` caps the total. All MEASUREMENT
+   * REQUIRED -- these are the first values that make the geometry work, not tuned ones.
+   */
+  gapGain: 2.2,
+  maxCorrection: 260,
+  /**
+   * How much of the player's pace NIMUSHI matches in the ordinary case.
+   *
+   * A FULL match, and it has to be. The player's speed toward NIMUSHI is capped at the arena's
+   * terminal speed whether they are charging or doing nothing, so anything under 1 makes the gap
+   * close on a player who is not even playing -- which is the bug this controller exists to fix.
+   * Matching exactly means ordinary movement changes nothing about the distance, and the ways the
+   * distance DOES change are the interesting ones: NIMUSHI's attacks, and the player's own brake.
+   *
+   * It is a named constant rather than an implicit 1 so that the choice is visible, and so that a
+   * future boss balance pass can see what it would be trading away by lowering it.
+   */
+  matchRatio: 1,
+  maxTrackSpeed: 780,
+  /**
+   * How much of the player's pace NIMUSHI matches WHILE AN ATTACK IS RUNNING.
+   *
+   * Below 1 on purpose. Station-keeping that never lapses would put the body permanently out of
+   * reach, and body contact is supposed to be something a player can choose -- so the one window
+   * where NIMUSHI is busy is the window where a player who wants to close can. Charging it during
+   * an attack is exactly when being near it should be dangerous.
+   */
+  attackFollow: 0.45,
+  /**
+   * Seconds the extra room from a weak-point hit lasts before the gap settles back to `restGap`.
+   *
+   * Without this the controller would erase its own pushback: the shove opens the gap, the gap is
+   * then "too big", and the correction closes it again within a frame or two. The hit therefore
+   * raises the TARGET for a moment as well as moving the body.
+   */
+  pushbackDecay: 1.8,
   /** Extra ascent while a stretch gives way to the next, which is what hauls the arena up. */
   transitionSpeed: 260,
 } as const;
