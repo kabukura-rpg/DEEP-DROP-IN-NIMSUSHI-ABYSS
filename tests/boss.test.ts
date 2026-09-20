@@ -858,6 +858,51 @@ describe('the fight can be won, and won honestly', () => {
   });
 });
 
+describe('COMBO in the arena is the ordinary COMBO', () => {
+  it('pays nothing for hitting the eye, and does not count NIMUSHI as a kill', () => {
+    const game = fighting(75);
+    const combo = game.combo, kills = game.kills, score = game.killScore;
+    for (let i = 0; i < 6; i++) shootEye(game, 1);
+    expect(game.combo).toBe(combo);
+    expect(game.kills).toBe(kills);
+    expect(game.killScore).toBe(score);
+    // And finishing it is a victory rather than a defeated enemy.
+    expect(defeatNimushi(game)).toBe(true);
+    expect(game.kills).toBe(kills);
+    tick(game, NIMUSHI.defeatDelay + 0.3);
+    expect(game.state).toBe('clear');
+  });
+
+  it('settles a chain on an arena floor and keeps it on a doodad, exactly as the shaft does', () => {
+    const settle = atNimushi(76);
+    settle.platforms = []; settle.doodads = [];
+    settle.combo = 6;
+    const floor = { id: 4242, x: settle.player.x - 70, y: settle.player.y - 40, width: 140 };
+    settle.platforms = [floor];
+    settle.ammo = 0;
+    settle.player.y = floor.y + 16 + 15 + 2;
+    settle.player.vy = -520;
+    settle.player.grounded = -1;
+    settle.step(STEP, 0, false);
+    expect(settle.player.grounded).toBe(floor.id);
+    expect(settle.combo).toBe(0);
+    expect(settle.ammo).toBe(settle.stats.maxAmmo);
+
+    const keep = atNimushi(77);
+    keep.platforms = []; keep.doodads = [];
+    keep.combo = 6;
+    const y = keep.player.y - 40;
+    keep.doodads = [{ id: 9, x: keep.player.x - 22, y, width: 44, height: 12, variant: 'lamp', active: true }];
+    keep.ammo = 0;
+    keep.player.y = y + 29;
+    keep.player.vy = -520;
+    keep.player.grounded = -1;
+    keep.step(STEP, 0, false);
+    expect(keep.ammo).toBe(keep.stats.maxAmmo);
+    expect(keep.combo).toBe(6);
+  });
+});
+
 describe('BOSS TIME, CLEAR TIME and TOTAL DEPTH', () => {
   it('starts BOSS TIME at the first weak-point hit, not at the shop or the reversal', () => {
     const game = new GameModel(false, seeded(70));
