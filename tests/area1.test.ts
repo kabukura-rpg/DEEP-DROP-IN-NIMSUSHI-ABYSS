@@ -5,6 +5,8 @@ import { StageGenerator, START_PLATFORM, canReachPlatform, type RoutePlatform } 
 import { ENEMY_TYPES, enemyType, spawnEnemy, type Enemy, type EnemyKind } from '../src/data/enemies';
 import { AREAS, areaConfig, type SectionId } from '../src/data/areas';
 import { WORLD } from '../src/data/balance';
+import type { Hazard } from '../src/data/hazards';
+import type { SafeZone } from '../src/data/safeZone';
 
 const seeded = (seed: number) => () => { seed = (Math.imul(seed, 1664525) + 1013904223) >>> 0; return seed / 4294967296; };
 const area1 = areaConfig(1);
@@ -30,6 +32,24 @@ function sample(section: SectionId, seeds = 24, chunks = 3) {
     }
   }
   return { averageWidth: widthTotal / platforms, density: enemies / rows, kinds, enemies: all, rows };
+}
+
+/** One whole AREA 1 SECTION, exactly as the model would build it. */
+function build(section: SectionId, seed: number) {
+  const config = areaConfig(1);
+  const pixels = config.sectionLength * WORLD.pixelsPerMeter;
+  const chunks = Math.ceil((WORLD.startY + pixels) / WORLD.chunkHeight) + 1;
+  const generator = new StageGenerator(seeded(seed), {
+    plan: config.plans![section - 1], enemyPool: config.enemyPool, sectionLength: config.sectionLength,
+  });
+  const platforms: RoutePlatform[] = [], hazards: Hazard[] = [], zones: SafeZone[] = [];
+  for (let chunk = 0; chunk < chunks; chunk++) {
+    const built = generator.chunk(chunk);
+    platforms.push(...built.platforms.filter(p => p.y <= WORLD.startY + pixels));
+    hazards.push(...built.hazards.filter(h => h.y <= WORLD.startY + pixels));
+    zones.push(...built.safeZones);
+  }
+  return { platforms, hazards, zones };
 }
 
 describe('AREA 1 enemy roster', () => {
@@ -222,7 +242,52 @@ describe('AREA 1 presentation data', () => {
   it('keeps AREA 1 free of every gimmick and of submerged physics', () => {
     expect(areaConfig(1).gimmicks).toBeUndefined();
     expect(areaConfig(1).water).toBeUndefined();
-    // AREA 1 alone runs on nothing but the base rules; every later area declares its own gimmick.
-    for (const area of AREAS.filter(a => a.id >= 2)) expect(area.gimmicks).toBeDefined();
+    // Only AQUIFER runs a gauge now. CATACOMBS and LIMBO are built out of terrain -- spike
+    // platforms and floating scenery -- rather than out of a system layered on top of the shaft.
+    expect(areaConfig(3).gimmicks?.oxygen).toBe(true);
+    expect(areaConfig(3).water).toBeDefined();
+    for (const area of AREAS.filter(a => a.id !== 3)) expect(area.water).toBeUndefined();
+  });
+  it('lays nothing that can end a run on contact', () => {
+    // CAVERNS is where the controls are learned. A run ends here because the hearts ran out, never
+    // because the player brushed something -- so the AREA lays no instant-death terrain at all.
+    for (const [index, sectionPlan] of areaConfig(1).plans!.entries()) {
+      const where = `1-${index + 1}`;
+      expect({ where, spike: sectionPlan.spikeChance ?? 0 }).toEqual({ where, spike: 0 });
+      expect({ where, kinds: (sectionPlan.spikeKinds ?? []).length }).toEqual({ where, kinds: 0 });
+      expect({ where, lava: (sectionPlan.lavaPoolChance ?? 0) + (sectionPlan.lavaWallChance ?? 0) }).toEqual({ where, lava: 0 });
+      // Nor any ground that turns: that is CATACOMBS' idea, and it arrives an AREA later.
+      expect({ where, spikePlatform: sectionPlan.spikePlatformChance ?? 0 }).toEqual({ where, spikePlatform: 0 });
+    }
+    for (let seed = 1; seed <= 60; seed++) {
+      for (const section of [1, 2, 3] as SectionId[]) {
+        const shaft = build(section, seed * 613);
+        expect({ section, seed, lethal: shaft.hazards.filter(h => h.lethal).length }).toEqual({ section, seed, lethal: 0 });
+        expect({ section, seed, hazards: shaft.hazards.length }).toEqual({ section, seed, hazards: 0 });
+        expect({ section, seed, turning: shaft.platforms.filter(p => p.spikePlatform).length }).toEqual({ section, seed, turning: 0 });
+      }
+    }
+  });
+  it('is the most breakable-rich AREA of the four, with reward blocks in it', () => {
+    for (const area of AREAS) {
+      const rows = (area.plans ?? []).reduce((sum, p) => sum + (p.breakBlockRows ?? 0), 0);
+      if (area.id === 1) expect(rows).toBeGreaterThan(0);
+      else expect({ area: area.id, fewer: rows < (AREAS[0].plans ?? []).reduce((s, p) => s + (p.breakBlockRows ?? 0), 0) })
+        .toEqual({ area: area.id, fewer: true });
+    }
+    let blocks = 0, rewards = 0, zones = 0;
+    for (let seed = 1; seed <= 60; seed++) {
+      for (const section of [1, 2, 3] as SectionId[]) {
+        const shaft = build(section, seed * 811);
+        const gate = shaft.platforms.filter(p => p.breakBlock);
+        blocks += gate.length;
+        rewards += gate.filter(p => p.breakBlock!.reward).length;
+        zones += shaft.zones.length;
+        expect({ section, seed, chamber: shaft.zones.length >= 1 }).toEqual({ section, seed, chamber: true });
+      }
+    }
+    expect(blocks).toBeGreaterThan(0);
+    expect(rewards).toBeGreaterThan(0);
+    expect(zones).toBeGreaterThanOrEqual(180);
   });
 });

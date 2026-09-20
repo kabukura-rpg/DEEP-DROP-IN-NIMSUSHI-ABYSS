@@ -1,13 +1,13 @@
 import Phaser from 'phaser';
 import { GameModel, type GameEvent } from '../systems/GameModel';
-import type { Enemy } from '../systems/StageGenerator';
+import type { Enemy, Platform } from '../systems/StageGenerator';
 import { WORLD } from '../data/balance';
 import { comboFeedback } from '../systems/ComboFeedback';
 import { InputBuffer } from '../systems/InputBuffer';
 import { enemyType } from '../data/enemies';
 import { pickupType } from '../data/pickups';
 import { gunModule } from '../data/gunModules';
-import { AIR_CONTAINER_RULES, BREAK_BLOCK_RULES } from '../data/structures';
+import { AIR_CONTAINER_RULES, BREAK_BLOCK_RULES, SPIKE_PLATFORM_RULES } from '../data/structures';
 import { SAFE_ZONE_RULES } from '../data/safeZone';
 import { hazardBounds, hazardType, type Hazard } from '../data/hazards';
 export interface GameBridge {
@@ -225,6 +225,7 @@ export class GameScene extends Phaser.Scene {
       }
       for (let x = f.x + 5; x < f.x + f.width - 4; x += 14) this.rect(x + shake, y + 7, 6, critical ? 2 : 3, 0x718266);
       if (!critical) { this.rect(f.x + 8, y + 16, 6, 5, 0x253331); this.rect(f.x + f.width - 14, y + 16, 6, 5, 0x253331); }
+      if (f.spikePlatform) this.spikePlatform(f.x, y, f.width, f.spikePlatform);
     }
     for (const hazard of m.hazards) this.hazard(hazard, cam);
     for (const item of m.pickups) {
@@ -475,6 +476,40 @@ export class GameScene extends Phaser.Scene {
     this.graphics.fillTriangle(cx - 6, top, cx + 6, top, cx, top + 7);
   }
   /**
+   * A SPIKE PLATFORM, through its cycle.
+   *
+   * Shape carries the state, never colour alone: sockets in the surface while it is safe, teeth
+   * growing out of them through the warning, full teeth while it is live. The warning is the whole
+   * fairness of the mechanic, so it is the loudest of the three -- the spikes visibly rise, and a
+   * bar drains across the ledge so how long is left is readable without counting frames.
+   */
+  private spikePlatform(x: number, y: number, width: number, spikes: NonNullable<Platform['spikePlatform']>) {
+    const { state, timer } = spikes;
+    // Sockets: always visible, so a platform announces what it is before it is ever landed on.
+    for (let i = x + 9; i < x + width - 8; i += 17) this.rect(i, y + 1, 7, 3, 0x1b1420);
+    if (state === 'safe' || state === 'cooldown') {
+      // Resting: the teeth are withdrawn and only their tips show in the sockets.
+      for (let i = x + 9; i < x + width - 8; i += 17) this.rect(i + 1, y, 5, 2, 0x6e5a86, state === 'cooldown' ? 0.75 : 0.45);
+      return;
+    }
+    const warning = state === 'warning';
+    // Through the warning the teeth grow out of the sockets; live, they stand at full reach.
+    const grown = warning ? 1 - Math.max(0, Math.min(1, timer / SPIKE_PLATFORM_RULES.warning)) : 1;
+    const reach = Math.max(2, SPIKE_PLATFORM_RULES.reach * grown);
+    const body = warning ? 0xf4c46a : 0xff8f9f, tip = warning ? 0xffe6ae : 0xffd9e0;
+    for (let i = x + 9; i < x + width - 8; i += 17) {
+      const cx = i + 3.5;
+      this.graphics.fillStyle(body, warning ? 0.85 : 1).fillTriangle(cx - 4.5, y + 2, cx + 4.5, y + 2, cx, y + 2 - reach);
+      this.graphics.fillStyle(tip, warning ? 0.7 : 1).fillTriangle(cx - 1.6, y + 2, cx + 1.6, y + 2, cx, y + 2 - reach);
+    }
+    if (warning) {
+      // A bar that drains across the ledge: how long is left, not just that something is coming.
+      const left = Math.max(0, Math.min(1, timer / SPIKE_PLATFORM_RULES.warning));
+      this.rect(x, y - 2, width, 2, 0x4a3a20, 0.9);
+      this.rect(x, y - 2, width * left, 2, 0xffe6ae);
+    }
+  }
+  /**
    * TIMEVOID. Standing in a chamber stops the shaft outside it, and the player has to be able to
    * see that at a glance -- so everything outside the chamber is dimmed behind a cold veil while
    * the chamber itself stays lit. Deliberately an overlay rather than a panel: the run has not
@@ -691,6 +726,25 @@ export class GameScene extends Phaser.Scene {
       const drift = Math.sin(this.model.elapsed * 1.3 + e.phase) * 3;
       this.rect(x - 12, y - 20 + drift, 24, 8, color, 0.55);
       for (let i = -2; i <= 2; i++) this.rect(x + i * 6 - 1, y + 6 + drift, 3, 12 + Math.abs(i) * 4, color, 0.4);
+    }
+    if (type.silhouette === 'wisp') {
+      // A ring of cold fire with nothing in the middle: there is no top to land on, and it reads
+      // that way at a glance -- the centre is visibly empty rather than a body.
+      const pulse = 0.7 + Math.abs(Math.sin(this.model.elapsed * 3.4 + e.phase)) * 0.3;
+      this.graphics.lineStyle(3, color, pulse).strokeCircle(x, y - 2, 13);
+      this.graphics.lineStyle(1.5, 0xe6d8ff, pulse * 0.8).strokeCircle(x, y - 2, 7);
+      for (let i = 0; i < 4; i++) {
+        const a = this.model.elapsed * 2.2 + e.phase + (i * Math.PI) / 2;
+        this.rect(x + Math.cos(a) * 17 - 1.5, y - 2 + Math.sin(a) * 17 - 1.5, 3, 3, 0xe6d8ff, pulse);
+      }
+    }
+    if (type.silhouette === 'hollow') {
+      // A hooded shell, open at the crown. Same message as the wisp: nothing here holds weight.
+      const drift = Math.sin(this.model.elapsed * 1.1 + e.phase) * 3;
+      this.graphics.lineStyle(2.5, color, 0.85).strokeRoundedRect(x - 12, y - 18 + drift, 24, 26, 9);
+      this.rect(x - 8, y - 20 + drift, 16, 4, 0x0b0710);
+      for (let i = -1; i <= 1; i += 2) this.rect(x + i * 5 - 1.5, y - 8 + drift, 3, 5, 0xe6d8ff, 0.9);
+      for (let i = -2; i <= 2; i++) this.rect(x + i * 5 - 1, y + 8 + drift, 2, 7 + Math.abs(i) * 3, color, 0.35);
     }
     if (type.silhouette === 'bulwark') {
       this.rect(x - 20, y - 19, 40, 9, 0x4a3f63);

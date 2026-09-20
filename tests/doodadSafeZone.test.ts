@@ -7,7 +7,8 @@ import { COMBO_TIERS } from '../src/data/combo';
 import { StageGenerator, type Platform, type RoutePlatform } from '../src/systems/StageGenerator';
 import { areaConfig, type AreaId, type SectionId } from '../src/data/areas';
 import { spawnEnemy } from '../src/data/enemies';
-import { spawnHazard, type Hazard } from '../src/data/hazards';
+import { type Hazard } from '../src/data/hazards';
+import { SPIKE_PLATFORM_RULES, spikePlatform } from '../src/data/structures';
 import { spawnGunModule, type Pickup } from '../src/data/pickups';
 import { OXYGEN_RULES } from '../src/systems/OxygenSystem';
 
@@ -210,10 +211,11 @@ describe('SAFE ZONE: a floor that shelters rather than banks', () => {
 });
 
 describe('TIMEVOID: the world outside a chamber stops', () => {
-  /** A shaft with something moving in it, plus a chamber to step into. */
+  /** A shaft with something moving in it, plus a chamber to step into. AQUIFER, so the breath
+   * gauge is running and the chamber has a world clock to stop. */
   function shaft() {
     const game = new GameModel(false, seeded(7));
-    game.jumpToStage(2, 1);
+    game.jumpToStage(3, 1);
     game.platforms = []; game.pickups = []; game.hazards = []; game.containers = []; game.bubbles = [];
     game.enemies = [spawnEnemy('fish', 77, 300, 400, 40, 0, 'open')];
     game.bullets = [];
@@ -554,8 +556,8 @@ describe('TIMEVOID holds each AREA gimmick, and the chain, in every AREA', () =>
     return !game.timeFrozen;
   }
 
-  it('AREA 2: the oxygen tank neither drains nor refills inside, and drains again outside', () => {
-    const { game, zone, floor } = chamberIn(2, 2, 21);
+  it('AREA 3: the oxygen tank neither drains nor refills inside, and drains again outside', () => {
+    const { game, zone, floor } = chamberIn(3, 2, 21);
     expect(game.oxygen.enabled).toBe(true);
     game.oxygen.remaining = OXYGEN_RULES.max - 4;
     expect(enter(game, zone, floor)).toBe(true);
@@ -575,35 +577,39 @@ describe('TIMEVOID holds each AREA gimmick, and the chain, in every AREA', () =>
     expect(game.combo).toBe(12);
   });
 
-  it('AREA 3: the heat gauge holds inside and climbs again outside', () => {
-    const { game, zone, floor } = chamberIn(3, 2, 23);
-    expect(game.heat.enabled).toBe(true);
+  it('AREA 2: a spike platform warning holds inside and runs again outside', () => {
+    const { game, zone, floor } = chamberIn(2, 2, 23);
+    expect(game.heat.enabled).toBe(false);
     expect(enter(game, zone, floor)).toBe(true);
     expect(game.timeFrozen).toBe(true);
     expect(game.ammo).toBe(game.stats.maxAmmo);
     expect(game.combo).toBe(12);
-    // A lava pool out in the shaft, radiating -- but the shaft's clock is stopped.
-    game.hazards = [spawnHazard('lavaPool', 800, 250, 360, 120, 24)];
-    game.heat.value = 40;
+    // A spike platform out in the shaft with its warning already running. The cycle belongs to the
+    // shaft, so it is exactly where it was left when the player comes back out.
+    const ledge: Platform = { id: 800, x: zone.x + zone.width + 10, y: floor.y, width: 140, breakable: false, state: 'stable', spikePlatform: spikePlatform() };
+    game.platforms.push(ledge);
+    ledge.spikePlatform!.state = 'warning';
+    ledge.spikePlatform!.timer = SPIKE_PLATFORM_RULES.warning;
     tick(game, 5);
-    expect(game.heat.value).toBe(40);
+    expect(ledge.spikePlatform!.state).toBe('warning');
+    expect(ledge.spikePlatform!.timer).toBeCloseTo(SPIKE_PLATFORM_RULES.warning, 5);
     expect(game.combo).toBe(12);
     expect(leave(game)).toBe(true);
-    // Standing beside the pool outside, it climbs again from 40.
-    game.player.x = 280;
-    tick(game, 1);
-    expect(game.heat.value).toBeGreaterThan(40);
+    // Outside, the same warning runs out and the spikes come up.
+    tick(game, SPIKE_PLATFORM_RULES.warning + 0.1);
+    expect(ledge.spikePlatform!.state).toBe('active');
     expect(game.combo).toBe(12);
   });
 
-  it('AREA 4: a collapse timer already running is held, and resumes on the way out', () => {
+  it('AREA 4: a dangerous-ground timer already running is held, and resumes on the way out', () => {
     const { game, zone, floor } = chamberIn(4, 2, 27);
-    const ledge: Platform = { id: 700, x: zone.x + zone.width + 10, y: 320, width: 120, breakable: true, state: 'stable' };
+    const ledge: Platform = { id: 700, x: zone.x + zone.width + 10, y: 320, width: 120, breakable: false, state: 'stable', spikePlatform: spikePlatform() };
     game.platforms.push(ledge);
-    // Land on the collapsing ledge first so its timer is running, then step into the chamber.
+    // Land on the dangerous ledge first so its cycle is running, then step into the chamber.
     game.player.x = ledge.x + 60; game.player.y = 220; game.player.vy = 240;
-    tick(game, 0.8);
-    expect(game.collapse.counting).toBe(1);
+    game.player.invincible = 99;
+    tick(game, 0.3);
+    expect(ledge.spikePlatform!.state).not.toBe('safe');
     // That was an ordinary landing, so it banked the chain it arrived with. Start a fresh one for
     // the chamber to preserve -- which is the thing under test here.
     game.combo = 12; game.ammo = 1; game.events.length = 0;
@@ -612,19 +618,18 @@ describe('TIMEVOID holds each AREA gimmick, and the chain, in every AREA', () =>
     game.player.x = zone.x + zone.width / 2;
     game.player.y = floor.y - 15; game.player.vy = 0; game.player.grounded = floor.id;
     game.step(1 / 120, 0, false);
-    expect(game.collapse.counting).toBe(1);
+    const held = ledge.spikePlatform!.timer;
     expect(game.timeFrozen).toBe(true);
     game.reloadCharge();
     expect(game.combo).toBe(12);
-    // Far longer than the ledge's own delay: it does not give way while the shaft is stopped.
+    // Far longer than the whole cycle: nothing out there advances while the shaft is stopped.
     tick(game, 6);
-    expect(game.collapse.counting).toBe(1);
-    expect(ledge.state).not.toBe('broken');
+    expect(ledge.spikePlatform!.timer).toBeCloseTo(held, 5);
     expect(game.combo).toBe(12);
     expect(leave(game)).toBe(true);
-    tick(game, 2);
-    // Outside, the same timer runs out and the ledge goes.
-    expect(ledge.state).toBe('broken');
+    tick(game, SPIKE_PLATFORM_RULES.warning + SPIKE_PLATFORM_RULES.active + 0.2);
+    // Outside, the same cycle carries on and comes back round.
+    expect(['active', 'cooldown', 'safe']).toContain(ledge.spikePlatform!.state);
     expect(game.combo).toBe(12);
   });
 
@@ -778,11 +783,9 @@ describe('GUN MODULE, SHOP and COIN VEIN are SAFE ZONE content and nothing else'
   });
 
   it('still lays the AREA gimmicks the shaft owns, which are not SAFE ZONE rewards', () => {
-    // AREA 2's air containers and AREA 3's ice are stage furniture, untouched by this change.
-    const air = sweep(2, 2, 4242);
+    // AQUIFER's air containers are stage furniture, untouched by chamber placement.
+    const air = sweep(3, 2, 4242);
     expect(air.containers.length).toBeGreaterThan(0);
-    const heat = sweep(3, 2, 4242);
-    expect(heat.pickups.some(item => item.kind === 'ice')).toBe(true);
   });
 
   it('is the only place a run finds a module, a shop or a vein', () => {
@@ -907,12 +910,15 @@ describe('SAFE ZONE generation stays out of everything else', () => {
     }
     expect(total).toBeGreaterThan(20);
   });
-  it('leaves DOODAD placement to AREA 1 for now', () => {
-    // Chambers are supply and had to reach every AREA; doodads are scenery and are still AREA 1's.
-    for (const area of [2, 3, 4] as AreaId[]) for (const section of [1, 2, 3] as SectionId[]) {
+  it('hangs DOODADs in every AREA now, most thickly in LIMBO', () => {
+    // Scenery reached the other AREAs with the world roles: CATACOMBS hangs candles, and LIMBO leans
+    // on them hardest because they are its only safe reload.
+    for (const area of [1, 2, 3, 4] as AreaId[]) for (const section of [1, 2, 3] as SectionId[]) {
       const plan = areaConfig(area).plans![section - 1];
-      expect({ area, section, doodads: plan.doodadChance ?? 0 }).toEqual({ area, section, doodads: 0 });
+      expect({ area, section, any: (plan.doodadChance ?? 0) > 0 }).toEqual({ area, section, any: true });
     }
+    const densest = (area: AreaId) => Math.max(...(areaConfig(area).plans ?? []).map(p => p.doodadChance ?? 0));
+    for (const area of [1, 2, 3] as AreaId[]) expect(densest(4)).toBeGreaterThan(densest(area));
   });
 });
 
@@ -1063,13 +1069,13 @@ describe('SAFE ZONE supply reaches all twelve SECTIONs', () => {
     }
   });
 
-  it('keeps AREA 2 able to reach air past every chamber', () => {
+  it('keeps AREA 3 able to reach air past every chamber', () => {
     // A chamber occupies one wall. The air the run needs must still arrive at least as often as the
     // SECTION plan promises, with no chamber buried on top of a container.
     for (const section of [1, 2, 3] as SectionId[]) {
-      const maxGap = areaConfig(2).plans![section - 1].maxOxygenGap;
+      const maxGap = areaConfig(3).plans![section - 1].maxOxygenGap;
       for (let seed = 1; seed <= SEEDS; seed++) {
-        const shaft = build(2, section, seed * 613);
+        const shaft = build(3, section, seed * 613);
         expect(shaft.containers.length).toBeGreaterThan(0);
         const depths = shaft.containers
           .map(c => (c.y - WORLD.startY) / WORLD.pixelsPerMeter)

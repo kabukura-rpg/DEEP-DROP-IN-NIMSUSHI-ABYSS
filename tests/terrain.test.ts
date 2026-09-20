@@ -137,75 +137,46 @@ describe('SPIKE is instant death, not a large hit', () => {
   });
 });
 
-describe('SPIKE density and variants per AREA', () => {
-  it('ramps up through AREA 1, starting with only a few', () => {
-    const [one, two, three] = [1, 2, 3].map(s => spikeDensity(1, s as SectionId));
-    expect(one).toBeGreaterThan(0);
-    expect(two).toBeGreaterThan(one);
-    expect(three).toBeGreaterThan(two);
-    // 1-1 teaches: a run meets a handful, not a field of them.
-    expect(one).toBeLessThan(4);
-    expect(plan(1, 1).spikeChance!).toBeLessThan(plan(1, 2).spikeChance!);
-    expect(plan(1, 2).spikeChance!).toBeLessThan(plan(1, 3).spikeChance!);
-  });
-  it('ramps up through AREA 2 as well', () => {
-    const [one, two, three] = [1, 2, 3].map(s => spikeDensity(2, s as SectionId));
-    expect(two).toBeGreaterThan(one);
-    expect(three).toBeGreaterThan(two);
-  });
-  it('keeps 1-1 free of SPIKE for the whole opening grace', () => {
-    const grace = plan(1, 1).graceDepth! * WORLD.pixelsPerMeter + WORLD.startY;
-    for (let seed = 1; seed <= 60; seed++) for (const spike of build(1, 1, seed * 421).spikes) expect(spike.y).toBeGreaterThan(grace);
-  });
-  it('uses the stone variants in AREA 1 and the reef variants in AREA 2', () => {
-    const seen = (area: AreaId) => {
-      const kinds = new Set<string>();
-      for (let seed = 1; seed <= 60; seed++) for (const s of [1, 2, 3] as const) for (const spike of build(area, s, seed * 97).spikes) kinds.add(spike.kind);
-      return kinds;
-    };
-    expect([...seen(1)].sort()).toEqual(['ancientStake', 'stoneSpike']);
-    expect([...seen(2)].sort()).toEqual(['poisonCoral', 'urchinSpike']);
-  });
-  it('leaves AREA 3 and AREA 4 to their own hazards', () => {
-    for (const area of [3, 4] as const) for (const s of [1, 2, 3] as const) {
-      for (let seed = 1; seed <= 12; seed++) expect(build(area, s, seed * 53).spikes).toEqual([]);
+describe('instant-death SPIKE is legacy: no normal AREA lays any', () => {
+  it('declares it nowhere in the twelve SECTION plans', () => {
+    for (const area of AREAS) {
+      for (const [index, sectionPlan] of (area.plans ?? []).entries()) {
+        const where = `${area.id}-${index + 1}`;
+        expect({ where, chance: sectionPlan.spikeChance ?? 0 }).toEqual({ where, chance: 0 });
+        expect({ where, kinds: (sectionPlan.spikeKinds ?? []).length }).toEqual({ where, kinds: 0 });
+      }
     }
   });
-});
-
-describe('SPIKE never sits where the route has to go', () => {
-  it('leaves the guaranteed landing spot on every ledge clear, across every AREA 1 and AREA 2 section', () => {
-    for (const area of [1, 2] as const) for (const s of [1, 2, 3] as const) {
-      for (let seed = 1; seed <= 40; seed++) {
-        const shaft = build(area, s, seed * 131);
-        for (const row of shaft.platforms) {
-          for (const spike of shaft.spikes) {
-            if (Math.abs(spike.y + spike.height - row.y) > 2) continue;
-            // The player's body standing on the guaranteed landing spot, plus room to arrive fast.
-            // The patch may take either end of the ledge; what matters is that it takes neither
-            // the landing spot nor the space the player occupies once they are standing on it.
-            const clear = spike.x > row.safeX + 20 || spike.x + spike.width < row.safeX - 20;
-            expect({ seed, safeX: row.safeX, spike: [spike.x, spike.x + spike.width], clear }).toMatchObject({ clear: true });
-          }
+  it('generates none of it, on any seed, in any SECTION', () => {
+    for (const area of [1, 2, 3, 4] as AreaId[]) {
+      for (const s of [1, 2, 3] as SectionId[]) {
+        for (let seed = 1; seed <= 60; seed++) {
+          const shaft = build(area, s, seed * 421);
+          expect({ area, s, seed, spikes: shaft.spikes.length }).toEqual({ area, s, seed, spikes: 0 });
+          expect({ area, s, seed, lethal: shaft.hazards.filter(h => h.lethal).length }).toEqual({ area, s, seed, lethal: 0 });
         }
       }
     }
   });
-  it('never puts SPIKE in front of an AREA 2 air source', () => {
-    for (const s of [1, 2, 3] as const) for (let seed = 1; seed <= 60; seed++) {
-      const shaft = build(2, s, seed * 271);
-      const sources = shaft.containers;
-      for (const spike of shaft.spikes) for (const air of sources) {
-        // A spike within reach of the column an air source is collected from is not laid at all,
-        // so no seed can make touching SPIKE the price of a breath.
-        const sameColumn = air.x < spike.x + spike.width + 26 && air.x + air.width > spike.x - 26;
-        const above = air.y < spike.y + spike.height + 24 && air.y + air.height > spike.y - 300;
-        expect(sameColumn && above).toBe(false);
+  it('leaves the CATACOMBS and LIMBO ground non-lethal instead', () => {
+    // What replaced it deals ordinary damage: the SPIKE PLATFORM arms on landing, warns, and costs
+    // a heart. Its damage cause is still 'spike', so the result screen still reads SPIKES -- what
+    // changed is that the hit is survivable, and that is asserted in the AREA 2 and AREA 4 suites.
+    let turning = 0;
+    for (const area of [2, 4] as AreaId[]) {
+      for (const s of [1, 2, 3] as SectionId[]) {
+        for (let seed = 1; seed <= 20; seed++) turning += build(area, s, seed * 421).platforms.filter(p => p.spikePlatform).length;
       }
     }
+    expect(turning).toBeGreaterThan(0);
+  });
+  it('keeps the hazard table itself intact for the BOSS and for later content', () => {
+    // Nothing was deleted. MAGMA WRATH still lays lava, and a later bonus world can lay SPIKE again
+    // simply by naming it in a plan.
+    for (const kind of SPIKE_KINDS) expect(HAZARD_TYPES[kind].lethal).toBe(true);
   });
   it('never reaches the FINAL BOSS arena', () => {
-    const game = new GameModel(false, Math.random);
+    const game = new GameModel(false, seeded(9091));
     game.jumpToBoss();
     for (let i = 0; i < 120 * 40 && game.state === 'boss'; i++) {
       game.player.invincible = 99;
@@ -301,7 +272,10 @@ describe('BREAK BLOCK: a row of separate blocks, not one slab', () => {
     const modules = Object.keys(GUN_MODULES) as GunModuleId[];
     expect(modules.length).toBe(7);
     for (const id of modules) {
-      const { game, y } = withRow(3, 3);                 // the toughest row the game lays
+      // The toughest row a normal run lays, in dry air: AREA 1's late gates and AREA 2's are both
+      // two rounds a block, and AQUIFER's submerged physics are a separate question from whether a
+      // weapon can open a block at all.
+      const { game, y } = withRow(2, 3);
       tick(game, 0.6);
       expect(game.player.grounded).not.toBe(-1);
       game.gun.equip(id);

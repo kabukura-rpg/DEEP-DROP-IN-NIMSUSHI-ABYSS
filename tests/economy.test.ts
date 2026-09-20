@@ -443,10 +443,10 @@ describe('EXIT replaces the forced section switch', () => {
   });
 });
 
-describe('AREA 2 air containers', () => {
+describe('AREA 3 air containers', () => {
   const submerged = (seed = 4) => {
     const game = new GameModel(false, seeded(seed));
-    game.jumpToStage(2, 1);
+    game.jumpToStage(3, 1);
     game.platforms = []; game.enemies = []; game.containers = []; game.bubbles = [];
     game.player.invincible = 99;
     return game;
@@ -457,9 +457,9 @@ describe('AREA 2 air containers', () => {
     return game.containers[0];
   };
 
-  it('generates containers in AREA 2', () => {
+  it('generates containers in AREA 3', () => {
     const game = new GameModel(false, seeded(21));
-    game.jumpToStage(2, 1);
+    game.jumpToStage(3, 1);
     let seen = 0;
     for (let i = 0; i < 40 && seen === 0; i++) {
       game.player.y += 260; game.player.invincible = 99; game.step(1 / 120, 0, false);

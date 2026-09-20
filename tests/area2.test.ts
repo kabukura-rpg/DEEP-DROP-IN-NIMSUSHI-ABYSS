@@ -1,449 +1,328 @@
 import { describe, expect, it } from 'vitest';
 import { GameModel } from '../src/systems/GameModel';
-import { OxygenSystem, OXYGEN_RULES } from '../src/systems/OxygenSystem';
-import { StageGenerator, START_PLATFORM, type RoutePlatform } from '../src/systems/StageGenerator';
-import { ENEMY_TYPES, enemyType, spawnEnemy, type Enemy, type EnemyKind } from '../src/data/enemies';
-import { PICKUP_TYPES, type Pickup } from '../src/data/pickups';
+import { StageGenerator, START_PLATFORM, type Platform, type RoutePlatform } from '../src/systems/StageGenerator';
+import { ENEMY_TYPES, type EnemyKind } from '../src/data/enemies';
 import { areaConfig, type SectionId } from '../src/data/areas';
 import { horizontalReach } from '../src/data/difficulty';
-import { WORLD, BALANCE } from '../src/data/balance';
-import type { AirContainer } from '../src/data/structures';
+import { SPIKE_PLATFORM_RULES, spikePlatform } from '../src/data/structures';
+import { DOODAD_RULES } from '../src/data/doodads';
+import { WORLD } from '../src/data/balance';
+import type { SafeZone } from '../src/data/safeZone';
+import type { Hazard } from '../src/data/hazards';
 
+/**
+ * AREA 2 carries the CATACOMBS role: the ground is the threat.
+ *
+ * A ledge is safe to arrive on and stops being safe a moment later. That is the whole AREA, and the
+ * thing that makes it fair rather than cruel is that every part of it is ordinary: landing is an
+ * ordinary landing, the warning always runs first, and what the spikes cost is a heart through
+ * HealthSystem rather than the run. Water belongs to AREA 3 now and none of it may be left here.
+ */
 const seeded = (seed: number) => () => { seed = (Math.imul(seed, 1664525) + 1013904223) >>> 0; return seed / 4294967296; };
 const area2 = areaConfig(2);
 const plan = (section: SectionId) => area2.plans![section - 1];
 const SECTION_PIXELS = area2.sectionLength * WORLD.pixelsPerMeter;
 const CHUNKS = Math.ceil((WORLD.startY + SECTION_PIXELS) / WORLD.chunkHeight) + 1;
+const SEEDS = 60;
+const SECTIONS: SectionId[] = [1, 2, 3];
 
-/** A run parked in an AREA 2 section, with the world cleared so a test can place its own fixtures. */
-function inWater(section: SectionId = 1, random = Math.random) {
-  const game = new GameModel(false, random);
-  game.jumpToStage(2, section);
-  return game;
+/** One whole SECTION, exactly as the model would build it. */
+function section(sectionId: SectionId, seed: number) {
+  const generator = new StageGenerator(seeded(seed), {
+    plan: plan(sectionId), enemyPool: area2.enemyPool, sectionLength: area2.sectionLength,
+  });
+  const platforms: RoutePlatform[] = [], hazards: Hazard[] = [], zones: SafeZone[] = [];
+  const doodads: { x: number; y: number; width: number; height: number }[] = [];
+  const containers: { x: number; y: number }[] = [];
+  const enemies: { kind: EnemyKind; y: number }[] = [];
+  let exit: { x: number; y: number; width: number; height: number } | undefined;
+  for (let chunk = 0; chunk < CHUNKS; chunk++) {
+    const built = generator.chunk(chunk);
+    platforms.push(...built.platforms.filter(p => p.y <= WORLD.startY + SECTION_PIXELS));
+    hazards.push(...built.hazards); zones.push(...built.safeZones);
+    doodads.push(...built.doodads); containers.push(...built.containers);
+    enemies.push(...built.enemies);
+    if (built.exit) exit = built.exit;
+  }
+  return { platforms, hazards, zones, doodads, containers, enemies, exit };
 }
-function bare(section: SectionId = 1) {
-  const game = inWater(section);
+/** A run parked in an AREA 2 section with the shaft cleared, so a test owns what exists. */
+function bare(sectionId: SectionId = 1, seed = 21) {
+  const game = new GameModel(false, seeded(seed));
+  game.jumpToStage(2, sectionId);
   game.platforms = []; game.enemies = []; game.pickups = []; game.hazards = [];
+  game.doodads = []; game.safeZones = []; game.containers = [];
   game.player.invincible = 0;
   return game;
 }
-/**
- * These fixtures delete the shaft so a test owns exactly what exists, which also voids the
- * generator's row-to-row reachability guarantee: the run then free-falls in a straight line through
- * terrain that was laid for a route it is no longer taking. SPIKE kills on contact, so leaving it
- * in would make an oxygen test fail one run in seven for reasons that have nothing to do with air.
- * Hazards are therefore cleared for the duration; SPIKE has its own coverage in terrain.test.ts.
- */
 const tick = (game: GameModel, seconds: number, direction = 0, fire = false) => {
-  for (let i = 0; i < Math.round(seconds * 120); i++) { game.hazards = []; game.step(1 / 120, direction, fire); }
+  for (let i = 0; i < Math.round(seconds * 120); i++) game.step(1 / 120, direction, fire);
 };
-/**
- * Holds the run in place so only the air supply moves. step() keeps generating the shaft ahead, so
- * a plain tick would fall into fresh enemies and clear the section long before a tank runs dry.
- */
-const hold = (game: GameModel, seconds: number) => {
-  for (let i = 0; i < Math.round(seconds * 120); i++) {
-    game.player.y = 200; game.player.vy = 0; game.player.grounded = -1;
-    game.enemies = []; game.bullets = [];
-    game.step(1 / 120, 0, false);
-  }
-};
-
-/** Regenerate one SECTION the way GameModel does and hand back everything it produced. */
-function section(sectionId: SectionId, seed: number) {
-  const generator = new StageGenerator(seeded(seed), { plan: plan(sectionId), enemyPool: area2.enemyPool, water: area2.water, oxygen: true, sectionLength: area2.sectionLength });
-  const platforms: RoutePlatform[] = [], enemies: Enemy[] = [], pickups: Pickup[] = [];
-  const containers: AirContainer[] = [];
-  for (let chunk = 0; chunk < CHUNKS; chunk++) {
-    const result = generator.chunk(chunk);
-    platforms.push(...result.platforms); enemies.push(...result.enemies);
-    pickups.push(...result.pickups); containers.push(...result.containers);
-  }
-  const limit = WORLD.startY + SECTION_PIXELS;
-  return {
-    // Ordinary ledges and gate-row blocks are different things; most checks below want the ledges.
-    platforms: platforms.filter(p => p.y <= limit && !p.breakBlock),
-    blocks: platforms.filter(p => p.y <= limit && p.breakBlock),
-    enemies: enemies.filter(e => e.y <= limit),
-    pickups: pickups.filter(p => p.y <= limit),
-    containers: containers.filter(c => c.y <= limit), limit,
-  };
+/** One spike platform under the player, and the fall that lands on it. */
+function onSpikeGround(game: GameModel, floorY = game.player.y + 90) {
+  const ledge: Platform = { id: 900, x: WORLD.wall, y: floorY, width: 220, breakable: false, state: 'stable', spikePlatform: spikePlatform() };
+  game.platforms = [ledge];
+  game.player.x = ledge.x + 110; game.player.vy = 260; game.player.grounded = -1;
+  for (let i = 0; i < 400 && game.player.grounded !== ledge.id; i++) game.step(1 / 120, 0, false);
+  return ledge;
 }
 
-describe('AREA 2 oxygen supply', () => {
-  it('starts every AREA 2 section with a full tank and drains on simulation time only', () => {
-    const game = bare(1);
-    expect([game.oxygen.enabled, game.oxygen.remaining]).toEqual([true, OXYGEN_RULES.max]);
-    hold(game, 2);
-    expect(game.oxygen.remaining).toBeCloseTo(OXYGEN_RULES.max - 2, 4);
+describe('SPIKE PLATFORM: ground that turns, and never kills', () => {
+  it('reads its whole cycle from data, marked unmeasured', () => {
+    for (const key of ['warning', 'active', 'cooldown'] as const) expect(SPIKE_PLATFORM_RULES[key]).toBeGreaterThan(0);
+    expect(SPIKE_PLATFORM_RULES.damage).toBe(1);
+    expect(SPIKE_PLATFORM_RULES.reach).toBeGreaterThan(0);
   });
-  it('never drains outside AREA 2', () => {
-    const area1 = new GameModel();
-    expect(area1.oxygen.enabled).toBe(false);
-    area1.player.invincible = 99; tick(area1, 3);
-    expect([area1.oxygen.enabled, area1.oxygen.remaining]).toEqual([false, OXYGEN_RULES.max]);
-    const practice = new GameModel(true);
-    expect(practice.oxygen.enabled).toBe(false);
+
+  it('starts safe, and landing is the only thing that arms it', () => {
+    const game = bare();
+    const ledge: Platform = { id: 900, x: WORLD.wall, y: 600, width: 200, breakable: false, state: 'stable', spikePlatform: spikePlatform() };
+    game.platforms = [ledge];
+    game.player.invincible = 99;
+    // Hanging in the air above it, for far longer than the whole cycle, changes nothing.
+    for (let i = 0; i < 600; i++) { game.player.y = 300; game.player.vy = 0; game.player.grounded = -1; game.step(1 / 120, 0, false); }
+    expect(ledge.spikePlatform!.state).toBe('safe');
+    expect(game.hp).toBe(game.stats.maxHp);
   });
-  it('freezes while paused, at a rest and at the boss', () => {
-    const paused = bare(1); paused.paused = true; tick(paused, 3);
-    expect(paused.oxygen.remaining).toBe(OXYGEN_RULES.max);
-    const resting = bare(2); tick(resting, 2);
-    const atRest = resting.oxygen.remaining;
-    resting.completeSection('air-rest');
-    expect(resting.state).toBe('upgrade');
-    tick(resting, 5); resting.step(9, 1, true);
-    expect(resting.oxygen.remaining).toBe(atRest);
-    const boss = new GameModel(); boss.jumpToBoss();
-    expect(boss.oxygen.enabled).toBe(false);
+
+  it('gives a warning before the spikes, so landing itself never costs a heart', () => {
+    const game = bare();
+    game.player.invincible = 0;
+    const ledge = onSpikeGround(game);
+    expect(game.player.grounded).toBe(ledge.id);
+    const hp = game.hp;
+    // The frame it lands on: armed, warning, and nothing taken.
+    expect(ledge.spikePlatform!.state).toBe('warning');
+    expect(game.hp).toBe(hp);
+    // Still nothing taken for the whole warning window.
+    for (let i = 0; i < Math.round(SPIKE_PLATFORM_RULES.warning * 120) - 2; i++) game.step(1 / 120, 0, false);
+    expect(ledge.spikePlatform!.state).toBe('warning');
+    expect(game.hp).toBe(hp);
   });
-  it('drowns for one HP per interval once empty, and stops the moment air returns', () => {
-    const game = bare(1);
-    hold(game, OXYGEN_RULES.max);
-    expect(game.oxygen.remaining).toBeCloseTo(0, 6);
-    expect(game.hp).toBe(4);
-    hold(game, OXYGEN_RULES.damageInterval);
-    expect(game.hp).toBe(3);
-    expect(game.health.lastDamage?.cause).toBe('oxygen');
-    // Paced by the shared invulnerability window: about one heart per interval, never a burst.
-    const before = game.hp;
-    hold(game, OXYGEN_RULES.damageInterval * 2 + 0.1);
-    expect(before - game.hp).toBe(2);
-    const survived = game.hp;
-    game.oxygen.add(OXYGEN_RULES.bubbleRecovery);
-    hold(game, 3);
-    expect(game.hp).toBe(survived);
+
+  it('costs exactly one heart through HealthSystem, with the ordinary invulnerability', () => {
+    const game = bare();
+    game.player.invincible = 0;
+    const ledge = onSpikeGround(game);
+    const hp = game.hp;
+    tick(game, SPIKE_PLATFORM_RULES.warning + 0.1);
+    expect(ledge.spikePlatform!.state).toBe('active');
+    expect(game.hp).toBe(hp - SPIKE_PLATFORM_RULES.damage);
+    expect(game.health.lastDamage?.cause).toBe('spike');
+    // Ordinary damage means ordinary invulnerability, and the live window is shorter than it, so
+    // one pass through a platform costs exactly one heart however long the player stands in it.
+    expect(game.player.invincible).toBeGreaterThan(0);
+    tick(game, SPIKE_PLATFORM_RULES.active);
+    expect(game.hp).toBe(hp - SPIKE_PLATFORM_RULES.damage);
   });
-  it('lets invulnerability delay a drowning hit but never cancel it', () => {
-    const oxygen = new OxygenSystem(true);
-    oxygen.remaining = 0;
-    expect(oxygen.tick(OXYGEN_RULES.damageInterval)).toBe(true);
-    // The hit was refused: the debt survives and lands on the next step instead of being lost.
-    expect(oxygen.tick(1 / 120)).toBe(true);
-    oxygen.consumeDamage();
-    expect(oxygen.tick(1 / 120)).toBe(false);
-    const game = bare(1);
-    hold(game, OXYGEN_RULES.max);
-    game.player.invincible = 3;
-    hold(game, 2.5);
-    expect(game.hp).toBe(4);
-    hold(game, 1);
-    expect(game.hp).toBe(3);
+
+  it('is never instant death, even at one heart', () => {
+    const game = bare();
+    game.player.invincible = 0;
+    game.hp = 1;
+    const ledge = onSpikeGround(game);
+    tick(game, SPIKE_PLATFORM_RULES.warning + 0.1);
+    expect(ledge.spikePlatform!.state).toBe('active');
+    // It took the last heart the ordinary way -- through damage(), not killInstantly().
+    expect(game.health.deathCause?.instant).toBe(false);
+    expect(game.health.deathCause?.cause).toBe('spike');
   });
-  it('cannot lose air to a long background gap', () => {
-    // What blur and visibilitychange do: the run is paused, so a single huge delta changes nothing.
-    const game = bare(1);
-    hold(game, 3);
-    const before = game.oxygen.remaining;
-    game.paused = true;
-    game.step(30, 1, true);
-    expect(game.oxygen.remaining).toBe(before);
-    expect(game.hp).toBe(4);
-    game.paused = false;
+
+  it('keeps the chain through the hit, exactly as any other damage does', () => {
+    const game = bare();
+    game.player.invincible = 0;
+    const ledge = onSpikeGround(game);
+    // Landing settled whatever chain arrived; start a new one and take the spikes on it.
+    game.combo = 9;
+    tick(game, SPIKE_PLATFORM_RULES.warning + 0.1);
+    expect(ledge.spikePlatform!.state).toBe('active');
+    expect(game.hp).toBeLessThan(game.stats.maxHp);
+    expect(game.combo).toBe(9);
+  });
+
+  it('is ordinary ground: landing fills CHARGE and settles the chain', () => {
+    const game = bare();
+    game.player.invincible = 99;
+    game.ammo = 1; game.combo = 8;
+    onSpikeGround(game);
+    expect(game.ammo).toBe(game.stats.maxAmmo);
+    expect(game.combo).toBe(0);
+    expect(game.events.some(e => e.type === 'comboSettle')).toBe(true);
+  });
+
+  it('retracts, cools down and can be armed again', () => {
+    const game = bare();
+    game.player.invincible = 99;
+    const ledge = onSpikeGround(game);
+    const spikes = ledge.spikePlatform!;
+    tick(game, SPIKE_PLATFORM_RULES.warning + 0.05);
+    expect(spikes.state).toBe('active');
+    tick(game, SPIKE_PLATFORM_RULES.active);
+    expect(spikes.state).toBe('cooldown');
+    // Step off while it cools, or it simply re-arms under the player's feet the moment it is safe.
+    game.player.grounded = -1;
+    for (let i = 0; i < Math.round((SPIKE_PLATFORM_RULES.cooldown + 0.05) * 120); i++) {
+      game.player.y = ledge.y - 200; game.player.vy = 0; game.player.grounded = -1;
+      game.step(1 / 120, 0, false);
+    }
+    expect(spikes.state).toBe('safe');
+    expect(spikes.timer).toBe(0);
+    // Land on it again and it arms again, from the top of the cycle.
+    game.player.grounded = ledge.id;
     game.step(1 / 120, 0, false);
-    expect(game.oxygen.remaining).toBeCloseTo(before - 1 / 120, 4);
+    expect(spikes.state).toBe('warning');
   });
-  it('refills at the next section start without touching HP', () => {
-    const game = inWater(1);
-    game.damage(2); game.player.invincible = 0;
-    hold(game, 9);
-    expect(game.oxygen.remaining).toBeLessThan(4);
-    game.completeSection();
-    game.selectUpgrade(game.upgrades.choices.find(u => u.category !== 'health')!.id);
-    game.confirmUpgrade();
-    expect([game.stage.label, game.oxygen.remaining, game.hp]).toEqual(['2-2', OXYGEN_RULES.max, 2]);
+
+  it('announces each phase change once, so the view can telegraph it', () => {
+    const game = bare();
+    game.player.invincible = 99;
+    onSpikeGround(game);
+    game.events.length = 0;
+    tick(game, SPIKE_PLATFORM_RULES.warning + SPIKE_PLATFORM_RULES.active + 0.1);
+    const phases = game.events.filter(e => e.type === 'spikePlatform').map(e => e.value);
+    expect(phases).toContain(1);
+    expect(phases).toContain(2);
   });
-  it('turns the supply off again when AREA 3 starts', () => {
-    const game = inWater(3);
-    expect(game.oxygen.enabled).toBe(true);
-    game.completeSection();
-    game.selectUpgrade(game.upgrades.choices[0].id); game.confirmUpgrade();
-    expect(game.stage.label).toBe('3-1');
-    expect(game.oxygen.enabled).toBe(false);
-    game.player.invincible = 99; tick(game, 4);
-    expect(game.oxygen.remaining).toBe(OXYGEN_RULES.max);
-    // AREA 3 brings its own pickups; what must be gone is every air source.
-    expect(game.pickups.filter(p => PICKUP_TYPES[p.kind].effect === 'oxygen')).toHaveLength(0);
-    expect([game.containers.length, game.bubbles.length]).toEqual([0, 0]);
-    expect(game.water).toBeUndefined();
+
+  it('holds its whole cycle while the player is in a SAFE ZONE', () => {
+    const game = bare();
+    game.player.invincible = 99;
+    const ledge = onSpikeGround(game);
+    const spikes = ledge.spikePlatform!;
+    expect(spikes.state).toBe('warning');
+    const held = spikes.timer;
+    // Step into a chamber. TIMEVOID stops the shaft, and a warning is part of the shaft.
+    const zone: SafeZone = { id: 500, side: -1, x: WORLD.wall, y: ledge.y - 130, width: 150, height: 116, content: null, taken: false };
+    game.safeZones = [zone];
+    game.platforms.push({ id: 501, x: zone.x, y: zone.y + zone.height, width: zone.width, breakable: false, state: 'stable', safeZone: zone.id });
+    game.player.x = zone.x + 70; game.player.y = zone.y + zone.height - 15; game.player.vy = 0; game.player.grounded = 501;
+    game.step(1 / 120, 0, false);
+    expect(game.timeFrozen).toBe(true);
+    tick(game, SPIKE_PLATFORM_RULES.warning * 4);
+    expect(spikes.state).toBe('warning');
+    expect(spikes.timer).toBeCloseTo(held, 5);
+    // Out again, and it carries on from exactly where it stopped.
+    for (let i = 0; i < 900 && game.timeFrozen; i++) { game.player.invincible = 99; game.step(1 / 120, 1, false); }
+    expect(game.timeFrozen).toBe(false);
+    tick(game, SPIKE_PLATFORM_RULES.warning + 0.1);
+    expect(spikes.state).toBe('active');
   });
 });
 
-describe('AREA 2 bubbles', () => {
-  it('gives a bubble its configured seconds, capped at the tank', () => {
-    const game = bare(1);
-    hold(game, 7);
-    game.pickups = [{ id: 1, kind: 'oxygenBubble', x: game.player.x, y: game.player.y, phase: 0, taken: false, drifting: false }];
-    game.step(1 / 120, 0, false);
-    expect(game.oxygen.remaining).toBeCloseTo(OXYGEN_RULES.max - 7 + OXYGEN_RULES.bubbleRecovery - 1 / 120, 3);
-    expect(game.events.some(e => e.type === 'oxygen')).toBe(true);
-  });
-  it('never overfills and never lets one bubble be taken twice', () => {
-    const game = bare(1);
-    hold(game, 1);
-    const bubble: Pickup = { id: 2, kind: 'oxygenBubble', x: game.player.x, y: game.player.y, phase: 0, taken: false, drifting: false };
-    game.pickups = [bubble];
-    game.step(1 / 120, 0, false);
-    expect(game.oxygen.remaining).toBeLessThanOrEqual(OXYGEN_RULES.max);
-    expect(bubble.taken).toBe(true);
-    const after = game.oxygen.remaining;
-    game.pickups = [bubble];
-    game.step(1 / 120, 0, false);
-    expect(game.oxygen.remaining).toBeCloseTo(after - 1 / 120, 4);
-  });
-  it('drops a bubble when a BUBBLE FISH dies, by data rather than a special case', () => {
-    expect(ENEMY_TYPES.bubbleFish.drop).toEqual({ pickup: 'oxygenBubble' });
-    expect(ENEMY_TYPES.fish.drop).toBeUndefined();
-    const game = bare(1);
-    game.enemies = [spawnEnemy('bubbleFish', 5, 225, 300, 0, 0, 'open')];
-    game.player.x = 225; game.player.y = 180; game.player.vy = 0;
-    game.shoot();
-    tick(game, 0.3);
-    expect(game.kills).toBe(1);
-    expect(game.pickups.filter(p => p.kind === 'oxygenBubble')).toHaveLength(1);
-  });
-  it('has no shelter anywhere: nothing in the shaft stops the drain by being stood in', () => {
-    // The sheltering alcove is gone, along with the state it set. Standing still anywhere in AREA 2
-    // now costs air at exactly the same rate as moving, so the only way up is a bubble.
-    expect('sheltered' in (bare(1) as object)).toBe(false);
-    expect('airPockets' in (bare(1) as object)).toBe(false);
-    const game = bare(1);
-    const before = game.oxygen.remaining;
-    hold(game, 4);
-    expect(game.oxygen.remaining).toBeCloseTo(before - 4, 1);
-    // The generator cannot produce one either, in any SECTION, on any seed.
-    for (const sectionId of [1, 2, 3] as const) {
-      for (let seed = 1; seed <= 20; seed++) {
-        const built = section(sectionId, seed * 811) as Record<string, unknown>;
-        expect(built.airPockets).toBeUndefined();
+describe('AREA 2 generation carries the CATACOMBS role', () => {
+  it('lays spike platforms in every SECTION, more of them as the AREA goes on', () => {
+    const share = SECTIONS.map(sectionId => {
+      let turning = 0, rows = 0;
+      for (let seed = 1; seed <= SEEDS; seed++) {
+        const shaft = section(sectionId, seed * 613);
+        const ledges = shaft.platforms.filter(p => !p.breakBlock && p.safeZone === undefined);
+        rows += ledges.length;
+        turning += ledges.filter(p => p.spikePlatform).length;
       }
-    }
+      expect({ sectionId, any: turning > 0 }).toEqual({ sectionId, any: true });
+      return turning / rows;
+    });
+    expect(share[0]).toBeLessThan(share[1]);
+    expect(share[1]).toBeLessThan(share[2]);
+    // Never the whole SECTION: CATACOMBS still has somewhere to stand, unlike LIMBO.
+    for (const s of share) expect(s).toBeLessThan(0.75);
   });
-  it('keeps one pickup table driving spawn, effect and drawing', () => {
-    expect(PICKUP_TYPES.oxygenBubble).toMatchObject({ effect: 'oxygen', value: OXYGEN_RULES.bubbleRecovery, silhouette: 'bubble' });
-  });
-});
 
-describe('AREA 2 enemies', () => {
-  it('pools exactly the four AREA 2 enemies with both stomp classes present', () => {
-    expect([...area2.enemyPool]).toEqual(['fish', 'bubbleFish', 'jellyfish', 'urchin']);
-    expect(area2.enemyPool.filter(k => ENEMY_TYPES[k].stompable)).toEqual(['fish', 'bubbleFish']);
-    expect(area2.enemyPool.filter(k => !ENEMY_TYPES[k].stompable)).toEqual(['jellyfish', 'urchin']);
-    for (const kind of area2.enemyPool) expect(['blob', 'wing', 'shell', 'brute']).not.toContain(ENEMY_TYPES[kind].silhouette);
-  });
-  it('stomps only what the attribute allows', () => {
-    for (const kind of area2.enemyPool) {
-      const game = bare(1);
-      game.player.y = 260; game.player.vy = 300;
-      game.enemies = [spawnEnemy(kind, 1, 225, 300)];
-      game.player.x = 225;
-      tick(game, 0.12);
-      if (enemyType(kind).stompable) expect([kind, game.kills, game.hp]).toEqual([kind, 1, 4]);
-      else expect([kind, game.kills, game.hp]).toEqual([kind, 0, 3]);
-    }
-  });
-  it('kills every AREA 2 enemy by shooting', () => {
-    for (const kind of area2.enemyPool) {
-      const game = bare(1);
-      game.player.x = 225; game.player.y = 180; game.player.vy = 0;
-      game.enemies = [spawnEnemy(kind, 1, 225, 300)];
-      game.shoot();
-      tick(game, 0.35);
-      expect([kind, game.kills]).toEqual([kind, 1]);
-    }
-  });
-  it('sees all four kinds across the area and keeps BUBBLE FISH uncommon', () => {
-    const counts: Partial<Record<EnemyKind, number>> = {};
-    let total = 0;
-    for (let sectionId = 1; sectionId <= 3; sectionId++) {
-      for (let seed = 1; seed <= 40; seed++) {
-        for (const e of section(sectionId as SectionId, seed * 733).enemies) { counts[e.kind] = (counts[e.kind] ?? 0) + 1; total++; }
-      }
-    }
-    expect(Object.keys(counts).sort()).toEqual(['bubbleFish', 'fish', 'jellyfish', 'urchin']);
-    expect(counts.bubbleFish! / total).toBeLessThan(0.16);
-    expect(counts.bubbleFish! / total).toBeGreaterThan(0.02);
-  });
-});
-
-describe('AREA 2 section pacing', () => {
-  // 200 seeds, not 40: at 40 the air counts swing by more than the gap between two SECTIONS, so a
-  // bound written against one 40-seed draw measures that draw rather than the plan.
-  const SEEDS = 200;
-  const stats = (sectionId: SectionId) => {
-    let containers = 0, enemies = 0, tough = 0, rows = 0;
-    for (let seed = 1; seed <= SEEDS; seed++) {
-      const s = section(sectionId, seed * 311);
-      // Air now arrives as sealed containers; breaking one releases the bubbles.
-      containers += s.containers.length; rows += s.platforms.length;
-      enemies += s.enemies.length; tough += s.enemies.filter(e => !e.stompable).length;
-    }
-    return { containers: containers / SEEDS, rows: rows / SEEDS, enemies: enemies / SEEDS, toughPerRow: tough / rows, enemiesPerRow: enemies / rows };
-  };
-  it('moves from plentiful, close air to sparse, off-route air', () => {
-    const [one, two, three] = [1, 2, 3].map(s => stats(s as SectionId));
-    // Containers are the whole supply now, so this one series carries what two used to.
-    expect(one.containers).toBeGreaterThan(two.containers);
-    expect(two.containers).toBeGreaterThan(three.containers);
-    expect(plan(1).containerChance!).toBeGreaterThan(plan(3).containerChance!);
-    expect(plan(1).bubbleOffside!).toBeLessThan(plan(2).bubbleOffside!);
-    expect(plan(2).bubbleOffside!).toBeLessThan(plan(3).bubbleOffside!);
-    expect(plan(1).maxOxygenGap!).toBeLessThan(plan(2).maxOxygenGap!);
-    expect(plan(2).maxOxygenGap!).toBeLessThan(plan(3).maxOxygenGap!);
-  });
-  it('keeps air sparse enough late in the area that the gauge still decides routes', () => {
-    const [one, two, three] = [1, 2, 3].map(s => stats(s as SectionId));
-    // 2-3 is meant to sit near "a handful of containers and maybe one pocket", not a corridor of
-    // air. SECTION lengths differ per AREA now, so scarcity has to be read as a density.
-    const per100 = (n: number) => n / (area2.sectionLength / 100);
-    expect(per100(three.containers)).toBeLessThan(3);
-    expect(one.containers).toBeGreaterThan(three.containers);
-    expect(two.containers).toBeGreaterThan(three.containers);
-    // The density is the plan's own, not a number somebody liked: the roll happens once per
-    // ordinary row, and the ceiling below only ever forces MORE. Anything far above that means the
-    // forcing has taken over and the plan is no longer deciding how much air a SECTION has.
-    for (const sectionId of [1, 2, 3] as const) {
-      const measured = stats(sectionId).containers, rows = stats(sectionId).rows;
-      const fromPlan = rows * plan(sectionId).containerChance!;
-      expect(measured, `section 2-${sectionId}`).toBeGreaterThan(fromPlan * 0.9);
-      expect(measured, `section 2-${sectionId}`).toBeLessThan(fromPlan * 2);
-    }
-    // A full tank must still cover the worst planned dry stretch with room to spare.
-    for (const sectionId of [1, 2, 3] as const) expect(plan(sectionId).maxOxygenGap!).toBeLessThan(60);
-  });
-  it('raises enemy pressure and the share that cannot be stomped', () => {
-    const [one, two, three] = [1, 2, 3].map(s => stats(s as SectionId));
-    expect(one.enemiesPerRow).toBeLessThan(two.enemiesPerRow);
-    expect(two.enemiesPerRow).toBeLessThan(three.enemiesPerRow);
-    expect(one.toughPerRow).toBeLessThan(three.toughPerRow);
-  });
-});
-
-describe('AREA 2 generation safety', () => {
-  it('never leaves a stretch longer than the plan allows without air, across many seeds', () => {
-    for (let sectionId = 1; sectionId <= 3; sectionId++) {
-      const ceiling = plan(sectionId as SectionId).maxOxygenGap!;
-      for (let seed = 1; seed <= 60; seed++) {
-        const s = section(sectionId as SectionId, seed * 1597);
-        // There is one kind of air source now, so this is the whole supply for the SECTION.
-        const air = s.containers;
-        // START_PLATFORM.y is where the generator's own bookkeeping starts, so the first stretch
-        // is measured from the same place it is planned from.
-        const sources = [START_PLATFORM.y, ...air.map(c => c.y + c.height / 2), s.limit].sort((a, b) => a - b);
-        expect(air.length, `section 2-${sectionId} seed ${seed}`).toBeGreaterThan(3);
-        for (let i = 1; i < sources.length; i++) {
-          const gap = (sources[i] - sources[i - 1]) / WORLD.pixelsPerMeter;
-          expect(gap, `section 2-${sectionId} seed ${seed}`).toBeLessThanOrEqual(ceiling);
+  it('starts every spike platform unarmed and safe', () => {
+    for (const sectionId of SECTIONS) {
+      for (let seed = 1; seed <= SEEDS; seed++) {
+        for (const p of section(sectionId, seed * 271).platforms) {
+          if (!p.spikePlatform) continue;
+          expect({ sectionId, seed, state: p.spikePlatform.state, timer: p.spikePlatform.timer }).toEqual({ sectionId, seed, state: 'safe', timer: 0 });
         }
       }
     }
   });
-  it('never builds a SECTION with no air in it at all', () => {
-    // With the sheltering alcove gone, a SECTION whose seed happened to roll no container would be
-    // an unwinnable run rather than a hard one. The plan's ceiling forces placement, so this is a
-    // floor on the whole AREA, checked on the shaft the game actually builds -- gate rows included.
-    for (const sectionId of [1, 2, 3] as const) {
-      let fewest = Infinity;
-      for (let seed = 1; seed <= 200; seed++) fewest = Math.min(fewest, section(sectionId, seed * 311).containers.length);
-      expect({ section: `2-${sectionId}`, fewest }).toEqual({ section: `2-${sectionId}`, fewest: expect.any(Number) });
-      // A full tank is 12s and a bubble is 5s, so a handful of containers is the least that can
-      // carry a SECTION. Nothing near zero may ever come out of the generator.
-      expect(fewest, `section 2-${sectionId}`).toBeGreaterThanOrEqual(5);
-    }
-  });
-  it('keeps every air source inside the shaft and within reach of the fall that leads to it', () => {
-    for (let sectionId = 1; sectionId <= 3; sectionId++) {
-      for (let seed = 1; seed <= 40; seed++) {
-        const s = section(sectionId as SectionId, seed * 2087);
-        const rows = [START_PLATFORM, ...s.platforms];
-        const sourceAt = (x: number, y: number, halfWidth: number) => {
-          const above = [...rows].filter(p => p.y < y).sort((a, b) => b.y - a.y)[0];
-          const below = s.platforms.filter(p => p.y > y).sort((a, b) => a.y - b.y)[0];
-          expect(x - halfWidth).toBeGreaterThanOrEqual(WORLD.wall);
-          expect(x + halfWidth).toBeLessThanOrEqual(WORLD.width - WORLD.wall);
-          if (!below) return;
-          // Air never hides inside a ledge, and the fall from the previous exit can steer to it.
-          expect(Math.abs(y - above.y)).toBeGreaterThan(20);
-          expect(Math.abs(y - below.y)).toBeGreaterThan(20);
-          const reach = horizontalReach(below.y - 54 - above.y, area2.water);
-          expect(Math.abs(x - above.exitX)).toBeLessThanOrEqual(reach + halfWidth + 1);
-        };
-        // Air sources are containers now. A gun module crate also lives in `pickups`, but it sits
-        // on a ledge's landing spot rather than in the fall band, so the air-reach rule is not its
-        // rule and applying it here was simply testing the wrong object.
-        for (const box of s.containers) {
-          const centre = box.x + box.width / 2, middle = box.y + box.height / 2;
-          sourceAt(centre, middle, box.width / 2);
-          for (const e of s.enemies) if (Math.abs(e.y - middle) < 40) expect(Math.abs(e.originX - centre)).toBeGreaterThan(e.range + 20);
-        }
+
+  it('lays no instant-death terrain anywhere', () => {
+    for (const sectionId of SECTIONS) {
+      expect(plan(sectionId).spikeChance ?? 0).toBe(0);
+      expect((plan(sectionId).spikeKinds ?? []).length).toBe(0);
+      for (let seed = 1; seed <= SEEDS; seed++) {
+        const shaft = section(sectionId, seed * 811);
+        expect({ sectionId, seed, hazards: shaft.hazards.length }).toEqual({ sectionId, seed, hazards: 0 });
       }
     }
   });
-  it('still guarantees a reachable route with submerged travel maths', () => {
-    for (let sectionId = 1; sectionId <= 3; sectionId++) {
-      for (let seed = 1; seed <= 40; seed++) {
-        const s = section(sectionId as SectionId, seed * 4423);
+
+  it('has no water left in it at all', () => {
+    expect(area2.gimmicks?.oxygen).toBeUndefined();
+    expect(area2.water).toBeUndefined();
+    for (const sectionId of SECTIONS) {
+      expect(plan(sectionId).containerChance ?? 0).toBe(0);
+      expect(plan(sectionId).maxOxygenGap).toBeUndefined();
+      expect(plan(sectionId).bubbleOffside).toBeUndefined();
+      for (let seed = 1; seed <= SEEDS; seed++) {
+        const shaft = section(sectionId, seed * 409);
+        expect({ sectionId, seed, containers: shaft.containers.length }).toEqual({ sectionId, seed, containers: 0 });
+      }
+    }
+    // And a run parked here runs no gauge and no submerged physics.
+    for (const sectionId of SECTIONS) {
+      const game = bare(sectionId);
+      expect({ sectionId, oxygen: game.oxygen.enabled }).toEqual({ sectionId, oxygen: false });
+      expect({ sectionId, water: game.water }).toEqual({ sectionId, water: undefined });
+      expect({ sectionId, bubbles: game.bubbles.length, containers: game.containers.length }).toEqual({ sectionId, bubbles: 0, containers: 0 });
+    }
+  });
+
+  it('hangs candles on the walls to bounce from', () => {
+    for (const sectionId of SECTIONS) {
+      expect(plan(sectionId).doodadChance ?? 0).toBeGreaterThan(0);
+      let doodads = 0;
+      for (let seed = 1; seed <= SEEDS; seed++) doodads += section(sectionId, seed * 977).doodads.length;
+      expect({ sectionId, perRun: doodads / SEEDS > 1 }).toEqual({ sectionId, perRun: true });
+    }
+    // The same DOODAD the rest of the game uses -- one mechanic, not a second implementation.
+    const game = bare();
+    game.player.invincible = 99;
+    game.ammo = 1; game.combo = 7;
+    const doodad = { id: 1, x: game.player.x - DOODAD_RULES.width / 2, y: game.player.y + 60, width: DOODAD_RULES.width, height: DOODAD_RULES.height, variant: 'lamp' as const, active: true };
+    game.doodads = [doodad];
+    game.player.vy = 300;
+    for (let i = 0; i < 90 && !game.events.some(e => e.type === 'doodad'); i++) game.step(1 / 120, 0, false);
+    expect(game.events.some(e => e.type === 'doodad')).toBe(true);
+    expect(game.ammo).toBe(game.stats.maxAmmo);
+    expect(game.combo).toBe(7);
+    expect(game.kills).toBe(0);
+    expect(game.coins.coins.length + game.coins.walletCoins).toBe(0);
+  });
+
+  it('pools basics and armoured together, and nothing aquatic', () => {
+    expect(area2.enemyPool.length).toBeGreaterThan(2);
+    expect(area2.enemyPool.some(k => ENEMY_TYPES[k].stompable)).toBe(true);
+    expect(area2.enemyPool.some(k => !ENEMY_TYPES[k].stompable)).toBe(true);
+    for (const kind of area2.enemyPool) {
+      expect({ kind, shootable: ENEMY_TYPES[kind].shootable }).toEqual({ kind, shootable: true });
+      expect({ kind, aquatic: (['fish', 'bubbleFish', 'jellyfish', 'urchin'] as EnemyKind[]).includes(kind) }).toEqual({ kind, aquatic: false });
+    }
+  });
+
+  it('guarantees a SAFE ZONE and leaves the route intact', () => {
+    for (const sectionId of SECTIONS) {
+      for (let seed = 1; seed <= SEEDS; seed++) {
+        const shaft = section(sectionId, seed * 613);
+        expect({ sectionId, seed, zones: shaft.zones.length >= 1 }).toEqual({ sectionId, seed, zones: true });
+        // A chamber floor is its own slab against a wall, never a step on the fall route.
         let previous: RoutePlatform = { ...START_PLATFORM };
-        // A SAFE ZONE floor is a side chamber's own slab against a wall, not a step on the route:
-        // the generator never chains the next row's reach from it. Measuring the fall from one is
-        // measuring the wrong object, exactly as applying the air-reach rule to a crate was.
-        for (const p of s.platforms.filter(f => f.safeZone === undefined)) {
-          expect(Math.abs(p.safeX - previous.exitX)).toBeLessThanOrEqual(horizontalReach(p.y - previous.y, area2.water));
+        for (const p of shaft.platforms.filter(f => f.safeZone === undefined)) {
+          expect(Math.abs(p.safeX - previous.exitX)).toBeLessThanOrEqual(horizontalReach(p.y - previous.y));
           previous = p;
         }
+        // Nothing sits on the way out.
+        if (shaft.exit) {
+          for (const zone of shaft.zones) {
+            const clash = zone.x < shaft.exit.x + shaft.exit.width && zone.x + zone.width > shaft.exit.x
+              && zone.y < shaft.exit.y + shaft.exit.height && zone.y + zone.height > shaft.exit.y;
+            expect({ sectionId, seed, clash }).toEqual({ sectionId, seed, clash: false });
+          }
+        }
       }
     }
-  });
-});
-
-describe('AREA 2 submerged physics', () => {
-  it('scales gravity and eases horizontal input, then restores both outside the water', () => {
-    expect(area2.water).toEqual({ gravity: 0.90, responsiveness: 11 });
-    const water = bare(1);
-    water.player.grounded = -1; water.player.vy = 0;
-    water.step(1 / 120, 0, false);
-    expect(water.player.vy).toBeCloseTo(BALANCE.gravity * 0.9 / 120, 4);
-    // Horizontal input ramps up instead of snapping to full speed.
-    const drift = bare(1);
-    drift.player.vx = 0;
-    const startX = drift.player.x;
-    drift.step(1 / 120, 1, false);
-    expect(drift.player.x - startX).toBeLessThan(BALANCE.moveSpeed / 120 * 0.4);
-    tick(drift, 1, 1);
-    expect(drift.player.vx).toBeGreaterThan(BALANCE.moveSpeed * 0.9);
-    // Releasing the key drifts to a stop rather than cutting dead.
-    const before = drift.player.x;
-    drift.step(1 / 120, 0, false);
-    expect(drift.player.x).toBeGreaterThan(before);
-
-    const dry = new GameModel();
-    expect(dry.water).toBeUndefined();
-    dry.player.grounded = -1; dry.player.vy = 0;
-    dry.step(1 / 120, 0, false);
-    expect(dry.player.vy).toBeCloseTo(BALANCE.gravity / 120, 4);
-    const dryStart = dry.player.x;
-    dry.step(1 / 120, 1, false);
-    expect(dry.player.x - dryStart).toBeCloseTo(BALANCE.moveSpeed / 120, 4);
-    expect(dry.player.vx).toBe(0);
-  });
-  it('keeps the shooting core intact underwater: recoil may lift, but never climbs', () => {
-    const game = bare(1);
-    game.player.y = 200; game.player.vy = 0; game.player.grounded = -1;
-    let highest = 200;
-    // Clear the shaft each step: this is about recoil, not about bouncing off a passing fish.
-    // Gun modules are cleared alongside the enemies: swapping weapons mid-measurement would be
-    // testing the crate, not the recoil.
-    for (let i = 0; i < 900; i++) { game.oxygen.remaining = OXYGEN_RULES.max; game.player.invincible = 99; game.enemies = []; game.platforms = []; game.pickups = []; game.step(1 / 120, 0, true); highest = Math.min(highest, game.player.y); }
-    // Recoil may lift underwater too; what must hold is that it never turns into climbing.
-    expect(game.ammo).toBe(0);
-    expect(game.player.y).toBeGreaterThan(200);
-    expect(highest).toBeGreaterThan(200 - 200);
-  });
-  it('still reloads a full magazine on landing underwater', () => {
-    const game = bare(1);
-    game.platforms = [{ id: 4, x: 150, width: 160, y: 300 }];
-    game.player.x = 225; game.player.y = 200; game.player.vy = 0; game.ammo = 1;
-    tick(game, 1.2);
-    expect([game.player.grounded, game.ammo]).toEqual([4, game.stats.maxAmmo]);
   });
 });

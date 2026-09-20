@@ -3,11 +3,12 @@ import type { PickupKind } from './pickups';
 
 export type EnemyKind = 'slime' | 'bat' | 'armoredSlime' | 'tank' | 'fish' | 'bubbleFish' | 'jellyfish' | 'urchin'
   | 'fireLizard' | 'fireBat' | 'magmaSlime' | 'fireArmor' | 'frostBeetle'
-  | 'demon' | 'wraith' | 'armorGuard' | 'spikeDemon' | 'ruinBreaker';
+  | 'demon' | 'wraith' | 'armorGuard' | 'spikeDemon' | 'ruinBreaker'
+  | 'voidWisp' | 'hollowShade';
 /** Shape family GameScene draws. Silhouette, never colour alone, tells the player what is stompable. */
 export type EnemySilhouette = 'blob' | 'wing' | 'shell' | 'brute' | 'fin' | 'orb' | 'bell' | 'spiked'
   | 'lizard' | 'ember' | 'flame' | 'plated' | 'crystal'
-  | 'horned' | 'shade' | 'bulwark' | 'barb' | 'breaker';
+  | 'horned' | 'shade' | 'bulwark' | 'barb' | 'breaker' | 'wisp' | 'hollow';
 /** Spawn weight class. Independent of `stompable`: it only decides how often a row rolls this tier. */
 export type EnemyThreat = 'basic' | 'armored' | 'heavy';
 /** Where the generator may place it: guarding a ledge, loose in open water/air, or either. */
@@ -77,6 +78,12 @@ export const ENEMY_TYPES: Record<EnemyKind, EnemyType> = {
   // AREA 4. Stompable ones double as footholds once the ledges stop being trustworthy.
   demon: { id: 'demon', name: 'DEMON', shootable: true, stompable: true, flying: true, threat: 'basic', spawnSlot: 'any', spawnWeight: 1, hp: 1, silhouette: 'horned', bodyWidth: 28, swaySpeed: 1.15, damageCause: 'enemy', contactHint: '接触' },
   wraith: { id: 'wraith', name: 'WRAITH', shootable: true, stompable: true, flying: true, threat: 'basic', spawnSlot: 'open', spawnWeight: 0.8, hp: 1, silhouette: 'shade', bodyWidth: 26, swaySpeed: 0.45, damageCause: 'enemy', contactHint: '接触' },
+  // LIMBO's own roster. Nothing here can be stood on -- that is the AREA's rule, so it is declared
+  // on the type rather than overridden at spawn -- and all of it flies, because LIMBO has no ground
+  // worth guarding. They are separate kinds from DEMON and WRAITH on purpose: those two are also
+  // in the FINAL BOSS's roster, and the fight is not being changed to follow the AREAs.
+  voidWisp: { id: 'voidWisp', name: 'VOID WISP', shootable: true, stompable: false, flying: true, threat: 'basic', spawnSlot: 'any', spawnWeight: 1, hp: 1, silhouette: 'wisp', bodyWidth: 26, swaySpeed: 1.2, damageCause: 'enemy', contactHint: '踏めない・撃て' },
+  hollowShade: { id: 'hollowShade', name: 'HOLLOW SHADE', shootable: true, stompable: false, flying: true, threat: 'basic', spawnSlot: 'open', spawnWeight: 0.9, hp: 1, silhouette: 'hollow', bodyWidth: 26, swaySpeed: 0.5, damageCause: 'enemy', contactHint: '踏めない・撃て' },
   armorGuard: { id: 'armorGuard', name: 'ARMOR GUARD', shootable: true, stompable: false, flying: false, threat: 'heavy', spawnSlot: 'guard', spawnWeight: 1, hp: 3, silhouette: 'bulwark', bodyWidth: 32, swaySpeed: 0.6, damageCause: 'tank', contactHint: '装甲に注意', minPlatformWidth: 108 },
   spikeDemon: { id: 'spikeDemon', name: 'SPIKE DEMON', shootable: true, stompable: false, flying: true, threat: 'armored', spawnSlot: 'any', spawnWeight: 1, hp: 1, silhouette: 'barb', bodyWidth: 26, swaySpeed: 1.0, damageCause: 'spike', contactHint: 'トゲは踏めない' },
   ruinBreaker: { id: 'ruinBreaker', name: 'RUIN BREAKER', shootable: true, stompable: true, flying: false, threat: 'basic', spawnSlot: 'guard', spawnWeight: 0.45, hp: 1, silhouette: 'breaker', bodyWidth: 30, swaySpeed: 0.8, damageCause: 'enemy', contactHint: '接触', onDefeat: 'shatterNearby' },

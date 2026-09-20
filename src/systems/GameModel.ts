@@ -9,7 +9,7 @@ import { CoinSystem } from './CoinSystem';
 import { CoinHighSystem } from './CoinHighSystem';
 import { ShopSystem } from './ShopSystem';
 import { coinsFor } from '../data/coins';
-import { AIR_CONTAINER_RULES, BREAK_BLOCK_RULES, EXIT_RULES, SHOP_DOOR, type AirBubble, type AirContainer, type StageExit } from '../data/structures';
+import { AIR_CONTAINER_RULES, BREAK_BLOCK_RULES, EXIT_RULES, SHOP_DOOR, SPIKE_PLATFORM_RULES, type AirBubble, type AirContainer, type StageExit } from '../data/structures';
 import { DOODAD_RULES, type Doodad } from '../data/doodads';
 import { insideSafeZone, SAFE_ZONE_RULES, type SafeZone } from '../data/safeZone';
 import { shopItem, type ShopOffer } from '../data/shop';
@@ -24,7 +24,7 @@ import { StageProgressionSystem } from './StageProgressionSystem';
 import type { AreaId, SectionId } from '../data/areas';
 import { enemyType } from '../data/enemies';
 import { defaultTuning, sanitizeTuning, type PhysicsTuning } from './PhysicsTuning';
-export type GameEvent = { type: 'shot' | 'empty' | 'land' | 'kill' | 'hurt' | 'upgrade' | 'over' | 'heal' | 'boss' | 'clear' | 'oxygen' | 'section' | 'ice' | 'vent' | 'crack' | 'collapse' | 'bossHit' | 'bossTelegraph' | 'bossFire' | 'bossPhase' | 'bossDown' | 'gunModule' | 'coin' | 'shopOpen' | 'shopBuy' | 'exitReady' | 'exit' | 'containerBreak' | 'blockCrack' | 'blockBreak' | 'jump' | 'wallJump' | 'comboSettle' | 'doodad' | 'timeVoid' | 'coinVein' | 'coinHigh'; x: number; y: number; value?: number; stomp?: boolean; lifeUps?: number; overflow?: number; combo?: number; stage?: string; areaCleared?: string | null; bonus?: 'heart' | 'charge'; source?: { id: number; kind: Enemy['kind']; x: number; y: number } };
+export type GameEvent = { type: 'shot' | 'empty' | 'land' | 'kill' | 'hurt' | 'upgrade' | 'over' | 'heal' | 'boss' | 'clear' | 'oxygen' | 'section' | 'ice' | 'vent' | 'crack' | 'collapse' | 'bossHit' | 'bossTelegraph' | 'bossFire' | 'bossPhase' | 'bossDown' | 'gunModule' | 'coin' | 'shopOpen' | 'shopBuy' | 'exitReady' | 'exit' | 'containerBreak' | 'blockCrack' | 'blockBreak' | 'jump' | 'wallJump' | 'comboSettle' | 'doodad' | 'timeVoid' | 'coinVein' | 'coinHigh' | 'spikePlatform'; x: number; y: number; value?: number; stomp?: boolean; lifeUps?: number; overflow?: number; combo?: number; stage?: string; areaCleared?: string | null; bonus?: 'heart' | 'charge'; source?: { id: number; kind: Enemy['kind']; x: number; y: number } };
 export interface Bullet {
   x: number; y: number; previousY: number; previousX: number;
   /** Velocity in px/s. Straight-down weapons simply carry vx = 0. */
@@ -522,6 +522,7 @@ export class GameModel {
     // A contact check rather than a timer, and no chamber is cut where anything lethal stands, so
     // this stays live: nothing about stopped time should make walking into lava survivable.
     this.tickLethalTerrain();
+    if (!frozen) this.tickSpikePlatforms(dt);
     // Invulnerability delays a drowning hit but can never cancel it: the debt is only cleared once
     // HealthSystem actually accepts the damage.
     if (!frozen && this.oxygen.tick(dt) && this.damage(1, 'oxygen')) this.oxygen.consumeDamage();
@@ -583,6 +584,54 @@ export class GameModel {
    * never have been looked at. The cause comes from the hazard table, so the result screen names
    * what actually ended the run rather than guessing lava.
    */
+  /**
+   * SPIKE PLATFORMS: ground that turns on the player.
+   *
+   * The whole point is that it is fair. Landing arms it and nothing else does, the warning always
+   * runs before the spikes, and what they cost is ordinary damage through HealthSystem -- the same
+   * hearts, the same invulnerability window, the same COMBO-preserving rules as any other hit.
+   * There is no path here that ends a run outright.
+   *
+   * Nothing is ticked while the player is in a chamber: the cycle belongs to the shaft, so a warning
+   * the player walked away from is exactly where they left it when they come back.
+   */
+  private tickSpikePlatforms(dt: number) {
+    const p = this.player;
+    for (const platform of this.platforms) {
+      const spikes = platform.spikePlatform;
+      if (!spikes) continue;
+      // Landing is the only trigger. Reading `grounded` rather than a contact box means a player
+      // falling past the edge of one never sets it off.
+      if (spikes.state === 'safe' && p.grounded === platform.id) {
+        spikes.state = 'warning';
+        spikes.timer = SPIKE_PLATFORM_RULES.warning;
+        this.events.push({ type: 'spikePlatform', x: platform.x + platform.width / 2, y: platform.y, value: 0 });
+        continue;
+      }
+      if (spikes.state === 'safe') continue;
+      spikes.timer -= dt;
+      if (spikes.state === 'active') {
+        // Standing in the teeth, or brushing them on the way past.
+        const top = platform.y - SPIKE_PLATFORM_RULES.reach;
+        if (p.x + 9 > platform.x && p.x - 9 < platform.x + platform.width && p.y + 15 > top && p.y - 15 < platform.y + 6) {
+          this.damage(SPIKE_PLATFORM_RULES.damage, 'spike');
+        }
+      }
+      if (spikes.timer > 0) continue;
+      if (spikes.state === 'warning') {
+        spikes.state = 'active';
+        spikes.timer = SPIKE_PLATFORM_RULES.active;
+        this.events.push({ type: 'spikePlatform', x: platform.x + platform.width / 2, y: platform.y, value: 1 });
+      } else if (spikes.state === 'active') {
+        spikes.state = 'cooldown';
+        spikes.timer = SPIKE_PLATFORM_RULES.cooldown;
+        this.events.push({ type: 'spikePlatform', x: platform.x + platform.width / 2, y: platform.y, value: 2 });
+      } else {
+        spikes.state = 'safe';
+        spikes.timer = 0;
+      }
+    }
+  }
   private tickLethalTerrain() {
     const p = this.player;
     for (const hazard of this.hazards) {

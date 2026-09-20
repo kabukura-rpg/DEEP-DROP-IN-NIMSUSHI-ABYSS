@@ -103,3 +103,48 @@ export const BREAK_BLOCK_RULES = {
 export const breakBlockWidth = (rules: { count: number } = BREAK_BLOCK_RULES) =>
   (WORLD.width - WORLD.wall * 2) / rules.count;
 export const shaftCentre = WORLD.width / 2;
+
+/**
+ * A SPIKE PLATFORM: ground that is safe to land on and then stops being safe.
+ *
+ * This is deliberately NOT the instant-death SPIKE terrain. Landing on one is an ordinary landing --
+ * CHARGE fills, a chain settles -- and only after a visible warning do the spikes come up. Touching
+ * them then costs ordinary damage through HealthSystem, with the ordinary invulnerability window, so
+ * a mistake is a mistake rather than the end of the run.
+ *
+ * The cycle is: safe -> (a landing arms it) -> warning -> active -> cooldown -> safe. The warning
+ * is what makes it fair; nothing can ever hurt the player on the frame they touch down.
+ */
+export type SpikePlatformState = 'safe' | 'warning' | 'active' | 'cooldown';
+
+export interface SpikePlatform {
+  state: SpikePlatformState;
+  /** Seconds left in the current state. */
+  timer: number;
+}
+
+export const SPIKE_PLATFORM_RULES = {
+  /**
+   * Seconds between the landing that arms it and the spikes emerging. Long enough to read and to
+   * leave, short enough that a platform is never a rest. MEASUREMENT REQUIRED.
+   */
+  warning: 0.55,
+  /**
+   * Seconds the spikes stay up. Deliberately shorter than HealthSystem's invulnerability window, so
+   * one pass through a live platform costs exactly one heart: a player who mistimes it is punished
+   * once, not twice by an accident of two unmeasured numbers lining up badly. MEASUREMENT REQUIRED.
+   */
+  active: 0.9,
+  /** Seconds after they retract before a landing can arm it again. MEASUREMENT REQUIRED. */
+  cooldown: 1.2,
+  /**
+   * Hearts one touch costs. Ordinary damage through HealthSystem -- never instant death -- so it is
+   * the same 1 every other ordinary hazard deals. MEASUREMENT REQUIRED.
+   */
+  damage: 1,
+  /** How far the spikes stand above the platform surface, for drawing and for the hitbox. */
+  reach: 16,
+} as const;
+
+/** A fresh, unarmed spike platform. */
+export const spikePlatform = (): SpikePlatform => ({ state: 'safe', timer: 0 });

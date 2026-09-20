@@ -2,7 +2,7 @@ import { WORLD } from '../data/balance';
 import { difficultyAt, horizontalReach } from '../data/difficulty';
 import { ENEMY_TYPES, enemyType, spawnEnemy, type Enemy, type EnemyKind } from '../data/enemies';
 import { spawnPickup, type Pickup, type PickupKind } from '../data/pickups';
-import { AIR_CONTAINER_RULES, BREAK_BLOCK_RULES, breakBlockWidth, EXIT_RULES, type AirContainer, type StageExit } from '../data/structures';
+import { AIR_CONTAINER_RULES, BREAK_BLOCK_RULES, breakBlockWidth, EXIT_RULES, spikePlatform, type AirContainer, type SpikePlatform, type StageExit } from '../data/structures';
 import { spawnHazard, type Hazard, type SpikeKind } from '../data/hazards';
 import { spawnDoodad, DOODAD_RULES, type Doodad } from '../data/doodads';
 import { rollSafeZoneContent, safeZoneDepths, SAFE_ZONE_RULES, type SafeZone } from '../data/safeZone';
@@ -43,6 +43,12 @@ export interface Platform {
   /** A block in a gate row that has to be shot open. Landing on it is an ordinary landing. */
   breakBlock?: BreakBlock;
   /**
+   * Ground that turns on the player. Landing is ordinary -- CHARGE fills, a chain settles -- and
+   * then a warning runs and the spikes come up for ordinary damage. Nothing about it is instant
+   * death, and nothing about it changes what a landing is worth.
+   */
+  spikePlatform?: SpikePlatform;
+  /**
    * The SAFE ZONE this slab is the floor of. Landing on it reloads but does NOT settle the chain,
    * which is the one thing that makes a chamber shelter rather than ground.
    */
@@ -53,7 +59,7 @@ export const START_PLATFORM: RoutePlatform = { id: -2, x: 155, y: 250, width: 14
 export const canReachPlatform = (from: RoutePlatform, to: RoutePlatform, water?: WaterPhysics) => to.y > from.y && Math.abs(to.safeX - from.exitX) <= horizontalReach(to.y - from.y, water);
 
 /** Everything one row needs, whether it came from a SECTION plan or the shared depth curve. */
-interface RowTuning { minWidth: number; maxWidth: number; gap: number; enemyChance: number; flyChance: number; toughChance: number; heavyChance: number; comboBias: number; containerChance: number; maxOxygenGap: number; bubbleOffside: number; lavaPoolChance: number; lavaWallChance: number; ventChance: number; iceChance: number; iceOffside: number; breakableChance: number; maxBreakableRun: number; spikeChance: number; spikeKinds: readonly SpikeKind[]; doodadChance: number }
+interface RowTuning { minWidth: number; maxWidth: number; gap: number; enemyChance: number; flyChance: number; toughChance: number; heavyChance: number; comboBias: number; containerChance: number; maxOxygenGap: number; bubbleOffside: number; lavaPoolChance: number; lavaWallChance: number; ventChance: number; iceChance: number; iceOffside: number; breakableChance: number; maxBreakableRun: number; spikeChance: number; spikeKinds: readonly SpikeKind[]; spikePlatformChance: number; doodadChance: number }
 export interface GenerationContext {
   /** Metres already descended this run; only used when no SECTION plan is supplied. */
   depthOffset?: number;
@@ -176,11 +182,14 @@ export class StageGenerator {
         breakableChance: quiet ? 0 : plan.breakableChance ?? 0, maxBreakableRun: plan.maxBreakableRun ?? Infinity,
         // SPIKE is instant death, so the opening grace period holds it back like everything lethal.
         spikeChance: quiet ? 0 : plan.spikeChance ?? 0, spikeKinds: plan.spikeKinds ?? [],
+        // A SPIKE PLATFORM only ever deals ordinary damage, but the grace period still holds it
+        // back: the opening metres are where the controls are learned, not where they are tested.
+        spikePlatformChance: quiet ? 0 : plan.spikePlatformChance ?? 0,
         doodadChance: quiet ? 0 : plan.doodadChance ?? 0,
       };
     }
     const curve = difficultyAt((this.context.depthOffset ?? 0) + localDepth);
-    return { minWidth: curve.minWidth, maxWidth: curve.maxWidth, gap: curve.gap, enemyChance: curve.enemyChance, flyChance: curve.flyChance, toughChance: curve.spikeChance, heavyChance: curve.tankChance, comboBias: 0, containerChance: 0, maxOxygenGap: Infinity, bubbleOffside: 0, lavaPoolChance: 0, lavaWallChance: 0, ventChance: 0, iceChance: 0, iceOffside: 0, breakableChance: 0, maxBreakableRun: Infinity, spikeChance: 0, spikeKinds: [], doodadChance: 0 };
+    return { minWidth: curve.minWidth, maxWidth: curve.maxWidth, gap: curve.gap, enemyChance: curve.enemyChance, flyChance: curve.flyChance, toughChance: curve.spikeChance, heavyChance: curve.tankChance, comboBias: 0, containerChance: 0, maxOxygenGap: Infinity, bubbleOffside: 0, lavaPoolChance: 0, lavaWallChance: 0, ventChance: 0, iceChance: 0, iceOffside: 0, breakableChance: 0, maxBreakableRun: Infinity, spikeChance: 0, spikeKinds: [], spikePlatformChance: 0, doodadChance: 0 };
   }
 
   private pick<T>(items: readonly T[]) { return items[Math.min(items.length - 1, Math.floor(this.random() * items.length))]; }
@@ -287,6 +296,10 @@ export class StageGenerator {
         platform.state = 'stable';
         this.breakableRun = breakable ? this.breakableRun + 1 : 0;
       }
+      // Ground that turns on the player. Rolled here rather than laid as separate furniture, so it
+      // IS the ledge: a row cannot be both a rest and a trap, and the route's reachability maths are
+      // untouched by it. A gate row never carries one -- a BREAK BLOCK is already its own problem.
+      if (this.random() < tuning.spikePlatformChance) platform.spikePlatform = spikePlatform();
       if (y >= start) platforms.push(platform);
 
       let guard: Enemy | undefined;

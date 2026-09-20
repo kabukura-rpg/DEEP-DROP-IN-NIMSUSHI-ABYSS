@@ -55,6 +55,16 @@ export interface SectionPlan {
   /** Which SPIKE variants this SECTION draws from. One is picked per patch. */
   spikeKinds?: readonly SpikeKind[];
 
+  // --- SPIKE PLATFORM (AREA 2 / AREA 4) --------------------------------------------------------
+  /**
+   * Per-row chance that the ledge IS a SPIKE PLATFORM: ground that is safe to land on and then
+   * turns, after a visible warning, for ordinary damage. Nothing about it is instant death.
+   *
+   * At 1 every ledge in the SECTION is one, which is how AREA 4 has no safe ground to rest on
+   * without having no ground at all. MEASUREMENT REQUIRED.
+   */
+  spikePlatformChance?: number;
+
   // --- BREAK FLOOR ----------------------------------------------------------------------------
   /**
    * Rows of BREAK BLOCK laid across the SECTION, dividing it into that many + 1 fall zones. They
@@ -149,70 +159,102 @@ export interface AreaConfig {
 const LATER_AREA_POOL: readonly EnemyKind[] = ['slime', 'bat', 'armoredSlime', 'tank'];
 
 /**
- * AREA 1 teaches the whole ruleset with no extra systems: fall, shoot, land, stomp, read an enemy.
- * 1-1 is wide and quiet, 1-2 introduces air enemies to bounce from, 1-3 mixes stompable and armoured.
+ * The four AREAs of a normal run, each carrying one of Downwell's world ROLES. Presentation is
+ * DEEP DROP's own -- names, palettes and creatures -- while the mechanics each AREA runs are the
+ * original's:
+ *
+ *   AREA 1  Caverns role   -- the whole ruleset and nothing else. Breakables everywhere, ordinary
+ *                             ground to land on, basic enemies, and nothing that ends a run outright.
+ *   AREA 2  Catacombs role -- ground that turns: SPIKE PLATFORMS arm on landing and come up after a
+ *                             warning, for ordinary damage. Wall candles to bounce from. No water.
+ *   AREA 3  Aquifer role   -- submerged. The breath gauge is the clock, air containers are the only
+ *                             supply, and everything moves through water.
+ *   AREA 4  Limbo role     -- nowhere safe to stand. Every ledge is a spike platform, nothing can be
+ *                             stomped, and floating scenery is what reloads the gunboots.
+ *
+ * Magma -- heat, lava, ice -- is no longer part of a normal run. The systems stay because the FINAL
+ * BOSS replays them, and they are available for later bonus content.
  */
 export const AREAS: readonly AreaConfig[] = [
   {
+    // CAVERNS ROLE. Fall, shoot, land, stomp, chain, open a block. No gauge, no timer on the ground,
+    // and deliberately nothing lethal on touch: AREA 1 is where the controls are learned, so a run
+    // ends here because the player ran out of hearts, never because they brushed a wall.
     id: 1, name: 'SURFACE RUINS', sections: 3, sectionLength: 240,
     enemyPool: ['slime', 'bat', 'armoredSlime'],
     theme: { wall: 0x2b3228, wallEdge: 0x44523a, brick: 0x222a20, pillar: 0x33402c, accent: 0xb9ef70, dust: 0x9db98a, sky: 0x2d4a52, horizon: 0x47707a, grass: 0x6d9c4a },
     plans: [
+      // The most breakable-rich AREA of the four: gate rows every SECTION, opened with one round.
       { platformWidth: [176, 196], gap: 232, enemyChance: 0.30, flyChance: 0.08, toughChance: 0.17, heavyChance: 0, comboBias: 0.20, graceDepth: 25,
-        spikeChance: 0.12, spikeKinds: ['stoneSpike'], breakBlockRows: 1, breakBlockDurability: 1,
+        breakBlockRows: 2, breakBlockDurability: 1,
         doodadChance: 0.12, safeZoneCount: 1 },
       { platformWidth: [152, 178], gap: 238, enemyChance: 0.38, flyChance: 0.20, toughChance: 0.22, heavyChance: 0, comboBias: 0.22,
-        spikeChance: 0.26, spikeKinds: ['stoneSpike', 'ancientStake'], breakBlockRows: 2, breakBlockDurability: 2,
+        breakBlockRows: 3, breakBlockDurability: 2,
         doodadChance: 0.12, safeZoneCount: 1 },
       { platformWidth: [132, 158], gap: 244, enemyChance: 0.52, flyChance: 0.30, toughChance: 0.30, heavyChance: 0, comboBias: 0.30,
-        spikeChance: 0.40, spikeKinds: ['stoneSpike', 'ancientStake'], breakBlockRows: 2, breakBlockDurability: 2,
+        breakBlockRows: 3, breakBlockDurability: 2,
         doodadChance: 0.12, safeZoneCount: 1 },
     ],
   },
   {
-    id: 2, name: 'SUNKEN RUINS', sections: 3, sectionLength: 300,
+    // CATACOMBS ROLE. The ground is the threat. A ledge is safe to arrive on and stops being safe a
+    // moment later, so the AREA is about not staying still -- and every one of those hits is
+    // ordinary damage, so it costs a heart rather than the run. Candles on the walls are the way to
+    // keep a chain alive without touching the floor at all.
+    id: 2, name: 'CATACOMB RUINS', sections: 3, sectionLength: 300,
+    enemyPool: ['slime', 'bat', 'armoredSlime', 'tank'],
+    theme: { wall: 0x2a2620, wallEdge: 0x463f33, brick: 0x1a1713, pillar: 0x3b3428, accent: 0xe8c98a, dust: 0xb6a888 },
+    plans: [
+      { platformWidth: [150, 174], gap: 236, enemyChance: 0.34, flyChance: 0.26, toughChance: 0.22, heavyChance: 0, comboBias: 0.18, graceDepth: 12,
+        spikePlatformChance: 0.30, breakBlockRows: 2, breakBlockDurability: 2,
+        doodadChance: 0.24, safeZoneCount: 1 },
+      { platformWidth: [138, 162], gap: 242, enemyChance: 0.46, flyChance: 0.32, toughChance: 0.30, heavyChance: 0.08, comboBias: 0.24,
+        spikePlatformChance: 0.42, breakBlockRows: 2, breakBlockDurability: 2,
+        doodadChance: 0.26, safeZoneCount: 1 },
+      { platformWidth: [126, 150], gap: 248, enemyChance: 0.56, flyChance: 0.38, toughChance: 0.38, heavyChance: 0.14, comboBias: 0.28,
+        spikePlatformChance: 0.55, breakBlockRows: 2, breakBlockDurability: 2,
+        doodadChance: 0.28, safeZoneCount: 1 },
+    ],
+  },
+  {
+    // AQUIFER ROLE. The breath gauge replaces the floor as the thing that is running out. Air comes
+    // only from containers that have to be broken and then chased, so the route is decided by where
+    // the air is rather than by where the ledges are. Nothing in here is lethal on touch.
+    id: 3, name: 'SUNKEN RUINS', sections: 3, sectionLength: 340,
     enemyPool: ['fish', 'bubbleFish', 'jellyfish', 'urchin'],
     theme: { wall: 0x1c2a2c, wallEdge: 0x324245, brick: 0x111c1f, pillar: 0x24484f, accent: 0x70d8ef, dust: 0x8fd5e0, water: { tint: 0x123844, light: 0x9fe8f5, weed: 0x2f7361 } },
     gimmicks: { oxygen: true },
     water: { gravity: 0.90, responsiveness: 11 },
     plans: [
+      // The gaps are the AREA's difficulty curve. They are held below what one tank can cross, and
+      // the generator forces a source whenever a dry run would exceed them.
       { platformWidth: [150, 174], gap: 236, enemyChance: 0.34, flyChance: 0.26, toughChance: 0.22, heavyChance: 0, comboBias: 0.18, graceDepth: 12, containerChance: 0.44, maxOxygenGap: 30, bubbleOffside: 0.35,
-        spikeChance: 0.22, spikeKinds: ['poisonCoral'], breakBlockRows: 2, breakBlockDurability: 2, safeZoneCount: 1 },
+        breakBlockRows: 2, breakBlockDurability: 2, doodadChance: 0.10, safeZoneCount: 1 },
       { platformWidth: [138, 162], gap: 242, enemyChance: 0.46, flyChance: 0.32, toughChance: 0.30, heavyChance: 0, comboBias: 0.24, containerChance: 0.29, maxOxygenGap: 40, bubbleOffside: 0.62,
-        spikeChance: 0.34, spikeKinds: ['poisonCoral', 'urchinSpike'], breakBlockRows: 2, breakBlockDurability: 2, safeZoneCount: 1 },
+        breakBlockRows: 2, breakBlockDurability: 2, doodadChance: 0.10, safeZoneCount: 1 },
       { platformWidth: [126, 150], gap: 248, enemyChance: 0.56, flyChance: 0.38, toughChance: 0.38, heavyChance: 0, comboBias: 0.28, containerChance: 0.21, maxOxygenGap: 50, bubbleOffside: 0.85,
-        spikeChance: 0.46, spikeKinds: ['poisonCoral', 'urchinSpike'], breakBlockRows: 2, breakBlockDurability: 2, safeZoneCount: 1 },
+        breakBlockRows: 2, breakBlockDurability: 2, doodadChance: 0.10, safeZoneCount: 1 },
     ],
   },
   {
-    id: 3, name: 'MAGMA DEPTHS', sections: 3, sectionLength: 340,
-    enemyPool: ['fireLizard', 'fireBat', 'magmaSlime', 'fireArmor', 'frostBeetle'],
-    theme: { wall: 0x2e1f1f, wallEdge: 0x4a2f2a, brick: 0x1d1414, pillar: 0x3a2622, accent: 0xef9b70, dust: 0xd8a074, ember: { glow: 0xff8a3c, ash: 0xffc27a } },
-    gimmicks: { heat: true, lava: true },
-    plans: [
-      { platformWidth: [146, 170], gap: 238, enemyChance: 0.34, flyChance: 0.24, toughChance: 0.18, heavyChance: 0, comboBias: 0.20, graceDepth: 14,
-        lavaPoolChance: 0.22, lavaWallChance: 0, ventChance: 0.10, iceChance: 0.52, iceOffside: 0.25, breakBlockRows: 2, breakBlockDurability: 3, safeZoneCount: 1 },
-      { platformWidth: [136, 158], gap: 244, enemyChance: 0.46, flyChance: 0.30, toughChance: 0.28, heavyChance: 0.10, comboBias: 0.24,
-        lavaPoolChance: 0.34, lavaWallChance: 0.12, ventChance: 0.20, iceChance: 0.40, iceOffside: 0.60, breakBlockRows: 2, breakBlockDurability: 3, safeZoneCount: 1 },
-      { platformWidth: [124, 146], gap: 250, enemyChance: 0.56, flyChance: 0.36, toughChance: 0.36, heavyChance: 0.16, comboBias: 0.28,
-        lavaPoolChance: 0.44, lavaWallChance: 0.20, ventChance: 0.28, iceChance: 0.30, iceOffside: 0.85, breakBlockRows: 2, breakBlockDurability: 3, safeZoneCount: 1 },
-    ],
-  },
-  {
+    // LIMBO ROLE. There is no resting here. Every ledge is a SPIKE PLATFORM, so touching down buys a
+    // reload and a settled chain at the cost of having to leave immediately; nothing in the enemy
+    // pool can be stomped, so the gunboots are the only way through them; and floating scenery is
+    // what refills CHARGE, which makes the AREA a loop of shoot, bounce, shoot.
     id: 4, name: 'COLLAPSED REALM', sections: 3, sectionLength: 380,
-    enemyPool: ['demon', 'wraith', 'armorGuard', 'spikeDemon', 'ruinBreaker'],
+    enemyPool: ['voidWisp', 'hollowShade', 'spikeDemon'],
     theme: { wall: 0x241f2e, wallEdge: 0x3c3350, pillar: 0x2d2740, brick: 0x171422, accent: 0xc0a7ed, dust: 0x8c82a5, rift: { glow: 0x9d7bd8, void: 0x0b0710, debris: 0x4a3f63 } },
-    gimmicks: { breakablePlatforms: true },
     plans: [
-      { platformWidth: [92, 112], gap: 232, enemyChance: 0.30, flyChance: 0.26, toughChance: 0.16, heavyChance: 0.06, comboBias: 0.24, graceDepth: 26,
-        breakableChance: 1, breakDelay: 0.85, maxBreakableRun: Infinity, enemyExclude: ['ruinBreaker'], safeZoneCount: 1 },
-      { platformWidth: [84, 102], gap: 238, enemyChance: 0.46, flyChance: 0.40, toughChance: 0.28, heavyChance: 0.12, comboBias: 0.34,
-        breakableChance: 1, breakDelay: 0.72, maxBreakableRun: Infinity, safeZoneCount: 1 },
-      { platformWidth: [76, 94], gap: 244, enemyChance: 0.58, flyChance: 0.50, toughChance: 0.34, heavyChance: 0.16, comboBias: 0.40,
-        breakableChance: 1, breakDelay: 0.62, maxBreakableRun: Infinity, safeZoneCount: 1 },
+      { platformWidth: [92, 112], gap: 232, enemyChance: 0.30, flyChance: 0.26, toughChance: 0.16, heavyChance: 0, comboBias: 0.24, graceDepth: 26,
+        spikePlatformChance: 1, doodadChance: 0.85, safeZoneCount: 1 },
+      { platformWidth: [84, 102], gap: 238, enemyChance: 0.46, flyChance: 0.40, toughChance: 0.28, heavyChance: 0, comboBias: 0.34,
+        spikePlatformChance: 1, doodadChance: 0.90, safeZoneCount: 1 },
+      { platformWidth: [76, 94], gap: 244, enemyChance: 0.58, flyChance: 0.50, toughChance: 0.34, heavyChance: 0, comboBias: 0.40,
+        spikePlatformChance: 1, doodadChance: 0.95, safeZoneCount: 1 },
     ],
   },
 ];
+
 export const FINAL_STAGE = { id: 'boss', label: 'FINAL BOSS', name: 'DEMON KING' } as const;
 
 export const areaConfig = (id: AreaId, areas: readonly AreaConfig[] = AREAS) => areas.find(a => a.id === id) ?? areas[0];

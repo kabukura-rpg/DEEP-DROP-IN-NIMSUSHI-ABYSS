@@ -42,7 +42,7 @@ describe('stage data and progression bookkeeping', () => {
     expect(lengths.every(n => n > 0)).toBe(true);
     for (let i = 1; i < lengths.length; i++) expect(lengths[i]).toBeGreaterThanOrEqual(lengths[i - 1]);
     expect(PLANNED_TOTAL_DEPTH).toBe(lengths.reduce((sum, n, i) => sum + n * AREAS[i].sections, 0));
-    expect(AREAS.map(a => a.name)).toEqual(['SURFACE RUINS', 'SUNKEN RUINS', 'MAGMA DEPTHS', 'COLLAPSED REALM']);
+    expect(AREAS.map(a => a.name)).toEqual(['SURFACE RUINS', 'CATACOMB RUINS', 'SUNKEN RUINS', 'COLLAPSED REALM']);
     expect(TOTAL_SECTIONS).toBe(12);
   });
   it('walks 1-1 through 4-3 and then hands off to the boss exactly once', () => {
