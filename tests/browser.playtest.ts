@@ -1437,10 +1437,11 @@ button('2-1 → 3-1 を通常プレイ（CATACOMBS）', async () => {
   await wait(60);
   const deadline = performance.now() + 420000;
   let direction = 0, firing = false, playingHp = model.hp;
-  let landedOnTrap = 0, warned = 0, spiked = 0, spikeHits = 0, lethal = 0;
+  let landedOnTrap = 0, warned = 0, spiked = 0, hits = 0, lethal = 0;
   const rests: string[] = [];
   let shopsSeen = 0;
   const seenStates = new Set<string>();
+  let lastHp = model.hp;
   const steer = (next: number) => {
     if (next === direction) return;
     if (direction) key(direction < 0 ? 'KeyA' : 'KeyD', false);
@@ -1458,7 +1459,7 @@ button('2-1 → 3-1 を通常プレイ（CATACOMBS）', async () => {
   while (performance.now() < deadline) {
     if (model.state === 'over') {
       bridge.onEvent = original;
-      throw new Error(`${model.stage.label} で死亡 (死因 ${model.health.deathCause?.cause} / 即死 ${model.health.deathCause?.instant} / ${Math.floor(model.sectionDepth)}m)`);
+      throw new Error(`${model.stage.label} で死亡 (死因 ${model.health.deathCause?.cause} / 即死 ${model.health.deathCause?.instant} / ${Math.floor(model.sectionDepth)}m / 罠床着地 ${landedOnTrap} / warning ${warned} / spikes ${spiked} / 被弾 ${hits} / 休憩 ${rests.join(' → ') || 'なし'})`);
     }
     if (model.state === 'shop') {
       steer(0); act(false);
@@ -1494,7 +1495,7 @@ button('2-1 → 3-1 を通常プレイ（CATACOMBS）', async () => {
     act(working && model.ammo > 0);
     const heading = working ? (block ? block.x + block.width / 2 : model.player.x) : (gate ?? target);
     steer(heading === undefined || Math.abs(heading - model.player.x) < 3 ? 0 : Math.sign(heading - model.player.x));
-    if (model.health.lastDamage?.cause === 'spike' && model.player.invincible > 0.9) spikeHits++;
+    if (model.hp < lastHp) { hits++; lastHp = model.hp; } else if (model.hp > lastHp) lastHp = model.hp;
     output.textContent = `AREA 2 をキーボード入力のみで通常プレイ\n${model.stage.label} ${Math.floor(model.sectionDepth)} / ${model.sectionLength}m\nHP ${model.hp}/${model.health.maxHp} · 罠床着地 ${landedOnTrap} · warning ${warned} · spikes ${spiked}\n休憩 ${rests.join(' → ') || 'なし'}`;
     await wait(20);
   }
@@ -1508,7 +1509,8 @@ button('2-1 → 3-1 を通常プレイ（CATACOMBS）', async () => {
   assert(spiked > 0, `罠床が実際に spikes を展開した (${spiked} 回)`);
   assert(seenStates.has('safe'), '罠床は待機状態も持つ');
   assert(model.hp > 0, `即死せず AREA 2 を踏破した (HP ${model.hp}/${model.health.maxHp})`);
-  assert(model.oxygen.enabled === false, 'AREA 3 へ入るまで酸素は無効のまま');
+  // AREA 2 ran no gauge at all; crossing into AQUIFER is where the breath gauge starts.
+  assert(model.oxygen.enabled && model.water !== undefined, 'AREA 3 に入ると酸素と水中物理が始まる');
 });
 
 // AREA 2: play 3-1 -> rest -> 3-2 -> rest -> 3-3 -> rest -> 3-1 with keyboard input only, steering
