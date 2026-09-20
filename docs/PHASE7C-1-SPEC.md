@@ -1,9 +1,55 @@
-# PHASE 7C-1 — PHYSICS LOCK + TERRAIN SPECIFICATION
+# PHASE 7C-1 / 7C-2 — PHYSICS LOCK + TERRAIN SPECIFICATION
 
-Specification only. `StageGenerator` is not rewritten here and no physics value is changed.
-The one piece of code in this package is the development-only diagnostic in section A.
+Specification, measurement, and one movement fix. `StageGenerator` is not rewritten and no physics
+constant is retuned. The code in this package is the development-only diagnostic in section A and
+the recoil direction fix recorded in section H0.
 
-Baseline: HEAD `6b55a95`, `main` untouched at `6e3d1af`, 674 tests green, tsc clean, build ✓.
+Baseline: HEAD `ab612ed`, `main` untouched at `6e3d1af`, 695 tests green, tsc clean, build ✓.
+
+---
+
+## H0. HUMAN PLAYTEST FINDINGS — the standing reference
+
+Obtained by playing the original and DEEP DROP **side by side, alternating**. These six are the
+acceptance basis for the next physics lock. Nothing here is resolved by argument: each is either
+confirmed by a measurement from section D or it stays open.
+
+| # | Finding | Status |
+|---|---|---|
+| 1 | No high-speed feel versus the original — falling, moving and deciding all read slow | **OPEN** — decomposed in section C, not yet attributed to a single constant |
+| 2 | Ground jump is too high | **CONFIRMED TOO HIGH.** Measured 1.97H. Candidates in section C; **none selected** |
+| 3 | Wall jump differs structurally from the original | **CONFIRMED GAP.** Audited below; not "implemented correctly" |
+| 4 | Firing after a jump climbed absurdly | **FIXED** — `ab612ed`, section H0.1 |
+| 5 | Gunboot braking may be weaker than the original | **OPEN** — magnitude deliberately NOT locked |
+| 6 | Catacombs spike at 0.65s is still slower than the original | **CONFIRMED TOO SLOW.** Not retuned by guess |
+
+Findings 2, 5 and 6 all name a value that is currently wrong in a **known direction** but by an
+**unknown amount**. That distinction is the whole discipline of this phase: a direction is a finding
+and is recorded; an amount requires section D and is never invented. 0.65s is no more a fidelity
+target than 0.95s was — it is only a value that moved the right way.
+
+### H0.1 — Recoil direction: FIXED and LOCKED
+
+> **Gunboots are not a second jump and not an upward thruster.**
+> Recoil may reduce motion along the pull and may hold it at a standstill. It may never add height.
+
+Confirmed by side-by-side play and by measurement: a jump alone peaked at 59.13px, a jump followed
+by a machine gun magazine at 497.93px. `ab612ed` makes recoil a brake. This direction is settled and
+is not revisited by later measurement.
+
+### H0.2 — Recoil MAGNITUDE: deliberately NOT locked
+
+Separate question, deliberately left open. "Cannot lift" and "can arrest a fall well enough" are
+independent, and fixing the first does not answer the second.
+
+Measured today: MACHINE GUN slows a terminal fall by only **~13%**. The `recovery` penalty leaves it
+about 123px/s of braking per 0.16s cycle against 144px/s of gravity, so it cannot hover at all. No
+module in the roster halts a 520px/s fall in a single shot — LASER's 420 is the largest kick.
+
+In the original, gunboot fire is load-bearing for three things at once: a descent brake, a temporary
+suspension, and the time it buys to correct laterally. If DEEP DROP's braking is too weak, all three
+are weak. Magnitude, cadence and `recovery` are re-examined together **after** section D items 10
+and 11 — not before, and not piecemeal.
 
 ---
 
@@ -121,7 +167,7 @@ say. Player 22×30px, shaft 394px of open span.
 | Wall jump horizontal | **231.7px** | 10.53 widths, 58.8% of shaft — *not* wall-clamped |
 | Recoil Δv, single shot | **−190px/s** | **36.5% of terminal** |
 | Recoil, magazine from terminal | 1.17s, 525px vs 611px unfired | **14.0% slower** |
-| Recoil, magazine from rest | 1.17s, **−45.8px — net CLIMB** | 109.9% |
+| Recoil, magazine from rest | 1.17s, 168.7px vs 462.9px unfired | 63.6% slower *(was **−45.8px, a net CLIMB**, before `ab612ed`)* |
 | Stomp bounce | 210px/s → 21.6px rise, 0.4s apex | 0.72 heights |
 | Walk | 180px/s; crosses the shaft in 2.19s | |
 | Air control | **180px/s — 100% of ground** | |
@@ -145,9 +191,12 @@ recording because each produced a plausible-looking wrong answer:
   is the value flagged MEASUREMENT REQUIRED. Section D is how to settle it.
 - **Air control is 100% of ground speed.** The player steers as freely mid-fall as standing. This is
   a strong candidate for feeling "floaty" versus the original and is measured, not guessed.
-- **A magazine fired from rest is a net climb** (−45.8px). Gunboots are a full hover, not a brake.
-  From terminal the same magazine only slows the fall 14%, so the two situations differ enormously —
-  worth deciding deliberately rather than inheriting.
+- **A magazine fired from rest used to be a net climb** (−45.8px): the gunboots were a hover, not a
+  brake. This was human playtest finding H0/4 and is fixed in `ab612ed` — the same magazine now slows
+  the descent 63.6% instead of reversing it. From terminal it slows the fall 14%, unchanged by the
+  fix, because a terminal descent never reaches the standstill where the old behaviour diverged.
+  That 14% is now finding **H0/5**: the brake may simply be too weak, which is a separate question
+  from the direction and is not answered here.
 - **Wall jump throws the player 58.8% of the way across the shaft**, unclamped. That is a traversal
   move, not a foothold. *(Corrected: an earlier draft read the "壁に取っ掛かりが欲しい" note as being
   about this measurement. It is not — the request is about terrain geometry, whether the walls carry
@@ -247,18 +296,30 @@ structural question the current `fallMultiplier` cannot answer either way.
 | 19 | Catacombs spike — trigger → warning | frames B − A ÷ 60 | seconds |
 | 20 | Catacombs spike — active / retract / reset | frames C→D, D→E ÷ 60 | seconds |
 
-Capture these five frame indices per individual, **minimum 3 individuals**:
+Capture these **seven** frame indices per individual, **minimum 3 individuals**:
 
 ```
 A  landing / trigger satisfied
-B  warning visual begins
-C  spike hitbox becomes active
-D  spike begins to retract
-E  fully inactive / reset, able to trigger again
+B  warning visual first frame
+C  extension animation starts moving
+D  hitbox becomes active
+E  full extension reached
+F  retract begins
+G  fully inactive / reset, able to trigger again
 ```
 
-Derived: `trigger → warning` = B−A · `warning duration` = C−B · `active duration` = D−C ·
-`cooldown / reset` = E−D.
+Derived: `trigger → warning` = B−A · `warning duration` = D−B · `extension lead` = D−C ·
+`active duration` = F−D · `time to full extension` = E−D · `cooldown / reset` = G−F ·
+**`total reaction time` = D−A**.
+
+`D−A` is the figure the finding is about. DEEP DROP's `warning: 0.65s` is one constant inside that
+window, and matching it alone would not match the original: a trap whose warning is the right length
+but whose trigger, animation and activation are staged differently still reads as slow. Report the
+whole staircase, and treat `D−A` as the acceptance number.
+
+`C` is separated from `B` and `D` on purpose. A trap can show a warning tint before anything moves,
+start moving before it can hurt, or become dangerous before it looks dangerous — those are three
+different designs that a single "warning duration" collapses into one number.
 
 > **The frame the player takes damage is NOT frame C.** Damage is where the player happened to be;
 > C is where the trap changed state. Conflating them measures the player's position and calls it a
@@ -347,6 +408,10 @@ spike warning 0.65s).
 - **A negative result is a result.** "No foothold geometry", `NO WALL SLIDE OBSERVED`, "no divergence
   between warning and hitbox" are all findings and are recorded as such. An unmeasurable quantity is
   recorded as unmeasurable, never filled in.
+- **A confirmed direction is not a licence to pick a number.** Findings H0/2, H0/5 and H0/6 each name
+  a value known to be wrong in a known direction. None of them may be nudged toward the original by
+  estimate; each waits for its measurement (items 1, 10/11 and 19/20 respectively). A value that has
+  moved the right way once — the spike's 0.95s → 0.65s — is not thereby a target.
 - Items 15, 16 and 21 are terrain rather than physics and feed section F — but they are captured in
   the same pass, because a row gap is only meaningful next to the jump that has to clear it, and a
   foothold only means something next to the wall jump that reaches it.
