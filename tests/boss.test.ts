@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest';
 import { GameModel } from '../src/systems/GameModel';
 import { ABYSS, ABYSS_PHASES, abyssPhaseAt, TOMATO } from '../src/data/abyss';
 import {
-  FINAL_RAGE_RATIO, FULL_SCREEN_TAPIOCA, NIMUSHI, NIMUSHI_ATTACKS, STRAW_BEAM, TAPIOCA_CUP, TAPIOCA_SHOWER,
+  FINAL_RAGE_RATIO, FULL_SCREEN_TAPIOCA, NIMUSHI, NIMUSHI_ATTACKS, NIMUSHI_LINES, STRAW_BEAM, TAPIOCA_CUP, TAPIOCA_SHOWER,
 } from '../src/data/nimushi';
 import { PLANNED_TOTAL_DEPTH } from '../src/data/areas';
 import { GUN_MODULE_IDS } from '../src/data/gunModules';
@@ -1075,6 +1075,52 @@ describe('the camera and the view', () => {
     const up = atNimushi(82);
     last = up.cameraY;
     for (let i = 0; i < 3 / STEP; i++) { up.step(STEP, 1, false); expect(up.cameraY).toBeLessThanOrEqual(last); last = up.cameraY; }
+  });
+});
+
+describe('what NIMUSHI shows and says', () => {
+  it('has a distinct pose for every state the fight can be in', () => {
+    const game = fighting(110);
+    const poses = new Set<string>();
+    poses.add(atNimushi(110).boss.pose);
+    for (let i = 0; i < 400 / STEP && !game.boss.defeated; i++) {
+      game.player.invincible = 9;
+      pin(game, 300);
+      if (game.boss.eyeOpen && i % 6 === 0) shootEye(game, 4);
+      else game.step(STEP, 0, false);
+      poses.add(game.boss.pose);
+      if (game.state !== 'boss') break;
+    }
+    poses.add(game.boss.pose);
+    for (const wanted of ['dormant', 'idle', 'damage', 'closed', 'cast', 'attack', 'rage', 'dead']) {
+      expect(poses.has(wanted), `pose ${wanted} never appeared (${[...poses].join(', ')})`).toBe(true);
+    }
+  });
+
+  it('speaks when it wakes, when it rages and when it is dying, and can be talked over', () => {
+    const game = atNimushi(111);
+    expect(game.bossLine).toBeNull();
+    shootEye(game, 1);
+    expect(game.bossLine?.text).toBe(NIMUSHI_LINES.wake);
+    // ACTION dismisses it: a line is never something to wait out with a thumb on the button.
+    game.step(STEP, 0, true);
+    expect(game.bossLine).toBeNull();
+
+    const lines: string[] = [];
+    for (let i = 0; i < 400 / STEP && !game.boss.defeated; i++) {
+      game.player.invincible = 9;
+      pin(game, 300);
+      if (game.boss.eyeOpen && i % 6 === 0) shootEye(game, 4);
+      else game.step(STEP, 0, false);
+      for (const e of game.events) if (e.type === 'bossLine') lines.push(String(e.stage));
+      game.events.length = 0;
+      if (game.state !== 'boss') break;
+    }
+    expect(lines).toContain(NIMUSHI_LINES.rage);
+    expect(lines).toContain(NIMUSHI_LINES.dying);
+    // Each of them once, however long the fight runs.
+    expect(lines.filter(l => l === NIMUSHI_LINES.rage).length).toBe(1);
+    expect(lines.filter(l => l === NIMUSHI_LINES.dying).length).toBe(1);
   });
 });
 
