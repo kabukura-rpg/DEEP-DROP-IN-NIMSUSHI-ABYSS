@@ -11,9 +11,10 @@ import { ShopSystem } from './ShopSystem';
 import { coinsFor, type Coin } from '../data/coins';
 import { AIR_CONTAINER_RULES, BREAK_BLOCK_RULES, EXIT_RULES, LIMBO_HAZARD_RULES, SHOP_DOOR, SPIKE_PLATFORM_RULES, type AirBubble, type AirContainer, type StageExit } from '../data/structures';
 import { DOODAD_RULES, type Doodad } from '../data/doodads';
+import { CORPSE_RULES, spawnCorpse, type Corpse } from '../data/corpses';
 import { insideSafeZone, SAFE_ZONE_RULES, type SafeZone } from '../data/safeZone';
 import { shopItem, type ShopOffer } from '../data/shop';
-import { CHARGE_AMMO_BONUS, gunModule, STARTING_GUN_MODULE, volley, volleyRecoil, type GunModuleId, type ShotBoost } from '../data/gunModules';
+import { CHARGE_AMMO_BONUS, gunModule, rollGunModule, STARTING_GUN_MODULE, volley, volleyRecoil, type GunModuleId, type ShotBoost } from '../data/gunModules';
 import { BOSS, type BossPhase } from '../data/boss';
 import { hazardBounds, hazardType, ventStateAt, type Hazard } from '../data/hazards';
 import { pickupType, spawnGunModule, spawnPickup, type Pickup } from '../data/pickups';
@@ -71,6 +72,20 @@ export class GameModel {
   doodads: Doodad[] = [];
   /** Chambers cut into the shaft wall. Being inside one is what freezes the world outside it. */
   safeZones: SafeZone[] = [];
+  /** Bodies left by the fallen. Inert unless the run holds KNIFE AND FORK or REST IN PIECES. */
+  corpses: Corpse[] = [];
+  /** Bodies eaten so far. Ten pays a heart; the count survives the SECTION, not the run's end. */
+  corpsesEaten = 0;
+  private nextCorpseId = 1;
+  /** SAFETY JETPACK's remaining hover, in seconds. Refilled wherever CHARGE is. */
+  jetpackFuel: number = UPGRADE_TUNING.safetyJetpack.fuelSeconds;
+  /** True on the frames the jetpack is actually holding the player up, for the view and the tests. */
+  jetpackActive = false;
+  /** HEART BALLOON, while this SECTION still has one. */
+  balloon: { x: number; y: number; alive: boolean } | null = null;
+  /** TIMEOUT's bubbles: stopped time left where the player was hit, fixed in place. */
+  timeoutBubbles: { id: number; x: number; y: number; radius: number }[] = [];
+  private nextBubbleRegionId = 1;
   /** The COIN HIGH meter. Fed by every path that earns money; see `earnCoins`. */
   coinHigh = new CoinHighSystem();
   bullets: Bullet[] = [];
@@ -112,7 +127,24 @@ export class GameModel {
    * while the player keeps moving, jumping, wall jumping and firing inside. It is emphatically NOT
    * a pause: `running` stays true and the simulation keeps stepping.
    */
-  get timeFrozen() { return this.safeZone !== null; }
+  get timeFrozen() { return this.frozenRegion !== null; }
+  /**
+   * The pocket of running time the player is standing in, if any.
+   *
+   * There are two kinds now: a SAFE ZONE chamber, and a TIMEOUT bubble left where a hit landed.
+   * They behave identically once you are inside one -- the world outside stops, everything inside
+   * keeps going -- so everything that asks "is this point in stopped time?" asks this one shape
+   * rather than knowing about either. A chamber wins ties simply because it is checked first;
+   * nothing depends on which, because the answer is the same.
+   */
+  get frozenRegion(): { contains: (x: number, y: number) => boolean } | null {
+    const p = this.player;
+    const zone = this.safeZones.find(z => insideSafeZone(z, p.x, p.y));
+    if (zone) return { contains: (x, y) => insideSafeZone(zone, x, y) };
+    const bubble = this.timeoutBubbles.find(b => Math.hypot(p.x - b.x, p.y - b.y) <= b.radius);
+    if (bubble) return { contains: (x, y) => Math.hypot(x - bubble.x, y - bubble.y) <= bubble.radius };
+    return null;
+  }
   /** The last TIMEVOID state announced through an event, so both halves of a move can raise one. */
   private timeVoidOn = false;
   get victorySealed() { return this.state === 'clear' || (this.boss.enabled && this.boss.defeated); }
@@ -277,6 +309,18 @@ export class GameModel {
   /** One trigger frame. The equipped module decides whether anything leaves the barrel. */
   private fireGun(dt: number, direction: number, firing: boolean) {
     const request = this.gun.update(dt, firing, this.ammo);
+    // SAFETY JETPACK lives exactly where the gunboots give up: airborne, dry, and still holding
+    // ACTION. It fires nothing and pays no CHARGE -- it only stops the fall while fuel lasts.
+    this.jetpackActive = false;
+    if (firing && this.ammo <= 0 && this.player.grounded === -1 && this.upgrades.has('safetyJetpack') && this.jetpackFuel > 0) {
+      this.jetpackFuel = Math.max(0, this.jetpackFuel - dt);
+      this.jetpackActive = true;
+      const p = this.player;
+      const drift = this.stats.maxFallSpeed * UPGRADE_TUNING.safetyJetpack.fallMultiplier;
+      if (p.vy > drift) p.vy = drift;
+      this.events.push({ type: 'jetpack', x: p.x, y: p.y, value: this.jetpackFuel });
+      return;
+    }
     if (request.kind === 'idle') return;
     if (request.kind === 'empty') { this.emit('empty', this.player.x, this.player.y); return; }
     this.fireVolley(request.cost, direction);
@@ -439,7 +483,13 @@ export class GameModel {
     // no state in which the player is standing on one and no path by which one reloads anything.
     const ground = this.platforms.find(f => f.id === p.grounded && !f.limboHazard);
     if (ground && p.x + 9 > ground.x && p.x - 9 < ground.x + ground.width) p.vy = 0;
-    else { p.grounded = -1; p.vy = Math.min(this.stats.maxFallSpeed, p.vy + this.stats.gravity * (this.water?.gravity ?? 1) * dt); }
+    else {
+      p.grounded = -1;
+      // A live HEART BALLOON slows the descent. It multiplies the terminal speed rather than the
+      // gravity, so the fall is gentler without the controls feeling different.
+      const lift = this.balloon?.alive ? UPGRADE_TUNING.heartBalloon.fallMultiplier : 1;
+      p.vy = Math.min(this.stats.maxFallSpeed * lift, p.vy + this.stats.gravity * (this.water?.gravity ?? 1) * dt);
+    }
     // Nothing special is needed to keep a gate row openable. A row is several blocks edge to edge,
     // so stepping off one onto its neighbour is an ordinary landing and reloads in full, exactly as
     // stepping between ledges does everywhere else. A player who runs dry against a block walks one
@@ -484,10 +534,10 @@ export class GameModel {
     // flight out in the shaft hangs exactly where it was, while one fired inside keeps flying and
     // keeps colliding, because time has never stopped in there. A round that leaves the chamber
     // crosses into stopped time and holds there until the player steps back out.
-    const stoppedWorld = frozen ? this.safeZone : null;
+    const stoppedWorld = frozen ? this.frozenRegion : null;
     for (const b of this.bullets) {
       if (!b.alive) continue;
-      if (stoppedWorld && !insideSafeZone(stoppedWorld, b.x, b.y)) continue;
+      if (stoppedWorld && !stoppedWorld.contains(b.x, b.y)) continue;
       b.previousY = b.y; b.previousX = b.x;
       b.x += b.vx * dt; b.y += b.vy * dt;
       // Reach is a weapon trait: PUNCHER dies quickly, LASER runs the length of the shaft.
@@ -499,6 +549,37 @@ export class GameModel {
       // vein only ever stands inside a chamber, where none of them are.
       const vein = this.veinAt(b.x, b.y);
       if (vein) { this.mineCoinVein(vein); b.alive = false; continue; }
+      // REVERSE ENGINEERING. A round into a waiting GUN MODULE draws its contents again -- weapon
+      // AND bonus, so a HEART can become a CHARGE. Once per crate: the flag is on the crate, not on
+      // the upgrade, so a second shot finds it already turned. The crate is never destroyed.
+      if (this.upgrades.has('reverseEngineering')) {
+        const crate = this.pickups.find(item => !item.taken && item.kind === 'gunModule'
+          && Math.abs(b.x - item.x) < 20 && Math.abs(b.y - item.y) < 22);
+        if (crate) {
+          if (!crate.rerolled) {
+            crate.rerolled = true;
+            const roll = rollGunModule(this.random);
+            crate.module = roll.module; crate.bonus = roll.bonus;
+            this.events.push({ type: 'gunModule', x: crate.x, y: crate.y, stage: gunModule(roll.module).name, bonus: roll.bonus, value: 0 });
+          }
+          b.alive = false;
+          continue;
+        }
+      }
+      // REST IN PIECES. A body the player shoots goes off; one they already ate cannot, because it
+      // was claimed the moment it was eaten. Any round will do it -- a casing, a popping coin, the
+      // drone's -- which is deliberate: the upgrade is about the corpse, not about the gun.
+      if (this.upgrades.has('restInPieces')) {
+        const corpse = this.corpses.find(c => !c.claimed
+          && Math.abs(b.x - c.x) < CORPSE_RULES.width && Math.abs(b.y - c.y) < CORPSE_RULES.height + 8);
+        if (corpse) {
+          corpse.claimed = true;
+          const tuning = UPGRADE_TUNING.restInPieces;
+          this.spawnExplosion({ x: corpse.x, y: corpse.y, radius: tuning.blastRadius, damage: tuning.blastDamage });
+          b.alive = false;
+          continue;
+        }
+      }
       if (this.boss.enabled && !this.boss.defeated) {
         const body = this.boss.body;
         // Measured against the round's real width, the same way enemies are: a wide PUNCHER or a
@@ -583,7 +664,7 @@ export class GameModel {
     // one inside the chamber falls, ages and can be swept up. That is what makes a mined COIN VEIN
     // something the player collects rather than a pile frozen in mid-air -- and it is why a coin
     // taken in a chamber still feeds the COIN HIGH meter even though the meter's decay is stopped.
-    const held = stoppedWorld ? (coin: { x: number; y: number }) => !insideSafeZone(stoppedWorld, coin.x, coin.y) : undefined;
+    const held = stoppedWorld ? (coin: { x: number; y: number }) => !stoppedWorld.contains(coin.x, coin.y) : undefined;
     const picked = this.coins.tick(dt, p, this.cameraY, held);
     if (picked.collected > 0) {
       this.earnCoins(picked.earned, p.x, p.y);
@@ -604,6 +685,8 @@ export class GameModel {
     this.tickLethalTerrain();
     if (!frozen) this.tickSpikePlatforms(dt);
     if (!frozen) this.tickLimboHazards();
+    if (!frozen) this.tickCorpses(dt);
+    this.tickBalloon(dt, frozen);
     // Invulnerability delays a drowning hit but can never cancel it: the debt is only cleared once
     // HealthSystem actually accepts the damage.
     if (!frozen && this.oxygen.tick(dt) && this.damage(1, 'oxygen')) this.oxygen.consumeDamage();
@@ -733,6 +816,59 @@ export class GameModel {
       }
       return;
     }
+  }
+  /**
+   * Bodies: they fall, they rot, and KNIFE AND FORK eats them.
+   *
+   * Eating is the player walking into one, so it happens on the player's own clock rather than the
+   * world's -- but the falling and the rotting belong to the shaft, which is why the whole pass sits
+   * behind the TIMEVOID gate with everything else the world does.
+   */
+  private tickCorpses(dt: number) {
+    const p = this.player;
+    const eats = this.upgrades.has('knifeAndFork');
+    for (const corpse of this.corpses) {
+      if (corpse.claimed) continue;
+      corpse.life -= dt;
+      corpse.vy = Math.min(CORPSE_RULES.maxFallSpeed, corpse.vy + CORPSE_RULES.gravity * dt);
+      corpse.y += corpse.vy * dt;
+      if (!eats) continue;
+      if (Math.abs(p.x - corpse.x) > CORPSE_RULES.radius || Math.abs(p.y - corpse.y) > CORPSE_RULES.radius + 12) continue;
+      // Claimed the moment it is eaten, so REST IN PIECES can never also blow up the same body.
+      corpse.claimed = true;
+      this.corpsesEaten++;
+      this.events.push({ type: 'corpse', x: corpse.x, y: corpse.y, value: this.corpsesEaten % UPGRADE_TUNING.knifeAndFork.corpsesPerHeart });
+      if (this.corpsesEaten % UPGRADE_TUNING.knifeAndFork.corpsesPerHeart === 0) {
+        // Through HealthSystem, so a full tank banks it as overflow exactly like every other heal.
+        this.heal(UPGRADE_TUNING.knifeAndFork.heal);
+      }
+    }
+    this.corpses = this.corpses.filter(c => !c.claimed && c.life > 0 && c.y > this.cameraY - 120 && c.y < this.cameraY + WORLD.height + 200);
+  }
+  /**
+   * HEART BALLOON. It rides above the player, softening the fall, until something walks into it.
+   *
+   * Following the player is the player's own doing, so it keeps up even inside stopped time; what
+   * belongs to the shaft is whether an enemy reaches it, and that is gated with everything else the
+   * world does. The blast is the shared one, so its kills count once and drop COIN once -- and the
+   * player is not in it, which is the whole point of the balloon being above them.
+   */
+  private tickBalloon(dt: number, frozen: boolean) {
+    if (!this.upgrades.has('heartBalloon')) { this.balloon = null; return; }
+    const balloon = this.balloon;
+    if (!balloon || !balloon.alive) return;
+    const p = this.player, tuning = UPGRADE_TUNING.heartBalloon;
+    const want = { x: p.x, y: p.y + tuning.offsetY };
+    const ease = Math.min(1, tuning.follow * dt);
+    balloon.x += (want.x - balloon.x) * ease;
+    balloon.y += (want.y - balloon.y) * ease;
+    if (frozen) return;
+    const touched = this.enemies.find(e => e.alive && Math.hypot(e.x - balloon.x, e.y - balloon.y) < tuning.radius + 16);
+    if (!touched) return;
+    balloon.alive = false;
+    this.events.push({ type: 'balloon', x: balloon.x, y: balloon.y, value: 0 });
+    // Centred on the balloon, above the player's head: they are outside it and take nothing.
+    this.spawnExplosion({ x: balloon.x, y: balloon.y, radius: tuning.blastRadius, damage: tuning.blastDamage });
   }
   private tickLethalTerrain() {
     const p = this.player;
@@ -1119,6 +1255,16 @@ export class GameModel {
     this.platforms = [{ ...START_PLATFORM }]; this.enemies = []; this.bullets = []; this.nextChunk = 0;
     this.wallJumpUsed = 0; this.wallKick = 0; this.wallTouchSide = 0; this.wallTouchAge = Infinity;
     this.pickups = []; this.hazards = []; this.doodads = []; this.safeZones = []; p.vx = 0;
+    // Bodies, blasts and stopped time all belong to the SECTION that made them. TIMEOUT bubbles in
+    // particular are cleared here: a bubble surviving into the next SECTION is not something the
+    // original suggests, and leaving them would accumulate stopped time across a whole run.
+    // MEASUREMENT REQUIRED.
+    this.corpses = []; this.timeoutBubbles = [];
+    // A HEART BALLOON is one per SECTION: gone when something pops it, back at the next opening.
+    this.balloon = this.upgrades.has('heartBalloon')
+      ? { x: p.x, y: p.y + UPGRADE_TUNING.heartBalloon.offsetY, alive: true }
+      : null;
+    this.jetpackFuel = UPGRADE_TUNING.safetyJetpack.fuelSeconds;
     this.doodadContact = null; this.worldElapsed = 0;
     this.containers = []; this.bubbles = []; this.exit = null;
     // Coins already banked stay banked; only the ones still lying on the floor are swept up.
@@ -1140,7 +1286,10 @@ export class GameModel {
     this.oxygen.reset(!this.practice && this.stage.config.gimmicks?.oxygen === true);
     this.heat.reset(!this.practice && this.stage.config.gimmicks?.heat === true);
     this.collapse.reset(this.stage.sectionPlan?.breakDelay ?? BREAK_RULES.delay);
-    this.generator = new StageGenerator(this.random, { depthOffset: this.completedDepth, plan: this.stage.sectionPlan, enemyPool: this.stage.enemyPool, water: this.stage.config.water, oxygen: this.oxygen.enabled, heat: this.heat.enabled, breakable: !this.practice && this.stage.config.gimmicks?.breakablePlatforms === true, sectionLength: this.practice || this.state === 'boss' || !this.stage.enabled ? undefined : this.stage.sectionLength });
+    this.generator = new StageGenerator(this.random, { depthOffset: this.completedDepth, plan: this.stage.sectionPlan, enemyPool: this.stage.enemyPool, water: this.stage.config.water, oxygen: this.oxygen.enabled, heat: this.heat.enabled, breakable: !this.practice && this.stage.config.gimmicks?.breakablePlatforms === true, sectionLength: this.practice || this.state === 'boss' || !this.stage.enabled ? undefined : this.stage.sectionLength,
+      // MEMBER'S CARD: a shop near the top of every SECTION from the one after it was taken.
+      guaranteedShopDepth: this.upgrades.has('membersCard') && !this.practice && this.state !== 'boss'
+        ? UPGRADE_TUNING.membersCard.shopDepth : undefined });
     this.reloadCharge();
     // COMBO deliberately survives: a SECTION boundary is not a landing, and the rest point banks
     // nothing. A chain carried out of 1-1 is still live at the top of 1-2.
@@ -1155,6 +1304,12 @@ export class GameModel {
   }
   damage(amount: number, cause: DamageCause = 'enemy', source?: Enemy) {
     if (!this.health.damage(amount, cause)) return false;
+    // TIMEOUT. A hit that did not end the run leaves stopped time behind it, exactly where it
+    // landed: fixed in place, never following the player, and one per hit. A killing blow leaves
+    // nothing, because there is nobody left to stand in it.
+    if (this.upgrades.has('timeout') && this.hp > 0) {
+      this.timeoutBubbles.push({ id: this.nextBubbleRegionId++, x: this.player.x, y: this.player.y, radius: UPGRADE_TUNING.timeout.radius });
+    }
     // Being hit costs HP and nothing else: only a landing ends a chain. Losing a long chain to one
     // unlucky contact is what made holding a combo feel arbitrary rather than risky.
     if (source) source.hurtFlash = 0.3;
@@ -1255,6 +1410,9 @@ export class GameModel {
     // so the CLEAR sequence is untouched.
     const money = coinsFor(type.threat);
     this.coins.burst(enemy.x, enemy.y, money.count, this.random, money.denomination);
+    // A body, for the two upgrades that care. Laid whether or not the run holds either: whether it
+    // is worth anything is their question, not the kill's.
+    if (type.leavesCorpse) this.corpses.push(spawnCorpse(this.nextCorpseId++, enemy.x, enemy.y));
     const points = Math.round(100 * this.multiplier * (stomp ? 1.5 : 1));
     this.killScore += points; this.events.push({ type: 'kill', x: enemy.x, y: enemy.y, value: points, stomp, combo: this.combo });
   }
@@ -1335,7 +1493,13 @@ export class GameModel {
    * call: a stomp reloads without banking a chain, and a future Safe Zone will need the same.
    * Reloading must never imply settling.
    */
-  reloadCharge() { this.ammo = this.stats.maxAmmo; }
+  reloadCharge() {
+    this.ammo = this.stats.maxAmmo;
+    // The jetpack refills wherever CHARGE does -- a landing, a stomp, a doodad, a chamber floor --
+    // so it is available in LIMBO, where a doodad is the only one of those that exists.
+    // MEASUREMENT REQUIRED: the original's own reset sources are not documented.
+    this.jetpackFuel = UPGRADE_TUNING.safetyJetpack.fuelSeconds;
+  }
   /**
    * Bank the chain. The tier table decides what a landing at this COMBO is worth; the DEEPEST tier
    * it qualifies for is paid once, never the shallower ones as well. Every tier pays the same flat

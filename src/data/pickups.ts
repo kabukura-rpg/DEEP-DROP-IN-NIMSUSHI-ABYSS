@@ -40,6 +40,8 @@ export interface Pickup {
   /** Only on a 'gunModule' pickup: which weapon it carries and what it grants besides the swap. */
   module?: GunModuleId;
   bonus?: GunModuleBonus;
+  /** REVERSE ENGINEERING has already redrawn this crate. One per crate, ever. */
+  rerolled?: boolean;
 }
 export function spawnPickup(kind: PickupKind, id: number, x: number, y: number, phase = 0, drifting = false): Pickup {
   return { id, kind, x, y, phase, taken: false, drifting };

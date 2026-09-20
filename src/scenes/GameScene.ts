@@ -104,6 +104,9 @@ export class GameScene extends Phaser.Scene {
     if (event.type === 'coinVein') { this.burst(event.x, event.y, 0xffd479, 20); this.label(event.x, event.y - 24, `COIN +${event.value}`, '#ffd479', 14); }
     if (event.type === 'timeVoid' && event.value) this.label(event.x, event.y - 54, 'TIME VOID', '#9fe8f5', 15);
     if (event.type === 'coinHigh' && event.value) { this.burst(event.x, event.y, 0xffe9a8, 26); this.label(event.x, event.y - 46, 'COIN HIGH', '#ffe9a8', 17); }
+    if (event.type === 'explosion') this.burst(event.x, event.y, 0xffb066, 22);
+    if (event.type === 'balloon') this.burst(event.x, event.y, 0xf497ab, 24);
+    if (event.type === 'corpse') this.label(event.x, event.y - 20, `OMNOM ${event.value}/10`, '#d8c8d4', 12);
     // The chain being banked. It never opens a screen, so the shaft itself has to carry it.
     if (event.type === 'comboSettle') { this.flash = Math.max(this.flash, 0.08); this.burst(event.x, event.y, 0xf4e9ad, 24); this.label(event.x, event.y - 62, `${event.value} COMBO · ${event.stage ?? ''}`, '#f4e9ad', 16); }
     if (event.type === 'bossHit') { this.burst(event.x, event.y, 0xd9a0ff, 6); this.shake = Math.max(this.shake, 1.4); }
@@ -316,8 +319,27 @@ export class GameScene extends Phaser.Scene {
       this.rect(coin.x - 1 - half * spin, cy - tall / 2, 2 + half * 2 * spin, tall, 0xffd479, fade);
       this.rect(coin.x - 1 - (half / 2) * spin, cy - tall / 4, 1 + half * spin, tall / 2, 0xfff0c0, fade * 0.9);
     }
+    // TIMEOUT: stopped time left behind where a hit landed. Drawn under everything so the world it
+    // is holding still reads normally through it.
+    for (const bubble of m.timeoutBubbles) {
+      const by = bubble.y - cam;
+      if (by < -bubble.radius || by > 820 + bubble.radius) continue;
+      const pulse = 0.1 + Math.abs(Math.sin(this.model.elapsed * 1.4 + bubble.id)) * 0.06;
+      this.graphics.fillStyle(0x9fe8f5, pulse).fillCircle(bubble.x, by, bubble.radius);
+      this.graphics.lineStyle(2, 0x9fe8f5, 0.5).strokeCircle(bubble.x, by, bubble.radius);
+    }
+    // Bodies. Inert scenery -- what they are worth is KNIFE AND FORK's and REST IN PIECES' business.
+    for (const corpse of m.corpses) {
+      const cy = corpse.y - cam;
+      if (cy < -20 || cy > 820) continue;
+      const fade = corpse.life < 2 ? 0.3 + Math.abs(Math.sin(this.model.elapsed * 14)) * 0.5 : 0.9;
+      this.rect(corpse.x - 10, cy - 4, 20, 8, 0x6b5f6a, fade);
+      this.rect(corpse.x - 7, cy - 7, 14, 4, 0x9b8a99, fade);
+      this.rect(corpse.x - 3, cy - 9, 6, 3, 0xd8c8d4, fade * 0.8);
+    }
     this.boss(cam);
     for (const enemy of m.enemies) if (enemy.alive) this.enemy(enemy, cam);
+    const p0 = m.player;
     // Under a COIN HIGH the rounds themselves change: hotter, wider and with a longer tail, which
     // is the same thing the numbers did. The shape of each weapon is untouched -- a PUNCHER still
     // fires three parallel rounds -- so a boosted gun is recognisably the gun the player picked up.
@@ -334,16 +356,42 @@ export class GameScene extends Phaser.Scene {
       const swell = high ? 1.6 : 1;
       this.rect(b.x - (b.size * swell) / 2, b.y - cam - 7, b.size * swell, b.beam ? 18 : 12, core);
     }
+    // HEART BALLOON, above the player's head, holding the fall back until something pops it.
+    if (m.balloon?.alive) {
+      const by = m.balloon.y - cam;
+      this.graphics.lineStyle(1, 0xfba4b9, 0.5).lineBetween(m.balloon.x, by + 12, p0.x, p0.y - cam - 18);
+      this.graphics.fillStyle(0xf497ab, 0.92).fillCircle(m.balloon.x, by, 13);
+      this.graphics.fillStyle(0xffd2dd, 0.9).fillCircle(m.balloon.x - 4, by - 4, 4);
+    }
+    // DRONE: a companion, never a target, that fires when the player does.
+    if (m.upgrades.has('drone')) {
+      const spot = m.dronePosition, dy = spot.y - cam;
+      const bob = Math.sin(this.model.elapsed * 5) * 2;
+      this.rect(spot.x - 9, dy + bob, 18, 6, 0x8fb8d8);
+      this.rect(spot.x - 5, dy + bob + 6, 10, 3, 0x4a6b85);
+      this.rect(spot.x - 2, dy + bob - 3, 4, 3, 0xdff0ff);
+    }
     const p = m.player, x = Math.round(p.x), y = Math.round(p.y - cam);
     // A halo while the HIGH runs, so the state is visible on the player and not only on the HUD.
     if (high) {
       const beat = 0.35 + Math.abs(Math.sin(this.model.elapsed * 7)) * 0.3;
       g.lineStyle(2, 0xffe9a8, beat).strokeRoundedRect(x - 23, y - 28, 46, 56, 7);
     }
+    if (m.upgrades.has('laserSight')) {
+      // Down the line the next round would take, so a weapon that leans with the input leans too.
+      const tilt = m.gun.module.horizontalAimFactor * Math.max(-1, Math.min(1, this.bridge.direction));
+      const reach = m.gun.module.range * m.shotBoost.range;
+      this.graphics.lineStyle(1, 0xff6b7a, 0.45)
+        .lineBetween(x, y + 16, x + Math.sin(tilt) * reach, y + 16 + Math.cos(tilt) * reach);
+    }
     if (p.invincible > 0) {
       g.lineStyle(1.5, 0xfba4b9, 0.55).strokeRoundedRect(x - 20, y - 25, 40, 50, 5);
       this.rect(x - 16, y - 30, 32, 3, 0x563744);
       this.rect(x - 16, y - 30, 32 * p.invincible, 3, 0xffb5c7);
+    }
+    if (m.jetpackActive) {
+      const flare = 0.5 + Math.abs(Math.sin(this.model.elapsed * 22)) * 0.5;
+      for (let i = 0; i < 3; i++) this.rect(x - 6 + i * 5, y + 18 + i, 4, 8 + i * 3, i === 1 ? 0xffe6ae : 0xffa85c, flare);
     }
     if (!(p.invincible > 0 && Math.floor(p.invincible * 16) % 2)) {
       this.rect(x - 19, y - 21, 38, 43, 0xb9ef70, 0.035);

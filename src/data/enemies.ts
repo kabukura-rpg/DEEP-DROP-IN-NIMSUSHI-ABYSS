@@ -53,6 +53,14 @@ export interface EnemyType {
   drop?: { pickup: PickupKind; chance?: number };
   /** A world effect the death triggers. Kept as data so GameModel routes on it, not on the kind. */
   onDefeat?: 'shatterNearby';
+  /**
+   * Leaves a body when it dies, for KNIFE AND FORK to eat and REST IN PIECES to blow up.
+   *
+   * Deliberately NOT every enemy. The original's roster is not reproduced here, so the rule used is
+   * the one that reads on screen: a creature of flesh leaves a corpse, and something armoured,
+   * elemental or barely there does not. Set per kind rather than inferred, so it stays a decision.
+   */
+  leavesCorpse?: boolean;
 }
 
 /**
@@ -60,24 +68,24 @@ export interface EnemyType {
  * on the shared difficulty curve. New areas add entries here and list them in their `enemyPool`.
  */
 export const ENEMY_TYPES: Record<EnemyKind, EnemyType> = {
-  slime: { id: 'slime', name: 'SLIME', shootable: true, stompable: true, flying: false, threat: 'basic', spawnSlot: 'guard', spawnWeight: 1, hp: 1, silhouette: 'blob', bodyWidth: 26, swaySpeed: 0.95, damageCause: 'enemy', contactHint: '接触' },
-  bat: { id: 'bat', name: 'BAT', shootable: true, stompable: true, flying: true, threat: 'basic', spawnSlot: 'open', spawnWeight: 1, hp: 1, silhouette: 'wing', bodyWidth: 26, swaySpeed: 1.5, damageCause: 'enemy', contactHint: '接触' },
+  slime: { id: 'slime', name: 'SLIME', shootable: true, stompable: true, flying: false, threat: 'basic', spawnSlot: 'guard', spawnWeight: 1, hp: 1, silhouette: 'blob', bodyWidth: 26, swaySpeed: 0.95, damageCause: 'enemy', contactHint: '接触', leavesCorpse: true },
+  bat: { id: 'bat', name: 'BAT', shootable: true, stompable: true, flying: true, threat: 'basic', spawnSlot: 'open', spawnWeight: 1, hp: 1, silhouette: 'wing', bodyWidth: 26, swaySpeed: 1.5, damageCause: 'enemy', contactHint: '接触', leavesCorpse: true },
   armoredSlime: { id: 'armoredSlime', name: 'ARMORED SLIME', shootable: true, stompable: false, flying: false, threat: 'armored', spawnSlot: 'guard', spawnWeight: 1, hp: 1, silhouette: 'shell', bodyWidth: 26, swaySpeed: 0.95, damageCause: 'spike', contactHint: '甲羅は踏めない' },
   tank: { id: 'tank', name: 'ARMORED BRUTE', shootable: true, stompable: false, flying: false, threat: 'heavy', spawnSlot: 'guard', spawnWeight: 1, hp: 3, silhouette: 'brute', bodyWidth: 34, swaySpeed: 0.95, damageCause: 'tank', contactHint: '装甲に注意', minPlatformWidth: 118 },
   // AREA 2. Fish swim in open water like bats; urchins hold a ledge.
-  fish: { id: 'fish', name: 'FISH', shootable: true, stompable: true, flying: true, threat: 'basic', spawnSlot: 'any', spawnWeight: 1, hp: 1, silhouette: 'fin', bodyWidth: 26, swaySpeed: 1.25, damageCause: 'enemy', contactHint: '接触' },
-  bubbleFish: { id: 'bubbleFish', name: 'BUBBLE FISH', shootable: true, stompable: true, flying: true, threat: 'basic', spawnSlot: 'open', spawnWeight: 0.45, hp: 1, silhouette: 'orb', bodyWidth: 24, swaySpeed: 1.05, damageCause: 'enemy', contactHint: '接触', drop: { pickup: 'oxygenBubble' } },
+  fish: { id: 'fish', name: 'FISH', shootable: true, stompable: true, flying: true, threat: 'basic', spawnSlot: 'any', spawnWeight: 1, hp: 1, silhouette: 'fin', bodyWidth: 26, swaySpeed: 1.25, damageCause: 'enemy', contactHint: '接触', leavesCorpse: true },
+  bubbleFish: { id: 'bubbleFish', name: 'BUBBLE FISH', shootable: true, stompable: true, flying: true, threat: 'basic', spawnSlot: 'open', spawnWeight: 0.45, hp: 1, silhouette: 'orb', bodyWidth: 24, swaySpeed: 1.05, damageCause: 'enemy', contactHint: '接触', leavesCorpse: true, drop: { pickup: 'oxygenBubble' } },
   jellyfish: { id: 'jellyfish', name: 'JELLYFISH', shootable: true, stompable: false, flying: true, threat: 'armored', spawnSlot: 'open', spawnWeight: 1, hp: 1, silhouette: 'bell', bodyWidth: 24, swaySpeed: 0.6, damageCause: 'spike', contactHint: '触手は踏めない' },
   urchin: { id: 'urchin', name: 'URCHIN', shootable: true, stompable: false, flying: false, threat: 'armored', spawnSlot: 'guard', spawnWeight: 1, hp: 1, silhouette: 'spiked', bodyWidth: 24, swaySpeed: 0.35, damageCause: 'spike', contactHint: 'トゲは踏めない' },
   // AREA 3. Two soft targets to bounce from, two hard ones to shoot, one that carries ice.
-  fireLizard: { id: 'fireLizard', name: 'FIRE LIZARD', shootable: true, stompable: true, flying: false, threat: 'basic', spawnSlot: 'guard', spawnWeight: 1, hp: 1, silhouette: 'lizard', bodyWidth: 28, swaySpeed: 1.1, damageCause: 'enemy', contactHint: '接触' },
-  fireBat: { id: 'fireBat', name: 'FIRE BAT', shootable: true, stompable: true, flying: true, threat: 'basic', spawnSlot: 'open', spawnWeight: 1, hp: 1, silhouette: 'ember', bodyWidth: 26, swaySpeed: 1.75, damageCause: 'enemy', contactHint: '接触' },
+  fireLizard: { id: 'fireLizard', name: 'FIRE LIZARD', shootable: true, stompable: true, flying: false, threat: 'basic', spawnSlot: 'guard', spawnWeight: 1, hp: 1, silhouette: 'lizard', bodyWidth: 28, swaySpeed: 1.1, damageCause: 'enemy', contactHint: '接触', leavesCorpse: true },
+  fireBat: { id: 'fireBat', name: 'FIRE BAT', shootable: true, stompable: true, flying: true, threat: 'basic', spawnSlot: 'open', spawnWeight: 1, hp: 1, silhouette: 'ember', bodyWidth: 26, swaySpeed: 1.75, damageCause: 'enemy', contactHint: '接触', leavesCorpse: true },
   magmaSlime: { id: 'magmaSlime', name: 'MAGMA SLIME', shootable: true, stompable: false, flying: false, threat: 'armored', spawnSlot: 'guard', spawnWeight: 1, hp: 1, silhouette: 'flame', bodyWidth: 26, swaySpeed: 0.85, damageCause: 'heat', contactHint: '炎の上は踏めない' },
   fireArmor: { id: 'fireArmor', name: 'FIRE ARMOR', shootable: true, stompable: false, flying: false, threat: 'heavy', spawnSlot: 'guard', spawnWeight: 1, hp: 3, silhouette: 'plated', bodyWidth: 32, swaySpeed: 0.7, damageCause: 'tank', contactHint: '装甲に注意', minPlatformWidth: 112 },
-  frostBeetle: { id: 'frostBeetle', name: 'FROST BEETLE', shootable: true, stompable: true, flying: true, threat: 'basic', spawnSlot: 'open', spawnWeight: 0.4, hp: 1, silhouette: 'crystal', bodyWidth: 26, swaySpeed: 0.9, damageCause: 'enemy', contactHint: '接触', drop: { pickup: 'ice' } },
+  frostBeetle: { id: 'frostBeetle', name: 'FROST BEETLE', shootable: true, stompable: true, flying: true, threat: 'basic', spawnSlot: 'open', spawnWeight: 0.4, hp: 1, silhouette: 'crystal', bodyWidth: 26, swaySpeed: 0.9, damageCause: 'enemy', contactHint: '接触', leavesCorpse: true, drop: { pickup: 'ice' } },
   // AREA 4. Stompable ones double as footholds once the ledges stop being trustworthy.
-  demon: { id: 'demon', name: 'DEMON', shootable: true, stompable: true, flying: true, threat: 'basic', spawnSlot: 'any', spawnWeight: 1, hp: 1, silhouette: 'horned', bodyWidth: 28, swaySpeed: 1.15, damageCause: 'enemy', contactHint: '接触' },
-  wraith: { id: 'wraith', name: 'WRAITH', shootable: true, stompable: true, flying: true, threat: 'basic', spawnSlot: 'open', spawnWeight: 0.8, hp: 1, silhouette: 'shade', bodyWidth: 26, swaySpeed: 0.45, damageCause: 'enemy', contactHint: '接触' },
+  demon: { id: 'demon', name: 'DEMON', shootable: true, stompable: true, flying: true, threat: 'basic', spawnSlot: 'any', spawnWeight: 1, hp: 1, silhouette: 'horned', bodyWidth: 28, swaySpeed: 1.15, damageCause: 'enemy', contactHint: '接触', leavesCorpse: true },
+  wraith: { id: 'wraith', name: 'WRAITH', shootable: true, stompable: true, flying: true, threat: 'basic', spawnSlot: 'open', spawnWeight: 0.8, hp: 1, silhouette: 'shade', bodyWidth: 26, swaySpeed: 0.45, damageCause: 'enemy', contactHint: '接触', leavesCorpse: true },
   // LIMBO's own roster. Nothing here can be stood on -- that is the AREA's rule, so it is declared
   // on the type rather than overridden at spawn -- and all of it flies, because LIMBO has no ground
   // worth guarding. They are separate kinds from DEMON and WRAITH on purpose: those two are also
@@ -86,7 +94,7 @@ export const ENEMY_TYPES: Record<EnemyKind, EnemyType> = {
   hollowShade: { id: 'hollowShade', name: 'HOLLOW SHADE', shootable: true, stompable: false, flying: true, threat: 'basic', spawnSlot: 'open', spawnWeight: 0.9, hp: 1, silhouette: 'hollow', bodyWidth: 26, swaySpeed: 0.5, damageCause: 'enemy', contactHint: '踏めない・撃て' },
   armorGuard: { id: 'armorGuard', name: 'ARMOR GUARD', shootable: true, stompable: false, flying: false, threat: 'heavy', spawnSlot: 'guard', spawnWeight: 1, hp: 3, silhouette: 'bulwark', bodyWidth: 32, swaySpeed: 0.6, damageCause: 'tank', contactHint: '装甲に注意', minPlatformWidth: 108 },
   spikeDemon: { id: 'spikeDemon', name: 'SPIKE DEMON', shootable: true, stompable: false, flying: true, threat: 'armored', spawnSlot: 'any', spawnWeight: 1, hp: 1, silhouette: 'barb', bodyWidth: 26, swaySpeed: 1.0, damageCause: 'spike', contactHint: 'トゲは踏めない' },
-  ruinBreaker: { id: 'ruinBreaker', name: 'RUIN BREAKER', shootable: true, stompable: true, flying: false, threat: 'basic', spawnSlot: 'guard', spawnWeight: 0.45, hp: 1, silhouette: 'breaker', bodyWidth: 30, swaySpeed: 0.8, damageCause: 'enemy', contactHint: '接触', onDefeat: 'shatterNearby' },
+  ruinBreaker: { id: 'ruinBreaker', name: 'RUIN BREAKER', shootable: true, stompable: true, flying: false, threat: 'basic', spawnSlot: 'guard', spawnWeight: 0.45, hp: 1, silhouette: 'breaker', bodyWidth: 30, swaySpeed: 0.8, damageCause: 'enemy', contactHint: '接触', leavesCorpse: true, onDefeat: 'shatterNearby' },
 };
 export const enemyType = (kind: EnemyKind) => ENEMY_TYPES[kind];
 

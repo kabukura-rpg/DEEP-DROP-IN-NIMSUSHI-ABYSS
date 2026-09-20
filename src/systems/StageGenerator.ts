@@ -87,6 +87,12 @@ export interface GenerationContext {
    * the player farming below the goal. Absent for the FINAL BOSS, which never ends this way.
    */
   sectionLength?: number;
+  /**
+   * Metres at which this SECTION must offer a SHOP chamber, over and above its ordinary schedule.
+   * Set only while the run holds MEMBER'S CARD. MEASUREMENT REQUIRED: the original's own depth for
+   * this is not documented, so it is simply "near the top".
+   */
+  guaranteedShopDepth?: number;
 }
 /**
  * Width of the clear fall lane LIMBO keeps open through each band. Wide enough for the player plus
@@ -127,6 +133,8 @@ export class StageGenerator {
   private nextChamberSide: -1 | 1 | 0 = 0;
   /** Which side LIMBO's clear fall lane sits on next. Alternates so a descent always has a way past. */
   private doodadLane = 0;
+  /** Chambers still owed a SHOP outright, rather than a rolled content. MEMBER'S CARD's doing. */
+  private forcedShopChambers = 0;
   constructor(private random: () => number = Math.random, private context: GenerationContext = {}) {
     this.nextY = context.startY ?? 465;
     this.previous = context.previous ? { ...context.previous } : { ...START_PLATFORM };
@@ -144,6 +152,14 @@ export class StageGenerator {
     // retried until one fits. Adding optional extra chambers later means pushing more depths in
     // here and nothing else.
     this.chambers.push(...safeZoneDepths(context.plan?.safeZoneCount ?? 0, context.sectionLength));
+    // MEMBER'S CARD guarantees a shop near the top of every later SECTION. It is an EXTRA chamber
+    // in front of the ordinary schedule rather than a replacement for one, so the minimum a SECTION
+    // already promises is untouched and its content roll still decides what that one holds.
+    if (context.guaranteedShopDepth !== undefined && context.sectionLength) {
+      this.chambers.unshift(context.guaranteedShopDepth);
+      this.forcedShopChambers = 1;
+    }
+    this.chambers.sort((a, b) => a - b);
   }
 
   /**
@@ -467,7 +483,10 @@ export class StageGenerator {
     this.chambers.shift();
     this.nextChamberSide = side === -1 ? 1 : -1;
     if (y < start) return;
-    const roll = rollSafeZoneContent(this.random);
+    // The first chamber of a MEMBER'S CARD section is a shop by fiat; every other one still rolls.
+    const forced = this.forcedShopChambers > 0;
+    if (forced) this.forcedShopChambers--;
+    const roll = forced ? 'shop' as const : rollSafeZoneContent(this.random);
     const module = roll === 'gunModule' ? rollModuleForZone(this.random) : undefined;
     const zone: SafeZone = {
       id: this.id++, side, x, y: top, width, height,
