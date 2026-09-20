@@ -29,9 +29,11 @@ export class ShopSystem {
   get available() { return this.entrance !== null; }
 
   /** Stock the shelf for the SECTION being built, priced for the AREA the run has reached. */
+  /** MEMBER'S CARD's discount, as a multiplier on every quoted price. 1 when the run lacks it. */
+  discount = 1;
   stockForSection(random: () => number, area: AreaId | number) {
     this.open = false; this.visited = false; this.entrance = null;
-    this.offers = rollShopStock(random, area, this.rules);
+    this.offers = rollShopStock(random, area, this.rules, this.discount);
     return this.offers;
   }
   /** The generator reports where it put the doorway. */

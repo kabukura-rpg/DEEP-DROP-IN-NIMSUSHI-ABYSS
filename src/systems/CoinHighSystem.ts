@@ -15,6 +15,8 @@ import { activeDecayPerSecond, COIN_HIGH_RULES, type CoinHighRules } from '../da
 export class CoinHighSystem {
   meter = 0;
   active = false;
+  /** COIN SICK stretches a HIGH. The threshold and the boost it grants are untouched. */
+  durationMultiplier = 1;
   /** Seconds since the last coin. Only an inactive meter waits this out before it starts falling. */
   private idle = 0;
 
@@ -34,7 +36,7 @@ export class CoinHighSystem {
   tick(dt: number) {
     this.idle += dt;
     if (this.active) {
-      this.meter = Math.max(0, this.meter - activeDecayPerSecond(this.rules) * dt);
+      this.meter = Math.max(0, this.meter - (activeDecayPerSecond(this.rules) / this.durationMultiplier) * dt);
       if (this.meter > 0) return false;
       this.active = false;
       return true;

@@ -174,22 +174,26 @@ describe('carrying the run across a section boundary', () => {
     reachExit(game);
     expect({ hp: game.hp, maxHp: game.health.maxHp, overflow: game.health.overflowHealing }).toEqual(before);
     expect(game.ammo).toBe(1);
-    const choice = game.upgrades.choices.find(u => u.category !== 'health')!;
+    // A card that heals on acquisition would change the health figures this test is about, so it
+    // deliberately takes one that does not.
+    const choice = game.upgrades.choices.find(u => u.id !== 'apple' && u.id !== 'youth')!;
     game.selectUpgrade(choice.id); game.confirmUpgrade();
     expect({ hp: game.hp, maxHp: game.health.maxHp, overflow: game.health.overflowHealing }).toEqual(before);
-    expect(game.upgrades.stacks[choice.id]).toBe(1);
+    expect(game.upgrades.acquired).toEqual([choice.id]);
     // COMBO survives the boundary: a rest point is not a landing and banks nothing.
     expect([game.ammo, game.combo, game.sectionDepth, game.state]).toEqual([game.stats.maxAmmo, 7, 0, 'playing']);
     expect([game.player.y, game.player.vy, game.player.grounded, game.cameraY]).toEqual([WORLD.startY, 0, -1, 0]);
     expect(game.platforms.length).toBeGreaterThan(1);
   });
-  it('carries every upgrade stack across all twelve sections without an area-boundary reset', () => {
+  it('carries every upgrade across all twelve sections without an area-boundary reset', () => {
     const game = run(1333);
     game.damage(1);
     const stages = ['1-1'];
     for (let i = 0; i < TOTAL_SECTIONS - 1; i++) { clearSection(game); stages.push(game.stage.label); }
     expect(stages).toEqual(['1-1', '1-2', '1-3', '2-1', '2-2', '2-3', '3-1', '3-2', '3-3', '4-1', '4-2', '4-3']);
-    expect(Object.values(game.upgrades.stacks).reduce((sum, n) => sum + n, 0)).toBe(11);
+    // Eleven RESTs, eleven cards, none of them lost at an AREA boundary and none repeated.
+    expect(game.upgrades.acquired).toHaveLength(11);
+    expect(new Set(game.upgrades.acquired).size).toBe(11);
     expect(game.hp).toBeLessThan(game.health.maxHp + 1);
     expect(game.health.currentHp).toBeGreaterThan(0);
   });
@@ -245,7 +249,7 @@ describe('death and retry', () => {
     expect([retry.sectionDepth, retry.totalDepth, retry.combo, retry.kills, retry.maxCombo]).toEqual([0, 0, 0, 0, 0]);
     expect([retry.hp, retry.health.maxHp, retry.health.overflowHealing]).toEqual([4, 4, 0]);
     expect([retry.ammo, retry.stats.maxAmmo, retry.state]).toEqual([initialStats().maxAmmo, initialStats().maxAmmo, 'playing']);
-    expect(retry.upgrades.stacks).toEqual({});
+    expect(retry.upgrades.acquired).toEqual([]);
   });
   it('play again after a clear starts a fresh 1-1 run', () => {
     const cleared = run(1555);

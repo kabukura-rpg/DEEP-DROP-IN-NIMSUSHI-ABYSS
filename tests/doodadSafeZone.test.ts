@@ -232,7 +232,7 @@ describe('TIMEVOID: the world outside a chamber stops', () => {
     expect(game.timeFrozen).toBe(false);
     const enemy = game.enemies[0];
     const before = { x: enemy.x, oxygen: game.oxygen.remaining };
-    game.bullets.push({ x: 300, y: 250, previousX: 300, previousY: 250, vx: 0, vy: 400, damage: 1, size: 4, pierce: 0, pierceBlocks: false, blocks: new Set(), range: 900, travelled: 0, beam: false, hits: new Set(), alive: true });
+    game.bullets.push({ source: 'player' as const, x: 300, y: 250, previousX: 300, previousY: 250, vx: 0, vy: 400, damage: 1, size: 4, pierce: 0, pierceBlocks: false, blocks: new Set(), range: 900, travelled: 0, beam: false, hits: new Set(), alive: true });
     const bullet = game.bullets[0];
     const bulletY = bullet.y;
     tick(game, 0.5);
@@ -245,7 +245,7 @@ describe('TIMEVOID: the world outside a chamber stops', () => {
     const { game } = shaft();
     expect(game.timeFrozen).toBe(true);
     const enemy = game.enemies[0];
-    game.bullets.push({ x: 300, y: 250, previousX: 300, previousY: 250, vx: 0, vy: 400, damage: 1, size: 4, pierce: 0, pierceBlocks: false, blocks: new Set(), range: 900, travelled: 0, beam: false, hits: new Set(), alive: true });
+    game.bullets.push({ source: 'player' as const, x: 300, y: 250, previousX: 300, previousY: 250, vx: 0, vy: 400, damage: 1, size: 4, pierce: 0, pierceBlocks: false, blocks: new Set(), range: 900, travelled: 0, beam: false, hits: new Set(), alive: true });
     const bullet = game.bullets[0];
     const before = { ex: enemy.x, by: bullet.y, oxygen: game.oxygen.remaining, depth: game.sectionDepth, camera: game.cameraY };
     tick(game, 2);
@@ -456,6 +456,7 @@ describe('TIMEVOID: rounds stop on the shaft side of the mouth only', () => {
     return { game, zone, floor };
   }
   const round = (x: number, y: number, vy: number) => ({
+    source: 'player' as const,
     x, y, previousX: x, previousY: y, vx: 0, vy, damage: 1, size: 4, pierce: 0,
     pierceBlocks: false, blocks: new Set<number>(), range: 900, travelled: 0, beam: false,
     hits: new Set<number>(), alive: true,

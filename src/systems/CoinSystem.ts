@@ -17,6 +17,9 @@ export class CoinSystem {
   coins: Coin[] = [];
   scoreCoins = 0;
   walletCoins = 0;
+  /** COIN MAGNET widens the pull. The tuned radius itself is left alone. */
+  attractMultiplier = 1;
+  private get attractRadius() { return this.rules.magnetRadius * this.attractMultiplier; }
   private nextId = 1;
 
   constructor(private readonly rules: CoinRules = COIN_RULES) {}
@@ -64,6 +67,9 @@ export class CoinSystem {
    */
   tick(dt: number, player: { x: number; y: number }, cameraY: number, stopped?: (coin: Coin) => boolean) {
     let collected = 0, earned = 0;
+    // The coins themselves, not just the total: COIN POWERED pays charge per gem and POPPING COINS
+    // fires per gem, and both need to know which size each one was.
+    const taken: Coin[] = [];
     for (const coin of this.coins) {
       if (coin.taken || stopped?.(coin)) continue;
       coin.life -= dt;
@@ -71,8 +77,8 @@ export class CoinSystem {
       // be lost simply because the player is falling faster than it is.
       const dx = player.x - coin.x, dy = player.y - coin.y;
       const distance = Math.hypot(dx, dy);
-      if (distance < this.rules.magnetRadius && distance > 0.001) {
-        const pull = this.rules.magnetPull * (1 - distance / this.rules.magnetRadius) * dt;
+      if (distance < this.attractRadius && distance > 0.001) {
+        const pull = this.rules.magnetPull * (1 - distance / this.attractRadius) * dt;
         coin.vx += (dx / distance) * pull;
         coin.vy += (dy / distance) * pull;
       }
@@ -88,12 +94,13 @@ export class CoinSystem {
         this.walletCoins += coin.value;
         earned += coin.value;
         collected++;
+        taken.push(coin);
       }
     }
     // A coin that timed out or slid above the view is simply gone: no second chance. One in stopped
     // time is exempt -- its clock is not running, so it cannot have run out.
     this.coins = this.coins.filter(c => !c.taken && (stopped?.(c) || (c.life > 0 && c.y > cameraY - 120 && c.y < cameraY + WORLD.height + 200)));
-    return { collected, earned };
+    return { collected, earned, taken };
   }
 
   /**

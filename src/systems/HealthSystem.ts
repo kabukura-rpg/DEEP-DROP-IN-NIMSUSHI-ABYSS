@@ -27,10 +27,16 @@ export class HealthSystem {
   set currentHp(value: number) { this.hp = Math.max(0, Math.min(this.maximum, value)); }
   get maxHp() { return this.maximum; }
   tick(dt: number) { this.invincibilityRemaining = Math.max(0, this.invincibilityRemaining - dt); }
+  /**
+   * How long a hit protects for. CANDLE stretches this; the rule itself stays where it is, so the
+   * base figure is never overwritten and the upgrade can be asked about rather than baked in.
+   */
+  invincibilityMultiplier = 1;
+  private get invincibilityWindow() { return this.rules.invincibilitySeconds * this.invincibilityMultiplier; }
   damage(amount: number, cause: DamageCause = 'enemy') {
     if (!this.canTakeDamage() || this.hp <= 0 || this.invincibilityRemaining > 0 || !Number.isFinite(amount) || amount <= 0) return false;
     const loss = { cause, instant: false, amount: Math.min(this.hp, amount) };
-    this.hp -= loss.amount; this.invincibilityRemaining = this.rules.invincibilitySeconds;
+    this.hp -= loss.amount; this.invincibilityRemaining = this.invincibilityWindow;
     this.recordLoss(loss); return true;
   }
   killInstantly(cause: DamageCause) {

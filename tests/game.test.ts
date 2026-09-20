@@ -4,7 +4,6 @@ import { GameModel } from '../src/systems/GameModel';
 import { GUN_MODULES } from '../src/data/gunModules';
 import { StageGenerator } from '../src/systems/StageGenerator';
 import { spawnEnemy, type Enemy, type EnemyKind } from '../src/data/enemies';
-import { chooseUpgrades } from '../src/data/upgrades';
 import { initialStats } from '../src/data/balance';
 
 function emptyGame() { const game = new GameModel(true); game.platforms = []; return game; }
@@ -43,10 +42,17 @@ describe('progression', () => {
     const choice = game.upgrades.choices[0]; game.selectUpgrade(choice.id);
     expect(game.confirmUpgrade()).toBe(true);
     expect([game.state, game.stage.label, Math.floor(game.sectionDepth)]).toEqual(['playing', '1-2', 0]);
-    expect(game.upgrades.stacks[choice.id]).toBe(1);
+    expect(game.upgrades.acquired).toEqual([choice.id]);
     expect(game.confirmUpgrade()).toBe(false);
   });
-  it('offers three distinct upgrades and excludes acquired piercing', () => { const stats = initialStats(); stats.piercing = true; const choices = chooseUpgrades(stats, () => 0.4); expect(new Set(choices.map(u => u.id)).size).toBe(3); expect(choices.some(u => u.id === 'piercing')).toBe(false); });
+  it('offers three distinct upgrades and never one the run already holds', () => {
+    const game = new GameModel(false, () => 0.4);
+    game.upgrades.grant('apple');
+    game.completeSection('a');
+    const choices = game.upgrades.choices;
+    expect(new Set(choices.map(u => u.id)).size).toBe(3);
+    expect(choices.some(u => u.id === 'apple')).toBe(false);
+  });
   it('generates valid platforms and all four enemies with depth', () => { let seed = 12; const random = () => { seed = (Math.imul(seed, 1664525) + 1013904223) >>> 0; return seed / 4294967296; }; const generator = new StageGenerator(random); const kinds = new Set<string>(); for (let i = 0; i < 80; i++) { const chunk = generator.chunk(i); for (const p of chunk.platforms) { expect(p.x).toBeGreaterThanOrEqual(28); expect(p.x + p.width).toBeLessThanOrEqual(422); } chunk.enemies.forEach(e => kinds.add(e.kind)); if (i < 5) expect(chunk.enemies.some(e => e.kind === 'tank' || e.flying)).toBe(false); } expect(kinds.size).toBe(4); });
   it('keeps generated objects bounded during a long descent', () => {
     const game = new GameModel(false, Math.random, 'endless');

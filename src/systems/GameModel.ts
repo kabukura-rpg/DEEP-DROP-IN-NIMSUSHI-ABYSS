@@ -8,7 +8,7 @@ import { GunModuleSystem } from './GunModuleSystem';
 import { CoinSystem } from './CoinSystem';
 import { CoinHighSystem } from './CoinHighSystem';
 import { ShopSystem } from './ShopSystem';
-import { coinsFor } from '../data/coins';
+import { coinsFor, type Coin } from '../data/coins';
 import { AIR_CONTAINER_RULES, BREAK_BLOCK_RULES, EXIT_RULES, LIMBO_HAZARD_RULES, SHOP_DOOR, SPIKE_PLATFORM_RULES, type AirBubble, type AirContainer, type StageExit } from '../data/structures';
 import { DOODAD_RULES, type Doodad } from '../data/doodads';
 import { insideSafeZone, SAFE_ZONE_RULES, type SafeZone } from '../data/safeZone';
@@ -19,13 +19,25 @@ import { hazardBounds, hazardType, ventStateAt, type Hazard } from '../data/haza
 import { pickupType, spawnGunModule, spawnPickup, type Pickup } from '../data/pickups';
 import { HealthSystem, type DamageCause } from './HealthSystem';
 import { comboTierFor } from '../data/combo';
+import { UPGRADE_TUNING, type UpgradeId } from '../data/upgrades';
 import { UpgradeSystem } from './UpgradeSystem';
 import { StageProgressionSystem } from './StageProgressionSystem';
 import type { AreaId, SectionId } from '../data/areas';
 import { enemyType } from '../data/enemies';
 import { defaultTuning, sanitizeTuning, type PhysicsTuning } from './PhysicsTuning';
-export type GameEvent = { type: 'shot' | 'empty' | 'land' | 'kill' | 'hurt' | 'upgrade' | 'over' | 'heal' | 'boss' | 'clear' | 'oxygen' | 'section' | 'ice' | 'vent' | 'crack' | 'collapse' | 'bossHit' | 'bossTelegraph' | 'bossFire' | 'bossPhase' | 'bossDown' | 'gunModule' | 'coin' | 'shopOpen' | 'shopBuy' | 'exitReady' | 'exit' | 'containerBreak' | 'blockCrack' | 'blockBreak' | 'jump' | 'wallJump' | 'comboSettle' | 'doodad' | 'timeVoid' | 'coinVein' | 'coinHigh' | 'spikePlatform'; x: number; y: number; value?: number; stomp?: boolean; lifeUps?: number; overflow?: number; combo?: number; stage?: string; areaCleared?: string | null; bonus?: 'heart' | 'charge'; source?: { id: number; kind: Enemy['kind']; x: number; y: number } };
+export type GameEvent = { type: 'shot' | 'empty' | 'land' | 'kill' | 'hurt' | 'upgrade' | 'over' | 'heal' | 'boss' | 'clear' | 'oxygen' | 'section' | 'ice' | 'vent' | 'crack' | 'collapse' | 'bossHit' | 'bossTelegraph' | 'bossFire' | 'bossPhase' | 'bossDown' | 'gunModule' | 'coin' | 'shopOpen' | 'shopBuy' | 'exitReady' | 'exit' | 'containerBreak' | 'blockCrack' | 'blockBreak' | 'jump' | 'wallJump' | 'comboSettle' | 'doodad' | 'timeVoid' | 'coinVein' | 'coinHigh' | 'spikePlatform' | 'explosion' | 'corpse' | 'balloon' | 'jetpack'; x: number; y: number; value?: number; stomp?: boolean; lifeUps?: number; overflow?: number; combo?: number; stage?: string; areaCleared?: string | null; bonus?: 'heart' | 'charge'; source?: { id: number; kind: Enemy['kind']; x: number; y: number } };
+/**
+ * Who fired a round.
+ *
+ * Four of the twenty upgrades put projectiles in the air that are NOT the gunboots, and several
+ * rules have to tell them apart: only the player's own rounds cost CHARGE, only the player's own
+ * rounds take the COIN HIGH boost, and a future gravity inversion has to know which way each of
+ * them was meant to go. Naming the source is cheaper than inferring it from four different places.
+ */
+export type BulletSource = 'player' | 'drone' | 'casing' | 'poppingGem' | 'gunpowderBlock';
+
 export interface Bullet {
+  source: BulletSource;
   x: number; y: number; previousY: number; previousX: number;
   /** Velocity in px/s. Straight-down weapons simply carry vx = 0. */
   vx: number; vy: number;
@@ -43,6 +55,7 @@ export interface Bullet {
 }
 /** A plain downward round, exactly as MACHINE GUN fires it. Useful for fixtures and drops. */
 export const plainBullet = (x: number, y: number, damage = 1, size = 4): Bullet => ({
+  source: 'player',
   x, y, previousY: y, previousX: x, vx: 0, vy: 850, damage, size, pierce: 0,
   pierceBlocks: false, blocks: new Set(),
   range: 900, travelled: 0, beam: false, hits: new Set(), alive: true,
@@ -166,7 +179,7 @@ export class GameModel {
   constructor(public practice = false, random = Math.random, progression: 'stage' | 'endless' = 'stage') {
     this.random = random;
     this.stage = new StageProgressionSystem(progression === 'stage');
-    this.upgrades = new UpgradeSystem(this.stats, this.health, random);
+    this.upgrades = new UpgradeSystem(random);
     // Preserve the existing read APIs without duplicating mutable health state.
     Object.defineProperty(this.stats, 'maxHp', { enumerable: true, get: () => this.health.maxHp });
     Object.defineProperty(this.player, 'invincible', { enumerable: true, get: () => this.health.invincibilityRemaining, set: (value: number) => { this.health.invincibilityRemaining = value; } });
@@ -291,13 +304,58 @@ export class GameModel {
     for (const shot of volley(def, this.stats, aim, this.shotBoost)) {
       const x = p.x + shot.offsetX;
       this.bullets.push({
+        source: 'player',
         x, y: p.y + 21, previousY: p.y + 21, previousX: x,
         vx: shot.vx, vy: shot.vy, damage: shot.damage, size: shot.size, pierce: shot.pierce,
         pierceBlocks: shot.blockPiercing, blocks: new Set(),
         range: shot.range, travelled: 0, beam: shot.beam, hits: new Set(), alive: true,
       });
     }
+    // Both of these ride the FIRE EVENT, not the volley. A SHOTGUN pellet is not a trigger pull, so
+    // a spread weapon puts out one casing and one drone round exactly as a single-shot weapon does.
+    if (this.upgrades.has('hotCasing')) this.ejectCasing();
+    if (this.upgrades.has('drone')) this.droneFire();
     this.emit('shot', p.x, p.y + 20);
+  }
+  /**
+   * HOT CASING. A spent case thrown out to one side, worth about half a machine gun round -- so an
+   * HP 1 enemy takes two of them. It costs no CHARGE and is not the player's own fire, which is why
+   * it carries its own source and never takes the COIN HIGH boost.
+   */
+  private ejectCasing() {
+    const p = this.player, tuning = UPGRADE_TUNING.hotCasing;
+    const side = this.random() < 0.5 ? -1 : 1;
+    this.bullets.push({
+      source: 'casing',
+      x: p.x, y: p.y, previousX: p.x, previousY: p.y,
+      vx: side * tuning.spread, vy: this.up * tuning.speed * 0.2,
+      damage: gunModule('machine').projectileDamage * tuning.damageShare,
+      size: tuning.size, pierce: 0, pierceBlocks: false, blocks: new Set(),
+      range: tuning.range, travelled: 0, beam: false, hits: new Set(), alive: true,
+    });
+  }
+  /**
+   * DRONE. The companion fires with the player, always a machine gun round whatever the player is
+   * carrying, and never spends CHARGE. Its kills are ordinary kills, so a chain counts them.
+   */
+  private droneFire() {
+    const def = gunModule('machine');
+    const from = this.dronePosition;
+    this.bullets.push({
+      source: 'drone',
+      x: from.x, y: from.y, previousX: from.x, previousY: from.y,
+      vx: 0, vy: -this.up * def.projectileSpeed,
+      // Machine baseline on purpose: the companion is not the player's gun and does not inherit a
+      // COIN HIGH, a LASER SIGHT, or the module the player happens to be holding.
+      damage: def.projectileDamage, size: def.projectileSize,
+      pierce: def.piercing, pierceBlocks: false, blocks: new Set(),
+      range: def.range, travelled: 0, beam: false, hits: new Set(), alive: true,
+    });
+  }
+  /** Where the companion rides. It has no body and is never a target. */
+  get dronePosition() {
+    const p = this.player, tuning = UPGRADE_TUNING.drone;
+    return { x: p.x + tuning.offsetX, y: p.y + tuning.offsetY };
   }
   /**
    * The ground half of ACTION. A jump leaves the floor at a fixed impulse -- see JUMP in
@@ -308,10 +366,19 @@ export class GameModel {
   jump() {
     const p = this.player;
     if (!this.running || p.grounded === -1) return false;
-    p.vy = this.up * JUMP.impulse;
+    // ROCKET JUMP belongs to THIS jump and no other. A stomp, a doodad bounce and a wall kick all
+    // leave the ground too, and none of them is a jump off a floor -- so none of them fires it.
+    const rocket = this.upgrades.has('rocketJump');
+    const boost = rocket ? UPGRADE_TUNING.rocketJump.impulseMultiplier : 1;
+    p.vy = this.up * JUMP.impulse * boost;
     p.grounded = -1;
     this.lastAirShot = -Infinity;
     this.emit('jump', p.x, p.y);
+    if (rocket) {
+      const tuning = UPGRADE_TUNING.rocketJump;
+      // Under the feet that just left the floor, which is down whichever way down currently is.
+      this.spawnExplosion({ x: p.x, y: p.y - this.up * tuning.blastOffsetY, radius: tuning.blastRadius, damage: tuning.blastDamage });
+    }
     return true;
   }
   /**
@@ -483,6 +550,13 @@ export class GameModel {
       const topCrossing = p.vy > 0 && oldY + 15 <= e.y - 10 && p.y + 15 >= e.y - 10;
       if (topCrossing && e.stompable) {
         this.kill(e, true); p.y = e.y - 28; p.vy = -this.stats.bounce; p.grounded = -1;
+        // BLAST MODULE rides a STOMP and nothing else: not a doodad bounce, not a chamber floor.
+        // The stomped enemy is excluded because it is already dead -- killing it twice would count
+        // its COMBO twice and drop its COIN twice.
+        if (this.upgrades.has('blastModule')) {
+          const tuning = UPGRADE_TUNING.blastModule;
+          this.spawnExplosion({ x: p.x, y: p.y - this.up * tuning.offsetY, radius: tuning.radius, damage: tuning.damage, exclude: e });
+        }
       } else if ((topCrossing || Math.abs(p.y - e.y) < 25) && p.invincible <= 0) this.hurt(e);
     }
     if (p.vy >= 0 && p.grounded === -1) {
@@ -514,6 +588,10 @@ export class GameModel {
     if (picked.collected > 0) {
       this.earnCoins(picked.earned, p.x, p.y);
       this.events.push({ type: 'coin', x: p.x, y: p.y, value: this.coins.walletCoins });
+      // The order a physical coin is processed in, once, in one place: the money lands, then the
+      // meter, then the upgrades that ride a pickup. A settled COMBO is awarded rather than picked
+      // up and deliberately reaches none of these -- there is no gem to power anything with.
+      for (const coin of picked.taken) this.onCoinPickup(coin);
     }
     // Picking things up and touching a chamber's own content are the player's doing, not the
     // world's, so they keep working inside: the gun module waiting in a chamber has to be takeable.
@@ -688,8 +766,10 @@ export class GameModel {
     block.state = 'broken';
     if (this.player.grounded === block.id) this.player.grounded = -1;
     // No roll: the block said what it was when the row appeared, and breaking it pays exactly that.
+    // A REWARD BLOCK pays the same whether a round opened it or a chain reaction did.
     if (state.reward) this.coins.burst(centre, block.y, BREAK_BLOCK_RULES.rewardCoins, this.random, BREAK_BLOCK_RULES.rewardDenomination);
     this.events.push({ type: 'blockBreak', x: centre, y: block.y, value: block.width });
+    if (this.upgrades.has('gunpowderBlocks')) this.gunpowderChain(block);
   }
   /**
    * The FINAL BOSS, inside the ordinary simulation step. Its attacks only ever reach the player
@@ -970,7 +1050,14 @@ export class GameModel {
   selectUpgrade(id: string) { return this.state === 'upgrade' && this.upgrades.select(id); }
   /** NEXT: applies the one chosen card, then starts the next SECTION (or hands off to the boss). */
   confirmUpgrade() {
-    if (this.state !== 'upgrade' || !this.upgrades.confirm()) return false;
+    if (this.state !== 'upgrade') return false;
+    const taken = this.upgrades.confirm();
+    if (!taken) return false;
+    // What an upgrade does the instant it is taken. Everything else about the twenty is a rule the
+    // systems read later through `upgrades.has`, so this stays the only acquisition branch.
+    if (taken.id === 'apple') this.heal(UPGRADE_TUNING.apple.heal);
+    if (taken.id === 'youth') this.heal(UPGRADE_TUNING.youth.heal);
+    this.syncUpgrades();
     // Bank the planned section length, never the frame that overshot the goal, so a cleared run
     // totals exactly 12 x 200m. A death mid-section still reports completedDepth + sectionDepth.
     this.completedDepth += this.stage.sectionLength;
@@ -1040,6 +1127,9 @@ export class GameModel {
     this.shop.reset();
     // The shelf is stocked for every SECTION and priced for the AREA; whether the run ever sees it
     // is decided by the chamber content roll, which is the only thing that opens a door onto it.
+    // The run's upgrades are pushed in first, so a discounted shelf is priced correctly the moment
+    // it is built rather than after somebody notices.
+    this.syncUpgrades();
     if (!this.practice && this.state !== 'boss') this.shop.stockForSection(this.random, this.stage.progress.area);
     // A full tank and a cold gauge at every SECTION start. Both are environment, not health: HP
     // carries over untouched. The gun keeps its module and its grown magazine, but forgets the
@@ -1073,6 +1163,82 @@ export class GameModel {
   }
   killInstantly(cause: DamageCause) { return this.health.killInstantly(cause); }
   hurt(source?: Enemy) { this.damage(1, source ? enemyType(source.kind).damageCause : 'enemy', source); }
+  /**
+   * One blast, wherever it came from.
+   *
+   * Four upgrades put explosions in the world -- BLAST MODULE under a stomp, ROCKET JUMP under a
+   * jump, HEART BALLOON when something touches it, REST IN PIECES when a corpse is shot -- and they
+   * differ only in where, how big, and how hard. Sharing the collision pass is what keeps them
+   * honest: every kill goes through `kill`, so a COMBO is counted once and a corpse drops its COIN
+   * once, and there is no second place for a blast to quietly do it differently.
+   *
+   * `exclude` is the enemy the blast was caused BY, where there is one: a stomped enemy is already
+   * dead by the time its own explosion goes off and must not be killed a second time.
+   */
+  spawnExplosion(blast: { x: number; y: number; radius: number; damage: number; destroysBlocks?: boolean; exclude?: Enemy }) {
+    const { x, y, radius, damage } = blast;
+    this.events.push({ type: 'explosion', x, y, value: radius });
+    for (const enemy of this.enemies) {
+      if (!enemy.alive || enemy === blast.exclude) continue;
+      if (Math.hypot(enemy.x - x, enemy.y - y) > radius) continue;
+      enemy.hp -= damage; enemy.flash = 0.1;
+      // Not a stomp: a blast kill refills nothing, it only ends the enemy and extends the chain.
+      if (enemy.hp <= 0) this.kill(enemy, false);
+    }
+    if (blast.destroysBlocks !== false) {
+      for (const block of this.platforms) {
+        if (!block.breakBlock || block.state === 'broken') continue;
+        const nearest = Math.max(block.x, Math.min(x, block.x + block.width));
+        if (Math.hypot(nearest - x, block.y - y) > radius) continue;
+        // Opened outright rather than chipped: a blast is not a round, and counting it in hits would
+        // make an explosion mean different things to a one-hit block and a three-hit one.
+        this.breakBlockOutright(block);
+      }
+    }
+  }
+  /**
+   * GUNPOWDER BLOCKS. A block that gives way fires a round upward and sets off its neighbours.
+   *
+   * Each block that goes fires exactly ONE round and then lights whatever it is touching. Lighting
+   * a neighbour goes through the ordinary break path, which calls straight back into here for that
+   * block -- so the chain is the recursion and needs no queue of its own. What bounds it is that a
+   * block is marked broken BEFORE the chain runs, so nothing is ever reached twice and a row cannot
+   * walk back into itself. A REWARD BLOCK caught in a chain still pays its LARGE COIN, and none of
+   * it counts as a kill or touches the chain.
+   */
+  private gunpowderChain(from: Platform) {
+    const def = gunModule('machine');
+    const x = from.x + from.width / 2;
+    // Upward through the model's own sign, so a later gravity inversion turns the whole chain.
+    this.bullets.push({
+      source: 'gunpowderBlock',
+      x, y: from.y, previousX: x, previousY: from.y,
+      vx: 0, vy: this.up * def.projectileSpeed,
+      damage: def.projectileDamage, size: def.projectileSize,
+      pierce: def.piercing, pierceBlocks: false, blocks: new Set(),
+      range: def.range, travelled: 0, beam: false, hits: new Set(), alive: true,
+    });
+    const reach = UPGRADE_TUNING.gunpowderBlocks.chainRadius;
+    // A snapshot: the list is walked while blocks inside it are being broken by the recursion.
+    for (const neighbour of [...this.platforms]) {
+      if (!neighbour.breakBlock || neighbour.state === 'broken') continue;
+      const gap = Math.max(from.x - (neighbour.x + neighbour.width), neighbour.x - (from.x + from.width));
+      if (gap > reach || Math.abs(neighbour.y - from.y) > reach) continue;
+      this.breakBlockOutright(neighbour);
+    }
+  }
+  /**
+   * Take a block out in one go, through the ordinary break path so its COIN, its event and any chain
+   * it sets off all still happen. Used by explosions and by GUNPOWDER BLOCKS, neither of which chips
+   * a block down -- counting a blast in hits would make it mean different things to a one-hit block
+   * and a three-hit one.
+   */
+  private breakBlockOutright(block: Platform) {
+    const state = block.breakBlock;
+    if (!state || block.state === 'broken') return;
+    state.hits = state.durability - 1;
+    this.hitBreakBlock(block);
+  }
   private kill(enemy: Enemy, stomp: boolean) {
     enemy.alive = false; this.kills++; this.combo++; this.maxCombo = Math.max(this.combo, this.maxCombo);
     // Landing on a head is not landing on the ground: it refills CHARGE and the chain carries on,
@@ -1103,9 +1269,41 @@ export class GameModel {
     if (this.coinHigh.earn(value)) this.events.push({ type: 'coinHigh', x, y, value: 1 });
     return value;
   }
+  /**
+   * What picking up one physical COIN does, beyond the money itself.
+   *
+   * COIN POWERED pays CHARGE by the gem's own value, and POPPING COINS fires a round upward for it.
+   * Both are per-gem, so a mined COIN VEIN pays out once for every coin swept up rather than once
+   * for the haul -- and neither can be triggered by a settled chain, which is credited directly and
+   * never becomes a coin on the floor.
+   */
+  private onCoinPickup(coin: Coin) {
+    if (this.upgrades.has('gemPowered')) {
+      // Small (2) pays 1, large (10) pays 5: the original's per-gem figures, expressed against
+      // DEEP DROP's own denominations so the two line up exactly.
+      const gain = coin.value * UPGRADE_TUNING.gemPowered.chargePerValue;
+      this.ammo = Math.min(this.stats.maxAmmo, this.ammo + gain);
+    }
+    if (this.upgrades.has('poppingGems')) {
+      const p = this.player, tuning = UPGRADE_TUNING.poppingGems;
+      // Upward through the model's own sign, so a later gravity inversion turns these with it.
+      // MEASUREMENT REQUIRED: whether a LARGE gem fires something stronger is not documented, so
+      // both sizes fire the same machine-class round for now.
+      this.bullets.push({
+        source: 'poppingGem',
+        x: p.x, y: p.y, previousX: p.x, previousY: p.y,
+        vx: 0, vy: this.up * tuning.speed,
+        damage: tuning.damage, size: tuning.size, pierce: 0, pierceBlocks: false, blocks: new Set(),
+        range: tuning.range, travelled: 0, beam: false, hits: new Set(), alive: true,
+      });
+    }
+  }
   /** What a round currently does, after any temporary boost. Nothing writes to the weapon table. */
   get shotBoost(): ShotBoost {
-    return { damage: this.coinHigh.damageMultiplier, range: this.coinHigh.rangeMultiplier };
+    // Reach is a product, not winner-takes-all: LASER SIGHT and a COIN HIGH both stretch it, and
+    // neither may overwrite the other or the module's own figure.
+    const sight = this.upgrades.has('laserSight') ? UPGRADE_TUNING.laserSight.rangeMultiplier : 1;
+    return { damage: this.coinHigh.damageMultiplier, range: this.coinHigh.rangeMultiplier * sight };
   }
   /**
    * Grow the magazine permanently. Shared by a gun module's CHARGE bonus, a settled chain's reward
@@ -1116,6 +1314,21 @@ export class GameModel {
     if (!Number.isFinite(amount) || amount <= 0) return;
     this.stats.maxAmmo += amount;
     this.ammo = this.stats.maxAmmo;
+  }
+  /**
+   * Push the upgrades that are simple multipliers into the systems that own the value.
+   *
+   * Each belongs to a system that already had the number: HealthSystem's invulnerability window,
+   * CoinSystem's magnet, CoinHighSystem's duration, the SHOP's prices. The upgrade scales what is
+   * there rather than replacing it, so the tuned figure stays the tuned figure. Called on
+   * acquisition and at every SECTION start, because systems rebuilt between SECTIONs must not
+   * forget what the run is holding.
+   */
+  private syncUpgrades() {
+    this.health.invincibilityMultiplier = this.upgrades.has('candle') ? UPGRADE_TUNING.candle.invincibilityMultiplier : 1;
+    this.coins.attractMultiplier = this.upgrades.has('gemAttractor') ? UPGRADE_TUNING.gemAttractor.radiusMultiplier : 1;
+    this.coinHigh.durationMultiplier = this.upgrades.has('gemSick') ? UPGRADE_TUNING.gemSick.durationMultiplier : 1;
+    this.shop.discount = this.upgrades.has('membersCard') ? UPGRADE_TUNING.membersCard.discount : 1;
   }
   /**
    * Fill the magazine. This is ONE of the two things a landing does, and it is deliberately its own

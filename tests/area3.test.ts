@@ -149,7 +149,7 @@ describe('AREA 3 oxygen supply', () => {
     hold(game, 9);
     expect(game.oxygen.remaining).toBeLessThan(4);
     game.completeSection();
-    game.selectUpgrade(game.upgrades.choices.find(u => u.category !== 'health')!.id);
+    game.selectUpgrade(game.upgrades.choices[0].id);
     game.confirmUpgrade();
     expect([game.stage.label, game.oxygen.remaining, game.hp]).toEqual(['3-2', OXYGEN_RULES.max, 2]);
   });

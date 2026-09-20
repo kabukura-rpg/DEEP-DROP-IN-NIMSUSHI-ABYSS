@@ -156,12 +156,12 @@ function showSectionClear(model: GameModel, stage: string, areaCleared: string |
 function showUpgrade(model: GameModel) {
   mode = 'upgrade'; bridge.active = false; clearInput();
   const choices = model.upgrades.choices;
-  const acquired = UPGRADES.filter(u => model.upgrades.stacks[u.id]).map(u => `<span title="${u.label}">${u.icon} ${u.name} ×${model.upgrades.stacks[u.id]}</span>`).join('');
-  const categories = { attack: '攻撃', ammo: '弾薬', movement: '移動・反動', combo: 'コンボ', health: 'HP・回復' };
+  // One of each per run, so the owned list is a set rather than a tally.
+  const acquired = UPGRADES.filter(u => model.upgrades.has(u.id)).map(u => `<span title="${u.label}">${u.icon} ${u.name}</span>`).join('');
   const cleared = model.stage.boss ? 'FINAL' : `SECTION ${model.stage.label}`;
   const destination = model.stage.isFinalSection ? 'FINAL BOSS' : model.stage.isAreaFinale ? `AREA ${model.stage.progress.area + 1}` : nextSectionLabel(model);
   $('run-status').textContent = 'REST / SAFE ZONE';
-  setOverlay(`<div class="panel-content upgrade-content" role="dialog" aria-modal="true" aria-labelledby="rest-title"><div class="eyebrow">${cleared} CLEAR / REST POINT</div><h2 id="rest-title">CHOOSE ONE<span>安全地帯 · HPの自動回復はありません</span></h2><div class="rest-stats"><span>HP <b>${model.hp} / ${model.health.maxHp}</b></span><span>MAX HP <b>${model.health.maxHp}</b></span><span>LIFE UP <b>${model.health.overflowHealing} / ${HEALTH_RULES.overflowPerLife}</b></span><span>弾数上限 <b>${model.stats.maxAmmo}</b></span><span>NEXT <b>${destination}</b></span><span>SECTION <b>${model.stage.clearedSections + 1} / ${TOTAL_SECTIONS}</b></span></div><div class="owned-upgrades" aria-label="取得済み強化">${acquired || '<span>取得済み強化：なし</span>'}</div><div class="upgrade-list">${choices.map((u, i) => `<button class="upgrade-card" id="upgrade-${i}" aria-pressed="false"><span class="upgrade-icon">${u.icon}</span><span><strong>${u.name}</strong><b>${categories[u.category]} · ${u.label}</b><small>${u.description}</small><small>${u.rarity.toUpperCase()} · ${model.upgrades.stacks[u.id] || 0} / ${Number.isFinite(u.maxStacks) ? u.maxStacks : '∞'}</small></span><span class="upgrade-arrow">○</span></button>`).join('')}</div><p id="selection-summary" class="upgrade-note" aria-live="polite">1つ選んでNEXTで確定。選択中は時間が停止します。</p><button id="upgrade-confirm" class="primary-button" disabled>NEXT · 選択してください</button></div>`);
+  setOverlay(`<div class="panel-content upgrade-content" role="dialog" aria-modal="true" aria-labelledby="rest-title"><div class="eyebrow">${cleared} CLEAR / REST POINT</div><h2 id="rest-title">CHOOSE ONE<span>安全地帯 · HPの自動回復はありません</span></h2><div class="rest-stats"><span>HP <b>${model.hp} / ${model.health.maxHp}</b></span><span>MAX HP <b>${model.health.maxHp}</b></span><span>LIFE UP <b>${model.health.overflowHealing} / ${HEALTH_RULES.overflowPerLife}</b></span><span>弾数上限 <b>${model.stats.maxAmmo}</b></span><span>NEXT <b>${destination}</b></span><span>SECTION <b>${model.stage.clearedSections + 1} / ${TOTAL_SECTIONS}</b></span></div><div class="owned-upgrades" aria-label="取得済み強化">${acquired || '<span>取得済み強化：なし</span>'}</div><div class="upgrade-list">${choices.map((u, i) => `<button class="upgrade-card" id="upgrade-${i}" aria-pressed="false"><span class="upgrade-icon">${u.icon}</span><span><strong>${u.name}</strong><b>${u.label}</b><small>${u.description}</small><small>ORIGIN · ${u.origin}</small></span><span class="upgrade-arrow">○</span></button>`).join('')}</div><p id="selection-summary" class="upgrade-note" aria-live="polite">1つ選んでNEXTで確定。選択中は時間が停止します。</p><button id="upgrade-confirm" class="primary-button" disabled>NEXT · 選択してください</button></div>`);
   choices.forEach((u, i) => { $(`upgrade-${i}`).onclick = () => {
     if (!model.selectUpgrade(u.id)) return;
     choices.forEach((_, j) => {
@@ -264,7 +264,7 @@ function showClear(model: GameModel) {
   try { localStorage.setItem('deep-drop-best', String(best)); } catch { /* Keep a session best if storage is unavailable. */ }
   $('side-best').textContent = String(best).padStart(3, '0');
   $('run-status').textContent = 'DEMON KING DEFEATED';
-  const upgrades = Object.values(model.upgrades.stacks).reduce((sum, n) => sum + n, 0);
+  const upgrades = model.upgrades.acquired.length;
   // model.elapsed only advances inside a running step, so it is play time: title screens, PAUSE
   // and rest/upgrade selection are all already excluded. BOSS TIME is the fight on its own.
   const mmss = (seconds: number) => `${Math.floor(seconds / 60)}:${String(Math.floor(seconds % 60)).padStart(2, '0')}`;

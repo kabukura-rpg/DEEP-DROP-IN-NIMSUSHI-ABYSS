@@ -104,13 +104,13 @@ button('1-1 → 2-1 を通常プレイ', async () => {
     if (model.state === 'upgrade') {
       steer(0); act(false);
       await until(() => !!document.getElementById('upgrade-0'), 8000);
-      const cleared = model.stage.label, before = { hp: model.hp, max: model.health.maxHp, overflow: model.health.overflowHealing, stacks: Object.values(model.upgrades.stacks).reduce((a, b) => a + b, 0) };
+      const cleared = model.stage.label, before = { hp: model.hp, max: model.health.maxHp, overflow: model.health.overflowHealing, stacks: model.upgrades.acquired.length };
       assert(model.hp === playingHp, `${cleared} クリアで休憩：HPは ${model.hp}/${model.health.maxHp} のまま回復しない`);
       document.getElementById('upgrade-0')!.click();
       document.getElementById('upgrade-confirm')!.click();
       await wait(90);
       rests.push(cleared);
-      assert(model.health.maxHp >= before.max && model.health.overflowHealing >= 0 && Object.values(model.upgrades.stacks).reduce((a, b) => a + b, 0) === before.stacks + 1, `${cleared} 強化を1つだけ適用`);
+      assert(model.health.maxHp >= before.max && model.health.overflowHealing >= 0 && model.upgrades.acquired.length === before.stacks + 1, `${cleared} 強化を1つだけ適用`);
       assert(model.ammo === model.stats.maxAmmo && model.sectionDepth < 5, `${model.stage.label} 開始：CHARGE満タン・SECTION深度0`);
       playingHp = model.hp;
       if (model.stage.label === '2-1') break;
@@ -236,12 +236,12 @@ button('休憩 HP2 → 選択・確定', async () => {
   assert((document.getElementById('upgrade-confirm') as HTMLButtonElement).disabled, '未選択ではNEXT無効');
   await wait(500); model.damage(1, 'oxygen'); model.killInstantly('lava');
   assert(model.hp === 2 && model.player.y === y && model.elapsed === elapsed && model.player.invincible === immunity, '休憩中はHP・物理・無敵時間・環境ダメージ停止');
-  output.textContent += '\nFOODを選択し、NEXTで確定してください';
+  output.textContent += '\nAPPLEを選択し、NEXTで確定してください';
 });
 button('休憩後のHPを検証', async () => {
   const model = scene.model;
-  assert(model.state === 'playing' && model.hp === 4 && model.health.overflowHealing === 2, 'FOOD確定後HP 4/4・余剰2');
-  assert(model.upgrades.stacks.food === 1, '選択1回だけ適用');
+  assert(model.state === 'playing' && model.hp === 4 && model.health.overflowHealing === 2, 'APPLE確定後HP 4/4・余剰2');
+  assert(model.upgrades.acquired.length === 1, '選択1回だけ適用');
   pause();
 });
 button('満タンFOOD → LIFE UP', async () => {
@@ -1433,7 +1433,7 @@ async function restLayoutAt(width: number, height: number) {
     const cards = Array.from(win.document.querySelectorAll('.upgrade-card'), c => c.getBoundingClientRect());
     const next = win.document.getElementById('upgrade-confirm')!.getBoundingClientRect();
     const hit = win.document.elementFromPoint(next.left + next.width / 2, next.top + next.height / 2);
-    const stacks = Object.values(model.upgrades.stacks).reduce((sum, n) => sum + n, 0);
+    const stacks = model.upgrades.acquired.length;
     const result = {
       size: `${width}×${height}`, stacks, cards: cards.length,
       overlapping: cards.some((a, i) => cards.some((b, j) => i < j && a.bottom > b.top + 0.5 && b.bottom > a.top + 0.5)),
@@ -2085,10 +2085,8 @@ button('補助検出そのものを検証', async () => {
 button('UNASSISTED BOSS CHECK', async () => {
   start();
   await until(() => scene.model.state === 'playing', 8000);
-  for (const id of ['mag', 'power', 'heart', 'food', 'recoil', 'speed', 'big', 'combo', 'mag', 'bounce', 'heart', 'food']) {
-    const upgrade = UPGRADES.find(u => u.id === id);
-    if (upgrade) scene.model.upgrades.applyLegacy(upgrade);
-  }
+  // Twelve cards, which is what a cleared run reaches the king holding.
+  for (const definition of UPGRADES.slice(0, 12)) scene.model.upgrades.grant(definition.id);
   scene.model.jumpToBoss();
   await until(() => scene.model.state === 'boss' && scene.model.boss.enabled, 8000);
   const model = scene.model;
@@ -2171,10 +2169,8 @@ button('ASSISTED BOSS CHECK', async () => {
   await until(() => scene.model.state === 'playing', 8000);
   // A player only reaches the king after 12 sections and 11 rest points, so the fight is balanced
   // against a built-up run. Give the jump the same kind of build before starting.
-  for (const id of ['mag', 'power', 'heart', 'food', 'recoil', 'speed', 'big', 'combo', 'mag', 'bounce', 'heart', 'food']) {
-    const upgrade = UPGRADES.find(u => u.id === id);
-    if (upgrade) scene.model.upgrades.applyLegacy(upgrade);
-  }
+  // Twelve cards, which is what a cleared run reaches the king holding.
+  for (const definition of UPGRADES.slice(0, 12)) scene.model.upgrades.grant(definition.id);
   scene.model.health.heal(9);
   scene.model.jumpToBoss();
   await until(() => scene.model.state === 'boss' && scene.model.boss.enabled, 8000);

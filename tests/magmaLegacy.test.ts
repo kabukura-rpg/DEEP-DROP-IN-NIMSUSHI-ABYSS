@@ -172,7 +172,8 @@ describe('AREA 3 heat gauge', () => {
     game.damage(2); game.player.invincible = 0;
     game.heat.value = 70;
     game.completeSection();
-    game.selectUpgrade(game.upgrades.choices.find(u => u.category !== 'health')!.id);
+    // Not a card that heals on acquisition: this test is about HP surviving the boundary untouched.
+    game.selectUpgrade(game.upgrades.choices.find(u => u.id !== 'apple' && u.id !== 'youth')!.id);
     game.confirmUpgrade();
     // The fixture turns the gauge on in AREA 4, which is where a normal run is when the BOSS is
     // next; what matters is that crossing a SECTION boundary clears the gauge and leaves HP alone.

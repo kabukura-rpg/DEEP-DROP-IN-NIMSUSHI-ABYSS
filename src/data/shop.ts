@@ -60,14 +60,16 @@ export interface ShopOffer {
  * One shelf: `stock` distinct goods drawn from the six, priced for the AREA the run is in. Drawing
  * without replacement is the point -- a shop offering the same battery twice would waste a slot.
  */
-export function rollShopStock(random: () => number, area: AreaId | number = 1, rules: ShopRules = SHOP_RULES): ShopOffer[] {
+export function rollShopStock(random: () => number, area: AreaId | number = 1, rules: ShopRules = SHOP_RULES, discount = 1): ShopOffer[] {
   const pool = [...SHOP_ITEMS];
   const offers: ShopOffer[] = [];
   const wanted = Math.max(1, Math.min(pool.length, rules.stock));
   for (let i = 0; i < wanted; i++) {
     const pick = Math.min(pool.length - 1, Math.max(0, Math.floor(random() * pool.length)));
     const [item] = pool.splice(pick, 1);
-    offers.push({ id: `shop-${i}`, item: item.id, name: item.name, effect: item.effect, price: shopPrice(item, area), sold: false });
+    // MEMBER'S CARD is applied where the price is quoted, so the shelf, the panel and the wallet
+    // all see the same number and none of them can disagree about what something costs.
+    offers.push({ id: `shop-${i}`, item: item.id, name: item.name, effect: item.effect, price: Math.round(shopPrice(item, area) * discount), sold: false });
   }
   return offers;
 }
