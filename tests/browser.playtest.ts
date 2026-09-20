@@ -50,6 +50,38 @@ function key(code: string, down: boolean) {
   window.dispatchEvent(new KeyboardEvent(down ? 'keydown' : 'keyup', { key: String(spec[0]), code, keyCode: Number(spec[1]), which: Number(spec[1]), bubbles: true }));
 }
 /**
+ * Hold keys the way a hand does, and never trust a cached idea of what is down.
+ *
+ * `clearInput()` releases every key whenever the UI changes mode -- a rest, a shop, a pause, a
+ * resume. A driver that dispatches only on a CHANGE of its own `facing` then believes it is
+ * holding a key the game has already let go of, and the run stands still for the rest of its life
+ * with no error, no death and no clue: a FULL RUN sat at 2-1 for fourteen minutes doing exactly
+ * this, loop spinning, target 102px away, every key up.
+ *
+ * So the GAME's key state is the source of truth and the intent is re-asserted whenever the two
+ * disagree. `scene.keys` is private to GameScene; reading it here is a test looking at what the
+ * product actually received, which is the whole point.
+ */
+function driver() {
+  let facing = 0, firing = false;
+  const live = (code: 'KeyA' | 'KeyD' | 'Space') => {
+    const keys = (scene as unknown as { keys?: Record<string, { isDown: boolean }> }).keys;
+    if (!keys) return held.has(code);
+    if (code === 'KeyA') return !!(keys.a?.isDown || keys.left?.isDown);
+    if (code === 'KeyD') return !!(keys.d?.isDown || keys.right?.isDown);
+    return !!keys.space?.isDown;
+  };
+  const hold = (code: 'KeyA' | 'KeyD' | 'Space', want: boolean) => { if (want !== live(code)) key(code, want); };
+  return {
+    steer(dir: number) { facing = dir; hold('KeyA', dir === -1); hold('KeyD', dir === 1); },
+    trigger(on: boolean) { firing = on; hold('Space', on); },
+    release() { this.steer(0); this.trigger(false); },
+    get facing() { return facing; },
+    get firing() { return firing; },
+  };
+}
+
+/**
  * The dev pane often runs without OS focus, where Phaser's autoPause and the app's own blur-pause
  * both stop the run. Long checks call this each iteration so a headless pane can still play.
  */
@@ -2291,14 +2323,10 @@ button('FULL RUN 1-1 → GAME CLEAR（補助なし）', async () => {
   start();
   await until(() => bridge.active, 8000);
   const deadline = performance.now() + 1500000;
-  let facing = 0, firing = false, tapFrame = 0;
-  const steer = (dir: number) => {
-    if (dir === facing) return;
-    if (facing) key(facing < 0 ? 'KeyA' : 'KeyD', false);
-    facing = dir;
-    if (facing) key(facing < 0 ? 'KeyA' : 'KeyD', true);
-  };
-  const trigger = (on: boolean) => { if (on !== firing) { key('Space', on); firing = on; } };
+  let tapFrame = 0;
+  const pad = driver();
+  const steer = (dir: number) => pad.steer(dir);
+  const trigger = (on: boolean) => pad.trigger(on);
 
   const sections: string[] = [];
   let frame = 0, died = '';
@@ -2456,15 +2484,11 @@ button('ABYSS 入場 → 重力反転', async () => {
   const depthAtEntry = Math.floor(model.totalDepth);
   assert(depthAtEntry === PLANNED_TOTAL_DEPTH, `ABYSS 入場時 TOTAL DEPTH = ${depthAtEntry}m`);
 
-  let facing = 0, firing = false, frame = 0, shopped = 0, reversed = 0;
+  let frame = 0, shopped = 0, reversed = 0;
   const touched = new Set<string>();
-  const steer = (dir: number) => {
-    if (dir === facing) return;
-    if (facing === -1) key('KeyA', false); if (facing === 1) key('KeyD', false);
-    if (dir === -1) key('KeyA', true); if (dir === 1) key('KeyD', true);
-    facing = dir;
-  };
-  const trigger = (on: boolean) => { if (on !== firing) { key('Space', on); firing = on; } };
+  const pad = driver();
+  const steer = (dir: number) => pad.steer(dir);
+  const trigger = (on: boolean) => pad.trigger(on);
   const original = bridge.onEvent;
   bridge.onEvent = (event, m) => { if (event.type === 'gravityFlip') reversed++; defaultEventHandler?.(event, m); };
   const deadline = performance.now() + 90000;
@@ -2729,14 +2753,10 @@ button('UNASSISTED BOSS CHECK', async () => {
   const phases: number[] = [];
   const original = bridge.onEvent;
   bridge.onEvent = (event, m) => { if (event.type === 'bossPhase') phases.push(Number(event.value)); defaultEventHandler?.(event, m); };
-  let facing = 0, firing = false, hits = 0, lastHp = model.hp, deepest = 1, healed = 0, tapFrame = 0;
-  const steer = (dir: number) => {
-    if (dir === facing) return;
-    if (facing === -1) key('KeyA', false); if (facing === 1) key('KeyD', false);
-    if (dir === -1) key('KeyA', true); if (dir === 1) key('KeyD', true);
-    facing = dir;
-  };
-  const trigger = (on: boolean) => { if (on !== firing) { key('Space', on); firing = on; } };
+  let hits = 0, lastHp = model.hp, deepest = 1, healed = 0, tapFrame = 0;
+  const pad = driver();
+  const steer = (dir: number) => pad.steer(dir);
+  const trigger = (on: boolean) => pad.trigger(on);
   const deadline = performance.now() + 220000;
   while (model.state === 'boss' && performance.now() < deadline) {
     keepAwake();
@@ -2813,15 +2833,9 @@ button('ASSISTED BOSS CHECK', async () => {
     if (event.type === 'bossRage') rages++;
     defaultEventHandler?.(event, model);
   };
-  let facing = 0;
-  const steer = (dir: number) => {
-    if (dir === facing) return;
-    if (facing === -1) key('KeyA', false); if (facing === 1) key('KeyD', false);
-    if (dir === -1) key('KeyA', true); if (dir === 1) key('KeyD', true);
-    facing = dir;
-  };
-  let firing = false;
-  const trigger = (on: boolean) => { if (on !== firing) { key('Space', on); firing = on; } };
+  const pad = driver();
+  const steer = (dir: number) => pad.steer(dir);
+  const trigger = (on: boolean) => pad.trigger(on);
   let barSeen = 0, climaxSeen = false, deepestPhase = 1, playedSeconds = 0, tapFrame = 0;
   const deadline = performance.now() + 260000;
   while (model.state === 'boss' && performance.now() < deadline) {
