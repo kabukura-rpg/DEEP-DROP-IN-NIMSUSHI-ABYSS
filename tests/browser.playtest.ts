@@ -2365,6 +2365,7 @@ button('FULL RUN 1-1 → GAME CLEAR（補助なし）', async () => {
   };
   const areaNotes: Record<string, string> = {};
   let depthAtBoss = -1, gunAtBossEntry = '', maxOxygen = 0, minOxygen = 99, maxHeat = 0;
+  let deepestSeen = 0, hoverFrames = 0;
   const original = bridge.onEvent;
   bridge.onEvent = (event, m) => {
     if (event.type === 'crack') seen.cracks++;
@@ -2452,11 +2453,23 @@ button('FULL RUN 1-1 → GAME CLEAR（補助なし）', async () => {
       }
       if (model.oxygen.enabled) { minOxygen = Math.min(minOxygen, model.oxygen.remaining); maxOxygen = Math.max(maxOxygen, model.oxygen.remaining); }
       if (model.heat.enabled) maxHeat = Math.max(maxHeat, model.heat.value);
+      // ANTI-HOVER. The gunboots are a brake, and a bot that keeps finding reasons to fire -- an
+      // enemy below it cannot reach, a fall it keeps arresting -- simply hangs in the air on its
+      // own recoil and never descends again. Depth is the only honest measure of progress, so when
+      // it stops moving the trigger comes off and gravity is allowed to do its job.
+      //
+      // Opening a gate row is the one time firing IS the progress, so a BREAK BLOCK within reach
+      // below is exempt.
+      if (model.sectionDepth > deepestSeen + 0.5) { deepestSeen = model.sectionDepth; hoverFrames = 0; }
+      else hoverFrames++;
+      const atGate = model.platforms.some(f => f.breakBlock && f.state !== 'broken'
+        && f.y > model.player.y && f.y < model.player.y + 240);
+      const hovering = hoverFrames > 180 && !atGate;
       const plan = descendPlan(model);
       steer(plan.target === undefined || Math.abs(plan.target - model.player.x) < 4 ? 0 : Math.sign(plan.target - model.player.x));
       // Tap rather than hold: a semi-automatic module only answers to a fresh press.
       frame++;
-      trigger(plan.fire && frame % 10 < 5);
+      trigger(plan.fire && !hovering && frame % 10 < 5);
       output.textContent = `FULL RUN（補助なし）\n${model.stage.label} ${Math.floor(model.sectionDepth)} / ${model.sectionLength}m${model.exit ? ' · EXIT OPEN' : ''}\n` +
         `HP ${model.hp}/${model.health.maxHp} · AMMO ${model.ammo}/${model.stats.maxAmmo} · ${model.gun.short}\n` +
         `COIN ${model.coins.walletCoins} (SCORE ${model.coins.scoreCoins})\n` +
