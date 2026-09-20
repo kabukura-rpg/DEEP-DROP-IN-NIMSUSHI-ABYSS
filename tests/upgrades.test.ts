@@ -530,12 +530,27 @@ describe('SAFETY JETPACK', () => {
   it('stops burning the moment ACTION is released, and runs out', () => {
     const game = run(['safetyJetpack']);
     game.ammo = 0; game.platforms = [];
-    tick(game, 0.4, 0, true);
+    /**
+     * Keep the shaft empty for the whole test.
+     *
+     * Clearing `platforms` once is no longer enough: generation lays fresh rows under a descending
+     * camera, and at the run's measured speeds the player reaches one inside this window. Landing
+     * refills the jetpack exactly as it refills CHARGE, so the fuel read back full and the test was
+     * measuring a landing rather than the burn.
+     */
+    const burn = (seconds: number, firing: boolean) => {
+      for (let i = 0; i < Math.round(seconds * 120); i++) {
+        game.platforms = []; game.enemies = []; game.doodads = []; game.pickups = [];
+        game.step(1 / 120, 0, firing);
+      }
+    };
+    burn(0.4, true);
     const held = game.jetpackFuel;
-    tick(game, 0.8, 0, false);
+    expect(held).toBeLessThan(UPGRADE_TUNING.safetyJetpack.fuelSeconds);
+    burn(0.8, false);
     expect(game.jetpackFuel).toBe(held);
     expect(game.jetpackActive).toBe(false);
-    tick(game, UPGRADE_TUNING.safetyJetpack.fuelSeconds + 0.5, 0, true);
+    burn(UPGRADE_TUNING.safetyJetpack.fuelSeconds + 0.5, true);
     expect(game.jetpackFuel).toBe(0);
     expect(game.jetpackActive).toBe(false);
   });

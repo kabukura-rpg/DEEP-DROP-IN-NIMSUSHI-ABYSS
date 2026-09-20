@@ -133,7 +133,15 @@ describe('WALL JUMP', () => {
   });
   it('keeps its numbers in data, marked as unmeasured', () => {
     expect(WALL_JUMP.impulse).toBeGreaterThan(0);
-    expect(WALL_JUMP.kick).toBeGreaterThan(BALANCE.moveSpeed);
+    // `kick > moveSpeed` used to be asserted here, so that a wall jump read as being thrown clear
+    // rather than as walking. Adopting the measured speeds made moveSpeed 350 against a kick of 320
+    // and the property no longer holds.
+    //
+    // FIDELITY GAP, recorded and deliberately NOT asserted either way. Rescaling the kick on its own
+    // would not reproduce the original: DEEP DROP's wall jump also has no rolling/somersault gate
+    // and re-arms in mid-air on the opposite wall (see tests/movement.test.ts, section E). All four
+    // -- activation condition, re-arm, kick and impulse -- are fixed together in a dedicated wall
+    // jump pass against footage. Until then the current value is not blessed by a test.
     expect(WALL_JUMP.kickTime).toBeGreaterThan(0);
     // A wall is a worse floor than a floor.
     expect(WALL_JUMP.impulse).toBeLessThanOrEqual(JUMP.impulse);

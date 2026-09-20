@@ -5,13 +5,14 @@ import { GUN_MODULES } from '../src/data/gunModules';
 import { StageGenerator } from '../src/systems/StageGenerator';
 import { spawnEnemy, type Enemy, type EnemyKind } from '../src/data/enemies';
 import { initialStats } from '../src/data/balance';
+import { BALANCE } from '../src/data/balance';
 
 function emptyGame() { const game = new GameModel(true); game.platforms = []; return game; }
 function enemy(kind: EnemyKind, x = 225, y = 300, id = 1): Enemy { return spawnEnemy(kind, id, x, y); }
 function tick(game: GameModel, seconds: number, direction = 0, fire = false) { for (let i = 0; i < Math.ceil(seconds * 120); i++) game.step(1 / 120, direction, fire); }
 
 describe('falling and ammunition', () => {
-  it('falls under gravity and caps vertical speed', () => { const game = emptyGame(); tick(game, 0.7); expect(game.player.y).toBeGreaterThan(300); expect(game.player.vy).toBe(520); });
+  it('falls under gravity and caps vertical speed', () => { const game = emptyGame(); tick(game, 0.7); expect(game.player.y).toBeGreaterThan(300); expect(game.player.vy).toBe(BALANCE.maxFallSpeed); });
   // Recoil brakes a fall and stops at a standstill: a shot worth more than the remaining descent
   // spends the surplus and leaves the player hanging, rather than reversing into a climb.
   it('uses a round and kills the fall, without reversing it', () => { const game = emptyGame(); game.player.vy = 100; game.shoot(); expect(game.player.vy).toBe(0); expect(game.ammo).toBe(game.stats.maxAmmo - 1); expect(game.bullets).toHaveLength(1); });

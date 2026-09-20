@@ -2,25 +2,18 @@ import { BALANCE, JUMP } from './balance';
 import { WORLD } from './balance';
 
 /**
- * SPEED PROFILES — for human A/B comparison against the original. Not balance.
+ * SPEED PROFILES — for comparison only. The shipped physics live in BALANCE.
  *
- * The shipped game uses CURRENT. VIDEO exists so the two can be felt back to back; nothing here is
- * adopted until a human has played both.
+ * VIDEO is now the production baseline and this module reads it from BALANCE rather than restating
+ * it, so the two can never drift apart. LEGACY is the pre-fidelity 900/520/180: kept so the change
+ * can still be felt back to back, and used for nothing else.
  *
- * VIDEO is a **scale equivalent**, not a set of the original's constants. It comes from frame
- * measurement of a ~58.9fps recording, normalised against the shaft width so it transfers between
- * two games at different resolutions, then multiplied back into DEEP DROP's 394px shaft:
- *
- *   quantity      original (shaft-widths)   DEEP DROP now      video equivalent
- *   terminal      2.36 /s                   1.32 /s  (520)     ~920-950 px/s
- *   acceleration  4.2 /s2                   2.28 /s2 (900)     ~1650-1700 px/s2
- *   horizontal    0.88-0.91 /s              0.457 /s (180)     ~340-360 px/s
- *
- * The original is roughly 1.8x DEEP DROP on every axis, which is what the side-by-side sessions
- * described as "no high-speed feel".
+ * VIDEO's provenance is recorded on BALANCE itself. In short: frame measurement of a ~58.9fps
+ * recording of the original, normalised against shaft width, then scaled into DEEP DROP's 394px
+ * shaft, and confirmed by side-by-side play.
  */
 export interface SpeedProfile {
-  id: 'current' | 'video';
+  id: 'legacy' | 'video';
   label: string;
   gravity: number;
   maxFallSpeed: number;
@@ -37,20 +30,24 @@ export interface SpeedProfile {
   jumpImpulseForSameArc: number;
 }
 
+const LEGACY = { gravity: 900, maxFallSpeed: 520, moveSpeed: 180 } as const;
+
+/** The impulse that would give the CURRENT jump arc at some other gravity. See the field doc. */
 const sameArc = (gravity: number) => Math.round(JUMP.impulse * Math.sqrt(gravity / BALANCE.gravity));
 
 export const SPEED_PROFILES: Record<SpeedProfile['id'], SpeedProfile> = {
-  current: {
-    id: 'current', label: 'CURRENT',
+  video: {
+    id: 'video', label: 'VIDEO',
     gravity: BALANCE.gravity, maxFallSpeed: BALANCE.maxFallSpeed, moveSpeed: BALANCE.moveSpeed,
     jumpImpulseForSameArc: JUMP.impulse,
   },
-  video: {
-    id: 'video', label: 'VIDEO',
-    // Midpoints of the measured ranges. The ranges themselves are in the comment above; these are
-    // the single values chosen to be played, not a claim that the original sits exactly here.
-    gravity: 1680, maxFallSpeed: 930, moveSpeed: 350,
-    jumpImpulseForSameArc: sameArc(1680),
+  legacy: {
+    id: 'legacy', label: 'LEGACY',
+    ...LEGACY,
+    // 330 * sqrt(900/1680) = 243. What the impulse WOULD have to be for the jump to keep its
+    // current arc under the old gravity -- recorded for symmetry only. Switching to LEGACY does not
+    // apply it, so the old profile also restores the old 60px jump, which is what it is for.
+    jumpImpulseForSameArc: sameArc(LEGACY.gravity),
   },
 };
 

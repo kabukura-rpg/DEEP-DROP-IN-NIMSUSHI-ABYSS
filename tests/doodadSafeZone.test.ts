@@ -119,7 +119,10 @@ describe('DOODAD: scenery that reloads without banking a chain', () => {
     const game = bare();
     const doodad = withDoodad(game);
     game.player.vy = 300;
-    tick(game, 0.4);
+    // 0.2s windows, not 0.4s: a doodad bounce leaves at 210px/s, which against the run's gravity of
+    // 1680 is a 13px hop and a 0.25s round trip, so a longer window catches the REBOUND as a second
+    // contact and the count stops meaning "used once".
+    tick(game, 0.2);
     expect(game.events.filter(e => e.type === 'doodad')).toHaveLength(1);
     // Away, then back onto the same one: it is scenery, so it is still there.
     game.events.length = 0;
@@ -127,7 +130,7 @@ describe('DOODAD: scenery that reloads without banking a chain', () => {
     tick(game, 0.1);
     game.ammo = 1;
     game.player.vy = 300;
-    tick(game, 0.4);
+    tick(game, 0.2);
     expect(game.events.filter(e => e.type === 'doodad')).toHaveLength(1);
     expect(game.ammo).toBe(game.stats.maxAmmo);
   });
@@ -261,7 +264,9 @@ describe('TIMEVOID: the world outside a chamber stops', () => {
   it('lets the player move, jump and shoot inside', () => {
     const { game, zone, floor } = shaft();
     const startX = game.player.x;
-    tick(game, 0.3, 1);
+    // 0.1s, not 0.3s: at moveSpeed 350 a third of a second carries the player 105px, which is most
+    // of a 150px chamber and out through its mouth -- so the rest of this test was no longer inside.
+    tick(game, 0.1, 1);
     expect(game.player.x).toBeGreaterThan(startX);
     expect(game.timeFrozen).toBe(true);
     // ACTION on the chamber floor is still a jump, and never a shot.

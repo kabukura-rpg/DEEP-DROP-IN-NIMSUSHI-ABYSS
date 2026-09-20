@@ -412,6 +412,9 @@ describe('AREA 3 submerged physics', () => {
     // Horizontal input ramps up instead of snapping to full speed.
     const drift = bare(1);
     drift.player.vx = 0;
+    // Start hard left. At moveSpeed 350 a swimmer starting mid-shaft reaches the right wall inside
+    // the one-second sample, and the wall clamp zeroes vx -- which measured the wall, not the water.
+    drift.player.x = (drift as unknown as { leftEdge: number }).leftEdge;
     const startX = drift.player.x;
     drift.step(1 / 120, 1, false);
     expect(drift.player.x - startX).toBeLessThan(BALANCE.moveSpeed / 120 * 0.4);

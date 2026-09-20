@@ -9,7 +9,7 @@ const STEP = 1 / 120;
 const seeded = (n: number) => () => { n = (n * 1103515245 + 12345) % 2147483648; return n / 2147483648; };
 const PH = 30, ROW = 245;
 const r2 = (v: number) => Math.round(v * 100) / 100;
-const P = [SPEED_PROFILES.current, SPEED_PROFILES.video];
+const P = [SPEED_PROFILES.legacy, SPEED_PROFILES.video];
 
 function rig(p: typeof P[number], seed = 9) {
   const g = new GameModel(false, seeded(seed));

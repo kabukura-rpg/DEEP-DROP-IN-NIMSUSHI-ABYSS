@@ -45,10 +45,10 @@ export class GameScene extends Phaser.Scene {
     if (import.meta.env.DEV && this.terrainWatch) {
       (window as unknown as { __terrainWatch: unknown }).__terrainWatch = this.terrainWatch;
     }
-    // DEV only: swap the SPEED PROFILE of the run in progress, so CURRENT and VIDEO can be felt
-    // back to back in a real AREA rather than only in CONTROL LAB. `__speed('video')` / `('current')`.
+    // DEV only: swap the SPEED PROFILE of the run in progress, so the shipped physics and the old
+    // pre-fidelity ones can be felt back to back in a real AREA. `__speed('legacy')` / `('video')`.
     if (import.meta.env.DEV) {
-      (window as unknown as { __speed: (id: 'current' | 'video') => string }).__speed = (id) => {
+      (window as unknown as { __speed: (id: 'legacy' | 'video') => string }).__speed = (id) => {
         const profile = SPEED_PROFILES[id];
         if (!profile) return `unknown profile -- try ${Object.keys(SPEED_PROFILES).join(' or ')}`;
         Object.assign(this.model.stats, {
