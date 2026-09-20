@@ -146,9 +146,13 @@ export const NIMUSHI_ATTACKS: Record<AbyssAttackId, NimushiAttackDef> = {
 /**
  * TAPIOCA SHOWER. Columns of pearls poured down the shaft at the player.
  *
- * The shaft is cut into `lanes` columns and at least `safeLanes` of them are left empty in every
- * wave, so there is always somewhere to be. That is a hard guarantee rather than a tuning: a wave
- * with no gap is not a harder wave, it is a wave that cannot be answered.
+ * The shaft is cut into `lanes` columns and `safeLanes` ADJACENT ones are left empty in every wave,
+ * so there is always somewhere to be. That is a hard guarantee rather than a tuning: a wave with no
+ * gap is not a harder wave, it is a wave that cannot be answered.
+ *
+ * The gap WALKS rather than jumping: it moves at most one lane per wave, turning at the walls. A
+ * gap that teleported across the shaft every 0.4s would be a gap nobody can reach at walking speed,
+ * which is the same thing as no gap at all -- the player has to be able to follow it.
  */
 export const TAPIOCA_SHOWER = {
   lanes: 7,

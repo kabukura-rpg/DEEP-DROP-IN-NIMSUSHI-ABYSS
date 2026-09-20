@@ -27,6 +27,8 @@ export class ShopSystem {
 
   /** True once a chamber has actually put a doorway in this SECTION. */
   get available() { return this.entrance !== null; }
+  /** True once the shelf has been visited. A doorway is worth walking into exactly once. */
+  get used() { return this.visited; }
 
   /** Stock the shelf for the SECTION being built, priced for the AREA the run has reached. */
   /** MEMBER'S CARD's discount, as a multiplier on every quoted price. 1 when the run lacks it. */

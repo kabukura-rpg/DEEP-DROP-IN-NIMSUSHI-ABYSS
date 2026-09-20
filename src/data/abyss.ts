@@ -38,14 +38,16 @@ export const ABYSS = {
    * Measured from their own best progress, the rule is simply "keep going" -- and the answer when
    * you cannot is to put a round in the eye.
    *
-   * `maxSlack` is how far behind that mark it can ever be pushed; `minArena` is a safety floor that
-   * keeps it from ever reaching NIMUSHI itself, so the arena can never invert. MEASUREMENT REQUIRED.
+   * `maxSlack` is how far behind that mark it is ever allowed to fall -- which is what makes
+   * CLIMBING the answer: outrun it and it is dragged along at exactly that distance, stall and it
+   * closes at `pressureSpeed`. `minArena` is a safety floor that keeps it from ever reaching
+   * NIMUSHI itself, so the arena can never invert. MEASUREMENT REQUIRED.
    */
-  maxSlack: 900,
+  maxSlack: 460,
   minArena: 120,
   /** How fast it eats into the slack, per second, and what each stretch adds. */
-  pressureSpeed: 26,
-  pressureRamp: 5,
+  pressureSpeed: 22,
+  pressureRamp: 4,
   /**
    * Pixels of slack one point of weak-point damage buys back. Per DAMAGE rather than per hit, so a
    * LASER round and three MACHINE rounds are worth the same relief for the same HP taken off --
@@ -108,7 +110,7 @@ export type AbyssAttackId = 'tapiocaShower' | 'cupSummon' | 'strawBeam' | 'nimus
 export const ABYSS_PHASES: readonly AbyssPhase[] = [
   {
     id: 1, name: 'CAVERN OF THE PEARL', role: 'cavern', from: 1,
-    rowGap: 250, ledgeWidth: [132, 168],
+    rowGap: 360, ledgeWidth: [110, 140],
     breakBlockChance: 0.22, spikeChance: 0, containerChance: 0, doodadChance: 0.3,
     groundless: false, clonePool: ['nimushiClone'], heart: true,
     // One attack, low density: this stretch is where the player learns that down is up.
@@ -116,7 +118,7 @@ export const ABYSS_PHASES: readonly AbyssPhase[] = [
   },
   {
     id: 2, name: 'CATACOMB OF CUPS', role: 'catacomb', from: 0.75,
-    rowGap: 248, ledgeWidth: [126, 160],
+    rowGap: 355, ledgeWidth: [108, 136],
     breakBlockChance: 0.12, spikeChance: 0.5, containerChance: 0, doodadChance: 0.34,
     groundless: false, clonePool: ['nimushiClone'], heart: true,
     attacks: ['tapiocaShower', 'cupSummon'],
@@ -124,14 +126,14 @@ export const ABYSS_PHASES: readonly AbyssPhase[] = [
   {
     id: 3, name: 'AQUIFER OF SYRUP', role: 'aquifer', from: 0.5,
     gimmicks: { oxygen: true }, water: { gravity: 0.9, responsiveness: 11 },
-    rowGap: 246, ledgeWidth: [122, 154],
+    rowGap: 350, ledgeWidth: [104, 132],
     breakBlockChance: 0.1, spikeChance: 0, containerChance: 0.8, doodadChance: 0.36,
     groundless: false, clonePool: ['nimushiClone'], heart: true,
     attacks: ['cupSummon', 'strawBeam'],
   },
   {
     id: 4, name: 'LIMBO OF THE DEEP', role: 'limbo', from: 0.25,
-    rowGap: 236, ledgeWidth: [0, 0],
+    rowGap: 330, ledgeWidth: [0, 0],
     breakBlockChance: 0, spikeChance: 0, containerChance: 0, doodadChance: 1,
     // No ledge anywhere. The only thing that fills CHARGE is a floating doodad, exactly as in
     // AREA 4 -- which is the mechanic this stretch exists to ask for under inverted gravity.

@@ -160,7 +160,8 @@ function jumpButton(label: string, jump: () => void) {
 for (const area of AREAS) for (let section = 1; section <= area.sections; section++) {
   jumpButton(`${area.id}-${section}`, () => scene.model.jumpToStage(area.id, section as SectionId));
 }
-jumpButton('BOSS', () => scene.model.jumpToBoss());
+jumpButton('ABYSS', () => scene.model.jumpToBoss());
+jumpButton('NIMUSHI', () => scene.model.jumpToNimushi());
 
 for (const [label, code] of [['← 0.5秒', 'KeyA'], ['→ 0.5秒', 'KeyD'], ['射撃 0.8秒', 'Space']]) button(label, async () => {
   const model = scene.model, end = model.elapsed + (code === 'Space' ? 0.8 : 0.5);
@@ -2325,31 +2326,25 @@ button('FULL RUN 1-1 → GAME CLEAR（補助なし）', async () => {
       keepAwake();
       if (model.state === 'boss') {
         if (depthAtBoss < 0) { depthAtBoss = Math.floor(model.totalDepth); gunAtBossEntry = model.gun.id; }
-        const p = model.player, boss = model.boss;
-        const incoming = boss.shots.filter(s => s.y > p.y - 30 && Math.abs(s.x - p.x) < 46);
-        const band = boss.sweepBand;
-        const ground = model.platforms.find(f => f.id === p.grounded) as RoutePlatform | undefined;
-        const ahead = model.platforms.filter(f => f.y > p.y + 15 && f.state !== 'broken').sort((a, b) => a.y - b.y)[0] as RoutePlatform | undefined;
-        let target: number | undefined = ground ? ground.exitX + ground.safeSide * 3 : ahead?.safeX;
-        if (boss.action?.attack.id === 'sweep' && band) target = band.x < 225 ? band.x + band.width + 70 : band.x - 70;
-        else if (incoming.length) target = incoming[0].x < 225 ? incoming[0].x + 110 : incoming[0].x - 110;
-        else if (model.ammo > 0) target = boss.x;
-        if (model.oxygen.enabled) {
-          const bubble = model.bubbles.filter(b => !b.taken && b.y > p.y - 150 && b.y < p.y + 280).sort((a, b) => a.y - b.y)[0];
-          const box = model.containers.filter(c => !c.broken && c.y > p.y - 40 && c.y < p.y + 460).sort((a, b) => a.y - b.y)[0];
-          if (bubble && model.oxygen.remaining < model.oxygen.max * 0.8) target = bubble.x;
-          else if (box && model.oxygen.remaining < model.oxygen.max * 0.6) target = box.x + box.width / 2;
+        const p = model.player;
+        if (model.shop.open) {
+          // The last shelf before NIMUSHI: buy whatever the wallet covers, then carry on down.
+          for (let i = 0; i < 3; i++) {
+            const buy = document.getElementById(`shop-buy-${i}`) as HTMLButtonElement | null;
+            if (buy && !buy.disabled) { buy.click(); seen.bought++; await wait(120); break; }
+          }
+          document.getElementById('shop-close')!.click();
+          await wait(120);
+          continue;
         }
-        if (model.heat.enabled && model.heat.value > 55) {
-          const ice = model.pickups.filter(k => !k.taken && k.kind === 'ice' && k.y > p.y && k.y < p.y + 220).sort((a, b) => a.y - b.y)[0];
-          if (ice && Math.abs(ice.x - p.x) < 190) target = ice.x;
-        }
-        steer(target === undefined || Math.abs(target - p.x) < 4 ? 0 : Math.sign(target - p.x));
-        // Tap here too: arriving at the king holding a semi-automatic module and holding the
-        // trigger down would fire exactly one round for the whole fight.
         frame++;
-        trigger(model.ammo > 0 && Math.abs(boss.x - p.x) < 34 && !incoming.length && frame % 10 < 5);
-        output.textContent = `FULL RUN（補助なし）\nFINAL BOSS PHASE ${boss.phaseId} · 魔王HP ${Math.ceil(boss.ratio * 100)}%\nHP ${model.hp}/${model.health.maxHp} · COIN ${model.coins.walletCoins}\n経過 ${boss.elapsed.toFixed(1)}s`;
+        const plan = abyssPlan(model, frame);
+        steer(plan.target === undefined || Math.abs(plan.target - p.x) < 4 ? 0 : Math.sign(plan.target - p.x));
+        trigger(plan.fire);
+        const stage = model.abyssStage === 'fight'
+          ? `NIMUSHI PHASE ${model.boss.phaseId} · HP ${Math.ceil(model.boss.ratio * 100)}% · ${model.boss.state}`
+          : `ABYSS ${model.abyssStage}`;
+        output.textContent = `FULL RUN（補助なし）\n${stage}\nHP ${model.hp}/${model.health.maxHp} · COIN ${model.coins.walletCoins}\n経過 ${model.boss.elapsed.toFixed(1)}s`;
         await wait(16);
         continue;
       }
@@ -2394,6 +2389,236 @@ button('FULL RUN 1-1 → GAME CLEAR（補助なし）', async () => {
   output.textContent += `\nCLEAR TIME ${clearTime} · BOSS TIME ${bossTime}`;
 });
 /**
+ * ABYSS 入場 -- 4-3 CLEAR から店・封印・重力反転・NIMUSHI 登場まで、実キー入力だけで通す。
+ */
+button('ABYSS 入場 → 重力反転', async () => {
+  start();
+  await until(() => scene.model.state === 'playing', 8000);
+  const model = scene.model;
+  // A run that DID take shelter, so the guaranteed shelf is what the staging room offers.
+  model.safeZoneVisitCount = 2;
+  model.jumpToBoss();
+  await until(() => model.abyssStage === 'staging', 8000);
+  assert(model.state === 'boss' && model.stage.label === 'FINAL BOSS', 'ABYSS は FINAL BOSS 区画として開く');
+  assert(model.gravitySign === 1, 'ABYSS の staging では重力はまだ通常方向');
+  assert(!model.boss.enabled, 'staging では NIMUSHI はまだ出てこない');
+  assert(model.shop.available, '最終ショップが保証されている');
+  const prices = model.shop.offers.map(o => o.price);
+  assert(model.shop.offers.length === 3 && new Set(model.shop.offers.map(o => o.item)).size === 3, `3種類の商品が並ぶ (${prices.join(' / ')})`);
+  assert(Math.min(...prices) >= 950, `World 5 価格で並んでいる (${prices.join(' / ')})`);
+  const seal = model.platforms.filter(f => f.breakBlock).length;
+  assert(seal === 5, `封印が通路をふさいでいる (BREAK BLOCK ${seal})`);
+  const depthAtEntry = Math.floor(model.totalDepth);
+  assert(depthAtEntry === PLANNED_TOTAL_DEPTH, `ABYSS 入場時 TOTAL DEPTH = ${depthAtEntry}m`);
+
+  let facing = 0, firing = false, frame = 0, shopped = 0, reversed = 0;
+  const touched = new Set<string>();
+  const steer = (dir: number) => {
+    if (dir === facing) return;
+    if (facing === -1) key('KeyA', false); if (facing === 1) key('KeyD', false);
+    if (dir === -1) key('KeyA', true); if (dir === 1) key('KeyD', true);
+    facing = dir;
+  };
+  const trigger = (on: boolean) => { if (on !== firing) { key('Space', on); firing = on; } };
+  const original = bridge.onEvent;
+  bridge.onEvent = (event, m) => { if (event.type === 'gravityFlip') reversed++; defaultEventHandler?.(event, m); };
+  const deadline = performance.now() + 90000;
+  while (model.abyssStage !== 'fight' && performance.now() < deadline && model.state !== 'over') {
+    keepAwake();
+    if (model.shop.open) {
+      shopped++;
+      document.getElementById('shop-close')!.click();
+      await wait(120);
+      continue;
+    }
+    frame++;
+    const plan = abyssPlan(model, frame);
+    if (model.player.grounded !== -1) {
+      const g = model.platforms.find(f => f.id === model.player.grounded);
+      if (g) touched.add(`${g.id}@${Math.round(g.y)}${g.safeZone !== undefined ? '(zone)' : ''}`);
+    }
+    steer(plan.target === undefined || Math.abs(plan.target - model.player.x) < 4 ? 0 : Math.sign(plan.target - model.player.x));
+    trigger(plan.fire);
+    output.textContent = `ABYSS ${model.abyssStage}\n封印 ${model.platforms.filter(f => f.breakBlock && f.state !== 'broken').length}/5 · y ${Math.round(model.player.y)} · HP ${model.hp}`;
+    await wait(16);
+  }
+  steer(0); trigger(false);
+  bridge.onEvent = original;
+  output.textContent += `\n着地した床: ${[...touched].join(' / ')}`;
+  assert(shopped > 0, `最終ショップに実際に入った (${shopped} 回)`);
+  assert(model.abyssStage === 'fight', `封印を撃ち抜いて重力反転まで到達 (${model.abyssStage})`);
+  assert(reversed >= 2, `GRAVITY REVERSED の演出が入った (${reversed} 段階)`);
+  assert(model.gravitySign === -1 && model.inverted, '重力が反転している');
+  assert(model.boss.enabled && model.boss.state === 'dormant', 'NIMUSHI は休眠状態で登場する');
+  assert(model.boss.y < model.player.y, 'NIMUSHI は画面上・プレイヤーは下');
+  assert(model.boss.boundaryY > model.player.y, '深淵はプレイヤーの下から迫る');
+  assert(Math.floor(model.totalDepth) === PLANNED_TOTAL_DEPTH, 'TOTAL DEPTH は 3780m のまま');
+  // The HUD is screen-space and stays the right way up.
+  const bar = document.getElementById('boss-bar')!;
+  assert(!bar.hidden && bar.textContent!.includes('NIMUSHI'), 'NIMUSHI の HP バーが出ている');
+  assert(getComputedStyle(document.getElementById('hud')!).transform === 'none', 'HUD は反転していない');
+});
+
+/**
+ * 反転した操作そのもの -- ACTION が上へ撃ち、反動が下へ効く。
+ */
+button('反転 ACTION / 弱点', async () => {
+  start();
+  await until(() => scene.model.state === 'playing', 8000);
+  scene.model.jumpToNimushi();
+  await until(() => scene.model.abyssStage === 'fight', 8000);
+  const model = scene.model;
+  // The scene must not race this: the Phaser scene is paused and the model is stepped by hand.
+  pause();
+  model.paused = false;
+  model.platforms = []; model.doodads = [];
+  model.player.grounded = -1; model.player.vy = 0; model.bullets = [];
+  model.shoot();
+  assert(model.bullets.length > 0 && model.bullets.every(b => b.vy < 0), `ACTION は上へ撃つ (vy ${Math.round(model.bullets[0].vy)})`);
+  assert(model.player.vy > 0, `反動は下へ効く (vy ${Math.round(model.player.vy)})`);
+  // LEFT / RIGHT are untouched.
+  const x0 = model.player.x;
+  model.moveHorizontal(0.1, 1);
+  assert(model.player.x > x0, 'RIGHT は右のまま');
+  model.moveHorizontal(0.1, -1);
+  assert(model.player.x < model.player.x + 1, 'LEFT は左のまま');
+  // The body is armour; the eye is the fight.
+  model.bullets = [];
+  const hp0 = model.boss.hp;
+  const body = model.boss.body;
+  model.bullets.push({ ...plainBullet(body.x + 14, body.y + 8, 5), vy: 0, previousY: body.y + 8 });
+  for (let i = 0; i < 10; i++) model.step(1 / 120, 0, false);
+  assert(model.boss.hp === hp0, '本体を撃っても NIMUSHI の HP は減らない');
+  assert(!model.boss.started, '本体撃ちでは戦闘が始まらない');
+  const eye = model.boss.eye;
+  model.bullets.push({ ...plainBullet(model.boss.x, eye.y + eye.height / 2, 3), vy: 0, previousY: eye.y + eye.height / 2 });
+  for (let i = 0; i < 10; i++) model.step(1 / 120, 0, false);
+  assert(model.boss.hp < hp0, `弱点に当てると HP が減る (${hp0} → ${model.boss.hp})`);
+  assert(model.boss.started, '弱点ヒットで戦闘開始 = BOSS TIME スタート');
+  // An explosion cannot get round the eye, from any of the four upgrades that make one.
+  const hp1 = model.boss.hp;
+  model.spawnExplosion({ x: model.boss.x, y: eye.y, radius: 420, damage: 99 });
+  assert(model.boss.hp === hp1, '爆発は弱点を迂回できない');
+  pause();
+});
+
+/**
+ * How a player answers THE ABYSS, in one place.
+ *
+ * Two rooms, one brain. In the staging room it walks to whatever is on offer -- the shelf, or the
+ * TOMATO -- and then shoots the seal open. In the arena it does what the fight asks: get out of a
+ * live beam, step out of a falling column, keep off a cup, and otherwise line up under the eye and
+ * squeeze the trigger. The gunboots fire along the pull, which is straight up at NIMUSHI, and the
+ * recoil is what holds the player off the deep -- so it eases off when the deep has got close.
+ */
+/**
+ * Where to walk to leave the slab underfoot.
+ *
+ * A ledge cut into a wall has only ONE open side, and the SAFE ZONE floor in the staging room is
+ * exactly that. Stepping towards the wall would simply pin the run against the brickwork, so the
+ * preferred side is dropped whenever there is nothing to step into.
+ */
+function stepOff(ground: Platform, prefer: 'left' | 'right') {
+  const left = WORLD.wall + 12, right = WORLD.width - WORLD.wall - 12;
+  const leftExit = ground.x - 24, rightExit = ground.x + ground.width + 24;
+  let wantLeft = prefer === 'left';
+  if (wantLeft && leftExit <= left) wantLeft = false;
+  if (!wantLeft && rightExit >= right) wantLeft = true;
+  return wantLeft ? Math.max(left, leftExit) : Math.min(right, rightExit);
+}
+
+function abyssPlan(model: GameModel, frame: number): { target?: number; fire: boolean } {
+  const p = model.player;
+  if (model.abyssStage === 'staging') {
+    const tomato = model.pickups.find(k => !k.taken && k.kind === 'tomato');
+    const door = model.shop.entrance;
+    const seal = model.platforms.filter(f => f.breakBlock && f.state !== 'broken');
+    // Once a stone has given way there is a hole, and the hole is the whole point: aim for it and
+    // stop shooting, rather than standing under the next stone and hovering on the recoil.
+    let hole: number | undefined;
+    for (let x = WORLD.wall + 14; seal.length && x <= WORLD.width - WORLD.wall - 14; x += 8) {
+      if (!seal.some(b => x > b.x - 10 && x < b.x + b.width + 10)) { hole = x; break; }
+    }
+    // Two things down here are worth WALKING to rather than falling past: the doorway, and the
+    // TOMATO a run without a shop gets instead. Everything else is below, at the seal.
+    const wantShop = !!door && !model.shop.used;
+    const wantTomato = !!tomato;
+    let target: number | undefined;
+    if (tomato && tomato.y > p.y - 140) target = tomato.x;
+    // The doorway stands ON the chamber floor, so once the player is standing there too its y is
+    // ABOVE theirs by the height of the door. The margin has to cover that or the run walks in,
+    // lands, and then forgets what it came for.
+    else if (door && wantShop && door.y > p.y - 140) target = door.x + door.width / 2;
+    else if (seal.length) target = hole ?? seal.sort((a, b) => Math.abs(a.x - p.x) - Math.abs(b.x - p.x))[0].x + 20;
+    const ground = model.platforms.find(f => f.id === p.grounded);
+    if (ground) {
+      // Standing still only ever makes sense on the floor that actually CARRIES what is wanted:
+      // the chamber floor for the doorway, the ledge the TOMATO is lying on. A target that merely
+      // happens to share an x with the ledge overhead would otherwise park the run there forever.
+      const atDoor = wantShop && ground.safeZone !== undefined;
+      const atTomato = wantTomato && Math.abs(tomato!.y - p.y) < 44;
+      if (!atDoor && !atTomato) {
+        const wantLeft = target === undefined ? p.x - ground.x < ground.width / 2 : target < ground.x + ground.width / 2;
+        target = stepOff(ground, wantLeft ? 'left' : 'right');
+      }
+    }
+    // Airborne ACTION is the gunboots, so holding the trigger on the way down would simply hover
+    // on the recoil. It is saved for the seal, which is the one thing down here that needs shooting.
+    const shooting = seal.length > 0 && hole === undefined && !wantShop && !wantTomato && seal[0].y - p.y < 520;
+    return { target, fire: p.grounded === -1 && shooting && frame % 8 < 4 };
+  }
+  const boss = model.boss;
+  if (!boss.enabled) return { fire: false };
+  const beam = boss.beams.find(b => b.state === 'live' && Math.abs(b.x - p.x) < b.width / 2 + 30);
+  const warning = boss.beams.find(b => b.state === 'warning' && Math.abs(b.x - p.x) < b.width / 2 + 30);
+  // Only a pearl that is genuinely about to arrive is worth breaking the aim for. Treating the
+  // whole column as a threat keeps the run permanently sidestepping and never shooting back.
+  const pearl = boss.tapiocas.filter(t => Math.abs(t.x - p.x) < 26 && Math.abs(t.y - p.y) < 170).sort((a, b) => Math.abs(a.y - p.y) - Math.abs(b.y - p.y))[0];
+  const cup = boss.cups.find(c => c.alive && Math.abs(c.x - p.x) < 40 && Math.abs(c.y - p.y) < 170);
+  const away = (x: number, by: number) => (x < 225 ? x + by : x - by);
+  /**
+   * The nearest column with nothing falling down it.
+   *
+   * A wave always leaves lanes open -- that is a guarantee of the attack, not luck -- so the answer
+   * to a shower is to go and stand in one, not to shuffle a fixed distance sideways and hope.
+   */
+  const safest = () => {
+    const threats = boss.tapiocas.filter(t => Math.abs(t.y - p.y) < 420);
+    if (!threats.length) return undefined;
+    let best: number | undefined, bestCost = Infinity;
+    for (let x = WORLD.wall + 24; x <= WORLD.width - WORLD.wall - 24; x += 12) {
+      const near = threats.reduce((m, t) => Math.min(m, Math.abs(t.x - x)), Infinity);
+      if (near < 30) continue;
+      const cost = Math.abs(x - p.x) - near * 0.35;
+      if (cost < bestCost) { bestCost = cost; best = x; }
+    }
+    return best;
+  };
+  const ground = model.platforms.find(f => f.id === p.grounded);
+  // The arena hangs its rows from one wall at a time and leaves the other side open. Climbing
+  // means using that lane rather than ploughing into the next slab, so a row just ahead along the
+  // pull outranks lining up under the eye.
+  const climbing = model.platforms
+    .filter(f => (f.y - p.y) * model.gravitySign < 0 && Math.abs(f.y - p.y) < 300 && p.x + 30 > f.x && p.x - 30 < f.x + f.width)
+    .sort((a, b) => Math.abs(a.y - p.y) - Math.abs(b.y - p.y))[0];
+  let target: number | undefined = boss.x;
+  if (beam || warning) target = away((beam ?? warning)!.x, 130);
+  else if (pearl) target = safest() ?? away(pearl.x, 74);
+  else if (cup) target = away(cup.x, 74);
+  else if (ground) target = stepOff(ground, p.x - ground.x < ground.width / 2 ? 'left' : 'right');
+  else if (climbing) target = climbing.x + climbing.width / 2 < 225 ? WORLD.width - WORLD.wall - 20 : WORLD.wall + 20;
+  // On a ledge ACTION jumps rather than fires, which is how you leave one -- but a jump goes
+  // AWAY from NIMUSHI, so it is not what you do with the deep already at your heels. Then you
+  // simply walk off the edge and let the pull take you.
+  if (p.grounded !== -1) return { target, fire: boss.reach(p.y) < 380 };
+  // The gunboots reach far further than NIMUSHI ever gets, so the only reason to hold fire is the
+  // recoil pushing the run back towards the deep -- and a live beam, which is not worth trading.
+  const reach = boss.reach(p.y);
+  const aimed = Math.abs(boss.x - p.x) < 52;
+  return { target, fire: model.ammo > 0 && !beam && aimed && reach < 520 && frame % 6 < 3 };
+}
+
+/**
  * UNASSISTED BOSS CHECK -- the fight exactly as a player meets it.
  *
  * Nothing is given: no heal, no HP written directly, no invincibility, no boss HP touched, no
@@ -2408,46 +2633,51 @@ button('FULL RUN 1-1 → GAME CLEAR（補助なし）', async () => {
 // The watchdog above is what the word 'unassisted' rests on, so it gets its own check: it must
 // stay silent through ordinary play and still catch this file handing the run something.
 button('補助検出そのものを検証', async () => {
-  start(); scene.model.jumpToBoss();
-  await until(() => scene.model.state === 'boss' && scene.model.boss.enabled, 8000);
+  start(); scene.model.jumpToNimushi();
+  await until(() => scene.model.abyssStage === 'fight' && scene.model.boss.enabled, 8000);
   const model = scene.model;
   pause();                                    // the scene must not race this; we drive the step
 
-  // 1. The game damaging the king through its own simulation. The API is reached from
+  // 1. The game damaging NIMUSHI through its own simulation. The API is reached from
   //    GameModel.step, so the call site is the game even though this file started the step.
   const quiet = watchForAssists(model);
-  const body = model.boss.body;
-  model.player.x = body.x + body.width / 2;
-  model.player.y = body.y - 120;
-  model.bullets.push(plainBullet(model.player.x, body.y - 40, 5));
+  const eye = model.boss.eye;
+  model.player.x = model.boss.x;
+  model.player.y = eye.y + 300;
+  model.bullets.push({ ...plainBullet(model.boss.x, eye.y + eye.height / 2, 5), vy: 0, previousY: eye.y + eye.height / 2 });
   const before = model.boss.hp;
   model.paused = false;
   for (let i = 0; i < 20 && model.boss.hp === before; i++) model.step(1 / 120, 0, false);
   const dealt = before - model.boss.hp;
   quiet.stop();
   output.textContent += `\nゲーム自身の弾が与えたダメージ: ${dealt}`;
-  assert(dealt > 0, '実際に魔王へ当たっている（当たらなければ何も検証していない）');
+  assert(dealt > 0, '実際に弱点へ当たっている（当たらなければ何も検証していない）');
   assert(quiet.used.length === 0, `ゲーム自身の処理は補助として検出されない（検出: ${quiet.used.join(', ') || 'なし'}）`);
 
-  // 2. The same APIs, called straight from this file. The watchdog must see every one.
+  // 2. The same APIs, called straight from this file. The watchdog must see every one. NIMUSHI's
+  //    HP is a field rather than a method, so the FIELD is what has to be caught.
   const caught = watchForAssists(model);
   model.heal(9);
-  model.boss.damage(5);
+  model.boss.hp = 5;
+  model.boss.phaseId = 4;
+  model.boss.deepY = model.player.y + 900;
   model.player.invincible = 99;
   caught.stop();
   output.textContent += `\n意図的な補助の検出: ${caught.used.join(', ')}`;
   assert(caught.used.includes('model.heal'), 'テストからの heal を検出する');
-  assert(caught.used.includes('boss.damage'), 'テストからの boss.damage を検出する');
+  assert(caught.used.includes('boss.hp'), 'テストからの BOSS HP 直書きを検出する');
+  assert(caught.used.includes('boss.phaseId'), 'テストからのフェーズ飛ばしを検出する');
+  assert(caught.used.includes('boss.deepY'), 'テストからの圧力リセットを検出する');
   assert(caught.used.includes('player.invincible'), 'テストからの無敵付与を検出する');
   pause();
 });
 button('UNASSISTED BOSS CHECK', async () => {
   start();
   await until(() => scene.model.state === 'playing', 8000);
-  // Twelve cards, which is what a cleared run reaches the king holding.
+  // Twelve cards, which is what a cleared run reaches NIMUSHI holding.
   for (const definition of UPGRADES.slice(0, 12)) scene.model.upgrades.grant(definition.id);
-  scene.model.jumpToBoss();
-  await until(() => scene.model.state === 'boss' && scene.model.boss.enabled, 8000);
+  scene.model.jumpToNimushi();
+  await until(() => scene.model.abyssStage === 'fight' && scene.model.boss.enabled, 8000);
   const model = scene.model;
   const watch = watchForAssists(model);
   const startHp = model.hp;
@@ -2472,30 +2702,19 @@ button('UNASSISTED BOSS CHECK', async () => {
     // play. It is recorded only so the result can say where the HP came from.
     if (model.hp > lastHp) healed++;
     lastHp = model.hp;
-    const incoming = boss.shots.filter(s => s.y > p.y - 30 && Math.abs(s.x - p.x) < 46);
-    const band = boss.sweepBand;
-    const ground = model.platforms.find(f => f.id === p.grounded) as RoutePlatform | undefined;
-    const ahead = model.platforms.filter(f => f.y > p.y + 15 && f.state !== 'broken').sort((a, b) => a.y - b.y)[0] as RoutePlatform | undefined;
-    let target: number | undefined = ground ? ground.exitX + ground.safeSide * 3 : ahead?.safeX;
-    if (boss.action?.attack.id === 'sweep' && band) target = band.x < 225 ? band.x + band.width + 70 : band.x - 70;
-    else if (incoming.length) target = incoming[0].x < 225 ? incoming[0].x + 110 : incoming[0].x - 110;
-    else if (model.ammo > 0) target = boss.x;
+    tapFrame++;
+    // The AQUIFER stretch drowns the player, so air comes before aiming when the tank is low.
+    const plan = abyssPlan(model, tapFrame);
+    let target = plan.target;
     if (model.oxygen.enabled && model.oxygen.remaining < 6) {
-      // PHASE 2 runs AREA 2's air rules, which are containers now: catch a released bubble if one
-      // is still within reach, otherwise go and break a container open.
-      const bubble = model.bubbles.filter(b => !b.taken && b.y > p.y - 30 && b.y < p.y + 300).sort((a, b) => a.y - b.y)[0];
-      const box = model.containers.filter(c => !c.broken && c.y > p.y - 20 && c.y < p.y + 520).sort((a, b) => a.y - b.y)[0];
+      const bubble = model.bubbles.filter(b => !b.taken && Math.abs(b.y - p.y) < 320).sort((a, b) => Math.abs(a.y - p.y) - Math.abs(b.y - p.y))[0];
+      const box = model.containers.filter(c => !c.broken && Math.abs(c.y - p.y) < 520).sort((a, b) => Math.abs(a.y - p.y) - Math.abs(b.y - p.y))[0];
       if (bubble && Math.abs(bubble.x - p.x) < 200) target = bubble.x;
       else if (box) target = box.x + box.width / 2;
     }
-    if (model.heat.enabled && model.heat.value > 55) {
-      const ice = model.pickups.filter(k => !k.taken && k.kind === 'ice' && k.y > p.y && k.y < p.y + 220).sort((a, b) => a.y - b.y)[0];
-      if (ice && Math.abs(ice.x - p.x) < 180) target = ice.x;
-    }
     steer(target === undefined || Math.abs(target - p.x) < 4 ? 0 : Math.sign(target - p.x));
-    tapFrame++;
-    trigger(model.ammo > 0 && Math.abs(boss.x - p.x) < 34 && !incoming.length && tapFrame % 10 < 5);
-    output.textContent = `UNASSISTED BOSS CHECK\nPHASE ${boss.phaseId} · 魔王HP ${Math.ceil(boss.ratio * 100)}%\nHP ${model.hp}/${model.health.maxHp} · 被弾 ${hits}\n経過 ${boss.elapsed.toFixed(1)}s`;
+    trigger(plan.fire);
+    output.textContent = `UNASSISTED BOSS CHECK\nPHASE ${boss.phaseId} · NIMUSHI HP ${Math.ceil(boss.ratio * 100)}% · ${boss.state}\nHP ${model.hp}/${model.health.maxHp} · 被弾 ${hits}\n経過 ${boss.elapsed.toFixed(1)}s`;
     await wait(16);
   }
   steer(0); trigger(false);
@@ -2504,6 +2723,7 @@ button('UNASSISTED BOSS CHECK', async () => {
   bridge.onEvent = original;
   const won = scene.model.state === 'clear';
   const cause = scene.model.health.deathCause?.cause ?? 'なし';
+  assert(scene.model.gravitySign === -1 || won, '戦闘中ずっと重力は反転していた');
   output.textContent += `\n\n結果: ${won ? 'GAME CLEAR' : scene.model.state === 'over' ? 'GAME OVER' : '時間切れ'}`;
   output.textContent += `\n到達フェーズ: ${deepest} (${phases.join(' → ') || '1のみ'})`;
   output.textContent += `\n開始HP: ${startHp}/${model.health.maxHp}（強化効果のみ・回復なし）`;
@@ -2531,15 +2751,21 @@ button('ASSISTED BOSS CHECK', async () => {
   // Twelve cards, which is what a cleared run reaches the king holding.
   for (const definition of UPGRADES.slice(0, 12)) scene.model.upgrades.grant(definition.id);
   scene.model.health.heal(9);
-  scene.model.jumpToBoss();
-  await until(() => scene.model.state === 'boss' && scene.model.boss.enabled, 8000);
+  scene.model.jumpToNimushi();
+  await until(() => scene.model.abyssStage === 'fight' && scene.model.boss.enabled, 8000);
   const model = scene.model;
   const phases: number[] = [];
   const telegraphs: Record<string, number> = {};
+  const attacks: Record<string, number> = {};
+  const eyeStates: number[] = [];
+  let rages = 0;
   const original = bridge.onEvent;
   bridge.onEvent = (event, model) => {
     if (event.type === 'bossPhase') phases.push(Number(event.value));
     if (event.type === 'bossTelegraph') telegraphs[String(event.stage)] = (telegraphs[String(event.stage)] ?? 0) + 1;
+    if (event.type === 'bossFire') attacks[String(event.stage)] = (attacks[String(event.stage)] ?? 0) + 1;
+    if (event.type === 'bossEye') eyeStates.push(Number(event.value));
+    if (event.type === 'bossRage') rages++;
     defaultEventHandler?.(event, model);
   };
   let facing = 0;
@@ -2551,8 +2777,8 @@ button('ASSISTED BOSS CHECK', async () => {
   };
   let firing = false;
   const trigger = (on: boolean) => { if (on !== firing) { key('Space', on); firing = on; } };
-  let barSeen = 0, climaxSeen = false, deepestPhase = 1, playedSeconds = 0;
-  const deadline = performance.now() + 150000;
+  let barSeen = 0, climaxSeen = false, deepestPhase = 1, playedSeconds = 0, tapFrame = 0;
+  const deadline = performance.now() + 260000;
   while (model.state === 'boss' && performance.now() < deadline) {
     deepestPhase = Math.max(deepestPhase, model.boss.phaseId);
     playedSeconds = model.boss.elapsed;
@@ -2560,34 +2786,22 @@ button('ASSISTED BOSS CHECK', async () => {
     const p = model.player;
     const boss = model.boss;
     if (!boss.enabled) break;
-    if (boss.climax) climaxSeen = true;
+    if (boss.rageActive) climaxSeen = true;
     if (Number(document.getElementById('boss-percent')!.textContent!.replace('%', '')) <= 100) barSeen++;
-    // Same priorities a player has: leave a telegraphed band, dodge live shots, otherwise line up.
-    const incoming = boss.shots.filter(s => s.y > p.y - 30 && Math.abs(s.x - p.x) < 46);
-    const band = boss.sweepBand;
-    // Start from the landing route: with no ammo the only way back into the fight is to land and
-    // reload, so chasing the king's column unconditionally would strand the run at AMMO 0.
-    const ground = model.platforms.find(f => f.id === p.grounded) as RoutePlatform | undefined;
-    const ahead = model.platforms.filter(f => f.y > p.y + 15 && f.state !== 'broken').sort((a, b) => a.y - b.y)[0] as RoutePlatform | undefined;
-    let target: number | undefined = ground ? ground.exitX + ground.safeSide * 3 : ahead?.safeX;
-    if (boss.action?.attack.id === 'sweep' && band) target = band.x < 225 ? band.x + band.width + 70 : band.x - 70;
-    else if (incoming.length) target = incoming[0].x < 225 ? incoming[0].x + 110 : incoming[0].x - 110;
-    else if (model.ammo > 0) target = boss.x;
+    tapFrame++;
+    const plan = abyssPlan(model, tapFrame);
+    let target = plan.target;
     if (model.oxygen.enabled && model.oxygen.remaining < 6) {
-      // Same as above: the king's PHASE 2 air comes out of containers, not off the floor.
-      const bubble = model.bubbles.filter(b => !b.taken && b.y > p.y - 30 && b.y < p.y + 300).sort((a, b) => a.y - b.y)[0];
-      const box = model.containers.filter(c => !c.broken && c.y > p.y - 20 && c.y < p.y + 520).sort((a, b) => a.y - b.y)[0];
+      const bubble = model.bubbles.filter(b => !b.taken && Math.abs(b.y - p.y) < 320).sort((a, b) => Math.abs(a.y - p.y) - Math.abs(b.y - p.y))[0];
+      const box = model.containers.filter(c => !c.broken && Math.abs(c.y - p.y) < 520).sort((a, b) => Math.abs(a.y - p.y) - Math.abs(b.y - p.y))[0];
       if (bubble && Math.abs(bubble.x - p.x) < 200) target = bubble.x;
       else if (box) target = box.x + box.width / 2;
     }
-    if (model.heat.enabled && model.heat.value > 60) {
-      const ice = model.pickups.filter(k => !k.taken && k.kind === 'ice' && k.y > p.y && k.y < p.y + 200).sort((a, b) => a.y - b.y)[0];
-      if (ice && Math.abs(ice.x - p.x) < 170) target = ice.x;
-    }
     steer(target === undefined || Math.abs(target - p.x) < 4 ? 0 : Math.sign(target - p.x));
-    trigger(model.ammo > 0 && Math.abs(boss.x - p.x) < 34 && !incoming.length);
-    if (model.hp <= 1) model.health.heal(1);   // survive long enough to verify the whole fight
-    output.textContent = `FINAL BOSS\nPHASE ${boss.phaseId} · 魔王HP ${Math.ceil(boss.ratio * 100)}%\nHP ${model.hp}/${model.health.maxHp} · AMMO ${model.ammo}\n経過 ${boss.elapsed.toFixed(1)}s`;
+    trigger(plan.fire);
+    // Propped up on purpose: the STRAW BEAM costs two hearts, so a one-heart floor is not a floor.
+    if (model.hp <= 3) model.health.heal(1);   // survive long enough to verify the whole fight
+    output.textContent = `FINAL BOSS / NIMUSHI\nPHASE ${boss.phaseId} · HP ${Math.ceil(boss.ratio * 100)}% · ${boss.state}\nHP ${model.hp}/${model.health.maxHp} · AMMO ${model.ammo}\n経過 ${boss.elapsed.toFixed(1)}s`;
     await wait(16);
   }
   steer(0); trigger(false);
@@ -2595,17 +2809,36 @@ button('ASSISTED BOSS CHECK', async () => {
   // ledge, so rather than rely on it landing the last hit, the remaining HP is removed directly:
   // the fight itself is verified by the play above, the defeat sequence and result screen below.
   assert(playedSeconds > 25, `キーボード入力だけで ${playedSeconds.toFixed(1)}s 戦闘した`);
-  assert(deepestPhase >= 3, `実入力で PHASE ${deepestPhase} まで到達した`);
+  // What the keyboard bot is for is proving the cycle runs under real input, not measuring
+  // difficulty -- UNASSISTED BOSS CHECK does that. The stretch it reaches is reported, not gated
+  // beyond "it got past the first one".
+  assert(deepestPhase >= 2, `実入力で PHASE ${deepestPhase} まで到達した`);
+  output.textContent += `\nキーボード戦闘の結果: ${scene.model.state}${scene.model.health.deathCause ? ` / 死因 ${scene.model.health.deathCause.cause}` : ''} · NIMUSHI HP ${Math.ceil(scene.model.boss.ratio * 100)}%`;
   if (scene.model.state === 'boss') {
+    // The keyboard bot steers at 60Hz and does not always land the last window in time. NIMUSHI's
+    // HP is only ever spent through an open eye, so the finish is driven the same way here --
+    // real rounds into the weak point -- rather than by writing the number.
     scene.model.health.heal(9);
-    while (scene.model.boss.enabled && !scene.model.boss.defeated) scene.model.boss.damage(25);
+    const deadline2 = performance.now() + 240000;
+    while (scene.model.boss.enabled && !scene.model.boss.defeated && performance.now() < deadline2) {
+      keepAwake();                              // a headless pane stops stepping without this
+      const m = scene.model, eye = m.boss.eye;
+      m.player.invincible = 9;
+      if (m.boss.eyeOpen) m.bullets.push({ ...plainBullet(m.boss.x, eye.y + eye.height / 2, 4), vy: 0, previousY: eye.y + eye.height / 2 });
+      output.textContent = `仕上げ（弱点撃ちのみ）\nPHASE ${m.boss.phaseId} · HP ${Math.ceil(m.boss.ratio * 100)}% · ${m.boss.state}`;
+      await wait(16);
+    }
+    output.textContent += `\n仕上げ後の NIMUSHI HP: ${Math.ceil(scene.model.boss.ratio * 100)}%`;
     await until(() => scene.model.state === 'clear', 8000);
   }
   bridge.onEvent = original;
-  assert(phases.join(',') === '2,3,4', `PHASE 2 → 3 → 4 と進行した (${phases.join(' → ')})`);
-  void climaxSeen;
-  assert(!!telegraphs.magicShot && !!telegraphs.sweep, `両方の攻撃が予告付きで出た (魔法弾 ${telegraphs.magicShot} / なぎ払い ${telegraphs.sweep})`);
-  assert(barSeen > 0, '魔王HPバーが表示され続けた');
+  // THE ABYSS announces the stretch it opens on as well as the three it crosses into.
+  assert(phases.join(',') === '1,2,3,4', `PHASE 1 → 2 → 3 → 4 と進行した (${phases.join(' → ')})`);
+  assert(climaxSeen && rages === 1, `FINAL RAGE が一度だけ発動した (${rages} 回)`);
+  assert(eyeStates.includes(0) && eyeStates.includes(1), `弱点が閉じて再び開いた (${eyeStates.join('')})`);
+  assert(Object.keys(attacks).length >= 3, `タピオカ攻撃が3種類以上出た (${Object.entries(attacks).map(([k, v]) => `${k}:${v}`).join(' / ')})`);
+  assert(Object.keys(telegraphs).length >= 3, `どの攻撃にも予告があった (${Object.keys(telegraphs).join(' / ')})`);
+  assert(barSeen > 0, 'NIMUSHI HPバーが表示され続けた');
   assert(scene.model.state === 'clear', 'GAME CLEAR に到達');
   await until(() => !!document.getElementById('play-again'), 8000);
   const clear = document.body.innerText;

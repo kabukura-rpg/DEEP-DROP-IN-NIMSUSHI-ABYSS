@@ -462,6 +462,7 @@ function reachAttack(game: GameModel, attack: 'cupSummon' | 'strawBeam' | 'nimus
 describe('the five attacks', () => {
   it('always leaves a lane open in a TAPIOCA SHOWER', () => {
     const game = fighting(33);
+    let previous: number[] = [];
     for (let wave = 0; wave < 200; wave++) {
       game.boss.tapiocas = [];
       const safe = game.boss.spawnShowerWave(seeded(100 + wave));
@@ -469,6 +470,11 @@ describe('the five attacks', () => {
       const filled = new Set(game.boss.tapiocas.map(p => laneOf(p.x)));
       expect(filled.size).toBeLessThan(TAPIOCA_SHOWER.lanes);
       for (const lane of safe) expect(filled.has(lane)).toBe(false);
+      // The gap is adjacent lanes, and it walks: a gap that jumped across the shaft between waves
+      // could not be reached at walking speed, which is the same as having no gap at all.
+      expect(Math.max(...safe) - Math.min(...safe)).toBe(safe.length - 1);
+      if (previous.length) expect(Math.abs(safe[0] - previous[0])).toBeLessThanOrEqual(1);
+      previous = safe;
     }
   });
 
@@ -548,8 +554,12 @@ describe('the five attacks', () => {
     expect(game.enemies.every(e => !e.stompable)).toBe(true);
     const combo = game.combo, kills = game.kills, coins = game.coins.coins.length;
     const target = game.enemies[0];
-    game.bullets.push(round(target.x, target.y, 4));
-    game.step(STEP, 0, false);
+    // A clone sways like any other enemy, so the round is aimed where it IS on the frame it is
+    // fired -- which is what a player does, and what the sway is there to make them do.
+    for (let i = 0; i < 40 && target.alive; i++) {
+      game.bullets.push(round(target.x, target.y, 4));
+      game.step(STEP, 0, false);
+    }
     expect(target.alive).toBe(false);
     expect(game.kills).toBe(kills + 1);
     expect(game.combo).toBe(combo + 1);

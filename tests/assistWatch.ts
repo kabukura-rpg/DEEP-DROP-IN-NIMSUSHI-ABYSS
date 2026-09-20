@@ -59,8 +59,41 @@ export function watchForAssists(model: GameModel, caller = 'browser.playtest'): 
   patch(model.health, 'lifeUp', 'health.lifeUp');
   patch(model.health, 'killInstantly', 'health.killInstantly');
   patch(model, 'killInstantly', 'model.killInstantly');
-  patch(model.boss, 'damage', 'boss.damage');
+  patch(model.boss, 'hitEye', 'boss.hitEye');
+  patch(model.boss, 'start', 'boss.start');
   patch(model, 'clearBoss', 'clearBoss');
+
+  /**
+   * A plain data field, turned into an accessor pair for the duration of the watch.
+   *
+   * NIMUSHI's HP is not behind a method the way the old king's was -- there is no `damage` call to
+   * wrap, because the only legitimate way HP moves is a round reaching an open eye. So the FIELD
+   * itself is watched: writing `boss.hp`, skipping a phase by assigning `phaseId`, declaring it
+   * `defeated`, or handing the run room by setting `slack` are all assistance, and all of them are
+   * a write this catches. Reading is untouched.
+   */
+  const guardField = (owner: object, key: string, label: string) => {
+    const target = owner as Record<string, unknown>;
+    const descriptor = Object.getOwnPropertyDescriptor(target, key);
+    if (!descriptor || !('value' in descriptor)) return;
+    let held = descriptor.value;
+    Object.defineProperty(target, key, {
+      configurable: true,
+      enumerable: descriptor.enumerable,
+      get: () => held,
+      set(value: unknown) {
+        if (fromCaller(new Error().stack)) used.push(label);
+        held = value;
+      },
+    });
+    undo.push(() => { Object.defineProperty(target, key, { ...descriptor, value: held }); });
+  };
+  guardField(model.boss, 'hp', 'boss.hp');
+  guardField(model.boss, 'phaseId', 'boss.phaseId');
+  guardField(model.boss, 'defeated', 'boss.defeated');
+  guardField(model.boss, 'state', 'boss.state');
+  guardField(model.boss, 'deepY', 'boss.deepY');
+  guardField(model.boss, 'mark', 'boss.mark');
 
   /**
    * `player.invincible` is not a field: GameModel defines it as an accessor pair onto

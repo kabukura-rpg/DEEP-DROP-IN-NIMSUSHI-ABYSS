@@ -61,11 +61,14 @@ export class NimushiBossSystem {
   cups: TapiocaCup[] = [];
   beams: StrawBeamShot[] = [];
   /**
-   * The furthest along the pull the player has managed to get. The deep closes on THIS.
+   * The furthest along the pull the player has managed to get. The deep is never allowed to fall
+   * further behind THIS than `maxSlack`, which is what makes climbing worth anything.
    */
   mark = 0;
-  /** How far behind that mark the deep still is. Shrinks on its own; weak-point hits push it back. */
-  slack: number = ABYSS.maxSlack;
+  /** Where the rising deep actually is, in world coordinates. */
+  deepY = 0;
+  /** How far behind the player's best progress the deep still is. Reporting, and the tests. */
+  get slack() { return this.along(this.mark - this.deepY); }
   /** Which way the world pulls. The fight sets it once; nothing here assumes a value. */
   private sign: 1 | -1 = -1;
   private timer = 0;
@@ -77,6 +80,9 @@ export class NimushiBossSystem {
   private rageTimer = 0;
   private rageLane = 0;
   private rageDir: -1 | 1 = 1;
+  /** Where the shower's gap is, and which way it is walking. -1 until the first wave picks it. */
+  private showerLane = -1;
+  private showerDir: -1 | 1 = 1;
   private taunted = false;
   private nextId = 1;
   private pendingAttack: AbyssAttackId = 'tapiocaShower';
@@ -126,9 +132,8 @@ export class NimushiBossSystem {
    * construction, whatever the tuning does.
    */
   get boundaryY() {
-    const raw = this.mark - this.slack * this.sign;
-    const room = this.along(this.face - raw);
-    return room < ABYSS.minArena ? this.face - ABYSS.minArena * this.sign : raw;
+    const room = this.along(this.face - this.deepY);
+    return room < ABYSS.minArena ? this.face - ABYSS.minArena * this.sign : this.deepY;
   }
   /** True once the boundary has reached this point -- the player's own crush test. */
   caught(y: number) { return this.along(y - this.boundaryY) <= 0; }
@@ -141,7 +146,7 @@ export class NimushiBossSystem {
     this.elapsed = 0; this.started = false; this.defeated = false; this.raged = false; this.taunted = false;
     this.x = WORLD.width / 2; this.y = playerY + NIMUSHI.restGap * sign;
     this.tapiocas = []; this.cups = []; this.beams = [];
-    this.mark = playerY; this.slack = ABYSS.maxSlack;
+    this.mark = playerY; this.deepY = playerY - ABYSS.maxSlack * sign;
     this.timer = 0; this.defeatTimer = 0; this.windowDamage = 0; this.rotation = 0;
     this.waveTimer = 0; this.rageTimer = 0; this.rageLane = 0; this.rageDir = 1;
   }
@@ -149,7 +154,7 @@ export class NimushiBossSystem {
     this.enabled = false; this.started = false; this.defeated = false; this.raged = false;
     this.state = 'dormant'; this.hp = NIMUSHI.maxHp; this.elapsed = 0; this.phaseId = 1;
     this.tapiocas = []; this.cups = []; this.beams = [];
-    this.mark = 0; this.slack = ABYSS.maxSlack; this.windowDamage = 0;
+    this.mark = 0; this.deepY = 0; this.windowDamage = 0;
   }
 
   /**
@@ -191,7 +196,8 @@ export class NimushiBossSystem {
     // it is holding -- and both are still capped, the shove by the ordinary gap clamp next frame
     // and the relief by `maxArena`, so a burst cannot bank unlimited safety out of one window.
     this.y += NIMUSHI.pushPerHit * amount * this.sign;
-    this.slack = Math.min(ABYSS.maxSlack, this.slack + ABYSS.pushRelief * amount);
+    this.deepY += ABYSS.pushRelief * amount * this.sign * -1;
+    if (this.slack > ABYSS.maxSlack) this.deepY = this.mark - ABYSS.maxSlack * this.sign;
     signals.push({ kind: 'hurt' });
     if (this.hp <= 0) {
       this.defeated = true; this.state = 'dead'; this.defeatTimer = NIMUSHI.defeatDelay;
@@ -284,9 +290,13 @@ export class NimushiBossSystem {
    */
   private pressure(dt: number, player: { x: number; y: number }) {
     if (this.along(player.y - this.mark) > 0) this.mark = player.y;
-    if (this.state === 'phaseTransition') { this.slack = ABYSS.maxSlack; return; }
+    if (this.state === 'phaseTransition') { this.deepY = this.mark - ABYSS.maxSlack * this.sign; return; }
+    // It rises at its own pace, and is never left further behind the player's best than maxSlack.
+    // That second rule is the whole mechanic: outrun it and it is dragged along at arm's length,
+    // stall and it closes. A boundary measured purely from the player would make climbing worthless.
     const speed = ABYSS.pressureSpeed + ABYSS.pressureRamp * (this.phaseId - 1);
-    this.slack = Math.max(-200, Math.min(ABYSS.maxSlack, this.slack - speed * dt));
+    this.deepY += speed * dt * this.sign;
+    if (this.slack > ABYSS.maxSlack) this.deepY = this.mark - ABYSS.maxSlack * this.sign;
   }
 
   /** Everything in the air, moved and culled in one place so a long fight cannot grow a list. */
@@ -410,7 +420,7 @@ export class NimushiBossSystem {
     this.state = 'phaseTransition'; this.timer = NIMUSHI.transition;
     // Everything the previous stretch had in the air goes with it, so the haul upward is clean.
     this.tapiocas = []; this.cups = []; this.beams = [];
-    this.slack = ABYSS.maxSlack;
+    this.deepY = this.mark - ABYSS.maxSlack * this.sign;
     out.push({ kind: 'eye', open: false }, { kind: 'phase', phase });
     return true;
   }
@@ -449,7 +459,8 @@ export class NimushiBossSystem {
       const count = NIMUSHI_CLONES.minCount + Math.round(random() * span);
       out.push({ kind: 'clones', count, y: this.face - NIMUSHI_CLONES.spread * this.sign });
     }
-    if (attack === 'tapiocaShower') this.spawnShowerWave(random);
+    // A fresh shower starts its gap somewhere new; the waves inside it walk from there.
+    if (attack === 'tapiocaShower') { this.showerLane = -1; this.spawnShowerWave(random); }
   }
 
   private pourShower(dt: number, random: () => number) {
@@ -466,10 +477,17 @@ export class NimushiBossSystem {
    */
   spawnShowerWave(random: () => number) {
     const lanes = TAPIOCA_SHOWER.lanes;
-    const safe = new Set<number>();
-    while (safe.size < Math.min(TAPIOCA_SHOWER.safeLanes, lanes - 1)) {
-      safe.add(Math.min(lanes - 1, Math.floor(random() * lanes)));
+    const width = Math.max(1, Math.min(TAPIOCA_SHOWER.safeLanes, lanes - 1));
+    // The first wave of a shower picks where the gap starts; every wave after it moves the gap by
+    // one lane, so following it is a matter of walking rather than of guessing.
+    if (this.showerLane < 0) this.showerLane = Math.min(lanes - width, Math.floor(random() * (lanes - width + 1)));
+    else {
+      this.showerLane += this.showerDir;
+      if (this.showerLane + width > lanes) { this.showerLane = lanes - width - 1; this.showerDir = -1; }
+      if (this.showerLane < 0) { this.showerLane = 1; this.showerDir = 1; }
     }
+    const safe = new Set<number>();
+    for (let i = 0; i < width; i++) safe.add(this.showerLane + i);
     for (let lane = 0; lane < lanes; lane++) {
       if (safe.has(lane)) continue;
       // A pair per lane, set either side of its centre. One pearl per lane leaves a gap inside the

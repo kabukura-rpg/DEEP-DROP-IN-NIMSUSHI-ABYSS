@@ -68,6 +68,10 @@ export function defeatNimushi(game: GameModel, limit = 400) {
   for (let i = 0; i < limit / STEP && !game.boss.defeated && game.state === 'boss'; i++) {
     game.player.invincible = 9;
     pin(game, 300);
+    // The arena guarantees a heart in the first three stretches and the pinned player sweeps it up,
+    // which would quietly change the HP a caller set on purpose. This helper is for WINNING the
+    // fight; anything that wants to test healing does it deliberately somewhere else.
+    if (game.pickups.some(k => k.kind === 'heart')) game.pickups = game.pickups.filter(k => k.kind !== 'heart');
     if (game.boss.eyeOpen && i % 8 === 0) {
       const eye = game.boss.eye;
       game.bullets.push(round(game.boss.x, eye.y + eye.height / 2, 3));
