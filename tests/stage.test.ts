@@ -10,6 +10,16 @@ function reachExitOnly(game: GameModel) {
   for (let i = 0; i < 40 && !game.exit; i++) { game.player.y = WORLD.startY + (game.sectionLength + 1 + i * 3) * WORLD.pixelsPerMeter; game.player.invincible = 99; game.step(1 / 120, 0, false); }
 }
 
+/**
+ * Every run in this file is seeded.
+ *
+ * These tests assert on a GENERATED shaft -- where the exit lands, what the chunks contain, how a
+ * SECTION ends -- and an unseeded run makes a failure impossible to reproduce or to attribute to a
+ * generator change. Each test takes its own seed so one shaft can never mask another.
+ */
+const seeded = (seed: number) => () => { seed = (Math.imul(seed, 1664525) + 1013904223) >>> 0; return seed / 4294967296; };
+const run = (seed: number) => new GameModel(false, seeded(seed));
+
 const atDepth = (metres: number) => WORLD.startY + metres * WORLD.pixelsPerMeter;
 /** Descend to a section-local depth in one step, then take the choice the rest offers. */
 function reachDepth(game: GameModel, metres: number) {
@@ -73,7 +83,7 @@ describe('stage data and progression bookkeeping', () => {
 
 describe('section clear conditions', () => {
   it('offers no exit before the goal, and reaching the goal does not end the section', () => {
-    const game = new GameModel();
+    const game = run(1037);
     reachDepth(game, game.sectionLength - 1);
     expect(game.exit).toBeNull();
     expect([game.state, game.stage.label]).toEqual(['playing', '1-1']);
@@ -85,7 +95,7 @@ describe('section clear conditions', () => {
     expect(game.state).toBe('playing');
   });
   it('generates a reachable exit past the goal and clears exactly once when entered', () => {
-    const game = new GameModel();
+    const game = run(1074);
     const gate = reachExit(game);
     expect(gate.width).toBeGreaterThan(0);
     expect([game.state, game.stage.label]).toEqual(['upgrade', '1-1']);
@@ -95,7 +105,7 @@ describe('section clear conditions', () => {
     expect(game.completeSection()).toBe(false);
   });
   it('lays a floor across the shaft at the exit, so nothing can be farmed below it', () => {
-    const game = new GameModel();
+    const game = run(1111);
     reachExitOnly(game);
     expect(game.exit).not.toBeNull();
     const floor = game.platforms.reduce((low, f) => (f.y > low.y ? f : low), game.platforms[0]);
@@ -107,7 +117,7 @@ describe('section clear conditions', () => {
     expect(game.enemies.every(e => e.y <= deepest)).toBe(true);
   });
   it('announces the cleared section and the area finale on the clear event', () => {
-    const game = new GameModel();
+    const game = run(1148);
     reachExit(game);
     expect(game.events.find(e => e.type === 'upgrade')).toMatchObject({ stage: '1-1', areaCleared: null });
     clearSection(game); clearSection(game);
@@ -117,7 +127,7 @@ describe('section clear conditions', () => {
     expect(game.events.find(e => e.type === 'upgrade')).toMatchObject({ stage: '1-3', areaCleared: 'SURFACE RUINS' });
   });
   it('keeps section depth local while total depth accumulates', () => {
-    const game = new GameModel();
+    const game = run(1185);
     const past = game.sectionLength + 10;
     reachDepth(game, past);
     // Hunting below the goal for the gate is real descent, but it is never banked: a SECTION is
@@ -133,7 +143,7 @@ describe('section clear conditions', () => {
   });
   it('banks the planned length however far past the goal the frame landed', () => {
     for (const overshoot of [200, 202, 260, 400]) {
-      const game = new GameModel();
+      const game = run(1222);
       // However deep the player went hunting for the gate, the SECTION is worth its plan.
       reachDepth(game, overshoot);
       reachExit(game);
@@ -143,7 +153,7 @@ describe('section clear conditions', () => {
     }
   });
   it('reports the real depth reached when the run dies mid-section', () => {
-    const game = new GameModel();
+    const game = run(1259);
     for (let i = 0; i < 7; i++) clearSection(game);
     // Seven gates: all of AREA 1 and 2, then 3-1.
     const sevenSections = AREAS[0].sectionLength * 3 + AREAS[1].sectionLength * 3 + AREAS[2].sectionLength;
@@ -156,7 +166,7 @@ describe('section clear conditions', () => {
 
 describe('carrying the run across a section boundary', () => {
   it('keeps HP, MAX HP, overflow, upgrades AND the live chain while refilling ammo', () => {
-    const game = new GameModel();
+    const game = run(1296);
     game.heal(4); game.heal(3); game.damage(2);
     game.ammo = 1; game.combo = 7;
     const before = { hp: game.hp, maxHp: game.health.maxHp, overflow: game.health.overflowHealing };
@@ -174,7 +184,7 @@ describe('carrying the run across a section boundary', () => {
     expect(game.platforms.length).toBeGreaterThan(1);
   });
   it('carries every upgrade stack across all twelve sections without an area-boundary reset', () => {
-    const game = new GameModel();
+    const game = run(1333);
     game.damage(1);
     const stages = ['1-1'];
     for (let i = 0; i < TOTAL_SECTIONS - 1; i++) { clearSection(game); stages.push(game.stage.label); }
@@ -187,7 +197,7 @@ describe('carrying the run across a section boundary', () => {
 
 describe('final boss and game clear', () => {
   it('reaches the boss only after the 4-3 rest, then clears the run', () => {
-    const game = new GameModel();
+    const game = run(1370);
     for (let i = 0; i < TOTAL_SECTIONS - 1; i++) clearSection(game);
     expect(game.stage.label).toBe('4-3');
     reachExit(game);
@@ -205,14 +215,14 @@ describe('final boss and game clear', () => {
     expect(game.clearBoss()).toBe(false);
   });
   it('cannot die or be damaged once the run is cleared', () => {
-    const game = new GameModel();
+    const game = run(1407);
     game.jumpToBoss(); game.clearBoss();
     expect(game.damage(1)).toBe(false);
     expect(game.killInstantly('lava')).toBe(false);
     expect(game.state).toBe('clear');
   });
   it('banks the final section depth into total depth at the boss hand-off', () => {
-    const game = new GameModel();
+    const game = run(1444);
     for (let i = 0; i < TOTAL_SECTIONS; i++) clearSection(game);
     expect(game.stage.boss).toBe(true);
     expect(Math.round(game.totalDepth)).toBe(PLANNED_TOTAL_DEPTH);
@@ -222,14 +232,14 @@ describe('final boss and game clear', () => {
 
 describe('death and retry', () => {
   it('restarts a run that died in 3-2 from 1-1 with every run value reset', () => {
-    const game = new GameModel();
+    const game = run(1481);
     for (let i = 0; i < 7; i++) clearSection(game);
     game.heal(4); game.damage(1); game.combo = 9;
     expect(game.stage.label).toBe('3-2');
     expect(game.health.maxHp).toBeGreaterThanOrEqual(4);
     game.killInstantly('fall');
     expect(game.state).toBe('over');
-    const retry = new GameModel();
+    const retry = run(1518);
     expect(retry.stage.progress).toEqual({ area: 1, section: 1, boss: false });
     expect([retry.stage.label, retry.stage.clearedSections]).toEqual(['1-1', 0]);
     expect([retry.sectionDepth, retry.totalDepth, retry.combo, retry.kills, retry.maxCombo]).toEqual([0, 0, 0, 0, 0]);
@@ -238,16 +248,16 @@ describe('death and retry', () => {
     expect(retry.upgrades.stacks).toEqual({});
   });
   it('play again after a clear starts a fresh 1-1 run', () => {
-    const cleared = new GameModel();
+    const cleared = run(1555);
     cleared.jumpToBoss(); cleared.clearBoss();
-    const again = new GameModel();
+    const again = run(1592);
     expect([again.stage.label, again.state, again.hp, again.totalDepth]).toEqual(['1-1', 'playing', 4, 0]);
   });
 });
 
 describe('development stage jump', () => {
   it.each([[2, 1], [3, 3], [4, 2]] as const)('jumps to %i-%i with a standard loadout', (area, section) => {
-    const game = new GameModel();
+    const game = run(1629);
     expect(game.jumpToStage(area as AreaId, section as SectionId)).toBe(true);
     expect(game.stage.label).toBe(`${area}-${section}`);
     expect([game.state, game.sectionDepth, game.combo, game.ammo]).toEqual(['playing', 0, 0, game.stats.maxAmmo]);
@@ -256,7 +266,7 @@ describe('development stage jump', () => {
     expect(game.platforms.length).toBeGreaterThan(1);
   });
   it('keeps total depth consistent with the sections skipped and reaches the boss', () => {
-    const game = new GameModel();
+    const game = run(1666);
     game.jumpToStage(3, 1);
     expect(Math.round(game.totalDepth)).toBe(AREAS[0].sectionLength * 3 + AREAS[1].sectionLength * 3);
     reachExit(game);
