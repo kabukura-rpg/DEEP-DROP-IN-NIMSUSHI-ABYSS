@@ -35,6 +35,11 @@ export interface AirContainer {
   /** Counts down the shatter animation once broken, purely cosmetic. */
   debris: number;
   /**
+   * A CHARGE ORB rather than an air container: shooting it fills CHARGE instead of releasing
+   * bubbles. THE ABYSS's only supply line, because its arena has no floor to land on.
+   */
+  charge?: boolean;
+  /**
    * THE ABYSS's containers only. Swimming into one does NOT break it: air in the boss arena always
    * costs a round, which is what stops the aquifer stretch being answered by simply falling through
    * it. AREA 3's own containers leave this unset and still break on contact.

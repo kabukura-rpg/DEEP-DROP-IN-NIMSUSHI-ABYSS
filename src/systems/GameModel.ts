@@ -1345,6 +1345,14 @@ export class GameModel {
   private breakContainer(box: AirContainer) {
     if (box.broken) return;
     box.broken = true; box.debris = AIR_CONTAINER_RULES.debrisTime;
+    if (box.charge) {
+      // A CHARGE ORB. It fills the magazine and nothing else: no bubbles, and deliberately NOT a
+      // landing, so it never settles a chain and never stops the player's climb. Shooting it is the
+      // whole interaction, which is what makes it usable without breaking the arena's one rule.
+      this.reloadCharge();
+      this.events.push({ type: 'containerBreak', x: box.x + box.width / 2, y: box.y + box.height / 2, value: 0 });
+      return;
+    }
     const span = AIR_CONTAINER_RULES.bubblesMax - AIR_CONTAINER_RULES.bubblesMin;
     const count = AIR_CONTAINER_RULES.bubblesMin + Math.round(this.random() * span);
     for (let i = 0; i < count; i++) {
@@ -1691,6 +1699,16 @@ export class GameModel {
       const dx = anchor(DOODAD_RULES.width);
       this.doodads.push(spawnDoodad(this.nextAbyssId--, dx, y - phase.rowGap * 0.45 * this.gravity, roll() < 0.5 ? 'lamp' : 'bracket', true));
     }
+    if (roll() < phase.chargeOrbChance) {
+      // CHARGE ORB: shootable, floating, and never landed on. It replaces the landing reload that
+      // the arena no longer has, without asking the player to stop climbing to use it.
+      const ox = anchor(AIR_CONTAINER_RULES.size);
+      this.containers.push({
+        id: this.nextAbyssId--, x: ox, y: y - phase.rowGap * 0.3 * this.gravity,
+        width: AIR_CONTAINER_RULES.size, height: AIR_CONTAINER_RULES.size,
+        broken: false, debris: 0, shotOnly: true, charge: true,
+      });
+    }
     if (roll() < phase.containerChance) {
       const cx = anchor(AIR_CONTAINER_RULES.size);
       this.containers.push({
@@ -1818,6 +1836,20 @@ export class GameModel {
     // Being hit costs HP and nothing else: only a landing ends a chain. Losing a long chain to one
     // unlucky contact is what made holding a combo feel arbitrary rather than risky.
     if (source) source.hurtFlash = 0.3;
+    /**
+     * In the arena, a hit also shoves the player back along the pull -- away from NIMUSHI.
+     *
+     * Crowding the boss should cost more than a heart: it should put the player back out in the
+     * combat band, which is where the fight is meant to happen. The shove REPLACES the velocity
+     * rather than adding to it, so it can never stack into something violent, and it only ever
+     * pushes AWAY from NIMUSHI, so it can never become a hit that throws the player into the body.
+     *
+     * The boundary is the reason this is modest and one-directional: a shove toward the deep would
+     * turn one mistimed hit into a death the player had no answer to.
+     */
+    if (this.inBossMode && this.hp > 0) {
+      this.player.vy = -BOSS_PHYSICS.hazardKnockback * this.gravity;
+    }
     this.events.push({ type: 'hurt', x: this.player.x, y: this.player.y, source: source ? { id: source.id, kind: source.kind, x: source.x, y: source.y } : undefined });
     return true;
   }

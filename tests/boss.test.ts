@@ -825,28 +825,33 @@ describe('the four ABYSS environments', () => {
     expect(game.pickups.some(p => p.kind === 'heart')).toBe(true);
   });
 
-  it('runs CATACOMB spikes under inverted gravity', () => {
-    const game = driveToPhase(2, 52);
-    expect(game.boss.phaseId).toBe(2);
-    const spiked = game.platforms.find(row => row.spikePlatform);
-    expect(spiked).toBeDefined();
-    // Landing on its gravity-facing face -- the UNDERSIDE -- is what arms it.
-    const face = spiked!.y + 16;
-    game.player.x = spiked!.x + spiked!.width / 2;
-    game.player.y = face - 15 * game.gravitySign;
-    game.player.grounded = spiked!.id;
-    game.step(STEP, 0, false);
-    expect(spiked!.spikePlatform!.state).toBe('warning');
-    const states = new Set<string>();
-    for (let i = 0; i < 6 / STEP; i++) {
-      states.add(spiked!.spikePlatform!.state);
-      game.player.invincible = 9;
-      game.step(STEP, 0, false);
-      if (game.state !== 'boss') break;
+  /**
+   * The arena is FLOORLESS in every stretch.
+   *
+   * CATACOMB used to lay spike platforms here and this test used to arm one. They are gone, along
+   * with every other ledge: a landable surface stops the player's climb dead, and each stop breaks
+   * the fight's tempo and hands the rising boundary free ground. NIMUSHI's arena is an aerial
+   * fight, and this is the rule that makes it one.
+   */
+  it('lays nothing landable in any stretch', () => {
+    for (const phase of ABYSS_PHASES) {
+      expect({ id: phase.id, groundless: phase.groundless }).toEqual({ id: phase.id, groundless: true });
+      expect({ id: phase.id, ledge: phase.ledgeWidth }).toEqual({ id: phase.id, ledge: [0, 0] });
+      expect({ id: phase.id, blocks: phase.breakBlockChance }).toEqual({ id: phase.id, blocks: 0 });
+      expect({ id: phase.id, spikes: phase.spikeChance }).toEqual({ id: phase.id, spikes: 0 });
+      // A doodad is a trampoline: it stops the climb and bounces the player in place.
+      expect({ id: phase.id, doodads: phase.doodadChance }).toEqual({ id: phase.id, doodads: 0 });
     }
-    expect(states.has('warning')).toBe(true);
-    expect(states.has('active')).toBe(true);
-    expect(states.has('cooldown')).toBe(true);
+  });
+
+  it('never puts a floor ahead of the player, in any stretch', () => {
+    for (const id of [1, 2, 3, 4] as const) {
+      const game = driveToPhase(id, 50 + id);
+      tick(game, 3);
+      const ahead = game.platforms.filter(row => (row.y - game.player.y) * game.gravitySign > 0);
+      expect({ id, ahead: ahead.length }).toEqual({ id, ahead: 0 });
+      expect({ id, doodads: game.doodads.length }).toEqual({ id, doodads: 0 });
+    }
   });
 
   it('drowns in the AQUIFER, and only a shot opens an air container', () => {
@@ -856,7 +861,8 @@ describe('the four ABYSS environments', () => {
     const air = game.oxygen.remaining;
     tick(game, 2);
     expect(game.oxygen.remaining).toBeLessThan(air);
-    const box = game.containers.find(c => !c.broken);
+    // Air containers and CHARGE orbs now share the list, so this asks for an AIR one.
+    const box = game.containers.find(c => !c.broken && !c.charge);
     expect(box).toBeDefined();
     expect(box!.shotOnly).toBe(true);
     // Swimming into it does nothing at all.
@@ -874,28 +880,44 @@ describe('the four ABYSS environments', () => {
     expect(game.oxygen.remaining).toBeGreaterThan(drowning);
   });
 
-  it('leaves LIMBO with nothing to stand on but a doodad', () => {
+  /**
+   * CHARGE comes out of the air, because there is nowhere to land.
+   *
+   * This used to be LIMBO's floating doodad, reloading on a bounce. A bounce is a stop, so the
+   * supply line is now a CHARGE ORB: shot rather than stood on, so the magazine can be filled
+   * without the player ever interrupting their climb.
+   */
+  it('supplies CHARGE from a shootable orb rather than a landing', () => {
     const game = driveToPhase(4, 54);
     expect(game.boss.phaseId).toBe(4);
-    const phase = ABYSS_PHASES[3];
-    expect(phase.groundless).toBe(true);
-    expect(phase.heart).toBe(false);
-    // Nothing the arena lays in LIMBO is a floor.
     tick(game, 3);
-    // Nothing ahead of the player along the pull is a floor. Rows already passed are still in the
-    // list until the view leaves them behind, and those are behind the player by definition.
-    const ahead = game.platforms.filter(row => (row.y - game.player.y) * game.gravitySign > 0);
-    expect(ahead.length).toBe(0);
-    expect(game.doodads.length).toBeGreaterThan(0);
-    // And a doodad still reloads, arrived at from the side gravity brings the player in on.
-    const doodad = game.doodads[0];
+    const orb = game.containers.find(c => c.charge && !c.broken);
+    expect(orb).toBeDefined();
+
+    // Swimming into it does nothing: it is not a pickup and not a platform.
     game.ammo = 0;
-    game.player.x = doodad.x + doodad.width / 2;
-    game.player.y = doodad.y + doodad.height + 17;
-    game.player.vy = -520;
+    game.player.x = orb!.x + orb!.width / 2;
+    game.player.y = orb!.y + orb!.height / 2;
     game.player.grounded = -1;
+    const flying = game.player.vy;
     game.step(STEP, 0, false);
+    expect(orb!.broken).toBe(false);
+    expect(game.ammo).toBe(0);
+
+    // A round fills the magazine, and leaves the player still falling and still airborne.
+    game.bullets.push(round(orb!.x + orb!.width / 2, orb!.y + orb!.height / 2, 1));
+    game.step(STEP, 0, false);
+    expect(orb!.broken).toBe(true);
     expect(game.ammo).toBe(game.stats.maxAmmo);
+    expect(game.player.grounded).toBe(-1);
+    expect(game.player.vy).not.toBe(0);
+    expect(Math.sign(game.player.vy)).toBe(Math.sign(flying) || Math.sign(game.player.vy));
+  });
+
+  it('offers a CHARGE orb in every stretch', () => {
+    for (const phase of ABYSS_PHASES) {
+      expect({ id: phase.id, supply: phase.chargeOrbChance > 0 }).toEqual({ id: phase.id, supply: true });
+    }
   });
 
   it('guarantees a heart in the first three stretches and none in LIMBO', () => {

@@ -48,9 +48,25 @@ export interface BattlePhysics {
  */
 export const GRAVITY_DIRECTION = { normal: 1, boss: -1 } as const;
 
-/** NIMUSHI's arena. See the header: boss numbers, not the run's old ones. */
-export const BOSS_PHYSICS: BattlePhysics = {
+/**
+ * NIMUSHI's arena. See the header: boss numbers, not the run's old ones.
+ *
+ * `hazardKnockback` is boss-only and sits outside `BattlePhysics`, which is the three numbers BOTH
+ * modes need. The normal run has no equivalent and must not grow one by accident.
+ */
+export const BOSS_PHYSICS: BattlePhysics & {
+  /**
+   * Speed a hazard hit shoves the player back along the pull -- away from NIMUSHI, down the screen.
+   *
+   * It exists so that crowding the boss costs more than a heart: taking a hit near the face puts
+   * the player back out in the combat band, which is where the fight is meant to happen. Modest on
+   * purpose -- a hit must never become a shove into the rising boundary and a second death the
+   * player had no answer to.
+   */
+  hazardKnockback: number;
+} = {
   gravity: 900,
   maxFallSpeed: 520,
   moveSpeed: 180,
+  hazardKnockback: 240,
 };
