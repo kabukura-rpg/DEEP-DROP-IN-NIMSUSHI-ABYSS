@@ -384,7 +384,10 @@ describe('AREA 2 generation safety', () => {
       for (let seed = 1; seed <= 40; seed++) {
         const s = section(sectionId as SectionId, seed * 4423);
         let previous: RoutePlatform = { ...START_PLATFORM };
-        for (const p of s.platforms) {
+        // A SAFE ZONE floor is a side chamber's own slab against a wall, not a step on the route:
+        // the generator never chains the next row's reach from it. Measuring the fall from one is
+        // measuring the wrong object, exactly as applying the air-reach rule to a crate was.
+        for (const p of s.platforms.filter(f => f.safeZone === undefined)) {
           expect(Math.abs(p.safeX - previous.exitX)).toBeLessThanOrEqual(horizontalReach(p.y - previous.y, area2.water));
           previous = p;
         }

@@ -57,6 +57,24 @@ export const SAFE_ZONE_RULES = {
   depthMargin: 30,
 } as const;
 
+/**
+ * Where a SECTION's chambers may start. `count` is a GUARANTEED MINIMUM, not a quota: each depth is
+ * the earliest metre a chamber may be cut at, and the generator keeps retrying rows past it until one
+ * fits, so a SECTION cannot end up with none. They are spread evenly through the SECTION and kept
+ * clear of both the opening and the exit.
+ *
+ * PROVISIONAL / MEASUREMENT REQUIRED: the original places chambers randomly down the well and its
+ * real rate is not measured. One per SECTION is a floor that makes the supply loop work, and must
+ * NOT be read as "the original always has exactly one". Optional extra chambers are a matter of
+ * pushing further depths in here and changing nothing else.
+ */
+export function safeZoneDepths(count: number, sectionLength?: number): number[] {
+  if (!sectionLength || count <= 0) return [];
+  const usable = sectionLength - SAFE_ZONE_RULES.depthMargin * 2;
+  if (usable <= 0) return [];
+  return Array.from({ length: count }, (_, i) => SAFE_ZONE_RULES.depthMargin + usable * (i + 1) / (count + 1));
+}
+
 /** Pick the one thing waiting in a chamber. */
 export function rollSafeZoneContent(random: () => number): SafeZoneContentKind {
   const kinds = Object.keys(SAFE_ZONE_RULES.contentWeights) as SafeZoneContentKind[];

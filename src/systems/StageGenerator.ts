@@ -5,7 +5,7 @@ import { spawnPickup, type Pickup, type PickupKind } from '../data/pickups';
 import { AIR_CONTAINER_RULES, BREAK_BLOCK_RULES, breakBlockWidth, EXIT_RULES, type AirContainer, type StageExit } from '../data/structures';
 import { spawnHazard, type Hazard, type SpikeKind } from '../data/hazards';
 import { spawnDoodad, DOODAD_RULES, type Doodad } from '../data/doodads';
-import { rollSafeZoneContent, SAFE_ZONE_RULES, type SafeZone } from '../data/safeZone';
+import { rollSafeZoneContent, safeZoneDepths, SAFE_ZONE_RULES, type SafeZone } from '../data/safeZone';
 import { rollGunModule as rollModuleForZone } from '../data/gunModules';
 import type { SectionPlan, WaterPhysics } from '../data/areas';
 
@@ -120,12 +120,11 @@ export class StageGenerator {
     const gateCount = context.sectionLength ? context.plan?.breakBlockRows ?? 0 : 0;
     for (let i = 1; i <= gateCount; i++) this.gates.push(context.sectionLength! * i / (gateCount + 1));
     // Chambers are spaced the same way, and kept clear of the opening and of the exit so one can
-    // never be cut where the way out has to be.
-    const chamberCount = context.sectionLength ? context.plan?.safeZoneCount ?? 0 : 0;
-    const usable = (context.sectionLength ?? 0) - SAFE_ZONE_RULES.depthMargin * 2;
-    for (let i = 1; i <= chamberCount; i++) {
-      this.chambers.push(SAFE_ZONE_RULES.depthMargin + usable * i / (chamberCount + 1));
-    }
+    // never be cut where the way out has to be. `safeZoneCount` is a GUARANTEED MINIMUM rather than
+    // a quota: each of these depths is the earliest a chamber may appear, and the row keeps being
+    // retried until one fits. Adding optional extra chambers later means pushing more depths in
+    // here and nothing else.
+    this.chambers.push(...safeZoneDepths(context.plan?.safeZoneCount ?? 0, context.sectionLength));
   }
 
   /**
@@ -369,30 +368,48 @@ export class StageGenerator {
    * a patrol, or on top of the row's own ledge. Skipping costs nothing; a chamber nobody can enter
    * without dying costs the player a run.
    */
+  /**
+   * A chamber cut into one wall of the shaft, in the open band between two rows.
+   *
+   * It is a SIDE CHAMBER and deliberately owes nothing to the ledge it happens to sit beside: it
+   * brings its own floor, so it needs no ordinary platform to stand on and imposes no "must be a
+   * solid ledge" condition of the kind the old shaft SHOP had. That is what lets AREA 4 -- where
+   * every ledge collapses -- have chambers at all.
+   *
+   * Both walls are tried before a row is given up. Which wall a chamber goes into is alternation
+   * for variety, not balance, so when the preferred side is blocked by this AREA's own furniture the
+   * other side is taken rather than the whole row abandoned. With weapons, shops and veins now
+   * living only in here, a SECTION that failed to cut one would be a SECTION with no supply at all.
+   */
   private placeSafeZone(platform: RoutePlatform, y: number, localDepth: number, start: number, zones: SafeZone[], platforms: RoutePlatform[], hazards: Hazard[], enemies: Enemy[], containers: AirContainer[]) {
     if (!this.chambers.length || localDepth < this.chambers[0]) return;
     // Past the clearance kept for the exit, the chance has gone: drop it rather than cut a chamber
-    // where the way out has to be. A SECTION that skips one is fine; one that blocks its exit is not.
+    // where the way out has to be. Blocking the exit is the one failure worse than going without.
     const ceiling = (this.context.sectionLength ?? Infinity) - SAFE_ZONE_RULES.depthMargin;
     if (localDepth > ceiling) { this.chambers.shift(); return; }
     const bandTop = this.previous.y + 40, bandBottom = y - 30;
     const height = SAFE_ZONE_RULES.height, floorHeight = SAFE_ZONE_RULES.floorHeight;
     if (bandBottom - bandTop < height + floorHeight + 20) return;
-    const side: -1 | 1 = this.nextChamberSide !== 0 ? this.nextChamberSide : (this.random() < 0.5 ? -1 : 1);
     const width = SAFE_ZONE_RULES.width;
-    const x = side === -1 ? WORLD.wall : WORLD.width - WORLD.wall - width;
     // Sit the chamber so its floor is comfortably inside the band.
     const floorY = Math.round(bandBottom - floorHeight);
     const top = floorY - height;
-    const mouth = { x, y: top, width, height: height + floorHeight };
-    const overlaps = (ox: number, ow: number, oy: number, oh: number) =>
-      ox < mouth.x + mouth.width + 12 && ox + ow > mouth.x - 12 && oy < mouth.y + mouth.height + 12 && oy + oh > mouth.y - 12;
-    if (hazards.some(h => overlaps(h.x, h.width, h.y, h.height))) return;
-    if (containers.some(c => overlaps(c.x, c.width, c.y, c.height))) return;
-    if (enemies.some(e => overlaps(e.originX - e.range - 16, e.range * 2 + 32, e.y - 20, 40))) return;
-    if (platforms.some(f => overlaps(f.x, f.width, f.y - 4, 20))) return;
-    // The row's own ledge must not stick into the mouth either.
-    if (overlaps(platform.x, platform.width, platform.y - 4, 20)) return;
+    const fits = (candidate: -1 | 1) => {
+      const x = candidate === -1 ? WORLD.wall : WORLD.width - WORLD.wall - width;
+      const overlaps = (ox: number, ow: number, oy: number, oh: number) =>
+        ox < x + width + 12 && ox + ow > x - 12 && oy < top + height + floorHeight + 12 && oy + oh > top - 12;
+      if (hazards.some(h => overlaps(h.x, h.width, h.y, h.height))) return false;
+      if (containers.some(c => overlaps(c.x, c.width, c.y, c.height))) return false;
+      if (enemies.some(e => overlaps(e.originX - e.range - 16, e.range * 2 + 32, e.y - 20, 40))) return false;
+      if (platforms.some(f => overlaps(f.x, f.width, f.y - 4, 20))) return false;
+      // The row's own ledge must not stick into the mouth either.
+      return !overlaps(platform.x, platform.width, platform.y - 4, 20);
+    };
+    const preferred: -1 | 1 = this.nextChamberSide !== 0 ? this.nextChamberSide : (this.random() < 0.5 ? -1 : 1);
+    const other: -1 | 1 = preferred === -1 ? 1 : -1;
+    const side = fits(preferred) ? preferred : fits(other) ? other : 0;
+    if (side === 0) return;
+    const x = side === -1 ? WORLD.wall : WORLD.width - WORLD.wall - width;
     this.chambers.shift();
     this.nextChamberSide = side === -1 ? 1 : -1;
     if (y < start) return;

@@ -7,6 +7,7 @@ import { COMBO_TIERS } from '../src/data/combo';
 import { StageGenerator, type Platform, type RoutePlatform } from '../src/systems/StageGenerator';
 import { areaConfig, type AreaId, type SectionId } from '../src/data/areas';
 import { spawnEnemy } from '../src/data/enemies';
+import { spawnHazard, type Hazard } from '../src/data/hazards';
 import { spawnGunModule, type Pickup } from '../src/data/pickups';
 import { OXYGEN_RULES } from '../src/systems/OxygenSystem';
 
@@ -520,6 +521,126 @@ describe('TIMEVOID: rounds stop on the shaft side of the mouth only', () => {
   });
 });
 
+/**
+ * The same chamber in every AREA. Each AREA runs a gauge of its own, and each one belongs to the
+ * shaft rather than to the player, so stepping inside stops it -- and stepping out starts it again
+ * from where it was rather than catching up. A chain survives the whole visit either way.
+ */
+describe('TIMEVOID holds each AREA gimmick, and the chain, in every AREA', () => {
+  /** A run in that AREA, emptied, with one chamber and its floor under the player. */
+  function chamberIn(area: AreaId, section: SectionId, seed: number) {
+    const game = new GameModel(false, seeded(seed));
+    game.jumpToStage(area, section);
+    game.platforms = []; game.enemies = []; game.pickups = []; game.hazards = [];
+    game.doodads = []; game.safeZones = []; game.containers = []; game.bubbles = [];
+    const { zone, floor } = withChamber(game, null, 320);
+    game.player.invincible = 99;
+    game.combo = 12; game.ammo = 1;
+    return { game, zone, floor };
+  }
+  /** Drop in from above the chamber, steering at the mouth -- the way a run actually arrives. */
+  function enter(game: GameModel, zone: SafeZone, floor: Platform) {
+    game.player.x = zone.x + zone.width + 30;
+    game.player.y = zone.y - 120; game.player.vy = 0; game.player.grounded = -1;
+    for (let i = 0; i < 600 && game.player.grounded !== floor.id; i++) {
+      game.player.invincible = 99;
+      game.step(1 / 120, -1, false);
+    }
+    return game.player.grounded === floor.id;
+  }
+  /** Walk back out of the mouth, left and right only. */
+  function leave(game: GameModel) {
+    for (let i = 0; i < 900 && game.timeFrozen; i++) { game.player.invincible = 99; game.step(1 / 120, 1, false); }
+    return !game.timeFrozen;
+  }
+
+  it('AREA 2: the oxygen tank neither drains nor refills inside, and drains again outside', () => {
+    const { game, zone, floor } = chamberIn(2, 2, 21);
+    expect(game.oxygen.enabled).toBe(true);
+    game.oxygen.remaining = OXYGEN_RULES.max - 4;
+    expect(enter(game, zone, floor)).toBe(true);
+    expect(game.timeFrozen).toBe(true);
+    // Landing on a chamber floor fills CHARGE without banking the chain.
+    expect(game.ammo).toBe(game.stats.maxAmmo);
+    expect(game.combo).toBe(12);
+    const held = game.oxygen.remaining;
+    tick(game, 5);
+    expect(game.oxygen.remaining).toBe(held);
+    expect(game.combo).toBe(12);
+    expect(leave(game)).toBe(true);
+    tick(game, 0.6);
+    expect(game.oxygen.remaining).toBeLessThan(held);
+    // Resumed from where it stood, not caught up for the time spent inside.
+    expect(game.oxygen.remaining).toBeGreaterThan(held - 2);
+    expect(game.combo).toBe(12);
+  });
+
+  it('AREA 3: the heat gauge holds inside and climbs again outside', () => {
+    const { game, zone, floor } = chamberIn(3, 2, 23);
+    expect(game.heat.enabled).toBe(true);
+    expect(enter(game, zone, floor)).toBe(true);
+    expect(game.timeFrozen).toBe(true);
+    expect(game.ammo).toBe(game.stats.maxAmmo);
+    expect(game.combo).toBe(12);
+    // A lava pool out in the shaft, radiating -- but the shaft's clock is stopped.
+    game.hazards = [spawnHazard('lavaPool', 800, 250, 360, 120, 24)];
+    game.heat.value = 40;
+    tick(game, 5);
+    expect(game.heat.value).toBe(40);
+    expect(game.combo).toBe(12);
+    expect(leave(game)).toBe(true);
+    // Standing beside the pool outside, it climbs again from 40.
+    game.player.x = 280;
+    tick(game, 1);
+    expect(game.heat.value).toBeGreaterThan(40);
+    expect(game.combo).toBe(12);
+  });
+
+  it('AREA 4: a collapse timer already running is held, and resumes on the way out', () => {
+    const { game, zone, floor } = chamberIn(4, 2, 27);
+    const ledge: Platform = { id: 700, x: zone.x + zone.width + 10, y: 320, width: 120, breakable: true, state: 'stable' };
+    game.platforms.push(ledge);
+    // Land on the collapsing ledge first so its timer is running, then step into the chamber.
+    game.player.x = ledge.x + 60; game.player.y = 220; game.player.vy = 240;
+    tick(game, 0.8);
+    expect(game.collapse.counting).toBe(1);
+    // That was an ordinary landing, so it banked the chain it arrived with. Start a fresh one for
+    // the chamber to preserve -- which is the thing under test here.
+    game.combo = 12; game.ammo = 1; game.events.length = 0;
+    // Step across into the chamber rather than falling to it: this ledge's own delay is under a
+    // second, and the point here is what happens to a timer that is ALREADY running.
+    game.player.x = zone.x + zone.width / 2;
+    game.player.y = floor.y - 15; game.player.vy = 0; game.player.grounded = floor.id;
+    game.step(1 / 120, 0, false);
+    expect(game.collapse.counting).toBe(1);
+    expect(game.timeFrozen).toBe(true);
+    game.reloadCharge();
+    expect(game.combo).toBe(12);
+    // Far longer than the ledge's own delay: it does not give way while the shaft is stopped.
+    tick(game, 6);
+    expect(game.collapse.counting).toBe(1);
+    expect(ledge.state).not.toBe('broken');
+    expect(game.combo).toBe(12);
+    expect(leave(game)).toBe(true);
+    tick(game, 2);
+    // Outside, the same timer runs out and the ledge goes.
+    expect(ledge.state).toBe('broken');
+    expect(game.combo).toBe(12);
+  });
+
+  it('keeps a chain through the whole visit, in every AREA', () => {
+    for (const area of [1, 2, 3, 4] as AreaId[]) {
+      const { game, zone, floor } = chamberIn(area, 1, 31 + area);
+      expect({ area, entered: enter(game, zone, floor) }).toEqual({ area, entered: true });
+      expect({ area, charge: game.ammo }).toEqual({ area, charge: game.stats.maxAmmo });
+      expect({ area, combo: game.combo }).toEqual({ area, combo: 12 });
+      expect({ area, settled: game.events.some(e => e.type === 'comboSettle') }).toEqual({ area, settled: false });
+      expect({ area, left: leave(game) }).toEqual({ area, left: true });
+      expect({ area, combo: game.combo }).toEqual({ area, combo: 12 });
+    }
+  });
+});
+
 describe('SAFE ZONE content reaches the existing systems', () => {
   it('hands over a gun module, keeping the chain', () => {
     const game = bare(false);
@@ -786,11 +907,180 @@ describe('SAFE ZONE generation stays out of everything else', () => {
     }
     expect(total).toBeGreaterThan(20);
   });
-  it('leaves AREA 2, 3 and 4 alone this phase', () => {
+  it('leaves DOODAD placement to AREA 1 for now', () => {
+    // Chambers are supply and had to reach every AREA; doodads are scenery and are still AREA 1's.
     for (const area of [2, 3, 4] as AreaId[]) for (const section of [1, 2, 3] as SectionId[]) {
       const plan = areaConfig(area).plans![section - 1];
-      expect({ area, section, zones: plan.safeZoneCount ?? 0 }).toEqual({ area, section, zones: 0 });
       expect({ area, section, doodads: plan.doodadChance ?? 0 }).toEqual({ area, section, doodads: 0 });
+    }
+  });
+});
+
+/**
+ * Supply reaches every SECTION of the run.
+ *
+ * Weapons, shops and veins live only in chambers, so a SECTION without one is a SECTION a run cannot
+ * be re-armed or re-supplied in. Every one of the twelve therefore guarantees at least one, and
+ * these sweep all of them across many seeds rather than sampling AREA 1 and hoping.
+ */
+describe('SAFE ZONE supply reaches all twelve SECTIONs', () => {
+  const SEEDS = 60;
+  const ALL: [AreaId, SectionId][] = ([1, 2, 3, 4] as AreaId[])
+    .flatMap(area => ([1, 2, 3] as SectionId[]).map(section => [area, section] as [AreaId, SectionId]));
+  const build = (area: AreaId, section: SectionId, seed: number) => {
+    const config = areaConfig(area);
+    const pixels = config.sectionLength * WORLD.pixelsPerMeter;
+    const chunks = Math.ceil((WORLD.startY + pixels) / WORLD.chunkHeight) + 1;
+    const generator = new StageGenerator(seeded(seed), {
+      plan: config.plans![section - 1], enemyPool: config.enemyPool, water: config.water,
+      oxygen: config.gimmicks?.oxygen === true, heat: config.gimmicks?.heat === true,
+      breakable: config.gimmicks?.breakablePlatforms === true, sectionLength: config.sectionLength,
+    });
+    const platforms: RoutePlatform[] = [], hazards: Hazard[] = [], zones: SafeZone[] = [];
+    const containers = [] as { x: number; y: number; width: number; height: number }[];
+    let exit: { x: number; y: number; width: number; height: number } | undefined;
+    for (let c = 0; c < chunks; c++) {
+      const chunk = generator.chunk(c);
+      platforms.push(...chunk.platforms); hazards.push(...chunk.hazards);
+      zones.push(...chunk.safeZones); containers.push(...chunk.containers);
+      if (chunk.exit) exit = chunk.exit;
+    }
+    return { length: config.sectionLength, platforms, hazards, zones, containers, exit };
+  };
+  /** The chamber and its floor slab as one rectangle -- the space that has to be free. */
+  const box = (zone: SafeZone) => ({ x: zone.x, y: zone.y, w: zone.width, h: zone.height + SAFE_ZONE_RULES.floorHeight });
+  const clash = (b: ReturnType<typeof box>, ox: number, ow: number, oy: number, oh: number) =>
+    ox < b.x + b.w && ox + ow > b.x && oy < b.y + b.h && oy + oh > b.y;
+
+  it('sets a guaranteed minimum of one in every SECTION', () => {
+    for (const [area, section] of ALL) {
+      const want = areaConfig(area).plans![section - 1].safeZoneCount ?? 0;
+      expect({ area, section, want }).toEqual({ area, section, want: 1 });
+    }
+  });
+
+  it('cuts at least one in every SECTION, on every seed', () => {
+    for (const [area, section] of ALL) {
+      let empty = 0, total = 0;
+      for (let seed = 1; seed <= SEEDS; seed++) {
+        const shaft = build(area, section, seed * 613);
+        total += shaft.zones.length;
+        if (!shaft.zones.length) empty++;
+      }
+      expect({ area, section, empty }).toEqual({ area, section, empty: 0 });
+      expect({ area, section, enough: total >= SEEDS }).toEqual({ area, section, enough: true });
+    }
+  });
+
+  it('uses both walls in every AREA, so a chamber is never always on one side', () => {
+    for (const area of [1, 2, 3, 4] as AreaId[]) {
+      let left = 0, right = 0;
+      for (const section of [1, 2, 3] as SectionId[]) {
+        for (let seed = 1; seed <= SEEDS; seed++) {
+          for (const zone of build(area, section, seed * 613).zones) {
+            if (zone.side === -1) { left++; expect(zone.x).toBe(WORLD.wall); }
+            else { right++; expect(zone.x + zone.width).toBe(WORLD.width - WORLD.wall); }
+          }
+        }
+      }
+      // Not a 50/50 assertion -- just that neither wall is unreachable in this AREA.
+      expect({ area, left: left > 0, right: right > 0 }).toEqual({ area, left: true, right: true });
+      expect(Math.min(left, right) / (left + right)).toBeGreaterThan(0.2);
+    }
+  });
+
+  it('can offer a module, a shop and a vein in every AREA', () => {
+    for (const area of [1, 2, 3, 4] as AreaId[]) {
+      const seen = new Set<string>();
+      for (const section of [1, 2, 3] as SectionId[]) {
+        for (let seed = 1; seed <= SEEDS; seed++) {
+          for (const zone of build(area, section, seed * 613).zones) if (zone.content) seen.add(zone.content.kind);
+        }
+      }
+      // No AREA may be permanently starved of one of the three.
+      expect({ area, kinds: [...seen].sort() }).toEqual({ area, kinds: ['coinVein', 'gunModule', 'shop'] });
+    }
+  });
+
+  it('never cuts a mouth into terrain, in any AREA', () => {
+    for (const [area, section] of ALL) {
+      for (let seed = 1; seed <= SEEDS; seed++) {
+        const shaft = build(area, section, seed * 271);
+        for (const zone of shaft.zones) {
+          const b = box(zone);
+          const where = [area, section, seed];
+          // SPIKE, lava and vents -- AREA 3's furniture included.
+          for (const h of shaft.hazards) expect({ where, hazard: clash(b, h.x, h.width, h.y, h.height) }).toEqual({ where, hazard: false });
+          // AREA 2's air containers: the mouth must never sit on the air supply.
+          for (const c of shaft.containers) expect({ where, air: clash(b, c.x, c.width, c.y, c.height) }).toEqual({ where, air: false });
+          // Ordinary ledges, BREAK BLOCK rows and AREA 4's collapsing ledges alike.
+          for (const f of shaft.platforms) {
+            if (f.safeZone === zone.id) continue;                 // its own floor is meant to be there
+            expect({ where, id: f.id, ledge: clash(b, f.x, f.width, f.y - 4, 20) }).toEqual({ where, id: f.id, ledge: false });
+          }
+          // And never on the way out.
+          if (shaft.exit) {
+            const e = shaft.exit;
+            expect({ where, exit: clash(b, e.x, e.width, e.y, e.height) }).toEqual({ where, exit: false });
+          }
+        }
+      }
+    }
+  });
+
+  it('stays clear of the opening and the exit depth in every SECTION', () => {
+    for (const [area, section] of ALL) {
+      for (let seed = 1; seed <= SEEDS; seed++) {
+        const shaft = build(area, section, seed * 613);
+        for (const zone of shaft.zones) {
+          const depth = (zone.y - WORLD.startY) / WORLD.pixelsPerMeter;
+          const floorDepth = (zone.y + zone.height - WORLD.startY) / WORLD.pixelsPerMeter;
+          expect({ area, section, early: depth > 0 }).toEqual({ area, section, early: true });
+          expect({ area, section, late: floorDepth < shaft.length }).toEqual({ area, section, late: true });
+        }
+      }
+    }
+  });
+
+  it('brings its own floor, so AREA 4 needs no solid ledge to host one', () => {
+    // Every AREA 4 ledge collapses. A chamber must not inherit the old shaft SHOP's "find a
+    // non-collapsing ledge" condition, or AREA 4 would have no supply at all.
+    for (const section of [1, 2, 3] as SectionId[]) {
+      let seen = 0;
+      for (let seed = 1; seed <= SEEDS; seed++) {
+        const shaft = build(4, section, seed * 613);
+        for (const zone of shaft.zones) {
+          seen++;
+          const floor = shaft.platforms.find(f => f.safeZone === zone.id);
+          expect(floor).toBeDefined();
+          // The chamber's own floor never collapses, whatever the AREA does to ordinary ledges.
+          expect({ section, breakable: floor!.breakable === true }).toEqual({ section, breakable: false });
+          expect(floor!.state).toBe('stable');
+          expect(floor!.y).toBe(zone.y + zone.height);
+        }
+      }
+      expect(seen).toBeGreaterThanOrEqual(SEEDS);
+    }
+  });
+
+  it('keeps AREA 2 able to reach air past every chamber', () => {
+    // A chamber occupies one wall. The air the run needs must still arrive at least as often as the
+    // SECTION plan promises, with no chamber buried on top of a container.
+    for (const section of [1, 2, 3] as SectionId[]) {
+      const maxGap = areaConfig(2).plans![section - 1].maxOxygenGap;
+      for (let seed = 1; seed <= SEEDS; seed++) {
+        const shaft = build(2, section, seed * 613);
+        expect(shaft.containers.length).toBeGreaterThan(0);
+        const depths = shaft.containers
+          .map(c => (c.y - WORLD.startY) / WORLD.pixelsPerMeter)
+          .filter(d => d <= shaft.length)
+          .sort((a, b) => a - b);
+        let previous = 0;
+        for (const d of depths) {
+          if (maxGap !== undefined) expect({ section, seed, gap: d - previous <= maxGap + 1 }).toEqual({ section, seed, gap: true });
+          previous = d;
+        }
+      }
     }
   });
 });

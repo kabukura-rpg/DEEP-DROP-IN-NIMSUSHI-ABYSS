@@ -72,8 +72,14 @@ export interface SectionPlan {
    */
   doodadChance?: number;
   /**
-   * SAFE ZONE chambers cut into the shaft wall in this SECTION. A verification quantity, not a
-   * World design: the AREA rebuild that decides where these really belong is a later Phase.
+   * SAFE ZONE chambers cut into the shaft wall in this SECTION, as a GUARANTEED MINIMUM: the
+   * generator retries rows until this many have been cut, rather than rolling for them.
+   *
+   * Every SECTION sets 1. PROVISIONAL / MEASUREMENT REQUIRED -- the original scatters chambers down
+   * the well and its real rate and count are NOT measured, so this must not be read as "the original
+   * always has exactly one". One is the floor that makes the supply loop work: weapons, shops and
+   * veins live only in chambers, so a SECTION with none is a SECTION a run cannot be supplied in.
+   * Optional extra chambers on top of the minimum are a later change to `safeZoneDepths` alone.
    */
   safeZoneCount?: number;
   /**
@@ -171,11 +177,11 @@ export const AREAS: readonly AreaConfig[] = [
     water: { gravity: 0.90, responsiveness: 11 },
     plans: [
       { platformWidth: [150, 174], gap: 236, enemyChance: 0.34, flyChance: 0.26, toughChance: 0.22, heavyChance: 0, comboBias: 0.18, graceDepth: 12, containerChance: 0.44, maxOxygenGap: 30, bubbleOffside: 0.35,
-        spikeChance: 0.22, spikeKinds: ['poisonCoral'], breakBlockRows: 2, breakBlockDurability: 2 },
+        spikeChance: 0.22, spikeKinds: ['poisonCoral'], breakBlockRows: 2, breakBlockDurability: 2, safeZoneCount: 1 },
       { platformWidth: [138, 162], gap: 242, enemyChance: 0.46, flyChance: 0.32, toughChance: 0.30, heavyChance: 0, comboBias: 0.24, containerChance: 0.29, maxOxygenGap: 40, bubbleOffside: 0.62,
-        spikeChance: 0.34, spikeKinds: ['poisonCoral', 'urchinSpike'], breakBlockRows: 2, breakBlockDurability: 2 },
+        spikeChance: 0.34, spikeKinds: ['poisonCoral', 'urchinSpike'], breakBlockRows: 2, breakBlockDurability: 2, safeZoneCount: 1 },
       { platformWidth: [126, 150], gap: 248, enemyChance: 0.56, flyChance: 0.38, toughChance: 0.38, heavyChance: 0, comboBias: 0.28, containerChance: 0.21, maxOxygenGap: 50, bubbleOffside: 0.85,
-        spikeChance: 0.46, spikeKinds: ['poisonCoral', 'urchinSpike'], breakBlockRows: 2, breakBlockDurability: 2 },
+        spikeChance: 0.46, spikeKinds: ['poisonCoral', 'urchinSpike'], breakBlockRows: 2, breakBlockDurability: 2, safeZoneCount: 1 },
     ],
   },
   {
@@ -185,11 +191,11 @@ export const AREAS: readonly AreaConfig[] = [
     gimmicks: { heat: true, lava: true },
     plans: [
       { platformWidth: [146, 170], gap: 238, enemyChance: 0.34, flyChance: 0.24, toughChance: 0.18, heavyChance: 0, comboBias: 0.20, graceDepth: 14,
-        lavaPoolChance: 0.22, lavaWallChance: 0, ventChance: 0.10, iceChance: 0.52, iceOffside: 0.25, breakBlockRows: 2, breakBlockDurability: 3 },
+        lavaPoolChance: 0.22, lavaWallChance: 0, ventChance: 0.10, iceChance: 0.52, iceOffside: 0.25, breakBlockRows: 2, breakBlockDurability: 3, safeZoneCount: 1 },
       { platformWidth: [136, 158], gap: 244, enemyChance: 0.46, flyChance: 0.30, toughChance: 0.28, heavyChance: 0.10, comboBias: 0.24,
-        lavaPoolChance: 0.34, lavaWallChance: 0.12, ventChance: 0.20, iceChance: 0.40, iceOffside: 0.60, breakBlockRows: 2, breakBlockDurability: 3 },
+        lavaPoolChance: 0.34, lavaWallChance: 0.12, ventChance: 0.20, iceChance: 0.40, iceOffside: 0.60, breakBlockRows: 2, breakBlockDurability: 3, safeZoneCount: 1 },
       { platformWidth: [124, 146], gap: 250, enemyChance: 0.56, flyChance: 0.36, toughChance: 0.36, heavyChance: 0.16, comboBias: 0.28,
-        lavaPoolChance: 0.44, lavaWallChance: 0.20, ventChance: 0.28, iceChance: 0.30, iceOffside: 0.85, breakBlockRows: 2, breakBlockDurability: 3 },
+        lavaPoolChance: 0.44, lavaWallChance: 0.20, ventChance: 0.28, iceChance: 0.30, iceOffside: 0.85, breakBlockRows: 2, breakBlockDurability: 3, safeZoneCount: 1 },
     ],
   },
   {
@@ -199,11 +205,11 @@ export const AREAS: readonly AreaConfig[] = [
     gimmicks: { breakablePlatforms: true },
     plans: [
       { platformWidth: [92, 112], gap: 232, enemyChance: 0.30, flyChance: 0.26, toughChance: 0.16, heavyChance: 0.06, comboBias: 0.24, graceDepth: 26,
-        breakableChance: 1, breakDelay: 0.85, maxBreakableRun: Infinity, enemyExclude: ['ruinBreaker'] },
+        breakableChance: 1, breakDelay: 0.85, maxBreakableRun: Infinity, enemyExclude: ['ruinBreaker'], safeZoneCount: 1 },
       { platformWidth: [84, 102], gap: 238, enemyChance: 0.46, flyChance: 0.40, toughChance: 0.28, heavyChance: 0.12, comboBias: 0.34,
-        breakableChance: 1, breakDelay: 0.72, maxBreakableRun: Infinity },
+        breakableChance: 1, breakDelay: 0.72, maxBreakableRun: Infinity, safeZoneCount: 1 },
       { platformWidth: [76, 94], gap: 244, enemyChance: 0.58, flyChance: 0.50, toughChance: 0.34, heavyChance: 0.16, comboBias: 0.40,
-        breakableChance: 1, breakDelay: 0.62, maxBreakableRun: Infinity },
+        breakableChance: 1, breakDelay: 0.62, maxBreakableRun: Infinity, safeZoneCount: 1 },
     ],
   },
 ];

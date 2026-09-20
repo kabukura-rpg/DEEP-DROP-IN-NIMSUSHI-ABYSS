@@ -8,14 +8,15 @@ import { pickupType } from '../src/data/pickups';
 import { UPGRADES } from '../src/data/upgrades';
 import { GUN_MODULES } from '../src/data/gunModules';
 import { DOODAD_RULES, spawnDoodad } from '../src/data/doodads';
-import { SAFE_ZONE_RULES, insideSafeZone } from '../src/data/safeZone';
+import { SAFE_ZONE_RULES, insideSafeZone, type SafeZoneContentKind } from '../src/data/safeZone';
 import { spawnGunModule } from '../src/data/pickups';
 // The watchdog behind the word "unassisted" lives in its own file so it can be unit-tested; see
 // tests/assistWatch.test.ts, which proves it restores the model and still tells cheating from play.
 import { watchForAssists } from './assistWatch';
 import { COMBO_TIERS, comboTierFor } from '../src/data/combo';
-import { isSpike } from '../src/data/hazards';
+import { isSpike, spawnHazard } from '../src/data/hazards';
 import { BREAK_BLOCK_RULES } from '../src/data/structures';
+import { OXYGEN_RULES } from '../src/systems/OxygenSystem';
 import { COIN_VALUES } from '../src/data/coins';
 import { COIN_HIGH_RULES } from '../src/data/coinHigh';
 import { SHOP_ITEMS, shopItem, shopPrice } from '../src/data/shop';
@@ -416,6 +417,152 @@ button('SAFE ZONE content：MODULE / SHOP / COIN VEIN', async () => {
   assert(model.coinHigh.meter > 0, 'VEIN の COIN が COIN HIGH メーターに入る');
   assert(model.kills === kills, '撃破扱いではない');
   assert(model.combo === 5, 'COIN VEIN は COMBO に影響しない');
+  bridge.active = false;
+});
+// Phase 3 follow-up: a chamber in every AREA, holding that AREA's own gauge.
+button('AREA 2/3/4 SAFE ZONE：各ギミックの freeze → 退出 → 再開', async () => {
+  const height = SAFE_ZONE_RULES.height, width = SAFE_ZONE_RULES.width, floorY = 360;
+  for (const area of [2, 3, 4] as const) {
+    start();
+    const model = scene.model;
+    model.jumpToStage(area, 2);
+    model.platforms = []; model.enemies = []; model.pickups = []; model.hazards = [];
+    model.doodads = []; model.containers = []; model.bubbles = []; model.bullets = [];
+    const content: SafeZoneContentKind = area === 2 ? 'coinVein' : area === 3 ? 'gunModule' : 'shop';
+    const zone = { id: 9200 + area, side: -1 as const, x: WORLD.wall, y: floorY - height, width, height,
+      content: { kind: content, module: 'laser' as const, bonus: 'charge' as const }, taken: false };
+    model.safeZones = [zone];
+    model.platforms = [{ id: 9300 + area, x: zone.x, y: floorY, width, breakable: false, state: 'stable' as const, safeZone: zone.id }];
+    model.player.invincible = 99;
+    model.combo = 14; model.ammo = 2;
+    const centre = Math.round(zone.x + width / 2);
+    // AREA-specific furniture out in the shaft, so the gauge has something to run on.
+    let ledge: Platform | undefined;
+    if (area === 3) model.hazards = [spawnHazard('lavaPool', 9400, 250, floorY - 40, 120, 24)];
+    if (area === 4) {
+      ledge = { id: 9500, x: zone.x + width + 10, y: floorY, width: 120, breakable: true, state: 'stable' };
+      model.platforms.push(ledge);
+    }
+    // Arrive the way a run does: fall down the shaft beside the mouth and steer in.
+    model.player.x = zone.x + width + 34;
+    model.player.y = zone.y - 130; model.player.vy = 0; model.player.grounded = -1;
+    if (area === 4) {
+      // Land on the collapsing ledge first so its timer is already running.
+      model.player.x = ledge!.x + 60; model.player.y = floorY - 140; model.player.vy = 260;
+      await until(() => model.player.grounded === ledge!.id, 6000);
+      assert(model.collapse.counting === 1, 'AREA 4：崩落タイマーが動き出した');
+      model.combo = 14; model.ammo = 2;
+      model.player.x = centre; model.player.y = floorY - 30; model.player.vy = 0; model.player.grounded = -1;
+    }
+    // Steer into the mouth with LEFT alone -- no jump, exactly as a phone would.
+    let airborneEntry = false, crossed = false;
+    key('KeyA', true);
+    for (let i = 0; i < 500 && !crossed; i++) {
+      keepAwake();
+      if (model.timeFrozen) { crossed = true; airborneEntry = model.player.grounded === -1; break; }
+      if (model.player.grounded === (9300 + area)) { crossed = true; break; }
+      await wait(8);
+    }
+    for (let i = 0; i < 400 && model.player.grounded !== (9300 + area); i++) { keepAwake(); await wait(16); }
+    key('KeyA', false);
+    await wait(120);
+    assert(crossed, `AREA ${area}：左右移動だけで横穴へ入れた`);
+    output.textContent += `\nAREA ${area}: TIMEVOID ${model.timeFrozen} / 着地 CHARGE ${model.ammo}/${model.stats.maxAmmo} / COMBO ${model.combo}`;
+    assert(model.timeFrozen, `AREA ${area}：SAFE ZONE で TIMEVOID`);
+    assert(model.ammo === model.stats.maxAmmo, `AREA ${area}：床で CHARGE 全回復`);
+    assert(model.combo === 14, `AREA ${area}：床では COMBO を精算しない`);
+    if (area !== 4) assert(airborneEntry, `AREA ${area}：横穴を横切った時点で TIMEVOID（着地前）`);
+
+    // The AREA's own gauge, frozen.
+    if (area === 2) {
+      const held = model.oxygen.remaining;
+      await wait(2500);
+      output.textContent += `\nAREA 2 OXYGEN: ${held.toFixed(1)}s → ${model.oxygen.remaining.toFixed(1)}s`;
+      assert(model.oxygen.enabled, 'AREA 2：酸素ギミックが有効');
+      assert(model.oxygen.remaining === held, 'AREA 2：SAFE ZONE 中は酸素が減らない');
+      assert(model.oxygen.remaining <= OXYGEN_RULES.max, 'AREA 2：SAFE ZONE は酸素を回復もしない');
+    }
+    if (area === 3) {
+      model.heat.value = 40;
+      await wait(2500);
+      output.textContent += `\nAREA 3 HEAT: 40 → ${model.heat.value.toFixed(1)}`;
+      assert(model.heat.enabled, 'AREA 3：熱ギミックが有効');
+      assert(model.heat.value === 40, 'AREA 3：SAFE ZONE 中は熱が動かない');
+    }
+    if (area === 4) {
+      await wait(2500);
+      output.textContent += `\nAREA 4 COLLAPSE: counting ${model.collapse.counting} / ledge ${ledge!.state}`;
+      assert(model.collapse.counting === 1, 'AREA 4：SAFE ZONE 中は崩落タイマーが止まる');
+      assert(ledge!.state !== 'broken', 'AREA 4：待っている間に足場は崩れない');
+    }
+
+    // Use the content.
+    if (content === 'coinVein') {
+      const vein = model.coinVeinBounds(zone);
+      for (let i = 0; i < 200 && !zone.taken; i++) {
+        keepAwake();
+        model.player.x = vein.x + vein.width / 2; model.player.y = vein.y - 40; model.player.vy = 0; model.player.grounded = -1;
+        model.ammo = model.stats.maxAmmo;
+        key('Space', true); await wait(1000 / 60); key('Space', false); await wait(16);
+      }
+      const spilled = model.coins.coins.reduce((sum, c) => sum + c.value, 0);
+      output.textContent += `\nAREA 2 VEIN: 割れた=${zone.taken} / ${spilled} COIN`;
+      assert(zone.taken && spilled > 0, 'AREA 2：SAFE ZONE の COIN VEIN を撃って割れる');
+    }
+    if (content === 'gunModule') {
+      model.pickups = [spawnGunModule(zone.id + 1, centre, floorY - 34, 'laser', 'charge')];
+      const maxAmmo = model.stats.maxAmmo;
+      model.player.x = centre; model.player.y = floorY - 34; model.player.vy = 0; model.player.grounded = -1;
+      await until(() => model.gun.id === 'laser', 6000);
+      output.textContent += `\nAREA 3 MODULE: ${model.gun.id} / MAX CHARGE ${maxAmmo}→${model.stats.maxAmmo}`;
+      assert(model.gun.id === 'laser', 'AREA 3：SAFE ZONE の Gun Module を取得できる');
+      assert(model.stats.maxAmmo > maxAmmo, 'AREA 3：CHARGE ボーナスも効く');
+    }
+    if (content === 'shop') {
+      model.coins.walletCoins = 5000; model.coins.scoreCoins = 5000;
+      model.shop.placeEntrance(centre - 33, floorY - 66, 66, 66);
+      model.player.x = centre; model.player.y = floorY - 33; model.player.vy = 0; model.player.grounded = -1;
+      await until(() => scene.model.state === 'shop', 6000);
+      const offers = model.shop.offers;
+      output.textContent += `\nAREA 4 SHOP: ${offers.map(o => `${o.name} ${o.price}`).join(' / ')}`;
+      assert(scene.model.state === 'shop', 'AREA 4：SAFE ZONE の SHOP を開ける');
+      assert(offers.length === 3 && new Set(offers.map(o => o.item)).size === 3, 'AREA 4：3商品・重複なし');
+      assert(offers.every(o => o.price === shopPrice(shopItem(o.item), 4)), 'AREA 4：AREA 4 価格が適用される');
+      const wallet = model.coins.walletCoins;
+      assert(model.buyShopItem(0) === 'bought', 'AREA 4：購入できる');
+      assert(model.coins.walletCoins === wallet - offers[0].price, 'AREA 4：wallet だけ減る');
+      // Leave through the panel's own button, so the app restores input the way a player would.
+      document.getElementById('shop-close')?.click();
+      await until(() => scene.model.state === 'playing', 4000);
+    }
+    assert(model.combo === 14, `AREA ${area}：content 利用後も COMBO 維持`);
+
+    // Walk back out; the AREA's gauge starts again.
+    key('KeyD', true);
+    for (let i = 0; i < 400 && model.timeFrozen; i++) { keepAwake(); model.player.y = floorY - 15; model.player.vy = 0; model.player.grounded = 9300 + area; await wait(16); }
+    key('KeyD', false);
+    assert(!model.timeFrozen, `AREA ${area}：横移動だけで退出できる`);
+    assert(model.combo === 14, `AREA ${area}：退出後も COMBO 維持`);
+    model.player.grounded = -1;
+    if (area === 2) {
+      const before = model.oxygen.remaining;
+      await wait(800);
+      output.textContent += `\nAREA 2 退出後 OXYGEN: ${before.toFixed(1)}s → ${model.oxygen.remaining.toFixed(1)}s`;
+      assert(model.oxygen.remaining < before, 'AREA 2：退出すると酸素が再び減る');
+    }
+    if (area === 3) {
+      model.player.x = 300; model.player.y = floorY - 30; model.player.vy = 0;
+      const before = model.heat.value;
+      await wait(900);
+      output.textContent += `\nAREA 3 退出後 HEAT: ${before.toFixed(1)} → ${model.heat.value.toFixed(1)}`;
+      assert(model.heat.value > before, 'AREA 3：退出すると熱が再び上がる');
+    }
+    if (area === 4) {
+      await until(() => ledge!.state === 'broken', 6000);
+      output.textContent += `\nAREA 4 退出後: ledge ${ledge!.state}`;
+      assert(ledge!.state === 'broken', 'AREA 4：退出すると崩落タイマーが再開して足場が落ちる');
+    }
+  }
   bridge.active = false;
 });
 // Phase 2A: the wall kick, and the gunboots behaving like boots.
