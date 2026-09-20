@@ -1622,7 +1622,8 @@ button('4-1 → BOSS を通常プレイ', async () => {
     'AREA 4 の生成計画に崩壊足場はもうない');
   assert((model.stage.sectionPlan?.spikePlatformChance ?? 0) === 1, 'AREA 4 の床はすべて罠床');
   const deadline = performance.now() + 460000;
-  let direction = 0, cracks = 0, collapses = 0, underfoot = 0, reloadsOnBreakable = 0, playingHp = model.hp, shopsSeen = 0;
+  let direction = 0, cracks = 0, collapses = 0, underfoot = 0, reloadsOnTrap = 0, playingHp = model.hp, shopsSeen = 0;
+  let warned = 0, spiked = 0, stomps = 0, bounces = 0, ordinaryGround = 0;
   const rests: string[] = [];
   const steer = (next: number) => {
     if (next === direction) return;
@@ -1635,6 +1636,10 @@ button('4-1 → BOSS を通常プレイ', async () => {
     original(event, game);
     if (event.type === 'crack' && event.value) cracks++;
     if (event.type === 'collapse') collapses++;
+    if (event.type === 'spikePlatform' && event.value === 0) warned++;
+    if (event.type === 'spikePlatform' && event.value === 1) spiked++;
+    if (event.type === 'kill' && event.stomp) stomps++;
+    if (event.type === 'doodad') bounces++;
   };
   while (performance.now() < deadline) {
     if (model.state === 'over') throw new Error(`${model.stage.label} で死亡 (${model.health.deathCause?.cause})`);
@@ -1656,8 +1661,12 @@ button('4-1 → BOSS を通常プレイ', async () => {
       document.getElementById('upgrade-confirm')!.click();
       await wait(90);
       if (scene.model.state === 'boss') break;
-      assert(model.collapse.counting === 0 && model.platforms.every(f => f.state === 'stable'),
-        `${model.stage.label} 開始で崩壊状態がリセットされる`);
+      // `state` is only written where the collapse gimmick is on, so LIMBO's ledges carry none at
+      // all now. What must hold is that nothing is part-way through crumbling.
+      assert(model.collapse.counting === 0 && !model.platforms.some(f => f.state === 'cracking' || f.state === 'critical' || f.state === 'broken'),
+        `${model.stage.label} 開始で崩壊タイマーは存在しない`);
+      assert(model.platforms.filter(f => f.spikePlatform).every(f => f.spikePlatform!.state === 'safe'),
+        `${model.stage.label} 開始で罠床はすべて待機状態`);
       assert(model.ammo === model.stats.maxAmmo, `${model.stage.label} 開始で CHARGE 満タン（COMBO ${model.combo} は跨いで維持）`);
       playingHp = model.hp;
       continue;
@@ -1665,21 +1674,31 @@ button('4-1 → BOSS を通常プレイ', async () => {
     keepAwake();
     playingHp = model.hp;
     const ground = model.platforms.find(p => p.id === model.player.grounded) as RoutePlatform | undefined;
-    if (ground?.breakable && model.ammo === model.stats.maxAmmo) reloadsOnBreakable++;
+    if (ground?.spikePlatform && model.ammo === model.stats.maxAmmo) reloadsOnTrap++;
+    if (ground && !ground.spikePlatform && ground.safeZone === undefined && !ground.breakBlock && ground.id >= 0) ordinaryGround++;
     const next = model.platforms.filter(p => p.y > model.player.y + 15 && p.state !== 'broken').sort((a, b) => a.y - b.y)[0] as RoutePlatform | undefined;
     const target = ground ? ground.exitX + ground.safeSide * 3 : next?.safeX;
     // A SECTION now ends at the gate; gateHeading knows how to leave a ledge to reach it.
     const gate = model.exit ? gateHeading(model, ground) : undefined;
     const heading = gate ?? target;
     steer(heading === undefined || Math.abs(heading - model.player.x) < 3 ? 0 : Math.sign(heading - model.player.x));
-    output.textContent = `AREA 4 をキーボード入力のみで通常プレイ\n${model.stage.label} ${Math.floor(model.sectionDepth)} / ${model.sectionLength}m\nヒビ ${cracks} · 崩落 ${collapses} · 崩壊中 ${model.collapse.counting}\nHP ${model.hp}/${model.health.maxHp} · 休憩 ${rests.join(' → ') || 'なし'}`;
+    output.textContent = `AREA 4 をキーボード入力のみで通常プレイ\n${model.stage.label} ${Math.floor(model.sectionDepth)} / ${model.sectionLength}m\n罠床 warning ${warned} · spikes ${spiked} · doodad ${bounces} · 踏みつけ ${stomps}\nHP ${model.hp}/${model.health.maxHp} · 休憩 ${rests.join(' → ') || 'なし'}`;
     await wait(20);
   }
   steer(0); bridge.onEvent = original;
   assert(rests.join(' ') === '4-1 4-2 4-3', `4-1 → 4-2 → 4-3 を通常プレイで踏破 (${rests.join(' → ')})`);
   assert(model.state === 'boss' && model.stage.label === 'FINAL BOSS', `4-3 クリア後に FINAL BOSS へ (${model.stage.label})`);
-  assert(cracks > 5 && collapses > 5, `着地で足場が崩れた (ヒビ ${cracks} / 崩落 ${collapses})`);
-  assert(reloadsOnBreakable > 0, '崩壊足場でも着地リロードが効く');
+  output.textContent += `\n結果: warning ${warned} / spikes ${spiked} / doodad ${bounces} / 踏みつけ ${stomps} / 通常床フレーム ${ordinaryGround} / ヒビ ${cracks} / 崩落 ${collapses}`;
+  assert(cracks === 0 && collapses === 0, `LIMBO では足場は崩れない (ヒビ ${cracks} / 崩落 ${collapses})`);
+  assert(warned > 0 && spiked > 0, `危険な床が warning → spikes を回した (${warned} / ${spiked})`);
+  assert(reloadsOnTrap > 0, '危険な床でも着地リロードは効く');
+  assert(stomps === 0, `LIMBO の敵は一度も踏めない (踏みつけ ${stomps})`);
+  // This bot steers ledge to ledge, so it reaches the floating scenery only by accident -- it
+  // survives the AREA on the dangerous ground alone, which is itself worth knowing. The doodad
+  // reload loop is driven deliberately in the 'AREA 4：踏めない敵・射撃撃破・doodadでリロード' check.
+  output.textContent += `\n（doodad リロード ${bounces} 回：この bot は足場伝いに降りるため、doodad ループは専用チェックで検証）`;
+  // 4-1 opens with a couple of calm rows before the AREA starts; everything after is a trap.
+  assert(ordinaryGround < 200, `Safe Zone 外に休める通常床はほぼない (通常床フレーム ${ordinaryGround})`);
   assert(!document.getElementById('boss-clear'), '仮の BOSS CLEAR ボタンは存在しない');
   assert(!document.getElementById('boss-bar')!.hidden, 'FINAL BOSS の HP バーが出ている');
   assert(scene.model.boss.enabled && scene.model.boss.phaseId === 1, 'FINAL BOSS 戦が PHASE 1 で始まっている');
