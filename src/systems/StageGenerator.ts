@@ -1,10 +1,8 @@
 import { WORLD } from '../data/balance';
 import { difficultyAt, horizontalReach } from '../data/difficulty';
 import { ENEMY_TYPES, enemyType, spawnEnemy, type Enemy, type EnemyKind } from '../data/enemies';
-import { spawnGunModule, spawnPickup, type Pickup, type PickupKind } from '../data/pickups';
-import { GUN_MODULE_SPAWN_CHANCE, rollGunModule } from '../data/gunModules';
-import { AIR_CONTAINER_RULES, BREAK_BLOCK_RULES, breakBlockWidth, EXIT_RULES, SHOP_DOOR, type AirContainer, type ShopDoor, type StageExit } from '../data/structures';
-import { SHOP_RULES } from '../data/shop';
+import { spawnPickup, type Pickup, type PickupKind } from '../data/pickups';
+import { AIR_CONTAINER_RULES, BREAK_BLOCK_RULES, breakBlockWidth, EXIT_RULES, type AirContainer, type StageExit } from '../data/structures';
 import { spawnHazard, type Hazard, type SpikeKind } from '../data/hazards';
 import { spawnDoodad, DOODAD_RULES, type Doodad } from '../data/doodads';
 import { rollSafeZoneContent, SAFE_ZONE_RULES, type SafeZone } from '../data/safeZone';
@@ -29,6 +27,12 @@ export interface BreakBlock {
   durability: number;
   /** Which slot in its row this is, so the view can shade a row without measuring positions. */
   slot: number;
+  /**
+   * A REWARD BLOCK. Set when the row is built and visible on the block itself, so choosing which
+   * stone to spend a round on is a read rather than a gamble. Breaking it pays a LARGE COIN with no
+   * roll of any kind; an ordinary block pays nothing.
+   */
+  reward: boolean;
 }
 export interface Platform {
   id: number; x: number; y: number; width: number;
@@ -72,8 +76,6 @@ export interface GenerationContext {
    * the player farming below the goal. Absent for the FINAL BOSS, which never ends this way.
    */
   sectionLength?: number;
-  /** This SECTION rolled a shop, so the generator should find a ledge to put the doorway on. */
-  shop?: boolean;
 }
 const DEFAULT_POOL: readonly EnemyKind[] = ['slime', 'bat', 'armoredSlime', 'tank'];
 
@@ -91,7 +93,6 @@ export class StageGenerator {
   private breakableRun = 0;
   /** Set once the exit floor is down: nothing is generated below it, ever. */
   private done = false;
-  private shopPlaced = false;
   /**
    * Section-local metres at which a row of BREAK BLOCK is laid, shallowest first. Spaced evenly
    * through the SECTION so the rows divide it into fall zones rather than clustering, and derived
@@ -151,7 +152,8 @@ export class StageGenerator {
         id: this.id++, x: left, y, width: right - left,
         safeSide: 1 as const, safeX: landing, exitX: landing,
         breakable: false, state: 'stable' as const,
-        breakBlock: { hits: 0, durability, slot },
+        // Decided here, once, so the stone that pays looks different from the moment it appears.
+        breakBlock: { hits: 0, durability, slot, reward: this.random() < BREAK_BLOCK_RULES.rewardChance },
       };
     });
   }
@@ -231,9 +233,9 @@ export class StageGenerator {
     return { floor, exit: { x: gateX, y: y - EXIT_RULES.height, width: EXIT_RULES.width, height: EXIT_RULES.height } };
   }
 
-  chunk(index: number): { platforms: RoutePlatform[]; enemies: Enemy[]; pickups: Pickup[]; hazards: Hazard[]; containers: AirContainer[]; doodads: Doodad[]; safeZones: SafeZone[]; exit?: StageExit; shopDoor?: ShopDoor } {
+  chunk(index: number): { platforms: RoutePlatform[]; enemies: Enemy[]; pickups: Pickup[]; hazards: Hazard[]; containers: AirContainer[]; doodads: Doodad[]; safeZones: SafeZone[]; exit?: StageExit } {
     const platforms: RoutePlatform[] = [], enemies: Enemy[] = [], pickups: Pickup[] = [], hazards: Hazard[] = [], containers: AirContainer[] = [], doodads: Doodad[] = [], safeZones: SafeZone[] = [];
-    let exit: StageExit | undefined, shopDoor: ShopDoor | undefined;
+    let exit: StageExit | undefined;
     const start = index * WORLD.chunkHeight, end = start + WORLD.chunkHeight;
     // Carry nextY and the previous safe exit across chunk boundaries: no compressed seams.
     while (this.nextY < end && !this.done) {
@@ -323,43 +325,15 @@ export class StageGenerator {
       this.placeSpikes(tuning, platform, y, width, start, hazards, enemies, containers);
       this.placeDoodad(tuning, platform, y, start, doodads, hazards, enemies);
       this.placeSafeZone(platform, y, localDepth, start, safeZones, platforms, hazards, enemies, containers);
-      this.placeGunModule(platform, y, start, pickups, enemies, hazards);
-      // One doorway per SECTION, on an ordinary ledge, clear of the opening and of the exit.
-      if (this.context.shop && !this.shopPlaced && y >= start && !platform.breakable
-        && localDepth >= SHOP_RULES.minDepth
-        && (this.context.sectionLength === undefined || localDepth <= this.context.sectionLength - SHOP_RULES.exitClearance)
-        && !enemies.some(e => Math.abs(e.x - platform.safeX) < 46 && Math.abs(e.y - (y - 30)) < 46)) {
-        this.shopPlaced = true;
-        shopDoor = { x: Math.round(platform.safeX - SHOP_DOOR.width / 2), y: Math.round(y - SHOP_DOOR.height), width: SHOP_DOOR.width, height: SHOP_DOOR.height };
-      }
+      // No weapon crate and no shop doorway are laid in the shaft. Both are SAFE ZONE content and
+      // nothing else, so a run is re-armed and re-supplied by finding a chamber -- which is what
+      // makes stepping off the fall line to reach one worth doing.
       this.previous = platform;
       this.nextY += tuning.gap + this.random() * 28;
     }
-    return { platforms, enemies, pickups, hazards, containers, doodads, safeZones, exit, shopDoor };
+    return { platforms, enemies, pickups, hazards, containers, doodads, safeZones, exit };
   }
 
-  /**
-   * AREA 3's hazards and relief. Every lava shape is kept clear of the landing lane and of the
-   * corridor the safe transfer flies through, so a seed can never wall the route off or force a
-   * lethal touch; ice is clamped to a spot the same fall can steer to, leaning towards the hot side.
-   */
-  /**
-   * A weapon crate sits on an ordinary ledge's landing spot, so reaching it is exactly as hard as
-   * reaching that ledge -- never a detour into a hazard. Collapsing ledges, occupied space and
-   * anything lethal are skipped outright rather than worked around, which also leaves the door
-   * open for a dedicated weapon room later without changing this contract.
-   */
-  private placeGunModule(platform: RoutePlatform, y: number, start: number, pickups: Pickup[], enemies: Enemy[], hazards: Hazard[]) {
-    if (y < start || this.random() >= GUN_MODULE_SPAWN_CHANCE) return;
-    // A collapsing ledge is still a fine place for a crate: it sits just above the landing spot, so
-    // it is collected on the way down, before the ledge has even begun to crack. Skipping them
-    // entirely is what left AREA 4 -- where every ledge collapses -- with no weapons at all.
-    const x = platform.safeX, cy = y - 34;
-    if (enemies.some(e => Math.abs(e.x - x) < 36 && Math.abs(e.y - cy) < 36)) return;
-    if (hazards.some(h => x > h.x - 22 && x < h.x + h.width + 22 && cy > h.y - 22 && cy < h.y + h.height + 22)) return;
-    const roll = rollGunModule(this.random);
-    pickups.push(spawnGunModule(this.id++, Math.round(x), Math.round(cy), roll.module, roll.bonus));
-  }
   /**
    * A DOODAD hangs in the open band between two rows, out of the lane the safe transfer flies
    * through. Bouncing off one is a choice, never something a fall runs into: it sits where a player
@@ -474,6 +448,11 @@ export class StageGenerator {
     if (containers.some(box => overlapsAir(box.x, box.width, box.y, box.height))) return;
     if (y >= start) hazards.push(spawnHazard(kind, this.id++, x, y - height, patch, height));
   }
+  /**
+   * AREA 3's hazards and relief. Every lava shape is kept clear of the landing lane and of the
+   * corridor the safe transfer flies through, so a seed can never wall the route off or force a
+   * lethal touch; ice is clamped to a spot the same fall can steer to, leaning towards the hot side.
+   */
   private placeHeat(tuning: RowTuning, platform: RoutePlatform, y: number, width: number, start: number, pickups: Pickup[], hazards: Hazard[], enemies: Enemy[]) {
     const emit = <T extends Hazard | Pickup>(list: T[], item: T) => { if (y >= start) list.push(item); };
     // The band the player actually falls through on the safe route, widened for their body.

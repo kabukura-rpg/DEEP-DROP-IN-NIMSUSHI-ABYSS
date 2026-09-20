@@ -26,7 +26,7 @@ export const EVENT_SOUNDS: Record<GameEvent['type'], SoundId | null> = {
   jump: 'land', wallJump: 'land', comboSettle: 'upgrade',
   // Bouncing off scenery reloads, so it borrows the landing voice. Stepping into stopped time and
   // striking a vein both reuse the reward voice.
-  doodad: 'land', timeVoid: 'upgrade', coinVein: 'upgrade',
+  doodad: 'land', timeVoid: 'upgrade', coinVein: 'upgrade', coinHigh: 'upgrade',
   // Picking up a weapon has no sound of its own yet; the swap card carries the feedback.
   gunModule: null,
   // Money and doorways reuse the existing voices rather than inventing new ones.

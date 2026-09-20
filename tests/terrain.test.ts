@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest';
+import { COIN_VALUES } from '../src/data/coins';
 import { GameModel } from '../src/systems/GameModel';
 import { StageGenerator, type Platform, type RoutePlatform } from '../src/systems/StageGenerator';
 import { areaConfig, AREAS, type AreaId, type SectionId } from '../src/data/areas';
@@ -224,7 +225,7 @@ describe('BREAK BLOCK: a row of separate blocks, not one slab', () => {
     const width = breakBlockWidth();
     const row: Platform[] = Array.from({ length: BREAK_BLOCK_RULES.count }, (_, slot) => {
       const left = Math.floor(WORLD.wall + slot * width), right = Math.ceil(WORLD.wall + (slot + 1) * width);
-      return { id: 700 + slot, x: left, y, width: right - left, breakable: false, state: 'stable', breakBlock: { hits: 0, durability, slot } };
+      return { id: 700 + slot, x: left, y, width: right - left, breakable: false, state: 'stable', breakBlock: { hits: 0, durability, slot, reward: false } };
     });
     game.platforms = row;
     game.player.vy = 240;
@@ -330,7 +331,7 @@ describe('BREAK BLOCK: a row of separate blocks, not one slab', () => {
   });
   it('never calls rearm(): a BURST already paid for finishes its rounds through the break', () => {
     const game = bare(1, 3);
-    const block: Platform = { id: 88, x: WORLD.wall, y: game.player.y + 40, width: 120, breakable: false, state: 'stable', breakBlock: { hits: 0, durability: 1, slot: 0 } };
+    const block: Platform = { id: 88, x: WORLD.wall, y: game.player.y + 40, width: 120, breakable: false, state: 'stable', breakBlock: { hits: 0, durability: 1, slot: 0, reward: false } };
     game.platforms = [block]; game.player.x = block.x + 40; game.player.y = block.y - 90; game.player.vy = 0;
     game.gun.equip('burst');
     game.stats.maxAmmo = 20; game.ammo = 20;
@@ -352,56 +353,79 @@ describe('BREAK BLOCK: a row of separate blocks, not one slab', () => {
   });
 });
 
-describe('BREAK BLOCK drops COIN through the ordinary money path', () => {
-  /** Practice mode so no shaft is generated and the RNG can be pinned to one value. */
-  const oneBlock = (random: () => number) => {
+describe('REWARD BLOCK pays on sight, not on a coin flip', () => {
+  /** Practice mode so no shaft is generated and a block can be built exactly as wanted. */
+  const oneBlock = (reward: boolean, random: () => number = Math.random) => {
     const game = new GameModel(true, random);
-    const block: Platform = { id: 51, x: WORLD.wall, y: game.player.y + 40, width: 160, breakable: false, state: 'stable', breakBlock: { hits: 0, durability: 1, slot: 0 } };
+    const block: Platform = { id: 51, x: WORLD.wall, y: game.player.y + 40, width: 160, breakable: false, state: 'stable', breakBlock: { hits: 0, durability: 1, slot: 0, reward } };
     game.platforms = [block]; game.player.x = block.x + 80; game.player.vy = 240;
     for (let i = 0; i < 120 && game.player.grounded !== block.id; i++) game.step(1 / 120, 0, false);
     return { game, block };
   };
-  it('reads its chance from data, not from a branch in the model', () => {
-    expect(BREAK_BLOCK_RULES.coinChance).toBeGreaterThan(0);
-    expect(BREAK_BLOCK_RULES.coinChance).toBeLessThan(1);
-    expect(BREAK_BLOCK_RULES.coins).toBeGreaterThan(0);
-  });
   /** Money that came out of the block, whether it is still on the floor or already swept up. */
-  const dropped = (game: GameModel) => game.coins.coins.length + game.coins.scoreCoins;
-  it('drops below the chance and stays empty above it', () => {
-    const lucky = oneBlock(() => BREAK_BLOCK_RULES.coinChance / 2);
-    openBlock(lucky.game, lucky.block, 20);
-    expect(lucky.game.platforms).not.toContain(lucky.block);
-    expect(dropped(lucky.game)).toBe(BREAK_BLOCK_RULES.coins);
+  const droppedValue = (game: GameModel) =>
+    game.coins.coins.reduce((sum, c) => sum + c.value, 0) + game.coins.scoreCoins;
 
-    const unlucky = oneBlock(() => Math.min(0.999, BREAK_BLOCK_RULES.coinChance + (1 - BREAK_BLOCK_RULES.coinChance) / 2));
-    openBlock(unlucky.game, unlucky.block, 20);
-    expect(unlucky.game.platforms).not.toContain(unlucky.block);
-    expect(dropped(unlucky.game)).toBe(0);
+  it('reads what a reward block is and pays from data, not from a branch in the model', () => {
+    expect(BREAK_BLOCK_RULES.rewardChance).toBeGreaterThan(0);
+    expect(BREAK_BLOCK_RULES.rewardChance).toBeLessThan(1);
+    expect(BREAK_BLOCK_RULES.rewardCoins).toBeGreaterThan(0);
+    expect(COIN_VALUES[BREAK_BLOCK_RULES.rewardDenomination]).toBe(10);
   });
-  it('lands near the configured rate over many breaks', () => {
-    let seed = 20250920;
-    const random = () => { seed = (Math.imul(seed, 1664525) + 1013904223) >>> 0; return seed / 4294967296; };
-    let drops = 0;
-    const runs = 600;
-    for (let n = 0; n < runs; n++) {
-      const game = new GameModel(true, random);
-      const block: Platform = { id: 60, x: WORLD.wall, y: game.player.y + 40, width: 160, breakable: false, state: 'stable', breakBlock: { hits: 0, durability: 1, slot: 0 } };
-      game.platforms = [block]; game.player.x = block.x + 80; game.player.vy = 240;
-      openBlock(game, block, 20);
-      if (game.coins.coins.length + game.coins.scoreCoins) drops++;
+  it('has no post-break roll left anywhere: the same block pays the same under any RNG', () => {
+    // The old rule drew a number when a block broke. If any of that survived, a rigged RNG would
+    // change the payout -- so drive the two extremes and require an identical result.
+    for (const rigged of [() => 0, () => 0.999]) {
+      const rewarded = oneBlock(true, rigged);
+      openBlock(rewarded.game, rewarded.block, 20);
+      expect(droppedValue(rewarded.game)).toBe(COIN_VALUES.large * BREAK_BLOCK_RULES.rewardCoins);
+      const plain = oneBlock(false, rigged);
+      openBlock(plain.game, plain.block, 20);
+      expect(droppedValue(plain.game)).toBe(0);
     }
-    expect(Math.abs(drops / runs - BREAK_BLOCK_RULES.coinChance)).toBeLessThan(0.06);
+  });
+  it('pays a LARGE COIN, every time, from a reward block', () => {
+    const { game, block } = oneBlock(true);
+    openBlock(game, block, 20);
+    expect(game.platforms).not.toContain(block);
+    // It pops out at the player's feet, so it may already have been swept up by the time we look.
+    // Either way the run is exactly one LARGE COIN better off and nothing else was created.
+    expect(droppedValue(game)).toBe(COIN_VALUES.large * BREAK_BLOCK_RULES.rewardCoins);
+    for (const coin of game.coins.coins) {
+      expect([coin.denomination, coin.value]).toEqual(['large', COIN_VALUES.large]);
+    }
+  });
+  it('pays nothing at all from an ordinary block', () => {
+    const { game, block } = oneBlock(false);
+    openBlock(game, block, 20);
+    expect(game.platforms).not.toContain(block);
+    expect(game.coins.coins.length).toBe(0);
+    expect(droppedValue(game)).toBe(0);
+  });
+  it('is decided when the row is built, so it can be seen before a round is spent', () => {
+    // Generation, not the model, decides which stones pay -- and it is on the block from the moment
+    // the row exists, untouched, which is what makes it something a player can read and aim at.
+    const blocks = [];
+    for (let seed = 1; seed <= 90; seed++) {
+      for (const gate of build(1, 1, seed * 977).gates) blocks.push(gate.breakBlock!);
+    }
+    expect(blocks.length).toBeGreaterThan(40);
+    expect(blocks.every(b => typeof b.reward === 'boolean' && b.hits === 0)).toBe(true);
+    const share = blocks.filter(b => b.reward).length / blocks.length;
+    expect(Math.abs(share - BREAK_BLOCK_RULES.rewardChance)).toBeLessThan(0.08);
+    // Both kinds really do occur, so "visible before breaking" is a choice and not a formality.
+    expect(blocks.some(b => b.reward)).toBe(true);
+    expect(blocks.some(b => !b.reward)).toBe(true);
   });
   it('pays into walletCoins and scoreCoins through the existing pickup path', () => {
-    const { game, block } = oneBlock(() => BREAK_BLOCK_RULES.coinChance / 2);
+    const { game, block } = oneBlock(true);
     expect([game.coins.walletCoins, game.coins.scoreCoins]).toEqual([0, 0]);
     game.events.length = 0;
     openBlock(game, block, 20);
     // The coin pops out where the player is standing, so CoinSystem sweeps it up on its own; keep
     // stepping in case it scattered first.
     for (let i = 0; i < 240 && game.coins.walletCoins === 0; i++) game.step(1 / 120, 0, false);
-    expect(game.coins.walletCoins).toBeGreaterThan(0);
+    expect(game.coins.walletCoins).toBe(COIN_VALUES.large);
     expect(game.coins.scoreCoins).toBe(game.coins.walletCoins);
     expect(game.events.some(e => e.type === 'coin')).toBe(true);
     // Still not a kill, however the money arrived.
@@ -456,7 +480,7 @@ describe('BREAK BLOCK placement', () => {
 describe('COMBO counts kills between touchdowns', () => {
   it('is reset by a BREAK BLOCK landing exactly as by any other', () => {
     const game = bare(1, 2);
-    game.platforms = [{ id: 91, x: WORLD.wall, y: game.player.y + 40, width: 120, breakable: false, state: 'stable', breakBlock: { hits: 0, durability: 2, slot: 0 } }];
+    game.platforms = [{ id: 91, x: WORLD.wall, y: game.player.y + 40, width: 120, breakable: false, state: 'stable', breakBlock: { hits: 0, durability: 2, slot: 0, reward: false } }];
     game.player.x = WORLD.wall + 60;
     game.player.vy = 240; game.combo = 6; game.ammo = 0;
     tick(game, 0.6);

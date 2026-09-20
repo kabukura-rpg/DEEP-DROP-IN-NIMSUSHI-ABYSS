@@ -103,6 +103,7 @@ export class GameScene extends Phaser.Scene {
     if (event.type === 'doodad') { this.burst(event.x, event.y, 0xb9ef70, 10); this.label(event.x, event.y - 20, 'RELOADED', '#b9ef70', 12); }
     if (event.type === 'coinVein') { this.burst(event.x, event.y, 0xffd479, 20); this.label(event.x, event.y - 24, `COIN +${event.value}`, '#ffd479', 14); }
     if (event.type === 'timeVoid' && event.value) this.label(event.x, event.y - 54, 'TIME VOID', '#9fe8f5', 15);
+    if (event.type === 'coinHigh' && event.value) { this.burst(event.x, event.y, 0xffe9a8, 26); this.label(event.x, event.y - 46, 'COIN HIGH', '#ffe9a8', 17); }
     // The chain being banked. It never opens a screen, so the shaft itself has to carry it.
     if (event.type === 'comboSettle') { this.flash = Math.max(this.flash, 0.08); this.burst(event.x, event.y, 0xf4e9ad, 24); this.label(event.x, event.y - 62, `${event.value} COMBO · ${event.stage ?? ''}`, '#f4e9ad', 16); }
     if (event.type === 'bossHit') { this.burst(event.x, event.y, 0xd9a0ff, 6); this.shake = Math.max(this.shake, 1.4); }
@@ -202,7 +203,7 @@ export class GameScene extends Phaser.Scene {
     for (const f of m.platforms) {
       const y = f.y - cam;
       if (y < -20 || y > 820) continue;
-      if (f.breakBlock) { this.breakBlock(f.x, y, f.width, f.breakBlock.hits, f.breakBlock.durability); continue; }
+      if (f.breakBlock) { this.breakBlock(f.x, y, f.width, f.breakBlock.hits, f.breakBlock.durability, f.breakBlock.reward); continue; }
       const cracking = f.state === 'cracking', critical = f.state === 'critical';
       // Shape carries the warning: a doomed ledge loses its top rail and splits into shards.
       const top = critical ? 0xf0a0b4 : cracking ? 0xe8d48a : f.breakable ? 0x9ad6c0 : 0xb9ef70;
@@ -305,22 +306,38 @@ export class GameScene extends Phaser.Scene {
       if (cy < -40 || cy > 850) continue;
       const fade = m.coins.expiring(coin) ? 0.3 + Math.abs(Math.sin(this.model.elapsed * 16)) * 0.6 : 1;
       const spin = Math.abs(Math.cos(this.model.elapsed * 5 + coin.id));
-      this.rect(coin.x - 1 - 6 * spin, cy - 7, 2 + 12 * spin, 14, 0xffd479, fade);
-      this.rect(coin.x - 1 - 3 * spin, cy - 4, 1 + 6 * spin, 8, 0xfff0c0, fade * 0.9);
+      // A LARGE COIN is drawn half again as big and with a bright rim, so which one is worth
+      // chasing is a read at a glance rather than something only the wallet finds out about.
+      const large = coin.denomination === 'large';
+      const half = large ? 9 : 6, tall = large ? 21 : 14;
+      if (large) this.rect(coin.x - 2 - (half + 2) * spin, cy - tall / 2 - 2, 4 + (half + 2) * 2 * spin, tall + 4, 0x8a6520, fade * 0.7);
+      this.rect(coin.x - 1 - half * spin, cy - tall / 2, 2 + half * 2 * spin, tall, 0xffd479, fade);
+      this.rect(coin.x - 1 - (half / 2) * spin, cy - tall / 4, 1 + half * spin, tall / 2, 0xfff0c0, fade * 0.9);
     }
     this.boss(cam);
     for (const enemy of m.enemies) if (enemy.alive) this.enemy(enemy, cam);
+    // Under a COIN HIGH the rounds themselves change: hotter, wider and with a longer tail, which
+    // is the same thing the numbers did. The shape of each weapon is untouched -- a PUNCHER still
+    // fires three parallel rounds -- so a boosted gun is recognisably the gun the player picked up.
+    const high = m.coinHigh.active;
+    const core = high ? 0xffe9a8 : 0xeaffaf, trail = high ? 0xffd479 : 0xb9ef70;
     for (const b of m.bullets) {
       const speed = Math.hypot(b.vx, b.vy) || 1;
       const ux = b.vx / speed, uy = b.vy / speed;
       // A beam reads as one long streak; an ordinary round gets a short tail behind its heading.
-      const steps = b.beam ? 10 : 3, stride = b.beam ? 18 : 8;
+      const steps = b.beam ? 10 : high ? 6 : 3, stride = b.beam ? 18 : 8;
       for (let i = steps; i >= 1; i--) {
-        this.rect(b.x - b.size - ux * stride * i, b.y - cam - 5 - uy * stride * i, b.size * 2, 10, 0xb9ef70, 0.08 + (steps - i) / steps * 0.14);
+        this.rect(b.x - b.size - ux * stride * i, b.y - cam - 5 - uy * stride * i, b.size * 2, 10, trail, 0.08 + (steps - i) / steps * 0.14);
       }
-      this.rect(b.x - b.size / 2, b.y - cam - 7, b.size, b.beam ? 18 : 12, 0xeaffaf);
+      const swell = high ? 1.6 : 1;
+      this.rect(b.x - (b.size * swell) / 2, b.y - cam - 7, b.size * swell, b.beam ? 18 : 12, core);
     }
     const p = m.player, x = Math.round(p.x), y = Math.round(p.y - cam);
+    // A halo while the HIGH runs, so the state is visible on the player and not only on the HUD.
+    if (high) {
+      const beat = 0.35 + Math.abs(Math.sin(this.model.elapsed * 7)) * 0.3;
+      g.lineStyle(2, 0xffe9a8, beat).strokeRoundedRect(x - 23, y - 28, 46, 56, 7);
+    }
     if (p.invincible > 0) {
       g.lineStyle(1.5, 0xfba4b9, 0.55).strokeRoundedRect(x - 20, y - 25, 40, 50, 5);
       this.rect(x - 16, y - 30, 32, 3, 0x563744);
@@ -419,17 +436,32 @@ export class GameScene extends Phaser.Scene {
    * so its remaining durability is readable without looking at the HUD. Deliberately nothing like
    * an AREA 4 collapsing ledge, which keeps its rail and shakes.
    */
-  private breakBlock(x: number, y: number, width: number, hits: number, durability: number) {
+  private breakBlock(x: number, y: number, width: number, hits: number, durability: number, reward = false) {
     const wear = Math.min(1, hits / Math.max(1, durability));
     const thickness = BREAK_BLOCK_RULES.thickness;
+    // A REWARD BLOCK is a different stone, not the same stone with a badge: darker rock shot through
+    // with a gold seam, and a coin sitting in the middle of it. Three separate cues -- body colour,
+    // the seam, and the coin shape -- so it is still obvious in a small window or without colour.
+    const body = reward ? 0x6a4f20 : 0x5d4a3a;
+    const cap = reward ? 0xffd479 : hits ? 0xffb066 : 0xc8a882;
     // The seam: one pixel of shadow either side so neighbours never read as one long slab.
     this.rect(x, y, width, thickness, 0x241b14);
-    this.rect(x + 1, y, width - 2, thickness, 0x5d4a3a);
-    this.rect(x + 1, y, width - 2, 4, hits ? 0xffb066 : 0xc8a882);
-    this.rect(x + 1, y + thickness - 3, width - 2, 3, 0x3a2c22);
+    this.rect(x + 1, y, width - 2, thickness, body);
+    this.rect(x + 1, y, width - 2, 4, cap);
+    this.rect(x + 1, y + thickness - 3, width - 2, 3, reward ? 0x4a3517 : 0x3a2c22);
     // A rivet at each end marks the stone as built rather than grown.
     this.rect(x + 5, y + 6, 4, 4, 0x2b211a);
     this.rect(x + width - 9, y + 6, 4, 4, 0x2b211a);
+    if (reward) {
+      // Gold running through the rock, and the coin it is worth.
+      const glint = 0.66 + Math.abs(Math.sin(this.model.elapsed * 2.4 + x)) * 0.34;
+      this.rect(x + 8, y + thickness - 6, width - 16, 2, 0xffe9a8, glint * 0.8);
+      const cx = x + width / 2;
+      this.rect(cx - 5, y + 5, 10, 8, 0x2b211a);
+      this.rect(cx - 4, y + 6, 8, 6, 0xffd479, glint);
+      this.rect(cx - 1, y + 7, 2, 4, 0x8a6520, glint);
+      return;
+    }
     // Fractures: one more opens for every round this stone has taken.
     for (let i = 0; i < hits; i++) {
       const at = x + ((i + 1) * width) / (durability + 1);

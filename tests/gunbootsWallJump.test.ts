@@ -242,7 +242,7 @@ describe('PUNCHER fires a narrow parallel column', () => {
   });
   it('hits a BREAK BLOCK with each round independently', () => {
     const game = new GameModel(true);
-    const block: Platform = { id: 71, x: WORLD.wall, y: 320, width: WORLD.width - WORLD.wall * 2, breakable: false, state: 'stable', breakBlock: { hits: 0, durability: 9, slot: 0 } };
+    const block: Platform = { id: 71, x: WORLD.wall, y: 320, width: WORLD.width - WORLD.wall * 2, breakable: false, state: 'stable', breakBlock: { hits: 0, durability: 9, slot: 0, reward: false } };
     game.platforms = [block];
     game.player.x = 225; game.player.y = 200; game.player.vy = 0; game.player.grounded = -1;
     game.gun.equip('puncher');
@@ -259,7 +259,7 @@ describe('LASER goes through what it hits', () => {
     const width = breakBlockWidth();
     const blocks: Platform[] = Array.from({ length: rows }, (_, i) => ({
       id: 80 + i, x: WORLD.wall, y: 320 + i * 140, width: Math.round(WORLD.wall + width) - WORLD.wall,
-      breakable: false, state: 'stable', breakBlock: { hits: 0, durability, slot: 0 },
+      breakable: false, state: 'stable', breakBlock: { hits: 0, durability, slot: 0, reward: false },
     }));
     game.platforms = blocks;
     return blocks;

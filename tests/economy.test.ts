@@ -3,8 +3,8 @@ import { AREAS, PLANNED_TOTAL_DEPTH } from '../src/data/areas';
 import { GameModel } from '../src/systems/GameModel';
 import { CoinSystem } from '../src/systems/CoinSystem';
 import { ShopSystem } from '../src/systems/ShopSystem';
-import { COIN_RULES, coinsFor } from '../src/data/coins';
-import { SHOP_RULES, rollShopStock } from '../src/data/shop';
+import { COIN_RULES, COIN_VALUES, coinDropValue, coinsFor } from '../src/data/coins';
+import { SHOP_ITEMS, SHOP_RULES, rollShopStock, shopItem, shopPrice, type ShopItemId } from '../src/data/shop';
 import { AIR_CONTAINER_RULES, EXIT_RULES } from '../src/data/structures';
 import { CHARGE_AMMO_BONUS } from '../src/data/gunModules';
 import { HEALTH_RULES } from '../src/systems/HealthSystem';
@@ -26,26 +26,47 @@ function bare(seed = 5) {
 }
 
 describe('COIN drops', () => {
-  it('leaves coins where an enemy died, scaled by how dangerous it was', () => {
-    expect(coinsFor('basic')).toBeGreaterThan(0);
-    expect(coinsFor('armored')).toBeGreaterThan(coinsFor('basic'));
-    expect(coinsFor('heavy')).toBeGreaterThan(coinsFor('armored'));
+  it('comes in two sizes worth 2 and 10', () => {
+    expect(COIN_VALUES.small).toBe(2);
+    expect(COIN_VALUES.large).toBe(10);
+  });
+
+  it('leaves SMALL COIN where an ordinary enemy died, and more from a dangerous one', () => {
+    // The basic drop is one SMALL COIN. Tougher tiers leave more coins, not different ones.
+    expect(coinsFor('basic')).toEqual({ count: 1, denomination: 'small' });
+    expect(coinDropValue('basic')).toBe(COIN_VALUES.small);
+    expect(coinDropValue('armored')).toBeGreaterThan(coinDropValue('basic'));
+    expect(coinDropValue('heavy')).toBeGreaterThan(coinDropValue('armored'));
     const game = bare();
     game.enemies = [spawnEnemy('slime', 1, 225, 260)];
     game.shoot();
     tick(game, 0.3);
     expect(game.kills).toBe(1);
-    // The player is falling past the corpse, so some are already collected: count both.
-    expect(game.coins.coins.length + game.coins.scoreCoins).toBe(coinsFor('basic'));
+    // The player is falling past the corpse, so some are already collected: count value either way.
+    const loose = game.coins.coins.reduce((sum, c) => sum + c.value, 0);
+    expect(loose + game.coins.scoreCoins).toBe(coinDropValue('basic'));
   });
 
-  it('raises both the wallet and the run score when collected', () => {
+  it('raises both the wallet and the run score by what each coin is worth', () => {
+    const small = bare();
+    small.coins.burst(small.player.x, small.player.y, 1, seeded(77), 'small');
+    expect(small.coins.walletCoins).toBe(0);
+    tick(small, 0.2);
+    expect([small.coins.walletCoins, small.coins.scoreCoins]).toEqual([2, 2]);
+
+    const large = bare();
+    large.coins.burst(large.player.x, large.player.y, 1, seeded(77), 'large');
+    tick(large, 0.2);
+    expect([large.coins.walletCoins, large.coins.scoreCoins]).toEqual([10, 10]);
+  });
+
+  it('counts value rather than pickups, so a mixed handful adds up', () => {
     const game = bare();
-    game.coins.burst(game.player.x, game.player.y, 3, seeded(77));
-    expect(game.coins.walletCoins).toBe(0);
-    tick(game, 0.2);
-    expect(game.coins.walletCoins).toBe(3 * COIN_RULES.value);
-    expect(game.coins.scoreCoins).toBe(3 * COIN_RULES.value);
+    game.coins.burst(game.player.x, game.player.y, 3, seeded(77), 'small');
+    game.coins.burst(game.player.x, game.player.y, 2, seeded(78), 'large');
+    tick(game, 0.3);
+    expect(game.coins.walletCoins).toBe(3 * COIN_VALUES.small + 2 * COIN_VALUES.large);
+    expect(game.coins.scoreCoins).toBe(game.coins.walletCoins);
   });
 
   it('announces a pickup so the HUD and audio can react', () => {
@@ -97,40 +118,90 @@ describe('COIN drops', () => {
   });
 });
 
-describe('SHOP', () => {
-  const stocked = (seed = 3) => {
+describe('SHOP sells the original six, priced by AREA', () => {
+  /** A stocked shelf with a doorway the player is already standing in. */
+  const stocked = (seed = 3, area = 1) => {
     const shop = new ShopSystem();
-    // Roll until this seed produces a shop, then stock it.
-    const random = seeded(seed);
-    for (let i = 0; i < 50 && !shop.available; i++) shop.rollForSection(random);
+    shop.stockForSection(seeded(seed), area);
     shop.placeEntrance(100, 200, 60, 60);
     return shop;
   };
+  /** Put one named good on an already-open shop's shelf, free, so an effect is measured alone. */
+  const withItemOn = (game: GameModel, item: ShopItemId, price = 0) => {
+    const def = shopItem(item);
+    game.shop.offers = [{ id: 'a', item, name: def.name, effect: def.effect, price, sold: false }];
+    game.shop.placeEntrance(game.player.x - 20, game.player.y - 20, 40, 40);
+    tick(game, 0.1);
+    expect(game.state).toBe('shop');
+    return game;
+  };
+  /** A fresh run parked in that shop. */
+  const withItem = (item: ShopItemId, price = 0) => {
+    const game = bare();
+    const def = shopItem(item);
+    game.shop.offers = [{ id: 'a', item, name: def.name, effect: def.effect, price, sold: false }];
+    game.shop.placeEntrance(game.player.x - 20, game.player.y - 20, 40, 40);
+    tick(game, 0.1);
+    expect(game.state).toBe('shop');
+    return game;
+  };
 
-  it('offers gun modules, hearts and charges at prices that live in data', () => {
-    const offers = rollShopStock(seeded(7));
-    expect(offers).toHaveLength(SHOP_RULES.stock);
-    for (const offer of offers) {
-      expect(['gunModule', 'heart', 'charge']).toContain(offer.kind);
-      expect(offer.price).toBe(SHOP_RULES.prices[offer.kind]);
-      if (offer.kind === 'gunModule') expect(offer.module).toBeTruthy();
+  it('stocks exactly the six goods the original sells, and no weapon', () => {
+    expect(SHOP_ITEMS.map(i => i.id)).toEqual(['riceBall', 'sushi', 'battery', 'carBattery', 'energyDrink', 'curry']);
+    // Nothing on the shelf equips anything: a weapon is SAFE ZONE content and nothing else.
+    for (const offer of rollShopStock(seeded(7))) expect('module' in offer).toBe(false);
+  });
+
+  it('gives each good its documented effect and nothing besides', () => {
+    const effects: Record<ShopItemId, { hearts: number; maxCharge: number; maxHp: number }> = {
+      riceBall: { hearts: 1, maxCharge: 0, maxHp: 0 },
+      sushi: { hearts: 2, maxCharge: 0, maxHp: 0 },
+      battery: { hearts: 0, maxCharge: 1, maxHp: 0 },
+      carBattery: { hearts: 0, maxCharge: 2, maxHp: 0 },
+      energyDrink: { hearts: 1, maxCharge: 1, maxHp: 0 },
+      curry: { hearts: 0, maxCharge: 0, maxHp: 1 },
+    };
+    for (const item of SHOP_ITEMS) {
+      expect({ hearts: item.hearts, maxCharge: item.maxCharge, maxHp: item.maxHp }).toEqual(effects[item.id]);
     }
   });
 
-  it('is uncommon rather than guaranteed every SECTION', () => {
-    expect(SHOP_RULES.chancePerSection).toBeGreaterThan(0);
-    expect(SHOP_RULES.chancePerSection).toBeLessThan(0.6);
-    const random = seeded(13);
-    const shop = new ShopSystem();
-    let seen = 0;
-    for (let i = 0; i < 400; i++) if (shop.rollForSection(random)) seen++;
-    expect(seen).toBeGreaterThan(0);
-    expect(seen).toBeLessThan(400);
+  it('prices every good by AREA index, using the original Normal Mode table', () => {
+    const table: Record<ShopItemId, [number, number, number, number]> = {
+      riceBall: [300, 500, 700, 900],
+      sushi: [500, 700, 900, 1100],
+      battery: [150, 350, 550, 750],
+      carBattery: [250, 450, 650, 850],
+      energyDrink: [400, 600, 800, 1000],
+      curry: [1000, 1200, 1400, 1600],
+    };
+    for (const item of SHOP_ITEMS) {
+      for (const area of [1, 2, 3, 4] as const) expect(shopPrice(item, area)).toBe(table[item.id][area - 1]);
+      // Every good is dearer the deeper the run goes, without exception.
+      for (const area of [2, 3, 4] as const) expect(shopPrice(item, area)).toBeGreaterThan(shopPrice(item, area - 1));
+    }
+  });
+
+  it('offers three DIFFERENT goods, priced for the AREA the run is in', () => {
+    for (const area of [1, 2, 3, 4] as const) {
+      for (let seed = 1; seed <= 40; seed++) {
+        const offers = rollShopStock(seeded(seed * 31), area);
+        expect(offers).toHaveLength(SHOP_RULES.stock);
+        expect(new Set(offers.map(o => o.item)).size).toBe(SHOP_RULES.stock);
+        for (const offer of offers) expect(offer.price).toBe(shopPrice(shopItem(offer.item), area));
+      }
+    }
+  });
+
+  it('draws its prices from the AREA the run has actually reached', () => {
+    const game = new GameModel(false, seeded(5));
+    game.jumpToStage(3, 1);
+    expect(game.shop.offers.length).toBe(SHOP_RULES.stock);
+    for (const offer of game.shop.offers) expect(offer.price).toBe(shopPrice(shopItem(offer.item), 3));
   });
 
   it('stops the world while it is open, and hands control back on close', () => {
     const game = bare();
-    game.shop.rollForSection(() => 0);
     game.shop.placeEntrance(game.player.x - 20, game.player.y - 20, 40, 40);
     tick(game, 0.1);
     expect(game.state).toBe('shop');
@@ -145,16 +216,27 @@ describe('SHOP', () => {
 
   it('spends the wallet and never the score', () => {
     const game = bare();
-    game.shop.rollForSection(() => 0);
-    game.shop.offers = rollShopStock(seeded(4));
+    game.shop.offers = rollShopStock(seeded(4), 1);
     game.shop.placeEntrance(game.player.x - 20, game.player.y - 20, 40, 40);
     tick(game, 0.1);
-    game.coins.walletCoins = 500; game.coins.scoreCoins = 500;
+    game.coins.walletCoins = 5000; game.coins.scoreCoins = 5000;
     const score = game.coins.scoreCoins, wallet = game.coins.walletCoins;
     const price = game.shop.offers[0].price;
     expect(game.buyShopItem(0)).toBe('bought');
     expect(game.coins.walletCoins).toBe(wallet - price);
     expect(game.coins.scoreCoins).toBe(score);
+  });
+
+  it('never lets spending touch the COIN HIGH meter', () => {
+    const game = bare();
+    game.shop.offers = rollShopStock(seeded(4), 1);
+    game.shop.placeEntrance(game.player.x - 20, game.player.y - 20, 40, 40);
+    tick(game, 0.1);
+    game.coins.walletCoins = 5000;
+    game.coinHigh.meter = 40;
+    expect(game.buyShopItem(0)).toBe('bought');
+    expect(game.coinHigh.meter).toBe(40);
+    expect(game.coinHigh.active).toBe(false);
   });
 
   it('refuses a purchase that cannot be afforded, and changes nothing', () => {
@@ -170,56 +252,57 @@ describe('SHOP', () => {
     expect(shop.buy(0, coins, () => { applied++; })).toBe('bought');
     expect(applied).toBe(1);
     expect(coins.walletCoins).toBe(0);
+    // One slot, one sale: the same shelf cannot be bought from twice.
     expect(shop.buy(0, coins, () => { throw new Error('sold'); })).toBe('soldOut');
+    expect(applied).toBe(1);
   });
 
-  it('routes a bought GUN MODULE through the existing weapon system', () => {
-    const game = bare();
-    game.shop.rollForSection(() => 0);
-    game.shop.offers = [{ id: 'a', kind: 'gunModule', module: 'shotgun', name: 'SHOTGUN', effect: '', price: 0, sold: false }];
-    game.shop.placeEntrance(game.player.x - 20, game.player.y - 20, 40, 40);
-    tick(game, 0.1);
-    expect(game.buyShopItem(0)).toBe('bought');
-    expect(game.gun.id).toBe('shotgun');
-    expect(game.gun.ammoCost).toBe(5);
+  it('routes rice ball, sushi and energy drink through HealthSystem', () => {
+    for (const [item, healed] of [['riceBall', 1], ['sushi', 2], ['energyDrink', 1]] as const) {
+      const game = bare();
+      game.player.invincible = 0;
+      game.damage(2, 'enemy');
+      const hurt = game.hp;
+      game.player.invincible = 99;
+      const shopping = withItemOn(game, item);
+      expect(shopping.buyShopItem(0)).toBe('bought');
+      expect(shopping.hp).toBe(hurt + healed);
+    }
   });
 
-  it('routes a bought HEART through HealthSystem, overflow and LIFE UP included', () => {
-    const game = bare();
-    game.player.invincible = 0; game.damage(1, 'enemy');
-    const hurt = game.hp;
-    game.shop.rollForSection(() => 0);
-    game.shop.offers = [{ id: 'a', kind: 'heart', name: 'HEART', effect: '', price: 0, sold: false }];
-    game.shop.placeEntrance(game.player.x - 20, game.player.y - 20, 40, 40);
-    game.player.invincible = 99;
-    tick(game, 0.1);
-    expect(game.buyShopItem(0)).toBe('bought');
-    expect(game.hp).toBe(hurt + 1);
-
-    // At full health the same purchase rolls into the existing overflow, and four of them is a LIFE UP.
+  it('rolls food bought at full health into the existing overflow and LIFE UP', () => {
     const full = bare();
-    full.shop.rollForSection(() => 0);
     full.shop.placeEntrance(full.player.x - 20, full.player.y - 20, 40, 40);
     tick(full, 0.1);
     const maxHp = full.health.maxHp;
+    const def = shopItem('riceBall');
     for (let i = 0; i < HEALTH_RULES.overflowPerLife; i++) {
-      full.shop.offers = [{ id: `h${i}`, kind: 'heart', name: 'HEART', effect: '', price: 0, sold: false }];
+      full.shop.offers = [{ id: `h${i}`, item: 'riceBall', name: def.name, effect: def.effect, price: 0, sold: false }];
       expect(full.buyShopItem(0)).toBe('bought');
     }
     expect(full.health.maxHp).toBe(maxHp + 1);
   });
 
-  it('routes a bought CHARGE through the existing magazine rules', () => {
-    const game = bare();
-    game.shop.rollForSection(() => 0);
-    game.shop.offers = [{ id: 'a', kind: 'charge', name: 'CHARGE', effect: '', price: 0, sold: false }];
-    game.shop.placeEntrance(game.player.x - 20, game.player.y - 20, 40, 40);
-    tick(game, 0.1);
-    const before = game.stats.maxAmmo;
-    game.ammo = 1;
+  it('grows the magazine by 1 for a battery and 2 for a car battery, topping it up', () => {
+    for (const [item, growth] of [['battery', 1], ['carBattery', 2], ['energyDrink', 1]] as const) {
+      const game = withItem(item);
+      const before = game.stats.maxAmmo;
+      game.ammo = 1;
+      expect(game.buyShopItem(0)).toBe('bought');
+      expect(game.stats.maxAmmo).toBe(before + growth);
+      // The same top-up a gun module's CHARGE bonus and a settled chain give.
+      expect(game.ammo).toBe(game.stats.maxAmmo);
+    }
+  });
+
+  it('raises the maximum itself for a curry, through the existing LIFE UP', () => {
+    const game = withItem('curry');
+    const maxHp = game.stats.maxHp, hp = game.hp;
     expect(game.buyShopItem(0)).toBe('bought');
-    expect(game.stats.maxAmmo).toBe(before + CHARGE_AMMO_BONUS);
-    expect(game.ammo).toBe(game.stats.maxAmmo);
+    expect(game.stats.maxHp).toBe(maxHp + 1);
+    // HEALTH_RULES.fillNewHeart: a new heart arrives full, exactly as every other LIFE UP does.
+    expect(game.hp).toBe(hp + 1);
+    expect(game.stats.maxAmmo).toBe(new GameModel(false, seeded(1)).stats.maxAmmo);
   });
 
   it('cannot be bought from when it is not open', () => {
@@ -230,7 +313,6 @@ describe('SHOP', () => {
 
   it('does not collide with PAUSE, GAME OVER or CLEAR', () => {
     const game = bare();
-    game.shop.rollForSection(() => 0);
     game.shop.placeEntrance(game.player.x - 20, game.player.y - 20, 40, 40);
     tick(game, 0.1);
     expect(game.state).toBe('shop');
@@ -246,7 +328,6 @@ describe('SHOP', () => {
 
   it('opens once: walking back through the doorway does not restock it', () => {
     const game = bare();
-    game.shop.rollForSection(() => 0);
     game.shop.placeEntrance(game.player.x - 20, game.player.y - 20, 40, 40);
     tick(game, 0.1);
     game.closeShop();
@@ -297,8 +378,15 @@ describe('EXIT replaces the forced section switch', () => {
     expect(game.exit).not.toBeNull();
     expect(game.state).toBe('playing');
     expect(game.events.some(e => e.type === 'exitReady')).toBe(true);
-    // Still playable: many seconds pass and the SECTION is still the player's.
-    tick(game, 3);
+    // Still playable: many seconds pass and the SECTION is still the player's. Held off the exit
+    // itself, because walking into it is exactly what IS meant to end the SECTION.
+    const away = game.player.y;
+    const gate = game.exit!;
+    for (let i = 0; i < 360; i++) {
+      game.player.x = gate.x > WORLD.width / 2 ? WORLD.wall + 20 : WORLD.width - WORLD.wall - 20;
+      game.player.y = away; game.player.vy = 0; game.player.invincible = 99;
+      game.step(1 / 120, 0, false);
+    }
     expect(game.state).toBe('playing');
   });
 

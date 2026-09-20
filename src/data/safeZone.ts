@@ -1,3 +1,4 @@
+import { COIN_VALUES } from './coins';
 import type { GunModuleBonus, GunModuleId } from './gunModules';
 
 /**
@@ -37,16 +38,21 @@ export const SAFE_ZONE_RULES = {
   floorHeight: 14,
   /**
    * How the single content slot is filled. Weights, not probabilities, so adding a fourth kind
-   * later is one line. PROVISIONAL: the original's rates are not measured, and this phase is about
-   * the slot existing rather than about how often each thing shows up.
+   * later is one line. PROVISIONAL: the original's rates are not measured. These three are the only
+   * places a run finds a weapon, a shop or a vein, so the split decides how a run is supplied --
+   * MEASUREMENT REQUIRED.
    */
   contentWeights: { gunModule: 3, shop: 2, coinVein: 3 } as Record<SafeZoneContentKind, number>,
   /**
-   * What a COIN VEIN pays. PROVISIONAL: the original pays Gems and DEEP DROP's COIN is a different
-   * currency, so this is set to "a useful but not run-defining handful" and re-tuned in the Phase
-   * that aligns the economy.
+   * What a COIN VEIN pays, and in what. Sources on the original disagree between roughly 120 and
+   * 100 gems, so 120 is taken as the working figure -- MEASUREMENT REQUIRED, and it must not be
+   * reported as a confirmed original value.
+   *
+   * It is paid as a spill of real coins rather than credited to the wallet, so mining one is worth
+   * exactly as much as the player manages to sweep up. Both sizes are in the mix so the haul reads
+   * as a haul; `coinVeinTotal` checks the split still adds up to `value`.
    */
-  coinVein: { coins: 12, width: 34, height: 40 },
+  coinVein: { value: 120, payout: { large: 10, small: 10 }, width: 34, height: 40 },
   /** Metres of clearance kept between a chamber and the SECTION's opening or its exit. */
   depthMargin: 30,
 } as const;
@@ -59,6 +65,10 @@ export function rollSafeZoneContent(random: () => number): SafeZoneContentKind {
   for (const kind of kinds) { roll -= SAFE_ZONE_RULES.contentWeights[kind]; if (roll <= 0) return kind; }
   return kinds[kinds.length - 1];
 }
+
+/** What a COIN VEIN's payout split is actually worth, so the two numbers cannot drift apart. */
+export const coinVeinTotal = (rules = SAFE_ZONE_RULES) =>
+  rules.coinVein.payout.large * COIN_VALUES.large + rules.coinVein.payout.small * COIN_VALUES.small;
 
 /** The floor slab a chamber stands on, as a rectangle. */
 export const safeZoneFloor = (zone: SafeZone) => ({

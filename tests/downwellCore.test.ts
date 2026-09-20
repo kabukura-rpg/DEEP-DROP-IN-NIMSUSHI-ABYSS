@@ -88,7 +88,7 @@ describe('Downwell core: ACTION is jump on the ground and fire in the air', () =
   it('refuses to shoot from every kind of ground, not just ordinary ledges', () => {
     const grounds: [string, Partial<Platform>][] = [
       ['normal', {}],
-      ['BREAK BLOCK', { breakBlock: { hits: 0, durability: 3, slot: 0 } }],
+      ['BREAK BLOCK', { breakBlock: { hits: 0, durability: 3, slot: 0, reward: false } }],
       ['AREA 4 collapse', { breakable: true }],
     ];
     for (const [name, extra] of grounds) {
@@ -279,7 +279,7 @@ describe('Downwell core: COMBO is settled by landing', () => {
   });
   it('settles the same way on a BREAK BLOCK and on an AREA 4 collapsing ledge', () => {
     for (const [name, extra] of [
-      ['BREAK BLOCK', { breakBlock: { hits: 0, durability: 3, slot: 0 } }],
+      ['BREAK BLOCK', { breakBlock: { hits: 0, durability: 3, slot: 0, reward: false } }],
       ['collapse', { breakable: true }],
     ] as [string, Partial<Platform>][]) {
       const r = settle(15, extra);

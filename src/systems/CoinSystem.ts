@@ -1,4 +1,4 @@
-import { COIN_RULES, type Coin, type CoinRules } from '../data/coins';
+import { COIN_RULES, coinValue, type Coin, type CoinDenomination, type CoinRules } from '../data/coins';
 import { WORLD } from '../data/balance';
 
 /**
@@ -8,7 +8,10 @@ import { WORLD } from '../data/balance';
  *                  SHOP can never cost the player their score.
  *   walletCoins -- what is actually left to spend.
  *
- * Collecting one coin raises both; buying something lowers only the wallet.
+ * Collecting one coin raises both by that coin's own value; buying something lowers only the wallet.
+ *
+ * It knows nothing about the COIN HIGH meter. Every path that earns money returns the value it
+ * earned and the caller feeds the meter, so there is exactly one place that decides what counts.
  */
 export class CoinSystem {
   coins: Coin[] = [];
@@ -18,27 +21,43 @@ export class CoinSystem {
 
   constructor(private readonly rules: CoinRules = COIN_RULES) {}
 
-  /** Pop `count` coins out of a corpse, scattered so they do not land in one stack. */
-  burst(x: number, y: number, count: number, random: () => number) {
-    for (let i = 0; i < Math.max(0, Math.round(count)); i++) {
+  /**
+   * Pop `count` coins of one size out of a corpse or a broken block, scattered so they do not land
+   * in one stack. Returns the value put on the floor -- which is not yet earned: a coin has to be
+   * caught before it is worth anything, and it can time out or fall away first.
+   */
+  burst(x: number, y: number, count: number, random: () => number, denomination: CoinDenomination = 'small') {
+    const each = coinValue(denomination);
+    const made = Math.max(0, Math.round(count));
+    for (let i = 0; i < made; i++) {
       this.coins.push({
         id: this.nextId++,
         x, y,
         vx: (random() * 2 - 1) * this.rules.burstSpread,
         vy: -this.rules.burstSpeed * (0.6 + random() * 0.6),
+        denomination, value: each,
         life: this.rules.lifetime,
         taken: false,
       });
     }
+    return made * each;
+  }
+  /** A mixed spill -- a COIN VEIN's payout, which is deliberately both sizes so it reads as a haul. */
+  spill(x: number, y: number, payout: Record<CoinDenomination, number>, random: () => number) {
+    let total = 0;
+    for (const denomination of Object.keys(payout) as CoinDenomination[]) {
+      total += this.burst(x, y, payout[denomination], random, denomination);
+    }
+    return total;
   }
 
   /**
    * Move every loose coin, drop the ones that timed out or fell behind the camera, and collect the
-   * ones the player touched. Returns how many were picked up this step so the caller can make noise
-   * about it; the totals are already updated.
+   * ones the player touched. Returns how many were picked up and what they were worth, so the caller
+   * can make noise about it and feed the COIN HIGH meter; the totals are already updated.
    */
   tick(dt: number, player: { x: number; y: number }, cameraY: number) {
-    let collected = 0;
+    let collected = 0, earned = 0;
     for (const coin of this.coins) {
       if (coin.taken) continue;
       coin.life -= dt;
@@ -59,23 +78,24 @@ export class CoinSystem {
       if (coin.x > WORLD.width - WORLD.wall) { coin.x = WORLD.width - WORLD.wall; coin.vx = -Math.abs(coin.vx) * 0.6; }
       if (Math.abs(coin.x - player.x) < this.rules.radius + 10 && Math.abs(coin.y - player.y) < this.rules.radius + 16) {
         coin.taken = true;
-        this.scoreCoins += this.rules.value;
-        this.walletCoins += this.rules.value;
+        this.scoreCoins += coin.value;
+        this.walletCoins += coin.value;
+        earned += coin.value;
         collected++;
       }
     }
     // A coin that timed out or slid above the view is simply gone: no second chance.
     this.coins = this.coins.filter(c => !c.taken && c.life > 0 && c.y > cameraY - 120 && c.y < cameraY + WORLD.height + 200);
-    return collected;
+    return { collected, earned };
   }
 
   /**
-   * Pay coins straight in, without scattering them on the floor first. A COIN VEIN in a SAFE ZONE
-   * is mined rather than dropped, and the world outside a chamber is stopped anyway, so loose coins
-   * there would simply hang in the air. Both totals move exactly as they do for a collected coin.
+   * Pay value straight in, with nothing to catch. This is for money that is awarded rather than
+   * dropped -- a settled COMBO, which the original pays out directly -- so it can never be missed.
+   * Anything that lands in the shaft goes through `burst`/`spill` instead and has to be collected.
    */
-  grant(coins: number) {
-    const paid = Math.max(0, Math.round(coins)) * this.rules.value;
+  award(value: number) {
+    const paid = Math.max(0, Math.round(value));
     this.scoreCoins += paid;
     this.walletCoins += paid;
     return paid;

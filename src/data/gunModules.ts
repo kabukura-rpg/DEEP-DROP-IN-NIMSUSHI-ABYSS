@@ -132,9 +132,13 @@ export const GUN_MODULE_WEIGHTS: Record<GunModuleId, number> = {
  * Per-row chance of a weapon crate. Rows are ~10m apart and a full run is 12 x 200m, so this lands
  * a handful of modules in a run without ever making them feel routine.
  */
-export const GUN_MODULE_SPAWN_CHANCE = 0.016;
-
-/** Pick a weapon and its bonus. Weights keep any one gun from dominating a run. */
+/**
+ * Pick a weapon and its bonus. Weights keep any one gun from dominating a run.
+ *
+ * There is no longer a spawn chance beside this: weapons are SAFE ZONE content and the shaft lays
+ * none of its own, so the only thing that decides how often a run is re-armed is the chamber
+ * content roll in data/safeZone.
+ */
 export function rollGunModule(random: () => number): { module: GunModuleId; bonus: GunModuleBonus } {
   const total = GUN_MODULE_IDS.reduce((sum, id) => sum + GUN_MODULE_WEIGHTS[id], 0);
   let roll = random() * total;
@@ -165,8 +169,27 @@ export interface ProjectileSpec {
  * RECOIL+ scales the module's recoil, and PIERCING makes any module pass through everything.
  * `aim` is the horizontal input (-1..1); only modules with a horizontalAimFactor react to it.
  */
-export function volley(def: GunModuleDefinition, stats: Stats, aim: number): ProjectileSpec[] {
-  const damage = Math.max(1, def.projectileDamage + (stats.power - 1));
+/**
+ * A temporary multiplier on what a round does, applied on top of the run's own stats. COIN HIGH is
+ * the only thing that supplies one today. It is passed in per volley rather than written into the
+ * module table, so the baseline weapon data is never touched and a HIGH ending restores it exactly.
+ */
+export interface ShotBoost { damage: number; range: number }
+export const NO_BOOST: ShotBoost = { damage: 1, range: 1 };
+
+/** What one round of this module actually hits for, after run stats and any temporary boost. */
+export const effectiveDamage = (def: GunModuleDefinition, stats: Stats, boost: ShotBoost = NO_BOOST) =>
+  Math.max(1, Math.round((def.projectileDamage + (stats.power - 1)) * boost.damage));
+/** How far one round of this module actually reaches, after any temporary boost. */
+export const effectiveRange = (def: GunModuleDefinition, boost: ShotBoost = NO_BOOST) =>
+  def.range * boost.range;
+
+export function volley(def: GunModuleDefinition, stats: Stats, aim: number, boost: ShotBoost = NO_BOOST): ProjectileSpec[] {
+  // Damage and reach are the only two things a boost touches. Count, spread, muzzle offsets, speed,
+  // piercing and recoil are the module's identity and stay exactly as the table describes them, so
+  // a PUNCHER under a HIGH is still a PUNCHER.
+  const damage = effectiveDamage(def, stats, boost);
+  const range = effectiveRange(def, boost);
   const size = Math.max(1, def.projectileSize * (stats.bulletSize / 4));
   const pierce = stats.piercing ? 99 : def.piercing;
   const tilt = def.horizontalAimFactor * Math.max(-1, Math.min(1, aim));
@@ -182,7 +205,7 @@ export function volley(def: GunModuleDefinition, stats: Stats, aim: number): Pro
       vx: Math.sin(angle) * def.projectileSpeed,
       vy: Math.cos(angle) * def.projectileSpeed,
       offsetX: lane * (def.spawnSpread ?? 0),
-      damage, size, pierce, range: def.range, beam: def.beam === true,
+      damage, size, pierce, range, beam: def.beam === true,
       blockPiercing: def.blockPiercing === true,
     });
   }

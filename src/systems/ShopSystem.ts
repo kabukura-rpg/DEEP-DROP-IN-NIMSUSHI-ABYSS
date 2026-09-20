@@ -1,4 +1,5 @@
 import { SHOP_RULES, rollShopStock, type ShopOffer, type ShopRules } from '../data/shop';
+import type { AreaId } from '../data/areas';
 import type { CoinSystem } from './CoinSystem';
 
 /** Why a purchase did not happen, so the UI can say something useful. */
@@ -6,12 +7,15 @@ export type PurchaseResult = 'bought' | 'tooPoor' | 'soldOut' | 'closed';
 
 /**
  * Owns the shop's stock and whether it is open. It deliberately owns no effects: paying is a
- * CoinSystem operation and the goods are applied by GameModel through the very same calls a
- * field pickup uses, so buying a weapon and finding one cannot drift apart.
+ * CoinSystem operation and the goods are applied by GameModel through the very same calls a field
+ * pickup uses, so a bought heart and a found one cannot drift apart.
+ *
+ * A shop exists where a SAFE ZONE puts one and nowhere else. The shelf is stocked at the start of
+ * every SECTION so a chamber can simply open a door onto it; whether a run meets one is decided by
+ * the chamber's content roll, which is why `available` asks about the doorway rather than about a
+ * chance of its own.
  */
 export class ShopSystem {
-  /** True once this SECTION's roll decided there is a shop somewhere in it. */
-  available = false;
   open = false;
   offers: ShopOffer[] = [];
   /** Where the entrance stands, once the generator has placed it. */
@@ -21,12 +25,14 @@ export class ShopSystem {
 
   constructor(private readonly rules: ShopRules = SHOP_RULES) {}
 
-  /** Decide whether the SECTION being built contains a shop, and stock it if so. */
-  rollForSection(random: () => number) {
-    this.open = false; this.visited = false; this.entrance = null; this.offers = [];
-    this.available = random() < this.rules.chancePerSection;
-    if (this.available) this.offers = rollShopStock(random, this.rules);
-    return this.available;
+  /** True once a chamber has actually put a doorway in this SECTION. */
+  get available() { return this.entrance !== null; }
+
+  /** Stock the shelf for the SECTION being built, priced for the AREA the run has reached. */
+  stockForSection(random: () => number, area: AreaId | number) {
+    this.open = false; this.visited = false; this.entrance = null;
+    this.offers = rollShopStock(random, area, this.rules);
+    return this.offers;
   }
   /** The generator reports where it put the doorway. */
   placeEntrance(x: number, y: number, width: number, height: number) {
@@ -62,5 +68,5 @@ export class ShopSystem {
     return 'bought';
   }
 
-  reset() { this.available = false; this.open = false; this.offers = []; this.entrance = null; this.visited = false; }
+  reset() { this.open = false; this.offers = []; this.entrance = null; this.visited = false; }
 }

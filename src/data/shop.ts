@@ -1,63 +1,73 @@
-import { GUN_MODULE_IDS, gunModule, type GunModuleId } from './gunModules';
+import type { AreaId } from './areas';
 
 /**
- * The SHOP's whole configuration. Rates, stock size and prices all live here so none of it ends up
- * as a number buried in gameplay code.
+ * The SHOP's whole catalogue. The original sells six things and no weapons: food restores health,
+ * batteries grow the magazine, and one dish raises the maximum itself. Nothing here applies an
+ * effect -- an offer only describes what it does, and ShopSystem hands that to the real systems, so
+ * a bought heart and a found one can never drift apart.
+ *
+ * A shop lives in a SAFE ZONE and nowhere else, so its prices are the run's, not a shelf's: the
+ * deeper the AREA, the dearer everything is.
  */
-export interface ShopRules {
-  /** Chance that a SECTION contains a shop at all. Deliberately uncommon. */
-  chancePerSection: number;
-  /** How many goods are offered when one does appear. */
-  stock: number;
-  /** Metres into the SECTION before the entrance may be placed, so it never blocks the opening. */
-  minDepth: number;
-  /** Metres before the EXIT depth after which no shop is placed, so it cannot crowd the exit. */
-  exitClearance: number;
-  prices: { gunModule: number; heart: number; charge: number };
-  /** Relative chance of each kind of good appearing in the stock list. */
-  weights: { gunModule: number; heart: number; charge: number };
+export type ShopItemId = 'riceBall' | 'sushi' | 'battery' | 'carBattery' | 'energyDrink' | 'curry';
+
+export interface ShopItemDef {
+  id: ShopItemId;
+  name: string;
+  effect: string;
+  /** Hearts handed to HealthSystem, so overflow and LIFE UP behave exactly as they always do. */
+  hearts: number;
+  /** Permanent Max Charge added, through the same growth path as a module's CHARGE bonus. */
+  maxCharge: number;
+  /** Permanent Max HP added, through HealthSystem's own LIFE UP. */
+  maxHp: number;
+  /** Price by AREA index 1..4. The original's Normal Mode table; Hard Mode is not modelled. */
+  prices: readonly [number, number, number, number];
 }
 
-export const SHOP_RULES: ShopRules = {
-  chancePerSection: 0.34,
-  stock: 3,
-  minDepth: 45,
-  exitClearance: 25,
-  prices: { gunModule: 45, heart: 30, charge: 35 },
-  weights: { gunModule: 3, heart: 2, charge: 2 },
-};
+export const SHOP_ITEMS: readonly ShopItemDef[] = [
+  { id: 'riceBall', name: 'おにぎり', effect: 'HPを1回復。満タンなら余剰回復（LIFE UP）へ。', hearts: 1, maxCharge: 0, maxHp: 0, prices: [300, 500, 700, 900] },
+  { id: 'sushi', name: 'すし', effect: 'HPを2回復。満タンなら余剰回復（LIFE UP）へ。', hearts: 2, maxCharge: 0, maxHp: 0, prices: [500, 700, 900, 1100] },
+  { id: 'battery', name: 'バッテリー', effect: '最大CHARGE +1。弾倉も満タンになる。', hearts: 0, maxCharge: 1, maxHp: 0, prices: [150, 350, 550, 750] },
+  { id: 'carBattery', name: 'カーバッテリー', effect: '最大CHARGE +2。弾倉も満タンになる。', hearts: 0, maxCharge: 2, maxHp: 0, prices: [250, 450, 650, 850] },
+  { id: 'energyDrink', name: 'エナジードリンク', effect: 'HPを1回復し、最大CHARGE +1。', hearts: 1, maxCharge: 1, maxHp: 0, prices: [400, 600, 800, 1000] },
+  { id: 'curry', name: 'カレー', effect: '最大HP +1。新しいハートは満タンで増える。', hearts: 0, maxCharge: 0, maxHp: 1, prices: [1000, 1200, 1400, 1600] },
+];
 
-export type ShopItemKind = 'gunModule' | 'heart' | 'charge';
+export const shopItem = (id: ShopItemId) => SHOP_ITEMS.find(item => item.id === id) ?? SHOP_ITEMS[0];
+
+/** What this good costs in that AREA. Clamped, so an index outside 1..4 still has a price. */
+export const shopPrice = (item: ShopItemDef, area: AreaId | number) =>
+  item.prices[Math.max(0, Math.min(item.prices.length - 1, Math.round(area) - 1))];
+
+export interface ShopRules {
+  /** How many goods are offered. Three of the six, never the same one twice. */
+  stock: number;
+}
+
+export const SHOP_RULES: ShopRules = { stock: 3 };
 
 export interface ShopOffer {
   id: string;
-  kind: ShopItemKind;
-  /** Only for a gunModule offer: which weapon is on the shelf. */
-  module?: GunModuleId;
+  item: ShopItemId;
   name: string;
   effect: string;
   price: number;
   sold: boolean;
 }
 
-/** One shelf of goods. Nothing here applies an effect; ShopSystem routes that to the real systems. */
-export function rollShopStock(random: () => number, rules: ShopRules = SHOP_RULES): ShopOffer[] {
-  const kinds: ShopItemKind[] = ['gunModule', 'heart', 'charge'];
-  const total = kinds.reduce((sum, k) => sum + rules.weights[k], 0);
+/**
+ * One shelf: `stock` distinct goods drawn from the six, priced for the AREA the run is in. Drawing
+ * without replacement is the point -- a shop offering the same battery twice would waste a slot.
+ */
+export function rollShopStock(random: () => number, area: AreaId | number = 1, rules: ShopRules = SHOP_RULES): ShopOffer[] {
+  const pool = [...SHOP_ITEMS];
   const offers: ShopOffer[] = [];
-  for (let i = 0; i < Math.max(1, rules.stock); i++) {
-    let roll = random() * total;
-    let kind: ShopItemKind = kinds[0];
-    for (const k of kinds) { roll -= rules.weights[k]; if (roll <= 0) { kind = k; break; } }
-    if (kind === 'gunModule') {
-      const module = GUN_MODULE_IDS[Math.floor(random() * GUN_MODULE_IDS.length)] ?? GUN_MODULE_IDS[0];
-      const def = gunModule(module);
-      offers.push({ id: `shop-${i}`, kind, module, name: def.name, effect: def.description, price: rules.prices.gunModule, sold: false });
-    } else if (kind === 'heart') {
-      offers.push({ id: `shop-${i}`, kind, name: 'HEART', effect: 'HPを1回復。満タンなら余剰回復（LIFE UP）へ。', price: rules.prices.heart, sold: false });
-    } else {
-      offers.push({ id: `shop-${i}`, kind, name: 'CHARGE', effect: '最大弾数 +2。弾倉も満タンになる。', price: rules.prices.charge, sold: false });
-    }
+  const wanted = Math.max(1, Math.min(pool.length, rules.stock));
+  for (let i = 0; i < wanted; i++) {
+    const pick = Math.min(pool.length - 1, Math.max(0, Math.floor(random() * pool.length)));
+    const [item] = pool.splice(pick, 1);
+    offers.push({ id: `shop-${i}`, item: item.id, name: item.name, effect: item.effect, price: shopPrice(item, area), sold: false });
   }
   return offers;
 }

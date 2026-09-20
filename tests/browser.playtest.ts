@@ -363,9 +363,10 @@ button('SAFE ZONE content：MODULE / SHOP / COIN VEIN', async () => {
   model = scene.model;
   zone = chamber('shop');
   model.combo = 13;
-  model.shop.rollForSection(() => 0);
-  assert(model.shop.available, 'SECTION の SHOP 在庫が用意された');
+  assert(model.shop.offers.length === 3, `SECTION の SHOP 在庫が3品用意された (${model.shop.offers.map(o => o.name).join(' / ')})`);
+  assert(new Set(model.shop.offers.map(o => o.item)).size === 3, '3品はすべて別の商品');
   model.shop.placeEntrance(centre - 33, floorY - 66, 66, 66);
+  assert(model.shop.available, 'SAFE ZONE が SHOP の入口を開いた');
   model.player.x = centre; model.player.y = floorY - 33; model.player.vy = 0; model.player.grounded = -1;
   await until(() => scene.model.state === 'shop', 5000);
   output.textContent += `\nSHOP: state ${scene.model.state} / 在庫 ${model.shop.offers.length} / COMBO ${model.combo}`;
@@ -378,13 +379,38 @@ button('SAFE ZONE content：MODULE / SHOP / COIN VEIN', async () => {
   zone = chamber('coinVein');
   model.combo = 5;
   const vein = model.coinVeinBounds(zone);
-  const before = model.coins.scoreCoins, kills = model.kills;
+  const kills = model.kills;
+  // Walking into it does nothing: it is mined with the gunboots, which point down.
   model.player.x = vein.x + vein.width / 2; model.player.y = vein.y + vein.height / 2; model.player.vy = 0; model.player.grounded = -1;
-  await until(() => model.coins.scoreCoins > before, 5000);
-  await wait(120);
-  output.textContent += `\nCOIN VEIN: +${model.coins.scoreCoins - before} / wallet ${model.coins.walletCoins} / COMBO ${model.combo}`;
-  assert(model.coins.scoreCoins - before === SAFE_ZONE_RULES.coinVein.coins, `COIN VEIN が ${SAFE_ZONE_RULES.coinVein.coins} 支払う`);
-  assert(model.coins.walletCoins >= SAFE_ZONE_RULES.coinVein.coins, 'walletCoins にも入る');
+  await wait(700);
+  assert(!zone.taken, 'COIN VEIN は触れただけでは割れない');
+  // Hover above it and fire down.
+  for (let i = 0; i < 200 && !zone.taken; i++) {
+    keepAwake();
+    model.player.x = vein.x + vein.width / 2; model.player.y = vein.y - 40; model.player.vy = 0; model.player.grounded = -1;
+    model.ammo = model.stats.maxAmmo;
+    key('Space', true); await wait(1000 / 60); key('Space', false); await wait(16);
+  }
+  const loose = model.coins.coins;
+  const large = loose.filter(c => c.denomination === 'large').length;
+  const small = loose.filter(c => c.denomination === 'small').length;
+  const onFloor = loose.reduce((sum, c) => sum + c.value, 0);
+  output.textContent += `\nCOIN VEIN: 割れた=${zone.taken} / 落ちたCOIN LARGE ${large} + SMALL ${small} = ${onFloor} / COMBO ${model.combo}`;
+  assert(zone.taken, '射撃で COIN VEIN を割れる');
+  assert(large > 0 && small > 0, `LARGE と SMALL の両方が落ちる (L${large} / S${small})`);
+  assert(onFloor + model.coins.scoreCoins === SAFE_ZONE_RULES.coinVein.value, `総額が ${SAFE_ZONE_RULES.coinVein.value}`);
+  // Sweep them up: they are ordinary coins on the ordinary pickup path.
+  const wallet = model.coins.walletCoins;
+  for (let i = 0; i < 400 && model.coins.coins.length; i++) {
+    keepAwake();
+    const next = model.coins.coins[0];
+    model.player.x = next.x; model.player.y = next.y; model.player.vy = 0; model.player.grounded = -1;
+    await wait(16);
+  }
+  output.textContent += `\n回収後: wallet ${wallet}→${model.coins.walletCoins} / COIN HIGH ${Math.floor(model.coinHigh.meter)} active=${model.coinHigh.active}`;
+  assert(model.coins.walletCoins > wallet, 'VEIN の COIN は通常の pickup として回収できる');
+  assert(model.coins.scoreCoins === model.coins.walletCoins, 'scoreCoins と walletCoins が一致');
+  assert(model.coinHigh.meter > 0, 'VEIN の COIN が COIN HIGH メーターに入る');
   assert(model.kills === kills, '撃破扱いではない');
   assert(model.combo === 5, 'COIN VEIN は COMBO に影響しない');
   bridge.active = false;
@@ -559,7 +585,7 @@ button('LASER：反動で上昇 / ブロック貫通', async () => {
   await wait(200);
   assert(model.player.y < startY, `実際に上へ移動した (${startY.toFixed(0)}→${model.player.y.toFixed(0)})`);
   // A column of BREAK BLOCK in one lane: the round must reach the far one.
-  const rows = [0, 1, 2].map(i => ({ id: 8100 + i, x: WORLD.wall, y: 520 + i * 140, width: 120, breakable: false, state: 'stable' as const, breakBlock: { hits: 0, durability: 9, slot: 0 } }));
+  const rows = [0, 1, 2].map(i => ({ id: 8100 + i, x: WORLD.wall, y: 520 + i * 140, width: 120, breakable: false, state: 'stable' as const, breakBlock: { hits: 0, durability: 9, slot: 0, reward: false } }));
   model.platforms = rows;
   model.player.x = WORLD.wall + 40; model.player.y = 360; model.player.vy = 0; model.player.grounded = -1;
   model.ammo = 40; model.cooldown = 0;

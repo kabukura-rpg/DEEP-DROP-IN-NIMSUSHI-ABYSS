@@ -6,13 +6,14 @@ import { BreakablePlatformSystem, BREAK_RULES } from './BreakablePlatformSystem'
 import { BossFightSystem } from './BossFightSystem';
 import { GunModuleSystem } from './GunModuleSystem';
 import { CoinSystem } from './CoinSystem';
+import { CoinHighSystem } from './CoinHighSystem';
 import { ShopSystem } from './ShopSystem';
 import { coinsFor } from '../data/coins';
 import { AIR_CONTAINER_RULES, BREAK_BLOCK_RULES, EXIT_RULES, SHOP_DOOR, type AirBubble, type AirContainer, type StageExit } from '../data/structures';
 import { DOODAD_RULES, type Doodad } from '../data/doodads';
 import { insideSafeZone, SAFE_ZONE_RULES, type SafeZone } from '../data/safeZone';
-import type { ShopOffer } from '../data/shop';
-import { CHARGE_AMMO_BONUS, gunModule, STARTING_GUN_MODULE, volley, volleyRecoil, type GunModuleId } from '../data/gunModules';
+import { shopItem, type ShopOffer } from '../data/shop';
+import { CHARGE_AMMO_BONUS, gunModule, STARTING_GUN_MODULE, volley, volleyRecoil, type GunModuleId, type ShotBoost } from '../data/gunModules';
 import { BOSS, type BossPhase } from '../data/boss';
 import { hazardBounds, hazardType, ventStateAt, type Hazard } from '../data/hazards';
 import { pickupType, spawnGunModule, spawnPickup, type Pickup } from '../data/pickups';
@@ -23,7 +24,7 @@ import { StageProgressionSystem } from './StageProgressionSystem';
 import type { AreaId, SectionId } from '../data/areas';
 import { enemyType } from '../data/enemies';
 import { defaultTuning, sanitizeTuning, type PhysicsTuning } from './PhysicsTuning';
-export type GameEvent = { type: 'shot' | 'empty' | 'land' | 'kill' | 'hurt' | 'upgrade' | 'over' | 'heal' | 'boss' | 'clear' | 'oxygen' | 'section' | 'ice' | 'vent' | 'crack' | 'collapse' | 'bossHit' | 'bossTelegraph' | 'bossFire' | 'bossPhase' | 'bossDown' | 'gunModule' | 'coin' | 'shopOpen' | 'shopBuy' | 'exitReady' | 'exit' | 'containerBreak' | 'blockCrack' | 'blockBreak' | 'jump' | 'wallJump' | 'comboSettle' | 'doodad' | 'timeVoid' | 'coinVein'; x: number; y: number; value?: number; stomp?: boolean; lifeUps?: number; overflow?: number; combo?: number; stage?: string; areaCleared?: string | null; bonus?: 'heart' | 'charge'; source?: { id: number; kind: Enemy['kind']; x: number; y: number } };
+export type GameEvent = { type: 'shot' | 'empty' | 'land' | 'kill' | 'hurt' | 'upgrade' | 'over' | 'heal' | 'boss' | 'clear' | 'oxygen' | 'section' | 'ice' | 'vent' | 'crack' | 'collapse' | 'bossHit' | 'bossTelegraph' | 'bossFire' | 'bossPhase' | 'bossDown' | 'gunModule' | 'coin' | 'shopOpen' | 'shopBuy' | 'exitReady' | 'exit' | 'containerBreak' | 'blockCrack' | 'blockBreak' | 'jump' | 'wallJump' | 'comboSettle' | 'doodad' | 'timeVoid' | 'coinVein' | 'coinHigh'; x: number; y: number; value?: number; stomp?: boolean; lifeUps?: number; overflow?: number; combo?: number; stage?: string; areaCleared?: string | null; bonus?: 'heart' | 'charge'; source?: { id: number; kind: Enemy['kind']; x: number; y: number } };
 export interface Bullet {
   x: number; y: number; previousY: number; previousX: number;
   /** Velocity in px/s. Straight-down weapons simply carry vx = 0. */
@@ -57,6 +58,8 @@ export class GameModel {
   doodads: Doodad[] = [];
   /** Chambers cut into the shaft wall. Being inside one is what freezes the world outside it. */
   safeZones: SafeZone[] = [];
+  /** The COIN HIGH meter. Fed by every path that earns money; see `earnCoins`. */
+  coinHigh = new CoinHighSystem();
   bullets: Bullet[] = [];
   events: GameEvent[] = [];
   ammo = this.stats.maxAmmo;
@@ -285,7 +288,7 @@ export class GameModel {
     const kick = volleyRecoil(def, this.stats) * recovery;
     p.vy = Math.max(-this.stats.maxFallSpeed, Math.min(this.stats.maxFallSpeed, p.vy + this.up * kick));
     this.lastAirShot = this.elapsed;
-    for (const shot of volley(def, this.stats, aim)) {
+    for (const shot of volley(def, this.stats, aim, this.shotBoost)) {
       const x = p.x + shot.offsetX;
       this.bullets.push({
         x, y: p.y + 21, previousY: p.y + 21, previousX: x,
@@ -337,7 +340,7 @@ export class GameModel {
    */
   private applyModuleBonus(bonus: 'heart' | 'charge') {
     if (bonus === 'heart') this.health.heal(1);
-    else { this.stats.maxAmmo += CHARGE_AMMO_BONUS; this.ammo = this.stats.maxAmmo; }
+    else this.growMaxCharge(CHARGE_AMMO_BONUS);
   }
   step(dt: number, direction: number, firing: boolean) {
     if (!this.running) return;
@@ -361,6 +364,10 @@ export class GameModel {
       this.events.push({ type: 'timeVoid', x: p.x, y: p.y, value: frozen ? 1 : 0 });
     }
     if (!frozen) this.worldElapsed += dt;
+    // The meter drains on WORLD time. Standing in a chamber stops the shaft, so it stops the drain
+    // too -- but collecting in there still credits it, because picking a coin up is the player's
+    // own action and those never stop. Decay frozen, pickup live.
+    if (!frozen && this.coinHigh.tick(dt)) this.events.push({ type: 'coinHigh', x: p.x, y: p.y, value: 0 });
     const ground = this.platforms.find(f => f.id === p.grounded);
     if (ground && p.x + 9 > ground.x && p.x - 9 < ground.x + ground.width) p.vy = 0;
     else { p.grounded = -1; p.vy = Math.min(this.stats.maxFallSpeed, p.vy + this.stats.gravity * (this.water?.gravity ?? 1) * dt); }
@@ -419,6 +426,10 @@ export class GameModel {
       if (b.travelled > b.range) { b.alive = false; continue; }
       // Angled rounds stop at the shaft walls rather than leaving the world.
       if (b.x < WORLD.wall || b.x > WORLD.width - WORLD.wall) { b.alive = false; continue; }
+      // A COIN VEIN is mined by shooting it. Checked before the shaft's own obstacles because a
+      // vein only ever stands inside a chamber, where none of them are.
+      const vein = this.veinAt(b.x, b.y);
+      if (vein) { this.mineCoinVein(vein); b.alive = false; continue; }
       if (this.boss.enabled && !this.boss.defeated) {
         const body = this.boss.body;
         // Measured against the round's real width, the same way enemies are: a wide PUNCHER or a
@@ -491,12 +502,16 @@ export class GameModel {
     if (!frozen) {
       this.tickContainers(dt);
       this.tickBubbles(dt);
-      if (this.coins.tick(dt, p, this.cameraY) > 0) this.events.push({ type: 'coin', x: p.x, y: p.y, value: this.coins.walletCoins });
+      const picked = this.coins.tick(dt, p, this.cameraY);
+      if (picked.collected > 0) {
+        this.earnCoins(picked.earned, p.x, p.y);
+        this.events.push({ type: 'coin', x: p.x, y: p.y, value: this.coins.walletCoins });
+      }
     }
     // Picking things up and touching a chamber's own content are the player's doing, not the
     // world's, so they keep working inside: the gun module waiting in a chamber has to be takeable.
     this.collectPickups();
-    this.tickSafeZones();
+
     this.tickDoodads(oldY);
     if (this.heat.enabled && !frozen) this.tickHeat(dt);
     // A contact check rather than a timer, and no chamber is cut where anything lethal stands, so
@@ -594,7 +609,8 @@ export class GameModel {
     }
     block.state = 'broken';
     if (this.player.grounded === block.id) this.player.grounded = -1;
-    if (this.random() < BREAK_BLOCK_RULES.coinChance) this.coins.burst(centre, block.y, BREAK_BLOCK_RULES.coins, this.random);
+    // No roll: the block said what it was when the row appeared, and breaking it pays exactly that.
+    if (state.reward) this.coins.burst(centre, block.y, BREAK_BLOCK_RULES.rewardCoins, this.random, BREAK_BLOCK_RULES.rewardDenomination);
     this.events.push({ type: 'blockBreak', x: centre, y: block.y, value: block.width });
   }
   /**
@@ -703,21 +719,31 @@ export class GameModel {
     this.events.push({ type: 'doodad', x: touching.x + touching.width / 2, y: touching.y, value: this.combo });
   }
   /**
-   * A chamber's own content. A COIN VEIN pays straight into the wallet through CoinSystem, once;
-   * the gun module and the shop are the existing systems, reached by the existing paths, so nothing
-   * about a weapon or a purchase can behave differently for being found in here.
+   * Mine a COIN VEIN. It is shot open with the gunboots, not walked into: a chamber is where time
+   * has stopped and the player is free to aim, so the vein is the one thing in there worth spending
+   * rounds on -- and the chamber floor reloads, so it can never cost a run its ammunition.
+   *
+   * The payout is a spill of real coins rather than a credit, which means mining one is worth what
+   * the player actually sweeps up, and every coin of it reaches the COIN HIGH meter on the ordinary
+   * collection path. A big enough haul can therefore tip a run straight into a HIGH.
    */
-  private tickSafeZones() {
-    const p = this.player;
+  private mineCoinVein(zone: SafeZone) {
+    if (zone.taken || zone.content?.kind !== 'coinVein') return false;
+    zone.taken = true;
+    const vein = this.coinVeinBounds(zone);
+    const centre = vein.x + vein.width / 2;
+    const dropped = this.coins.spill(centre, vein.y + vein.height / 2, SAFE_ZONE_RULES.coinVein.payout, this.random);
+    this.events.push({ type: 'coinVein', x: centre, y: vein.y, value: dropped });
+    return true;
+  }
+  /** True when this point is inside an unmined vein's face, so a round can be tested against it. */
+  private veinAt(x: number, y: number) {
     for (const zone of this.safeZones) {
       if (zone.taken || zone.content?.kind !== 'coinVein') continue;
-      const vein = this.coinVeinBounds(zone);
-      if (p.x + 9 < vein.x || p.x - 9 > vein.x + vein.width) continue;
-      if (p.y + 15 < vein.y || p.y - 15 > vein.y + vein.height) continue;
-      zone.taken = true;
-      const paid = this.coins.grant(SAFE_ZONE_RULES.coinVein.coins);
-      this.events.push({ type: 'coinVein', x: vein.x + vein.width / 2, y: vein.y, value: paid });
+      const v = this.coinVeinBounds(zone);
+      if (x > v.x && x < v.x + v.width && y > v.y && y < v.y + v.height) return zone;
     }
+    return null;
   }
   /** Where a chamber's COIN VEIN stands: against the back wall, on the floor. */
   coinVeinBounds(zone: SafeZone) {
@@ -816,16 +842,20 @@ export class GameModel {
     return true;
   }
   /**
-   * Buy one item. Coins leave the wallet only -- the score total is never touched -- and the
-   * goods are applied through exactly the same calls a field pickup uses, so a bought weapon and
-   * a found one can never behave differently.
+   * Buy one item. Coins leave the wallet only -- the score total is never touched, and neither is
+   * the COIN HIGH meter: spending is not earning. The goods are applied through exactly the same
+   * calls a field pickup uses, so a bought heart and a found one can never behave differently.
    */
   buyShopItem(index: number) {
     if (this.state !== 'shop') return 'closed' as const;
     const result = this.shop.buy(index, this.coins, (offer: ShopOffer) => {
-      if (offer.kind === 'gunModule' && offer.module) this.gun.equip(offer.module);
-      else if (offer.kind === 'heart') this.applyModuleBonus('heart');
-      else this.applyModuleBonus('charge');
+      // Every effect goes through the system that owns it: hearts through HealthSystem so a full
+      // tank still overflows into LIFE UP, a bigger maximum through its own LIFE UP, and the
+      // magazine through the same growth call a module bonus and a settled chain use.
+      const item = shopItem(offer.item);
+      if (item.hearts > 0) this.heal(item.hearts);
+      if (item.maxCharge > 0) this.growMaxCharge(item.maxCharge);
+      if (item.maxHp > 0) this.health.lifeUp(item.maxHp);
     });
     if (result === 'bought') this.events.push({ type: 'shopBuy', x: this.player.x, y: this.player.y, value: this.coins.walletCoins });
     return result;
@@ -930,7 +960,9 @@ export class GameModel {
     this.coins.clearLoose();
     // Whether this SECTION has a shop at all is decided once, here.
     this.shop.reset();
-    if (!this.practice && this.state !== 'boss') this.shop.rollForSection(this.random);
+    // The shelf is stocked for every SECTION and priced for the AREA; whether the run ever sees it
+    // is decided by the chamber content roll, which is the only thing that opens a door onto it.
+    if (!this.practice && this.state !== 'boss') this.shop.stockForSection(this.random, this.stage.progress.area);
     // A full tank and a cold gauge at every SECTION start. Both are environment, not health: HP
     // carries over untouched. The gun keeps its module and its grown magazine, but forgets the
     // shot it was in the middle of -- a burst owes its remaining rounds to the SECTION that paid
@@ -940,7 +972,7 @@ export class GameModel {
     this.oxygen.reset(!this.practice && this.stage.config.gimmicks?.oxygen === true);
     this.heat.reset(!this.practice && this.stage.config.gimmicks?.heat === true);
     this.collapse.reset(this.stage.sectionPlan?.breakDelay ?? BREAK_RULES.delay);
-    this.generator = new StageGenerator(this.random, { depthOffset: this.completedDepth, plan: this.stage.sectionPlan, enemyPool: this.stage.enemyPool, water: this.stage.config.water, oxygen: this.oxygen.enabled, heat: this.heat.enabled, breakable: !this.practice && this.stage.config.gimmicks?.breakablePlatforms === true, sectionLength: this.practice || this.state === 'boss' || !this.stage.enabled ? undefined : this.stage.sectionLength, shop: this.shop.available });
+    this.generator = new StageGenerator(this.random, { depthOffset: this.completedDepth, plan: this.stage.sectionPlan, enemyPool: this.stage.enemyPool, water: this.stage.config.water, oxygen: this.oxygen.enabled, heat: this.heat.enabled, breakable: !this.practice && this.stage.config.gimmicks?.breakablePlatforms === true, sectionLength: this.practice || this.state === 'boss' || !this.stage.enabled ? undefined : this.stage.sectionLength });
     this.reloadCharge();
     // COMBO deliberately survives: a SECTION boundary is not a landing, and the rest point banks
     // nothing. A chain carried out of 1-1 is still live at the top of 1-2.
@@ -977,9 +1009,35 @@ export class GameModel {
     if (drop && this.random() < (drop.chance ?? 1)) this.pickups.push(spawnPickup(drop.pickup, 900000 + enemy.id, enemy.x, enemy.y, this.random() * Math.PI * 2, true));
     // Every defeated enemy leaves money. The boss is not an Enemy and never reaches this path,
     // so the CLEAR sequence is untouched.
-    this.coins.burst(enemy.x, enemy.y, coinsFor(type.threat), this.random);
+    const money = coinsFor(type.threat);
+    this.coins.burst(enemy.x, enemy.y, money.count, this.random, money.denomination);
     const points = Math.round(100 * this.multiplier * (stomp ? 1.5 : 1));
     this.killScore += points; this.events.push({ type: 'kill', x: enemy.x, y: enemy.y, value: points, stomp, combo: this.combo });
+  }
+  /**
+   * The single door money comes through. Every earning path -- a collected coin, a settled chain --
+   * ends here, so there is exactly one place that decides what feeds the COIN HIGH meter and the
+   * meter can never disagree with the wallet. Spending is deliberately NOT routed through it: buying
+   * something takes from the wallet alone and must never touch the meter or the score.
+   */
+  private earnCoins(value: number, x: number, y: number) {
+    if (value <= 0) return 0;
+    if (this.coinHigh.earn(value)) this.events.push({ type: 'coinHigh', x, y, value: 1 });
+    return value;
+  }
+  /** What a round currently does, after any temporary boost. Nothing writes to the weapon table. */
+  get shotBoost(): ShotBoost {
+    return { damage: this.coinHigh.damageMultiplier, range: this.coinHigh.rangeMultiplier };
+  }
+  /**
+   * Grow the magazine permanently. Shared by a gun module's CHARGE bonus, a settled chain's reward
+   * and the SHOP's batteries, so every route to a bigger magazine tops it up the same way -- the
+   * player is never left a round short of a maximum they just paid for.
+   */
+  growMaxCharge(amount: number) {
+    if (!Number.isFinite(amount) || amount <= 0) return;
+    this.stats.maxAmmo += amount;
+    this.ammo = this.stats.maxAmmo;
   }
   /**
    * Fill the magazine. This is ONE of the two things a landing does, and it is deliberately its own
@@ -989,9 +1047,10 @@ export class GameModel {
   reloadCharge() { this.ammo = this.stats.maxAmmo; }
   /**
    * Bank the chain. The tier table decides what a landing at this COMBO is worth; the DEEPEST tier
-   * it qualifies for is paid once, never the shallower ones as well. COIN goes out through the
-   * ordinary CoinSystem drop, so it scatters and is collected exactly as a corpse's money is, and
-   * a heart goes through HealthSystem so overflow and LIFE UP behave as they always have.
+   * it qualifies for is paid once, never the shallower ones as well. Every tier pays the same flat
+   * COIN -- what deepens is what comes with it -- and it is paid straight into the wallet rather
+   * than scattered, so a banked chain cannot be dropped. A heart goes through HealthSystem so
+   * overflow and LIFE UP behave as they always have.
    *
    * Nothing here interrupts the run: no screen, no choice, just the payout and a label in the shaft.
    */
@@ -1001,12 +1060,9 @@ export class GameModel {
     this.combo = 0;
     if (!tier) return undefined;
     const p = this.player;
-    if (tier.coins > 0) this.coins.burst(p.x, p.y, tier.coins, this.random);
-    if (tier.maxCharge > 0) {
-      this.stats.maxAmmo += tier.maxCharge;
-      // The chain's own reward should not leave the player a round short of their new maximum.
-      this.ammo = this.stats.maxAmmo;
-    }
+    // Awarded, not dropped: a chain the player has already earned must not then be lost on the floor.
+    if (tier.coins > 0) this.earnCoins(this.coins.award(tier.coins), p.x, p.y);
+    if (tier.maxCharge > 0) this.growMaxCharge(tier.maxCharge);
     if (tier.hearts > 0) this.heal(tier.hearts);
     this.events.push({ type: 'comboSettle', x: p.x, y: p.y, value: combo, combo, stage: tier.label });
     return tier;
@@ -1048,7 +1104,6 @@ export class GameModel {
         }
       }
       this.containers.push(...chunk.containers);
-      if (chunk.shopDoor) this.shop.placeEntrance(chunk.shopDoor.x, chunk.shopDoor.y, chunk.shopDoor.width, chunk.shopDoor.height);
     }
   }
   private emit(type: GameEvent['type'], x: number, y: number) { this.events.push({ type, x, y }); }

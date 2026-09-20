@@ -14,11 +14,9 @@ export interface ComboTier {
   /** Lowest COMBO that pays this tier. */
   at: number;
   /**
-   * COIN paid in. PROVISIONAL: Downwell pays 100 Gems, but DEEP DROP's COIN is a different currency
-   * (a SHOP heart is 30, a gun module 45, and a whole run collects tens of coins, not hundreds).
-   * Dropping 100 in here would make one chain worth more than a run. These values keep the tier
-   * structure honest while leaving the economy where it is; they are re-tuned in the Phase that
-   * aligns SHOP prices and the original's Gem economy.
+   * COIN paid in. The original pays a flat 100 Gems for any settled chain, and every tier here pays
+   * the same 100 -- what deepens with the chain is what comes WITH the money, not the money. Paid
+   * directly rather than scattered, so a banked chain can never be dropped on the floor and missed.
    */
   coins: number;
   /** Permanent Max Charge granted. Separate from the CHARGE module's +2. */
@@ -34,9 +32,9 @@ export interface ComboTier {
  * a 40-chain is worth the 25 tier once -- not the 8, the 15 and the 25 stacked together.
  */
 export const COMBO_TIERS: readonly ComboTier[] = [
-  { at: 8, coins: 8, maxCharge: 0, hearts: 0, label: 'COIN' },
-  { at: 15, coins: 15, maxCharge: 1, hearts: 0, label: 'COIN + CHARGE' },
-  { at: 25, coins: 25, maxCharge: 1, hearts: 1, label: 'COIN + CHARGE + LIFE' },
+  { at: 8, coins: 100, maxCharge: 0, hearts: 0, label: '+100' },
+  { at: 15, coins: 100, maxCharge: 1, hearts: 0, label: '+100 + CHARGE' },
+  { at: 25, coins: 100, maxCharge: 1, hearts: 1, label: '+100 + CHARGE + LIFE' },
 ];
 
 /** The tier a landing at this COMBO pays, or undefined when the chain was too short to bank. */

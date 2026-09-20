@@ -9,6 +9,7 @@ import { HEALTH_RULES } from './systems/HealthSystem';
 import { PhysicsPanel } from './ui/PhysicsPanel';
 import { comboFeedback } from './systems/ComboFeedback';
 import { AREAS, TOTAL_SECTIONS } from './data/areas';
+import { shopItem, type ShopOffer } from './data/shop';
 
 const app = document.querySelector<HTMLDivElement>('#app')!;
 app.innerHTML = `
@@ -19,7 +20,7 @@ app.innerHTML = `
     <div class="cabinet-top"><span><i></i> SHAFT_01</span><span id="zone">SURFACE ZONE</span></div>
     <div id="game-frame">
       <div id="game" aria-label="縦落下アクションのプレイ画面"></div>
-      <div id="hud" class="hud"><div id="boss-bar" class="boss-bar" hidden><span class="boss-name">DEMON KING <b id="boss-phase"></b></span><div class="boss-track"><i id="boss-fill"></i></div><small id="boss-percent">100%</small></div><div class="hud-top"><div><span class="hud-label"><b id="stage-label">1-1</b>DEPTH</span><div class="depth-number"><span id="depth">000</span><small id="depth-goal">/ 200m</small></div></div><div class="purse"><span id="coin-wallet">COIN 0</span><small id="coin-score">SCORE 0</small></div><button id="pause" class="pause-button" aria-label="ポーズ" disabled>Ⅱ</button></div><div class="hud-status"><div><div id="hearts" aria-label="HP 4">♥ ♥ ♥ ♥</div><small id="life-gauge"></small></div><div class="ammo-group"><span id="ammo-label">AMMO</span><div id="ammo"></div><b id="gun-module" class="gun-module">MG</b></div></div><div id="oxygen" class="oxygen" hidden><span class="oxygen-label">OXYGEN <b id="oxygen-state"></b></span><div class="oxygen-bar"><i id="oxygen-fill"></i></div><small id="oxygen-seconds">12.0s</small></div><div id="heat" class="heat" hidden><span class="heat-label">HEAT <b id="heat-state"></b></span><div class="heat-bar"><i id="heat-fill"></i></div><small id="heat-percent">0%</small></div><div id="stage-intro" class="stage-intro" hidden aria-live="polite"></div><div id="combo" class="combo" hidden></div><div id="gun-toast" class="gun-toast" hidden aria-live="polite"></div><div id="practice-label" hidden>CONTROL LAB <span>落下 → 射撃 → 着地</span></div><div class="depth-progress"><div id="progress"></div></div></div>
+      <div id="hud" class="hud"><div id="boss-bar" class="boss-bar" hidden><span class="boss-name">DEMON KING <b id="boss-phase"></b></span><div class="boss-track"><i id="boss-fill"></i></div><small id="boss-percent">100%</small></div><div class="hud-top"><div><span class="hud-label"><b id="stage-label">1-1</b>DEPTH</span><div class="depth-number"><span id="depth">000</span><small id="depth-goal">/ 200m</small></div></div><div class="purse"><span id="coin-wallet">COIN 0</span><small id="coin-score">SCORE 0</small><div id="coin-high" class="coin-high"><div class="coin-high-bar"><i id="coin-high-fill"></i></div><b id="coin-high-state">HIGH</b></div></div><button id="pause" class="pause-button" aria-label="ポーズ" disabled>Ⅱ</button></div><div class="hud-status"><div><div id="hearts" aria-label="HP 4">♥ ♥ ♥ ♥</div><small id="life-gauge"></small></div><div class="ammo-group"><span id="ammo-label">AMMO</span><div id="ammo"></div><b id="gun-module" class="gun-module">MG</b></div></div><div id="oxygen" class="oxygen" hidden><span class="oxygen-label">OXYGEN <b id="oxygen-state"></b></span><div class="oxygen-bar"><i id="oxygen-fill"></i></div><small id="oxygen-seconds">12.0s</small></div><div id="heat" class="heat" hidden><span class="heat-label">HEAT <b id="heat-state"></b></span><div class="heat-bar"><i id="heat-fill"></i></div><small id="heat-percent">0%</small></div><div id="stage-intro" class="stage-intro" hidden aria-live="polite"></div><div id="combo" class="combo" hidden></div><div id="gun-toast" class="gun-toast" hidden aria-live="polite"></div><div id="practice-label" hidden>CONTROL LAB <span>落下 → 射撃 → 着地</span></div><div class="depth-progress"><div id="progress"></div></div></div>
       <div id="overlay" class="overlay"></div>
       <div id="touch-controls"><button id="left-control" aria-label="左移動">←</button><button id="fire-control" aria-label="射撃">FIRE<span>↓</span></button><button id="right-control" aria-label="右移動">→</button></div>
     </div>
@@ -191,6 +192,14 @@ let gunToastAnimation: Animation | undefined;
  * nothing kills the player while they read. Every button is a real button, so touch works the
  * same as a mouse.
  */
+/** What a good does, in one word, so a shelf can be read before any of it is priced. */
+function shopKind(offer: ShopOffer) {
+  const item = shopItem(offer.item);
+  if (item.maxHp > 0) return 'MAX LIFE';
+  if (item.hearts > 0 && item.maxCharge > 0) return 'LIFE + CHARGE';
+  if (item.hearts > 0) return 'LIFE';
+  return 'CHARGE';
+}
 function showShop(model: GameModel) {
   mode = 'shop'; bridge.active = false; clearInput();
   const draw = () => {
@@ -198,7 +207,7 @@ function showShop(model: GameModel) {
       const affordable = model.coins.walletCoins >= offer.price;
       const state = offer.sold ? 'SOLD OUT' : affordable ? `${offer.price} COIN` : `${offer.price} COIN（不足）`;
       return `<button class="shop-item" id="shop-buy-${index}" ${offer.sold || !affordable ? 'disabled' : ''}>` +
-        `<span class="shop-kind">${offer.kind === 'gunModule' ? 'GUN MODULE' : offer.kind === 'heart' ? 'HEART' : 'CHARGE'}</span>` +
+        `<span class="shop-kind">${shopKind(offer)}</span>` +
         `<strong>${offer.name}</strong><small>${offer.effect}</small><b>${state}</b></button>`;
     }).join('');
     setOverlay(`<div class="panel-content shop-content"><div class="eyebrow">SHOP</div>` +
@@ -282,7 +291,7 @@ function showResult(model: GameModel) {
 }
 function updateHud(model: GameModel) {
   physicsPanel?.updateTelemetry();
-  const key = [Math.floor(model.sectionDepth), Math.floor(model.totalDepth), model.state, model.stage.label, model.coins.walletCoins, model.coins.scoreCoins, !!model.exit, model.oxygen.enabled ? model.oxygen.remaining.toFixed(1) : '-', model.heat.enabled ? model.heat.value.toFixed(1) : '-', model.boss.enabled ? `${Math.ceil(model.boss.ratio * 100)}|${model.boss.phaseId}` : '-', model.hp, model.health.overflowHealing, model.stats.maxHp, model.ammo, model.stats.maxAmmo, model.gun.id, model.combo, model.multiplier, model.practice].join('|');
+  const key = [Math.floor(model.sectionDepth), Math.floor(model.totalDepth), model.state, model.stage.label, model.coins.walletCoins, model.coins.scoreCoins, !!model.exit, model.oxygen.enabled ? model.oxygen.remaining.toFixed(1) : '-', model.heat.enabled ? model.heat.value.toFixed(1) : '-', model.boss.enabled ? `${Math.ceil(model.boss.ratio * 100)}|${model.boss.phaseId}` : '-', model.hp, model.health.overflowHealing, model.stats.maxHp, model.ammo, model.stats.maxAmmo, model.gun.id, model.combo, model.multiplier, model.practice, Math.round(model.coinHigh.meter), model.coinHigh.active].join('|');
   if (key === lastHud) return; lastHud = key;
   // The FINAL BOSS banks no section metres, so showing sectionDepth there reads a flat 000m.
   // The run's completed total is the meaningful number, and the fight never adds to it. Keyed on
@@ -302,6 +311,14 @@ function updateHud(model: GameModel) {
   $('coin-wallet').textContent = `COIN ${model.coins.walletCoins}`;
   $('coin-score').textContent = `SCORE ${model.coins.scoreCoins}`;
   $('coin-wallet').setAttribute('aria-label', `所持コイン ${model.coins.walletCoins}、獲得スコア ${model.coins.scoreCoins}`);
+  // COIN HIGH. The meter is always on show so the player can see a HIGH coming; the word only
+  // appears once it is actually running, and the bar changes colour with it rather than instead
+  // of it, so the state never depends on colour alone.
+  const high = $('coin-high');
+  $('coin-high-fill').style.width = `${Math.round(Math.min(1, model.coinHigh.ratio) * 100)}%`;
+  high.dataset.state = model.coinHigh.active ? 'active' : 'idle';
+  $('coin-high-state').textContent = model.coinHigh.active ? 'COIN HIGH' : `${Math.floor(model.coinHigh.meter)}/${model.coinHigh.rules.threshold}`;
+  high.setAttribute('aria-label', model.coinHigh.active ? 'COIN HIGH 発動中：射程と威力が上昇' : `COIN HIGH メーター ${Math.floor(model.coinHigh.meter)} / ${model.coinHigh.rules.threshold}`);
   $('gun-module').textContent = model.gun.short;
   $('gun-module').setAttribute('aria-label', `装備中 ${model.gun.name}（1射 ${model.gun.ammoCost}発）`);
   const oxygen = $('oxygen');

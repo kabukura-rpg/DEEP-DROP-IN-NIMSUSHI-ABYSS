@@ -120,6 +120,16 @@
 .purse{text-align:right;margin-left:auto;padding-right:10px}
 .purse span{display:block;font-size:11px;font-weight:700;letter-spacing:1px;color:#ffd479}
 .purse small{display:block;font-size:7px;letter-spacing:1.2px;color:#9aa89b;margin-top:2px}
+/* COIN HIGH. A meter that fills as money comes in, and a word once it fires. */
+.coin-high{margin-top:5px;width:96px;margin-left:auto}
+.coin-high-bar{height:5px;background:#332a16;border:1px solid #5d4d26}
+.coin-high-bar>i{display:block;height:100%;width:0;background:#c9a24a;transition:width .1s linear}
+.coin-high b{display:block;font-size:7px;letter-spacing:1.4px;color:#9aa89b;margin-top:3px;font-weight:700}
+.coin-high[data-state=active] .coin-high-bar{border-color:#ffe9a8}
+.coin-high[data-state=active] .coin-high-bar>i{background:#ffe9a8}
+.coin-high[data-state=active] b{color:#ffe9a8;animation:coin-high-pulse .5s steps(2,end) infinite}
+@keyframes coin-high-pulse{50%{opacity:.5}}
+@media(prefers-reduced-motion:reduce){.coin-high[data-state=active] b{animation:none;opacity:1}}
 .shop-purse{border-top:1px solid #4a4030;border-bottom:1px solid #4a4030;padding:12px 0;margin-bottom:16px;font-size:10px;letter-spacing:1px;color:#cfd8c2}
 .shop-purse b{font-size:22px;color:#ffd479;margin:0 4px}
 .shop-purse small{display:block;font-size:8px;color:#94a08d;margin-top:5px;letter-spacing:.5px}

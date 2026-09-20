@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest';
 import { GameModel } from '../src/systems/GameModel';
 import { WORLD } from '../src/data/balance';
 import { DOODAD_RULES, spawnDoodad, type Doodad } from '../src/data/doodads';
-import { SAFE_ZONE_RULES, insideSafeZone, rollSafeZoneContent, type SafeZone, type SafeZoneContentKind } from '../src/data/safeZone';
+import { SAFE_ZONE_RULES, coinVeinTotal, insideSafeZone, rollSafeZoneContent, type SafeZone, type SafeZoneContentKind } from '../src/data/safeZone';
 import { COMBO_TIERS } from '../src/data/combo';
 import { StageGenerator, type Platform, type RoutePlatform } from '../src/systems/StageGenerator';
 import { areaConfig, type AreaId, type SectionId } from '../src/data/areas';
@@ -543,10 +543,12 @@ describe('SAFE ZONE content reaches the existing systems', () => {
     game.platforms = []; game.enemies = []; game.pickups = []; game.hazards = []; game.doodads = []; game.safeZones = [];
     game.combo = 14;
     const { zone, floor } = withChamber(game, 'shop');
-    game.shop.rollForSection(() => 0);              // stock it, exactly as a SECTION would
-    expect(game.shop.available).toBe(true);
+    // Stocked by the SECTION already; the chamber is what opens a door onto it.
+    expect(game.shop.offers.length).toBeGreaterThan(0);
+    expect(game.shop.available).toBe(false);
     const centre = Math.round(zone.x + zone.width / 2);
     game.shop.placeEntrance(centre - 33, floor.y - 66, 66, 66);
+    expect(game.shop.available).toBe(true);
     game.player.x = centre; game.player.y = floor.y - 33; game.player.vy = 0;
     tick(game, 0.2);
     expect(game.state).toBe('shop');
@@ -555,23 +557,54 @@ describe('SAFE ZONE content reaches the existing systems', () => {
     game.closeShop();
     expect(game.combo).toBe(14);
   });
-  it('pays a COIN VEIN into both totals, once, and never as a kill', () => {
+  /** Stand above the vein, airborne, and shoot down into it -- the gunboots point down. */
+  function mine(game: GameModel, zone: SafeZone) {
+    const vein = game.coinVeinBounds(zone);
+    game.player.x = vein.x + vein.width / 2;
+    game.player.y = vein.y - 40; game.player.vy = 0; game.player.grounded = -1;
+    game.ammo = game.stats.maxAmmo;
+    for (let i = 0; i < 240 && !zone.taken; i++) {
+      game.player.y = vein.y - 40; game.player.vy = 0; game.player.grounded = -1;
+      game.step(1 / 120, 0, true);
+    }
+    return vein;
+  }
+  it('is opened by shooting it, not by walking into it', () => {
+    const game = bare();
+    const { zone } = withChamber(game, 'coinVein');
+    const vein = game.coinVeinBounds(zone);
+    // Standing right inside the vein's face does nothing at all.
+    game.player.x = vein.x + vein.width / 2;
+    game.player.y = vein.y + vein.height / 2; game.player.vy = 0;
+    tick(game, 1.5);
+    expect(zone.taken).toBe(false);
+    expect(game.coins.coins).toHaveLength(0);
+    // A round does.
+    mine(game, zone);
+    expect(zone.taken).toBe(true);
+  });
+  it('spills its whole value as real coins of both sizes, once, and never as a kill', () => {
     const game = bare();
     game.combo = 6;
     const { zone, floor } = withChamber(game, 'coinVein');
-    const vein = game.coinVeinBounds(zone);
-    game.player.x = vein.x + vein.width / 2;
-    game.player.y = vein.y + vein.height / 2; game.player.vy = 0;
-    tick(game, 0.3);
-    expect(game.coins.walletCoins).toBe(SAFE_ZONE_RULES.coinVein.coins);
-    expect(game.coins.scoreCoins).toBe(SAFE_ZONE_RULES.coinVein.coins);
+    mine(game, zone);
     expect(zone.taken).toBe(true);
+    const payout = SAFE_ZONE_RULES.coinVein.payout;
+    // Money on the FLOOR, not in the wallet: it has to be swept up like anything else.
+    const loose = game.coins.coins;
+    expect(loose.length).toBe(payout.large + payout.small);
+    expect(loose.filter(c => c.denomination === 'large').length).toBe(payout.large);
+    expect(loose.filter(c => c.denomination === 'small').length).toBe(payout.small);
+    const onFloor = loose.reduce((sum, c) => sum + c.value, 0);
+    expect(onFloor + game.coins.scoreCoins).toBe(SAFE_ZONE_RULES.coinVein.value);
+    expect(coinVeinTotal()).toBe(SAFE_ZONE_RULES.coinVein.value);
     expect(game.combo).toBe(6);
     expect(game.kills).toBe(0);
     expect(game.events.some(e => e.type === 'kill')).toBe(false);
-    // Standing in it for longer pays nothing more.
-    tick(game, 1);
-    expect(game.coins.walletCoins).toBe(SAFE_ZONE_RULES.coinVein.coins);
+    // Mining it again pays nothing more.
+    const banked = game.coins.scoreCoins + game.coins.coins.reduce((sum, c) => sum + c.value, 0);
+    mine(game, zone);
+    expect(game.coins.scoreCoins + game.coins.coins.reduce((sum, c) => sum + c.value, 0)).toBe(banked);
     expect(floor.id).toBeGreaterThan(0);
   });
   it('picks its one content from a weighted table in data', () => {
@@ -595,7 +628,7 @@ describe('SAFE ZONE generation stays out of everything else', () => {
     const generator = new StageGenerator(seeded(seed), {
       plan: config.plans![section - 1], enemyPool: config.enemyPool, water: config.water,
       oxygen: config.gimmicks?.oxygen === true, heat: config.gimmicks?.heat === true,
-      breakable: config.gimmicks?.breakablePlatforms === true, sectionLength: config.sectionLength, shop: true,
+      breakable: config.gimmicks?.breakablePlatforms === true, sectionLength: config.sectionLength,
     });
     const platforms: RoutePlatform[] = [], hazards = [], zones: SafeZone[] = [], doodads: Doodad[] = [];
     const containers = [] as { x: number; y: number; width: number; height: number }[];

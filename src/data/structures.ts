@@ -65,8 +65,13 @@ export interface AirBubble {
  *     them starts a timer, so standing on the row is safe indefinitely;
  *   - the way on is to shoot a hole. ONE block is enough: the player fits through a single gap, so
  *     the row rewards aiming rather than grinding the whole thing down;
- *   - breaking one is terrain work, not a kill: no COMBO, no enemy defeat, no kill event. A block
- *     may leave COIN, and that goes through the ordinary CoinSystem drop the same way a corpse does.
+ *   - breaking one is terrain work, not a kill: no COMBO, no enemy defeat, no kill event. A REWARD
+ *     BLOCK leaves a LARGE COIN, and that goes through the ordinary CoinSystem drop the same way a
+ *     corpse's does -- it is dropped into the shaft and still has to be caught.
+ *
+ * Which blocks pay is decided when the row is BUILT, not when a block breaks, and a reward block
+ * looks different from the moment it appears. Shooting the right stone is then a read the player can
+ * make before spending a round, rather than a coin flip settled after they already spent it.
  *
  * Durability is counted in rounds that connect rather than in damage, so every one of the seven gun
  * modules can open a block and a damage upgrade never trivialises a gate. Running dry needs no
@@ -80,9 +85,16 @@ export const BREAK_BLOCK_RULES = {
   thickness: 16,
   /** Hits one block takes before it gives way, when a SECTION plan does not say otherwise. */
   durability: 2,
-  /** Chance that breaking one block leaves money behind, and how many coins that is. */
-  coinChance: 0.25,
-  coins: 1,
+  /**
+   * Chance that a block is built as a REWARD BLOCK. PROVISIONAL: the original's rate is not
+   * measured. This is the same 0.25 the old post-break coin roll used, carried over so the amount of
+   * money in a row is roughly unchanged -- but it now decides the block's KIND at generation, and is
+   * visible from the moment the row appears. MEASUREMENT REQUIRED.
+   */
+  rewardChance: 0.25,
+  /** What one pays when it breaks. Certain, not rolled: the block already told the player. */
+  rewardCoins: 1,
+  rewardDenomination: 'large',
 } as const;
 
 /** The width of one block, so generation, collision and drawing never disagree about it. */
