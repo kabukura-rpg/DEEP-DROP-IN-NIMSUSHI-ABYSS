@@ -9,7 +9,7 @@ import { CoinSystem } from './CoinSystem';
 import { CoinHighSystem } from './CoinHighSystem';
 import { ShopSystem } from './ShopSystem';
 import { coinsFor } from '../data/coins';
-import { AIR_CONTAINER_RULES, BREAK_BLOCK_RULES, EXIT_RULES, SHOP_DOOR, SPIKE_PLATFORM_RULES, type AirBubble, type AirContainer, type StageExit } from '../data/structures';
+import { AIR_CONTAINER_RULES, BREAK_BLOCK_RULES, EXIT_RULES, LIMBO_HAZARD_RULES, SHOP_DOOR, SPIKE_PLATFORM_RULES, type AirBubble, type AirContainer, type StageExit } from '../data/structures';
 import { DOODAD_RULES, type Doodad } from '../data/doodads';
 import { insideSafeZone, SAFE_ZONE_RULES, type SafeZone } from '../data/safeZone';
 import { shopItem, type ShopOffer } from '../data/shop';
@@ -368,7 +368,9 @@ export class GameModel {
     // too -- but collecting in there still credits it, because picking a coin up is the player's
     // own action and those never stop. Decay frozen, pickup live.
     if (!frozen && this.coinHigh.tick(dt)) this.events.push({ type: 'coinHigh', x: p.x, y: p.y, value: 0 });
-    const ground = this.platforms.find(f => f.id === p.grounded);
+    // LIMBO's barbs are excluded everywhere ground is resolved. They are not a floor, so there is
+    // no state in which the player is standing on one and no path by which one reloads anything.
+    const ground = this.platforms.find(f => f.id === p.grounded && !f.limboHazard);
     if (ground && p.x + 9 > ground.x && p.x - 9 < ground.x + ground.width) p.vy = 0;
     else { p.grounded = -1; p.vy = Math.min(this.stats.maxFallSpeed, p.vy + this.stats.gravity * (this.water?.gravity ?? 1) * dt); }
     // Nothing special is needed to keep a gate row openable. A row is several blocks edge to edge,
@@ -484,7 +486,7 @@ export class GameModel {
       } else if ((topCrossing || Math.abs(p.y - e.y) < 25) && p.invincible <= 0) this.hurt(e);
     }
     if (p.vy >= 0 && p.grounded === -1) {
-      const land = this.platforms.filter(f => f.state !== 'broken' && p.x + 9 > f.x && p.x - 9 < f.x + f.width && oldY + 15 <= f.y && p.y + 15 >= f.y).sort((a, b) => a.y - b.y)[0];
+      const land = this.platforms.filter(f => !f.limboHazard && f.state !== 'broken' && p.x + 9 > f.x && p.x - 9 < f.x + f.width && oldY + 15 <= f.y && p.y + 15 >= f.y).sort((a, b) => a.y - b.y)[0];
       if (land) {
         p.y = land.y - 15; p.vy = 0; p.grounded = land.id; this.lastAirShot = -Infinity;
         this.emit('land', p.x, land.y);
@@ -523,6 +525,7 @@ export class GameModel {
     // this stays live: nothing about stopped time should make walking into lava survivable.
     this.tickLethalTerrain();
     if (!frozen) this.tickSpikePlatforms(dt);
+    if (!frozen) this.tickLimboHazards();
     // Invulnerability delays a drowning hit but can never cancel it: the debt is only cleared once
     // HealthSystem actually accepts the damage.
     if (!frozen && this.oxygen.tick(dt) && this.damage(1, 'oxygen')) this.oxygen.consumeDamage();
@@ -630,6 +633,27 @@ export class GameModel {
         spikes.state = 'safe';
         spikes.timer = 0;
       }
+    }
+  }
+  /**
+   * LIMBO's dangerous ground. Touching it costs a heart and changes nothing else.
+   *
+   * This is deliberately its own pass rather than a branch inside the landing code, because it is
+   * not a landing: `reloadCharge` and `settleCombo` are never reachable from here, CHARGE is left
+   * exactly where it was, and the chain runs on through the hit the way it runs through any other
+   * ordinary damage. Falling through one is the normal way past it.
+   */
+  private tickLimboHazards() {
+    const p = this.player;
+    if (p.invincible > 0) return;
+    for (const row of this.platforms) {
+      if (!row.limboHazard) continue;
+      if (p.x + 9 < row.x || p.x - 9 > row.x + row.width) continue;
+      if (p.y + 15 < row.y - LIMBO_HAZARD_RULES.reach || p.y - 15 > row.y + 12) continue;
+      if (this.damage(LIMBO_HAZARD_RULES.damage, 'spike')) {
+        this.events.push({ type: 'spikePlatform', x: p.x, y: row.y, value: 1 });
+      }
+      return;
     }
   }
   private tickLethalTerrain() {

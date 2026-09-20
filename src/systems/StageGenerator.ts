@@ -45,9 +45,14 @@ export interface Platform {
   /**
    * Ground that turns on the player. Landing is ordinary -- CHARGE fills, a chain settles -- and
    * then a warning runs and the spikes come up for ordinary damage. Nothing about it is instant
-   * death, and nothing about it changes what a landing is worth.
+   * death, and nothing about it changes what a landing is worth. CATACOMBS only.
    */
   spikePlatform?: SpikePlatform;
+  /**
+   * LIMBO's dangerous ground: a row of barbs that is not a floor. Nothing lands on it, so it never
+   * reloads and never settles a chain -- it is passed through, at the cost of a heart.
+   */
+  limboHazard?: boolean;
   /**
    * The SAFE ZONE this slab is the floor of. Landing on it reloads but does NOT settle the chain,
    * which is the one thing that makes a chamber shelter rather than ground.
@@ -59,7 +64,7 @@ export const START_PLATFORM: RoutePlatform = { id: -2, x: 155, y: 250, width: 14
 export const canReachPlatform = (from: RoutePlatform, to: RoutePlatform, water?: WaterPhysics) => to.y > from.y && Math.abs(to.safeX - from.exitX) <= horizontalReach(to.y - from.y, water);
 
 /** Everything one row needs, whether it came from a SECTION plan or the shared depth curve. */
-interface RowTuning { minWidth: number; maxWidth: number; gap: number; enemyChance: number; flyChance: number; toughChance: number; heavyChance: number; comboBias: number; containerChance: number; maxOxygenGap: number; bubbleOffside: number; lavaPoolChance: number; lavaWallChance: number; ventChance: number; iceChance: number; iceOffside: number; breakableChance: number; maxBreakableRun: number; spikeChance: number; spikeKinds: readonly SpikeKind[]; spikePlatformChance: number; doodadChance: number }
+interface RowTuning { minWidth: number; maxWidth: number; gap: number; enemyChance: number; flyChance: number; toughChance: number; heavyChance: number; comboBias: number; containerChance: number; maxOxygenGap: number; bubbleOffside: number; lavaPoolChance: number; lavaWallChance: number; ventChance: number; iceChance: number; iceOffside: number; breakableChance: number; maxBreakableRun: number; spikeChance: number; spikeKinds: readonly SpikeKind[]; spikePlatformChance: number; limboHazardChance: number; groundless: boolean; doodadChance: number }
 export interface GenerationContext {
   /** Metres already descended this run; only used when no SECTION plan is supplied. */
   depthOffset?: number;
@@ -185,11 +190,16 @@ export class StageGenerator {
         // A SPIKE PLATFORM only ever deals ordinary damage, but the grace period still holds it
         // back: the opening metres are where the controls are learned, not where they are tested.
         spikePlatformChance: quiet ? 0 : plan.spikePlatformChance ?? 0,
+        // LIMBO's barbs are held back by the opening grace too: the first metres of a SECTION are
+        // where a player gets their bearings, not where the floor is taken away from them.
+        limboHazardChance: quiet ? 0 : plan.limboHazardChance ?? 0,
+        // Every row a barb row means no landing to keep a lane clear for -- see placeDoodad.
+        groundless: (plan.limboHazardChance ?? 0) >= 1,
         doodadChance: quiet ? 0 : plan.doodadChance ?? 0,
       };
     }
     const curve = difficultyAt((this.context.depthOffset ?? 0) + localDepth);
-    return { minWidth: curve.minWidth, maxWidth: curve.maxWidth, gap: curve.gap, enemyChance: curve.enemyChance, flyChance: curve.flyChance, toughChance: curve.spikeChance, heavyChance: curve.tankChance, comboBias: 0, containerChance: 0, maxOxygenGap: Infinity, bubbleOffside: 0, lavaPoolChance: 0, lavaWallChance: 0, ventChance: 0, iceChance: 0, iceOffside: 0, breakableChance: 0, maxBreakableRun: Infinity, spikeChance: 0, spikeKinds: [], spikePlatformChance: 0, doodadChance: 0 };
+    return { minWidth: curve.minWidth, maxWidth: curve.maxWidth, gap: curve.gap, enemyChance: curve.enemyChance, flyChance: curve.flyChance, toughChance: curve.spikeChance, heavyChance: curve.tankChance, comboBias: 0, containerChance: 0, maxOxygenGap: Infinity, bubbleOffside: 0, lavaPoolChance: 0, lavaWallChance: 0, ventChance: 0, iceChance: 0, iceOffside: 0, breakableChance: 0, maxBreakableRun: Infinity, spikeChance: 0, spikeKinds: [], spikePlatformChance: 0, limboHazardChance: 0, groundless: false, doodadChance: 0 };
   }
 
   private pick<T>(items: readonly T[]) { return items[Math.min(items.length - 1, Math.floor(this.random() * items.length))]; }
@@ -296,10 +306,12 @@ export class StageGenerator {
         platform.state = 'stable';
         this.breakableRun = breakable ? this.breakableRun + 1 : 0;
       }
-      // Ground that turns on the player. Rolled here rather than laid as separate furniture, so it
-      // IS the ledge: a row cannot be both a rest and a trap, and the route's reachability maths are
-      // untouched by it. A gate row never carries one -- a BREAK BLOCK is already its own problem.
-      if (this.random() < tuning.spikePlatformChance) platform.spikePlatform = spikePlatform();
+      // Ground that turns on the player, and ground that was never a floor. Both are rolled here
+      // rather than laid as separate furniture, so each IS the row: a row cannot be both a rest and
+      // a trap, and the route's own maths are untouched either way. A gate row carries neither -- a
+      // BREAK BLOCK is already its own problem.
+      if (this.random() < tuning.limboHazardChance) platform.limboHazard = true;
+      else if (this.random() < tuning.spikePlatformChance) platform.spikePlatform = spikePlatform();
       if (y >= start) platforms.push(platform);
 
       let guard: Enemy | undefined;
@@ -347,21 +359,28 @@ export class StageGenerator {
   }
 
   /**
-   * A DOODAD hangs in the open band between two rows, out of the lane the safe transfer flies
-   * through. Bouncing off one is a choice, never something a fall runs into: it sits where a player
-   * has to steer for it, which is exactly what makes it worth the detour when CHARGE is dry.
+   * A DOODAD hangs in the open band between two rows.
+   *
+   * Where ground exists it is kept out of the lane the safe transfer flies through, so bouncing off
+   * one is a choice rather than something a fall blunders into. Where there is NO ground -- LIMBO,
+   * whose rows are barbs the fall passes through -- that rule has nothing left to protect: there is
+   * no landing to keep clear, the player's whole path is the fall, and holding the middle of the
+   * shaft empty would starve the one thing out there that reloads the gunboots.
    */
   private placeDoodad(tuning: RowTuning, platform: RoutePlatform, y: number, start: number, doodads: Doodad[], hazards: Hazard[], enemies: Enemy[]) {
     if (this.random() >= tuning.doodadChance) return;
     const bandTop = this.previous.y + 70, bandBottom = y - 70;
     if (bandBottom - bandTop < 20) return;
     const bandY = Math.round(bandTop + (bandBottom - bandTop) * (0.3 + this.random() * 0.4));
-    // Outside the corridor the route actually falls through, with the same slack lava gets.
+    const w = DOODAD_RULES.width;
+    // Outside the corridor the route actually falls through, with the same slack lava gets --
+    // unless the SECTION has no landable ground at all, in which case the whole shaft is fair game.
     const corridorLeft = Math.min(this.previous.exitX, platform.safeX) - 54;
     const corridorRight = Math.max(this.previous.exitX, platform.safeX) + 54;
-    const w = DOODAD_RULES.width;
-    const regions = [[WORLD.wall + 6, corridorLeft - 30], [corridorRight + 30, WORLD.width - WORLD.wall - 6]]
-      .filter(([a, b]) => b - a >= w + 8);
+    const regions = tuning.groundless
+      ? [[WORLD.wall + 6, WORLD.width - WORLD.wall - 6]]
+      : [[WORLD.wall + 6, corridorLeft - 30], [corridorRight + 30, WORLD.width - WORLD.wall - 6]]
+          .filter(([a, b]) => b - a >= w + 8);
     if (!regions.length) return;
     const [left, right] = regions[Math.floor(this.random() * regions.length)];
     const x = Math.round(left + this.random() * (right - left - w));

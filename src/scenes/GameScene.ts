@@ -7,7 +7,7 @@ import { InputBuffer } from '../systems/InputBuffer';
 import { enemyType } from '../data/enemies';
 import { pickupType } from '../data/pickups';
 import { gunModule } from '../data/gunModules';
-import { AIR_CONTAINER_RULES, BREAK_BLOCK_RULES, SPIKE_PLATFORM_RULES } from '../data/structures';
+import { AIR_CONTAINER_RULES, BREAK_BLOCK_RULES, LIMBO_HAZARD_RULES, SPIKE_PLATFORM_RULES } from '../data/structures';
 import { SAFE_ZONE_RULES } from '../data/safeZone';
 import { hazardBounds, hazardType, type Hazard } from '../data/hazards';
 export interface GameBridge {
@@ -204,6 +204,7 @@ export class GameScene extends Phaser.Scene {
       const y = f.y - cam;
       if (y < -20 || y > 820) continue;
       if (f.breakBlock) { this.breakBlock(f.x, y, f.width, f.breakBlock.hits, f.breakBlock.durability, f.breakBlock.reward); continue; }
+      if (f.limboHazard) { this.limboHazard(f.x, y, f.width); continue; }
       const cracking = f.state === 'cracking', critical = f.state === 'critical';
       // Shape carries the warning: a doomed ledge loses its top rail and splits into shards.
       const top = critical ? 0xf0a0b4 : cracking ? 0xe8d48a : f.breakable ? 0x9ad6c0 : 0xb9ef70;
@@ -474,6 +475,28 @@ export class GameScene extends Phaser.Scene {
     const top = y + 4;
     this.graphics.fillStyle(0xffd2a0, 0.8 - wear * 0.45);
     this.graphics.fillTriangle(cx - 6, top, cx + 6, top, cx, top + 7);
+  }
+  /**
+   * LIMBO's dangerous ground.
+   *
+   * Drawn as barbs with nothing under them -- no rail, no slab, no surface -- because it is not a
+   * floor and must never read as one. A CATACOMBS spike platform has a solid top the player lands
+   * on and spikes that come and go; this has neither. What is on screen is what it is: a row of
+   * points the fall goes through.
+   */
+  private limboHazard(x: number, y: number, width: number) {
+    const reach = LIMBO_HAZARD_RULES.reach;
+    // The barbs, up and down: nothing about it offers a side to stand on.
+    for (let i = x + 4; i < x + width - 6; i += 13) {
+      const cx = i + 4;
+      this.graphics.fillStyle(0xb49ae0, 0.95).fillTriangle(cx - 5, y + 2, cx + 5, y + 2, cx, y + 2 - reach);
+      this.graphics.fillStyle(0xe8dcff, 0.9).fillTriangle(cx - 1.8, y + 2, cx + 1.8, y + 2, cx, y + 2 - reach);
+      this.graphics.fillStyle(0x6a5a92, 0.7).fillTriangle(cx - 4, y + 2, cx + 4, y + 2, cx, y + 2 + reach * 0.5);
+    }
+    // A thin seam of void rather than a surface, so there is visibly nothing to touch down on.
+    this.rect(x, y + 1, width, 2, 0x2d2740, 0.85);
+    const glow = 0.25 + Math.abs(Math.sin(this.model.elapsed * 2.6 + x)) * 0.2;
+    this.rect(x, y - 1, width, 1, 0xc0a7ed, glow);
   }
   /**
    * A SPIKE PLATFORM, through its cycle.

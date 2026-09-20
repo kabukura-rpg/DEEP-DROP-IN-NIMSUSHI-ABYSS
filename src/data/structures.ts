@@ -153,3 +153,26 @@ export const SPIKE_PLATFORM_RULES = {
 
 /** A fresh, unarmed spike platform. */
 export const spikePlatform = (): SpikePlatform => ({ state: 'safe', timer: 0 });
+
+/**
+ * LIMBO's dangerous ground.
+ *
+ * Deliberately NOT a SPIKE PLATFORM. A spike platform is CATACOMBS' idea: ordinary ground that is
+ * safe to arrive on, fills CHARGE, settles a chain, and only then turns. Reusing it here would hand
+ * LIMBO exactly the thing LIMBO is not allowed to have -- somewhere to drop onto when the gunboots
+ * run dry.
+ *
+ * This is the opposite object. It is not a floor at all: nothing lands on it, nothing stands on it,
+ * and touching it costs a heart and nothing else -- CHARGE is untouched, the chain is untouched, and
+ * the fall carries on through it. The only things that refill the gunboots outside a SAFE ZONE are
+ * the floating doodads, which is what makes the AREA a loop of shoot, bounce, shoot.
+ */
+export const LIMBO_HAZARD_RULES = {
+  /**
+   * Hearts one touch costs, through HealthSystem like any other ordinary damage -- so the usual
+   * invulnerability window applies and a chain survives it. MEASUREMENT REQUIRED.
+   */
+  damage: 1,
+  /** How far the barbs stand above the row, for drawing and for the hitbox. MEASUREMENT REQUIRED. */
+  reach: 14,
+} as const;

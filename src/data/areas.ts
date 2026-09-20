@@ -60,10 +60,17 @@ export interface SectionPlan {
    * Per-row chance that the ledge IS a SPIKE PLATFORM: ground that is safe to land on and then
    * turns, after a visible warning, for ordinary damage. Nothing about it is instant death.
    *
-   * At 1 every ledge in the SECTION is one, which is how AREA 4 has no safe ground to rest on
-   * without having no ground at all. MEASUREMENT REQUIRED.
+   * CATACOMBS only. MEASUREMENT REQUIRED.
    */
   spikePlatformChance?: number;
+  /**
+   * Per-row chance that the row is LIMBO's dangerous ground: barbs that are not a floor at all.
+   * Nothing lands on one, so it neither reloads nor settles -- it is fallen through for a heart.
+   *
+   * At 1 the SECTION has no landable ground outside its SAFE ZONE, which is the point of the AREA:
+   * the only thing that refills the gunboots out there is a floating doodad. MEASUREMENT REQUIRED.
+   */
+  limboHazardChance?: number;
 
   // --- BREAK FLOOR ----------------------------------------------------------------------------
   /**
@@ -246,11 +253,11 @@ export const AREAS: readonly AreaConfig[] = [
     theme: { wall: 0x241f2e, wallEdge: 0x3c3350, pillar: 0x2d2740, brick: 0x171422, accent: 0xc0a7ed, dust: 0x8c82a5, rift: { glow: 0x9d7bd8, void: 0x0b0710, debris: 0x4a3f63 } },
     plans: [
       { platformWidth: [92, 112], gap: 232, enemyChance: 0.30, flyChance: 0.26, toughChance: 0.16, heavyChance: 0, comboBias: 0.24, graceDepth: 26,
-        spikePlatformChance: 1, doodadChance: 0.85, safeZoneCount: 1 },
+        limboHazardChance: 1, doodadChance: 0.95, safeZoneCount: 1 },
       { platformWidth: [84, 102], gap: 238, enemyChance: 0.46, flyChance: 0.40, toughChance: 0.28, heavyChance: 0, comboBias: 0.34,
-        spikePlatformChance: 1, doodadChance: 0.90, safeZoneCount: 1 },
+        limboHazardChance: 1, doodadChance: 0.95, safeZoneCount: 1 },
       { platformWidth: [76, 94], gap: 244, enemyChance: 0.58, flyChance: 0.50, toughChance: 0.34, heavyChance: 0, comboBias: 0.40,
-        spikePlatformChance: 1, doodadChance: 0.95, safeZoneCount: 1 },
+        limboHazardChance: 1, doodadChance: 0.95, safeZoneCount: 1 },
     ],
   },
 ];
