@@ -452,24 +452,25 @@ export class GameScene extends Phaser.Scene {
     // A rivet at each end marks the stone as built rather than grown.
     this.rect(x + 5, y + 6, 4, 4, 0x2b211a);
     this.rect(x + width - 9, y + 6, 4, 4, 0x2b211a);
+    // Fractures: one more opens for every round this stone has taken. Drawn on both kinds, so a
+    // reward block still shows how close it is to giving way.
+    for (let i = 0; i < hits; i++) {
+      const at = x + ((i + 1) * width) / (durability + 1);
+      this.graphics.fillStyle(0x1b1410, 0.9).fillTriangle(at, y, at + 6, y + thickness, at - 5, y + thickness);
+    }
+    const cx = x + width / 2;
     if (reward) {
-      // Gold running through the rock, and the coin it is worth.
+      // Gold running through the rock, and the coin it is worth, over the top of the fractures.
       const glint = 0.66 + Math.abs(Math.sin(this.model.elapsed * 2.4 + x)) * 0.34;
       this.rect(x + 8, y + thickness - 6, width - 16, 2, 0xffe9a8, glint * 0.8);
-      const cx = x + width / 2;
       this.rect(cx - 5, y + 5, 10, 8, 0x2b211a);
       this.rect(cx - 4, y + 6, 8, 6, 0xffd479, glint);
       this.rect(cx - 1, y + 7, 2, 4, 0x8a6520, glint);
       return;
     }
-    // Fractures: one more opens for every round this stone has taken.
-    for (let i = 0; i < hits; i++) {
-      const at = x + ((i + 1) * width) / (durability + 1);
-      this.graphics.fillStyle(0x1b1410, 0.9).fillTriangle(at, y, at + 6, y + thickness, at - 5, y + thickness);
-    }
     // A downward chevron rather than a word: label2 only carries the glyphs A, I and R, so any
     // caption here would have drawn nothing at all, and an arrow says the same in every language.
-    const cx = x + width / 2, top = y + 4;
+    const top = y + 4;
     this.graphics.fillStyle(0xffd2a0, 0.8 - wear * 0.45);
     this.graphics.fillTriangle(cx - 6, top, cx + 6, top, cx, top + 7);
   }
