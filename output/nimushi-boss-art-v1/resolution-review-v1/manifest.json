@@ -1,0 +1,60 @@
+{
+  "status": "RESOLUTION AND ALIGNMENT HUMAN REVIEW PENDING",
+  "sourceCell": [
+    256,
+    224
+  ],
+  "displayCell": [
+    256,
+    224
+  ],
+  "scale": 1,
+  "alphaBounds": [
+    16,
+    16,
+    232,
+    208
+  ],
+  "paletteColors": 14297,
+  "eyeAnchor": [
+    128,
+    114
+  ],
+  "pivot": [
+    128,
+    40
+  ],
+  "placement": "pivot maps to actual body center including existing hit recoil; visual eye center is body center +74px",
+  "geometry": "Actual body/contact/eye getters read at capture time. No gameplay edits.",
+  "postprocess": {
+    "crop": [
+      50,
+      41,
+      1291,
+      1142
+    ],
+    "resample": "NEAREST",
+    "paletteReduction": false,
+    "alphaThreshold": 128,
+    "contentSize": [
+      216,
+      192
+    ],
+    "offset": [
+      16,
+      16
+    ]
+  },
+  "eyes": "Both human eyes baked into this lock reference only; separate animated overlay deferred.",
+  "alignments": {
+    "A": {
+      "renderOffsetY": 0
+    },
+    "B": {
+      "renderOffsetY": -16
+    }
+  },
+  "masterFile": "../master-alignment-v1/MASTER_NIMUSHI.png",
+  "masterSha256": "ab3ef30577fafd6fe8cc84e852bcf97ec652c8a10c34bdfa9f37f341079f5160",
+  "spriteSha256": "15bdc45865b165691e9d7d256d22fb628f011b2fbd4b7fecec5c155458701305"
+}

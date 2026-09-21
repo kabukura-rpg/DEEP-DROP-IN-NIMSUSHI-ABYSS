@@ -885,8 +885,6 @@ export class GameScene extends Phaser.Scene {
   private boss(cam: number) {
     const fight = this.model.boss;
     if (!fight.enabled) return;
-    const m = this.model;
-
     // The rising deep. Drawn first and across the whole shaft: it is the floor of the arena and
     // the thing the player is being pushed away from.
     const edge = fight.boundaryY - cam;
@@ -939,6 +937,21 @@ export class GameScene extends Phaser.Scene {
       this.graphics.fillStyle(0x6b4a58, 0.8).fillCircle(pearl.x - pearl.size * 0.3, py - pearl.size * 0.3, pearl.size * 0.4);
     }
 
+    this.bossBody(cam);
+    const body = fight.body, y = body.y - cam;
+    if (y > 860 || y + body.height < -220) return;
+    const pose = fight.pose;
+    // Casting: the cup-hand is raised and the air around it lights up.
+    if (pose === 'cast') {
+      const beat = 0.2 + Math.abs(Math.sin(this.model.elapsed * 13)) * 0.5;
+      for (let i = 0; i < 10; i++) this.rect(fight.x - 3 + (i % 3 - 1) * 26, y + body.height + 10 + i * 16, 6, 10, 0xffe9a8, beat * (1 - i / 12));
+    }
+    if (pose === 'dead') for (let i = 0; i < 8; i++) this.rect(body.x + i * 21, y + body.height, 10, 12 + (i % 3) * 8, 0x4a3f45, 0.4);
+  }
+
+  /** Body/face rendering only. Kept separate from hazards for isolated art review. */
+  private bossBody(cam: number) {
+    const m = this.model, fight = m.boss;
     const body = fight.body, y = body.y - cam;
     if (y > 860 || y + body.height < -220) return;
     const pose = fight.pose;
@@ -991,12 +1004,7 @@ export class GameScene extends Phaser.Scene {
       this.rect(eye.x, ey + eye.height / 2 - 3, eye.width, 6, 0x2a1b20);
       this.rect(eye.x + 4, ey + eye.height / 2 - 6, eye.width - 8, 4, hair, 0.7);
     }
-    // Casting: the cup-hand is raised and the air around it lights up.
-    if (pose === 'cast') {
-      const beat = 0.2 + Math.abs(Math.sin(this.model.elapsed * 13)) * 0.5;
-      for (let i = 0; i < 10; i++) this.rect(fight.x - 3 + (i % 3 - 1) * 26, y + body.height + 10 + i * 16, 6, 10, 0xffe9a8, beat * (1 - i / 12));
-    }
-    if (dead) for (let i = 0; i < 8; i++) this.rect(body.x + i * 21, y + body.height, 10, 12 + (i % 3) * 8, hood, 0.4);
+
   }
 
   private enemy(e: Enemy, cam: number) {

@@ -9,3 +9,7 @@
 MASTER→128×112 source / 256×224 displayの変換と描画配置のみを検討。geometry / physics / cameraは変更禁止。最新A/Bは `output/nimushi-boss-art-v1/master-alignment-v1/README.md`。上端差32→16pxの部分改善。alignment承認はまだ得ていない。
 
 旧specの設計案より本記録を優先。BODY14/EYES7/CLONE/SHADEの制作はalignment承認後。巨大sheetの直接生成はしない。
+
+## Resolution review update
+
+2026-09-22：128×112 sourceは固定仕様ではない。MASTER fidelityを優先し、256×224 source / 同logical displayも比較する。`output/nimushi-boss-art-v1/resolution-review-v1/index.html` とdev専用 `live.html` が最新レビュー。128/256 × 配置A/Bを比較可能。MASTER原画・gameplay geometryは維持。解像度・配置の承認はまだ得ていない。

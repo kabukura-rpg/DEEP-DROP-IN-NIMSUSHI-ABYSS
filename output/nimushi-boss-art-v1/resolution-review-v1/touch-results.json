@@ -1,0 +1,494 @@
+{
+  "before": {
+    "state": {
+      "resolution": "256",
+      "alignment": "B",
+      "legacy": false,
+      "showOverlay": false,
+      "sourceSize": [
+        256,
+        224
+      ],
+      "displaySize": [
+        256,
+        224
+      ],
+      "body": {
+        "x": 141,
+        "y": 1172.0000000000036,
+        "width": 168,
+        "height": 112
+      },
+      "contact": {
+        "x": 141,
+        "y": 1172.0000000000036,
+        "width": 168,
+        "height": 82
+      },
+      "eye": {
+        "x": 195,
+        "width": 60,
+        "y": 1284.0000000000036,
+        "height": 72
+      },
+      "cameraY": 1012.0000000000036,
+      "player": {
+        "x": 225,
+        "y": 1696.5
+      },
+      "state": "boss",
+      "bossState": "attackPrep",
+      "pose": "cast",
+      "eyeOpen": false,
+      "bossHp": 120,
+      "hp": 4,
+      "elapsed": 0.4000000000000004,
+      "ammo": 8,
+      "deathCause": null,
+      "paused": false,
+      "renderer": 2,
+      "textureSize": [
+        256,
+        224
+      ]
+    },
+    "events": {
+      "section": 4,
+      "seal": 2,
+      "abyss": 2,
+      "boss": 2,
+      "bossPhase": 2
+    }
+  },
+  "fired": {
+    "state": {
+      "resolution": "256",
+      "alignment": "B",
+      "legacy": false,
+      "showOverlay": false,
+      "sourceSize": [
+        256,
+        224
+      ],
+      "displaySize": [
+        256,
+        224
+      ],
+      "body": {
+        "x": 141,
+        "y": 984.7619047619144,
+        "width": 168,
+        "height": 112
+      },
+      "contact": {
+        "x": 141,
+        "y": 984.7619047619144,
+        "width": 168,
+        "height": 82
+      },
+      "eye": {
+        "x": 195,
+        "width": 60,
+        "y": 1096.7619047619144,
+        "height": 72
+      },
+      "cameraY": 825.333333333343,
+      "player": {
+        "x": 225,
+        "y": 1487.699999999998
+      },
+      "state": "boss",
+      "bossState": "tapiocaShower",
+      "pose": "attack",
+      "eyeOpen": true,
+      "bossHp": 118,
+      "hp": 4,
+      "elapsed": 1.0666666666666653,
+      "ammo": 4,
+      "deathCause": null,
+      "paused": false,
+      "renderer": 2,
+      "textureSize": [
+        256,
+        224
+      ]
+    },
+    "events": {
+      "section": 4,
+      "seal": 2,
+      "abyss": 2,
+      "boss": 2,
+      "bossPhase": 2,
+      "shot": 4,
+      "bossFire": 1,
+      "bossHit": 2
+    }
+  },
+  "left": {
+    "resolution": "256",
+    "alignment": "B",
+    "legacy": false,
+    "showOverlay": false,
+    "sourceSize": [
+      256,
+      224
+    ],
+    "displaySize": [
+      256,
+      224
+    ],
+    "body": {
+      "x": 141,
+      "y": 871.0000000000086,
+      "width": 168,
+      "height": 112
+    },
+    "contact": {
+      "x": 141,
+      "y": 871.0000000000086,
+      "width": 168,
+      "height": 82
+    },
+    "eye": {
+      "x": 195,
+      "width": 60,
+      "y": 983.0000000000086,
+      "height": 72
+    },
+    "cameraY": 711.0000000000086,
+    "player": {
+      "x": 157.5,
+      "y": 1283.9217592592602
+    },
+    "state": "boss",
+    "bossState": "tapiocaShower",
+    "pose": "attack",
+    "eyeOpen": true,
+    "bossHp": 116,
+    "hp": 3,
+    "elapsed": 1.4749999999999972,
+    "ammo": 4,
+    "deathCause": null,
+    "paused": false,
+    "renderer": 2,
+    "textureSize": [
+      256,
+      224
+    ]
+  },
+  "right": {
+    "resolution": "256",
+    "alignment": "B",
+    "legacy": false,
+    "showOverlay": false,
+    "sourceSize": [
+      256,
+      224
+    ],
+    "displaySize": [
+      256,
+      224
+    ],
+    "body": {
+      "x": 141,
+      "y": 754.3333333333401,
+      "width": 168,
+      "height": 112
+    },
+    "contact": {
+      "x": 141,
+      "y": 754.3333333333401,
+      "width": 168,
+      "height": 82
+    },
+    "eye": {
+      "x": 195,
+      "width": 60,
+      "y": 866.3333333333401,
+      "height": 72
+    },
+    "cameraY": 594.3333333333401,
+    "player": {
+      "x": 226.5,
+      "y": 1067.2550925925973
+    },
+    "state": "boss",
+    "bossState": "tapiocaShower",
+    "pose": "attack",
+    "eyeOpen": true,
+    "bossHp": 116,
+    "hp": 3,
+    "elapsed": 1.8916666666666624,
+    "ammo": 4,
+    "deathCause": null,
+    "paused": false,
+    "renderer": 2,
+    "textureSize": [
+      256,
+      224
+    ]
+  },
+  "paused": {
+    "resolution": "256",
+    "alignment": "B",
+    "legacy": false,
+    "showOverlay": false,
+    "sourceSize": [
+      256,
+      224
+    ],
+    "displaySize": [
+      256,
+      224
+    ],
+    "body": {
+      "x": 141,
+      "y": 731.0000000000064,
+      "width": 168,
+      "height": 112
+    },
+    "contact": {
+      "x": 141,
+      "y": 731.0000000000064,
+      "width": 168,
+      "height": 82
+    },
+    "eye": {
+      "x": 195,
+      "width": 60,
+      "y": 843.0000000000064,
+      "height": 72
+    },
+    "cameraY": 571.0000000000064,
+    "player": {
+      "x": 226.5,
+      "y": 1023.9217592592646
+    },
+    "state": "boss",
+    "bossState": "tapiocaShower",
+    "pose": "attack",
+    "eyeOpen": true,
+    "bossHp": 116,
+    "hp": 3,
+    "elapsed": 1.9749999999999954,
+    "ammo": 4,
+    "deathCause": null,
+    "paused": true,
+    "renderer": 2,
+    "textureSize": [
+      256,
+      224
+    ]
+  },
+  "checks": [
+    {
+      "resolution": "128",
+      "alignment": "A",
+      "legacy": false,
+      "showOverlay": false,
+      "sourceSize": [
+        128,
+        112
+      ],
+      "displaySize": [
+        256,
+        224
+      ],
+      "body": {
+        "x": 141,
+        "y": 731.0000000000064,
+        "width": 168,
+        "height": 112
+      },
+      "contact": {
+        "x": 141,
+        "y": 731.0000000000064,
+        "width": 168,
+        "height": 82
+      },
+      "eye": {
+        "x": 195,
+        "width": 60,
+        "y": 843.0000000000064,
+        "height": 72
+      },
+      "cameraY": 571.0000000000064,
+      "player": {
+        "x": 226.5,
+        "y": 1023.9217592592646
+      },
+      "state": "boss",
+      "bossState": "tapiocaShower",
+      "pose": "attack",
+      "eyeOpen": true,
+      "bossHp": 116,
+      "hp": 3,
+      "elapsed": 1.9749999999999954,
+      "ammo": 4,
+      "deathCause": null,
+      "paused": true,
+      "renderer": 2,
+      "textureSize": [
+        128,
+        112
+      ]
+    },
+    {
+      "resolution": "128",
+      "alignment": "B",
+      "legacy": false,
+      "showOverlay": false,
+      "sourceSize": [
+        128,
+        112
+      ],
+      "displaySize": [
+        256,
+        224
+      ],
+      "body": {
+        "x": 141,
+        "y": 731.0000000000064,
+        "width": 168,
+        "height": 112
+      },
+      "contact": {
+        "x": 141,
+        "y": 731.0000000000064,
+        "width": 168,
+        "height": 82
+      },
+      "eye": {
+        "x": 195,
+        "width": 60,
+        "y": 843.0000000000064,
+        "height": 72
+      },
+      "cameraY": 571.0000000000064,
+      "player": {
+        "x": 226.5,
+        "y": 1023.9217592592646
+      },
+      "state": "boss",
+      "bossState": "tapiocaShower",
+      "pose": "attack",
+      "eyeOpen": true,
+      "bossHp": 116,
+      "hp": 3,
+      "elapsed": 1.9749999999999954,
+      "ammo": 4,
+      "deathCause": null,
+      "paused": true,
+      "renderer": 2,
+      "textureSize": [
+        128,
+        112
+      ]
+    },
+    {
+      "resolution": "256",
+      "alignment": "A",
+      "legacy": false,
+      "showOverlay": false,
+      "sourceSize": [
+        256,
+        224
+      ],
+      "displaySize": [
+        256,
+        224
+      ],
+      "body": {
+        "x": 141,
+        "y": 731.0000000000064,
+        "width": 168,
+        "height": 112
+      },
+      "contact": {
+        "x": 141,
+        "y": 731.0000000000064,
+        "width": 168,
+        "height": 82
+      },
+      "eye": {
+        "x": 195,
+        "width": 60,
+        "y": 843.0000000000064,
+        "height": 72
+      },
+      "cameraY": 571.0000000000064,
+      "player": {
+        "x": 226.5,
+        "y": 1023.9217592592646
+      },
+      "state": "boss",
+      "bossState": "tapiocaShower",
+      "pose": "attack",
+      "eyeOpen": true,
+      "bossHp": 116,
+      "hp": 3,
+      "elapsed": 1.9749999999999954,
+      "ammo": 4,
+      "deathCause": null,
+      "paused": true,
+      "renderer": 2,
+      "textureSize": [
+        256,
+        224
+      ]
+    },
+    {
+      "resolution": "256",
+      "alignment": "B",
+      "legacy": false,
+      "showOverlay": false,
+      "sourceSize": [
+        256,
+        224
+      ],
+      "displaySize": [
+        256,
+        224
+      ],
+      "body": {
+        "x": 141,
+        "y": 731.0000000000064,
+        "width": 168,
+        "height": 112
+      },
+      "contact": {
+        "x": 141,
+        "y": 731.0000000000064,
+        "width": 168,
+        "height": 82
+      },
+      "eye": {
+        "x": 195,
+        "width": 60,
+        "y": 843.0000000000064,
+        "height": 72
+      },
+      "cameraY": 571.0000000000064,
+      "player": {
+        "x": 226.5,
+        "y": 1023.9217592592646
+      },
+      "state": "boss",
+      "bossState": "tapiocaShower",
+      "pose": "attack",
+      "eyeOpen": true,
+      "bossHp": 116,
+      "hp": 3,
+      "elapsed": 1.9749999999999954,
+      "ammo": 4,
+      "deathCause": null,
+      "paused": true,
+      "renderer": 2,
+      "textureSize": [
+        256,
+        224
+      ]
+    }
+  ],
+  "errors": []
+}

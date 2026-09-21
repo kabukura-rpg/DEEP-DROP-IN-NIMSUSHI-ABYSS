@@ -1,0 +1,27 @@
+{
+  "cases": 12,
+  "errors": [],
+  "modelUnchanged": true,
+  "geometryIdentical": true,
+  "logicalDisplay": [
+    256,
+    224
+  ],
+  "alphaBoundsLogical": [
+    16,
+    16,
+    232,
+    208
+  ],
+  "scope": "Paused static game rendering; no combat test",
+  "masterHashUnchanged": true,
+  "lowCandidateByteIdentical": true,
+  "liveScenarios": 7,
+  "liveErrors": [],
+  "touchErrors": [],
+  "liveSwitchModelUnchanged": true,
+  "productionTests": "907/907",
+  "tsc": "PASS",
+  "build": "PASS",
+  "distReviewTokensAbsent": true
+}
