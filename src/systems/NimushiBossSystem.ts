@@ -110,7 +110,13 @@ export class NimushiBossSystem {
     return 'attack';
   }
   /** True while FULL SCREEN TAPIOCA is pouring underneath whatever else is happening. */
-  get rageActive() { return this.raged && this.active && this.state !== 'finalRage'; }
+  /**
+   * Whether FINAL RAGE's curtain is pouring.
+   *
+   * The rage STATE still happens -- the threshold, the cut-in, the line, the pose and the visual
+   * hook are all live -- but the pearls are switched off at the data. See FULL_SCREEN_TAPIOCA.
+   */
+  get rageActive() { return FULL_SCREEN_TAPIOCA.enabled && this.raged && this.active && this.state !== 'finalRage'; }
 
   get body() {
     return { x: this.x - NIMUSHI.bodyWidth / 2, y: this.y - NIMUSHI.bodyHeight / 2, width: NIMUSHI.bodyWidth, height: NIMUSHI.bodyHeight };

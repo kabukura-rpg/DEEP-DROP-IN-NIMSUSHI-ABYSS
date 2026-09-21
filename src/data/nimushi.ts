@@ -289,7 +289,19 @@ export const NIMUSHI_CLONES = { minCount: 2, maxCount: 4, spread: 150 } as const
  * corridor is two adjacent lanes wide and walks one lane per wave, turning at the walls -- so the
  * screen is never sealed, and the gap is somewhere the player has to travel to rather than stand in.
  */
+/**
+ * GAMEPLAY DISABLED. The definition, the state, the signals and the hooks are all intact.
+ *
+ * The prototype is answering one question -- is reversed gravity plus the run's own stomp, bounce,
+ * reload and gunboots a fight? -- and a curtain of pearls below 25% HP puts a bullet-hell mechanic
+ * back into the answer. NIMUSHI is played on the shaft's rules from full HP to zero.
+ *
+ * `enabled` is the one switch. Turn it back on once the core loop has been judged, and everything
+ * below works exactly as it did.
+ */
 export const FULL_SCREEN_TAPIOCA = {
+  /** Whether the curtain pours at all. See the note above. */
+  enabled: false,
   lanes: 9,
   /** Adjacent lanes left open in every wave. Never zero, by construction. */
   corridor: 2,

@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest';
 import { fighting, round, seeded, STEP, tick } from './nimushi';
 import { GameModel } from '../src/systems/GameModel';
 import { ABYSS_PHASES, ARENA_FLOOR } from '../src/data/abyss';
-import { NIMUSHI } from '../src/data/nimushi';
+import { FINAL_RAGE_RATIO, FULL_SCREEN_TAPIOCA, NIMUSHI } from '../src/data/nimushi';
 import { WORLD } from '../src/data/balance';
 import { GUN_MODULES, type GunModuleId } from '../src/data/gunModules';
 
@@ -193,5 +193,40 @@ describe('the prototype runs on gravity and the weak point alone', () => {
       g.step(STEP, 0, false);
       expect({ id, hit: g.boss.hp < before }).toEqual({ id, hit: true });
     }
+  });
+});
+
+/**
+ * FINAL RAGE: the curtain is off, the framework is not.
+ *
+ * The prototype is answering whether reversed gravity plus the run's own verbs is a fight, and a
+ * screen of pearls below 25% HP would put a bullet-hell mechanic back into that answer. The rage
+ * STATE still happens -- threshold, cut-in, line, pose -- so the shape of the fight is intact and
+ * switching the pearls back on is one flag.
+ */
+describe('FINAL RAGE is framework-only in the prototype', () => {
+  it('has the curtain switched off at the data', () => {
+    expect(FULL_SCREEN_TAPIOCA.enabled).toBe(false);
+    // ...and every number it needs to come back is still there.
+    expect(FULL_SCREEN_TAPIOCA.corridor).toBeGreaterThanOrEqual(2);
+    expect(FULL_SCREEN_TAPIOCA.lanes).toBeGreaterThan(FULL_SCREEN_TAPIOCA.corridor);
+    expect(FULL_SCREEN_TAPIOCA.waveInterval).toBeGreaterThan(0);
+  });
+
+  it('still enters the rage state, and pours nothing', () => {
+    const g = arena(611);
+    g.boss.hp = Math.round(NIMUSHI.maxHp * FINAL_RAGE_RATIO) - 1;
+    let raged = false, pearls = 0;
+    for (let i = 0; i < 20 / STEP && g.state === 'boss'; i++) {
+      g.player.invincible = 9;
+      const target = g.enemies.filter(e => e.alive && e.stompable)
+        .sort((a, b) => Math.abs(a.y - g.player.y) - Math.abs(b.y - g.player.y))[0];
+      if (g.boss.eyeOpen && i % 20 === 0) g.bullets.push(round(g.boss.x, g.boss.eye.y + g.boss.eye.height / 2, 1));
+      g.step(STEP, target ? Math.sign(target.x - g.player.x) : 0, false);
+      if (g.boss.raged) raged = true;
+      pearls = Math.max(pearls, g.boss.tapiocas.filter(t => t.life > 0).length);
+    }
+    expect(raged).toBe(true);
+    expect(pearls).toBe(0);
   });
 });
