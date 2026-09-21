@@ -83,6 +83,9 @@ export const plainBullet = (x: number, y: number, damage = 1, size = 4): Bullet 
   pierceBlocks: false, blocks: new Set(),
   range: 900, travelled: 0, beam: false, hits: new Set(), alive: true,
 });
+/** The shaft's own brickwork, for coins outside any cave. Named so the two readings match. */
+const COIN_SHAFT_WALLS = { left: WORLD.wall, right: WORLD.width - WORLD.wall } as const;
+
 export class GameModel {
   stats = initialStats();
   player = { x: 225, y: WORLD.startY, vy: 0, vx: 0, width: 22, height: 30, invincible: 0, grounded: -1 };
@@ -1011,7 +1014,16 @@ export class GameModel {
     // something the player collects rather than a pile frozen in mid-air -- and it is why a coin
     // taken in a chamber still feeds the COIN HIGH meter even though the meter's decay is stopped.
     const held = stoppedWorld ? (coin: { x: number; y: number }) => !stoppedWorld.contains(coin.x, coin.y) : undefined;
-    const picked = this.coins.tick(dt, p, this.cameraY, held);
+    // What a coin bounces off. A SIDE CAVE is hollowed out BEYOND the shaft's brickwork, so a coin
+    // spilled from a vein inside one lives at an x the shaft would reject -- and the shaft clamp
+    // used to snap the whole payout onto the main shaft's wall, out of the cave the player mined it
+    // in. The coin's OWN world position decides which walls apply, for either wall of the shaft and
+    // for a chamber or a cave alike; there is no per-archetype case here and no offset anywhere.
+    const walls = this.caves.length ? (coin: { x: number; y: number }) => {
+      const cave = this.caves.find(c => insideCave(c, coin.x, coin.y));
+      return cave ? { left: cave.bounds.x, right: cave.bounds.x + cave.bounds.width } : COIN_SHAFT_WALLS;
+    } : undefined;
+    const picked = this.coins.tick(dt, p, this.cameraY, held, walls);
     if (picked.collected > 0) {
       this.earnCoins(picked.earned, p.x, p.y);
       this.events.push({ type: 'coin', x: p.x, y: p.y, value: this.coins.walletCoins });

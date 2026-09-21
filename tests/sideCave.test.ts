@@ -10,6 +10,7 @@ import {
 } from '../src/data/sideCave';
 import { JUMP, WORLD, BALANCE } from '../src/data/balance';
 import { pickupType } from '../src/data/pickups';
+import { coinVeinTotal } from '../src/data/safeZone';
 
 /**
  * SIDE CAVES. Every run is seeded, and both global switches are restored afterwards.
@@ -216,6 +217,8 @@ describe('SIDE CAVE in a run', () => {
     }
   });
 
+  /** A run parked with a COIN cave loaded, on the wanted wall. */
+  const findCoinCave = (side: -1 | 1) => findCave('coinVein', side);
   /** A run parked with a cave of the wanted archetype loaded, plus that cave. */
   function findCave(kind: 'gunModule' | 'shop' | 'coinVein', side: -1 | 1) {
     for (let seed = 1; seed <= 600; seed++) {
@@ -310,6 +313,75 @@ describe('SIDE CAVE in a run', () => {
       expect(walkOut(g, cave), `${side}: the way out must be a walk`).toBe(true);
       expect(g.timeFrozen).toBe(false);
     }
+  });
+
+  it('spills a mined vein INSIDE the cave, at the vein, on either wall', () => {
+    for (const side of [-1, 1] as const) {
+      const found = findCoinCave(side);
+      expect(found, `${side}: no coin cave`).not.toBeNull();
+      const { g, cave } = found!;
+      const vein = g.veinBounds(cave);
+      const origin = { x: vein.x + vein.width / 2, y: vein.y + vein.height / 2 };
+      // The view where a player who walked in would have it, so nothing is culled for being off
+      // screen before it can be looked at.
+      g.cameraY = vein.y - WORLD.height * 0.37;
+      g.player.x = origin.x;
+      g.ammo = g.stats.maxAmmo;
+      g.events.length = 0;
+      for (let i = 0; i < 300 && !cave.taken; i++) {
+        g.player.y = vein.y - 40; g.player.vy = 0; g.player.grounded = -1; g.player.invincible = 999;
+        g.step(STEP, 0, true);
+      }
+      expect(cave.taken).toBe(true);
+      // The payout is announced at the vein's own WORLD position -- not a room-local one, not one
+      // derived from which wall the cave is in, and not one adjusted for the camera.
+      const paid = g.events.find(e => e.type === 'coinVein');
+      expect(paid).toBeDefined();
+      expect(Math.abs(paid!.x - origin.x), `${side}: payout announced away from the vein`).toBeLessThan(2);
+
+      // And every coin of it is IN THE CAVE, beside the vein. This is the bug that was reported:
+      // the shaft clamp used to snap the whole spill onto the main shaft's wall.
+      const coins = g.coins.coins;
+      expect(coins.length).toBeGreaterThan(0);
+      for (let frame = 0; frame < 6; frame++) {
+        for (const coin of coins) {
+          expect(coin.x, `${side}: a coin left the cave`).toBeGreaterThan(cave.bounds.x);
+          expect(coin.x).toBeLessThan(cave.bounds.x + cave.bounds.width);
+          // ...and near where it came from, rather than pinned to anything.
+          expect(Math.abs(coin.x - origin.x), `${side}: a coin is nowhere near the vein`).toBeLessThan(90);
+        }
+        // Never resting exactly on a shaft wall, which is what the clamp used to do to all of them.
+        expect(coins.filter(c => c.x === WORLD.wall || c.x === WORLD.width - WORLD.wall).length).toBe(0);
+        g.player.y = vein.y - 40; g.player.vy = 0; g.player.invincible = 999;
+        g.step(STEP, 0, false);
+      }
+    }
+  });
+
+  it('pays the same haul in a cave as a chamber, and it is still swept up by hand', () => {
+    const found = findCoinCave(-1);
+    const { g, cave } = found!;
+    const vein = g.veinBounds(cave);
+    g.cameraY = vein.y - WORLD.height * 0.37;
+    g.player.x = vein.x + vein.width / 2;
+    g.ammo = g.stats.maxAmmo;
+    g.events.length = 0;
+    for (let i = 0; i < 300 && !cave.taken; i++) {
+      g.player.y = vein.y - 40; g.player.vy = 0; g.player.grounded = -1; g.player.invincible = 999;
+      g.step(STEP, 0, true);
+    }
+    // The amount is the rules' own, untouched by any of this.
+    expect(g.events.find(e => e.type === 'coinVein')!.value).toBe(coinVeinTotal());
+    // Still a spill to be collected rather than a credit: the wallet is empty until one is touched.
+    expect(g.coins.walletCoins).toBe(0);
+    const before = g.coins.walletCoins;
+    for (let i = 0; i < 600 && g.coins.coins.length; i++) {
+      // Stand in the spill; the magnet and the ordinary collection path do the rest.
+      const coin = g.coins.coins[0];
+      g.player.x = coin.x; g.player.y = coin.y; g.player.vy = 0; g.player.invincible = 999;
+      g.step(STEP, 0, false);
+    }
+    expect(g.coins.walletCoins).toBeGreaterThan(before);
   });
 
   it('holds the player inside whichever cave they are in, and never outside one', () => {

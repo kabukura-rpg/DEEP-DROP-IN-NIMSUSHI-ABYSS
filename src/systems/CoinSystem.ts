@@ -13,6 +13,9 @@ import { WORLD } from '../data/balance';
  * It knows nothing about the COIN HIGH meter. Every path that earns money returns the value it
  * earned and the caller feeds the meter, so there is exactly one place that decides what counts.
  */
+/** What a coin bounces off when nothing says otherwise: the shaft's own brickwork. */
+const SHAFT_WALLS = { left: WORLD.wall, right: WORLD.width - WORLD.wall } as const;
+
 export class CoinSystem {
   coins: Coin[] = [];
   scoreCoins = 0;
@@ -71,8 +74,14 @@ export class CoinSystem {
    * either: it is waiting for the world to start again, exactly as a round in flight is. A coin in
    * the chamber with the player carries on as normal, which is what makes a mined COIN VEIN
    * collectable rather than a pile hanging in the air.
+   *
+   * `walls` says what a coin bounces off, per coin. The shaft's brickwork is the default and was
+   * once the only answer, because the shaft was the whole world. A SIDE CAVE is hollowed out
+   * BEYOND that brickwork, so a coin spilled inside one lives at an x the shaft would reject --
+   * and clamping it to the shaft teleported a mined vein's whole payout out of the cave and onto
+   * the wall of the main shaft. Whoever knows where the coin is says what contains it.
    */
-  tick(dt: number, player: { x: number; y: number }, cameraY: number, stopped?: (coin: Coin) => boolean) {
+  tick(dt: number, player: { x: number; y: number }, cameraY: number, stopped?: (coin: Coin) => boolean, walls?: (coin: Coin) => { left: number; right: number }) {
     let collected = 0, earned = 0;
     // The coins themselves, not just the total: COIN POWERED pays charge per gem and POPPING COINS
     // fires per gem, and both need to know which size each one was.
@@ -93,9 +102,11 @@ export class CoinSystem {
       coin.vy = drop * this.gravitySign;
       coin.x += coin.vx * dt;
       coin.y += coin.vy * dt;
-      // Coins bounce off the shaft walls instead of sliding out of the world.
-      if (coin.x < WORLD.wall) { coin.x = WORLD.wall; coin.vx = Math.abs(coin.vx) * 0.6; }
-      if (coin.x > WORLD.width - WORLD.wall) { coin.x = WORLD.width - WORLD.wall; coin.vx = -Math.abs(coin.vx) * 0.6; }
+      // Coins bounce off whatever contains them instead of sliding out of the world: the shaft's
+      // brickwork out in the shaft, and the cave's own rock when they are inside one.
+      const bounds = walls?.(coin) ?? SHAFT_WALLS;
+      if (coin.x < bounds.left) { coin.x = bounds.left; coin.vx = Math.abs(coin.vx) * 0.6; }
+      if (coin.x > bounds.right) { coin.x = bounds.right; coin.vx = -Math.abs(coin.vx) * 0.6; }
       if (Math.abs(coin.x - player.x) < this.rules.radius + 10 && Math.abs(coin.y - player.y) < this.rules.radius + 16) {
         coin.taken = true;
         this.scoreCoins += coin.value;

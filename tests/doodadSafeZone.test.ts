@@ -716,6 +716,25 @@ describe('SAFE ZONE content reaches the existing systems', () => {
     mine(game, zone);
     expect(zone.taken).toBe(true);
   });
+  it('still keeps a chamber spill inside the shaft, where a chamber is', () => {
+    // The regression for the SIDE CAVE coin fix. Coins used to be clamped to the shaft's brickwork
+    // unconditionally, which was right for a chamber -- it IS in the shaft -- and wrong for a cave,
+    // which is hollowed out beyond it. The clamp is per-coin now; a chamber must not have noticed.
+    const game = bare();
+    const { zone } = withChamber(game, 'coinVein');
+    const vein = mine(game, zone);
+    expect(zone.taken).toBe(true);
+    for (let frame = 0; frame < 20; frame++) {
+      for (const coin of game.coins.coins) {
+        expect(coin.x).toBeGreaterThanOrEqual(WORLD.wall);
+        expect(coin.x).toBeLessThanOrEqual(WORLD.width - WORLD.wall);
+      }
+      game.step(1 / 120, 0, false);
+    }
+    // ...and they came from the vein, not from anywhere else.
+    expect(Math.abs((game.events.find(e => e.type === 'coinVein')?.x ?? 0) - (vein.x + vein.width / 2))).toBeLessThan(2);
+  });
+
   it('spills its whole value as real coins of both sizes, once, and never as a kill', () => {
     const game = bare();
     game.combo = 6;
