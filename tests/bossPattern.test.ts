@@ -117,16 +117,50 @@ describe('the shower is fought through, not waited out', () => {
     expect(showerShut).toBe(0);
   });
 
-  it('leaves the other three shut, whenever they come back', () => {
-    // BEAM, CUP and CLONES are out of every rotation, and opening the eye is not something they
-    // inherit: only `tapiocaShower` is named in `eyeOpen`.
+  it('leaves CUP and CLONES shut, whenever they come back', () => {
+    // Opening the eye is not something an attack inherits by being an attack: only the two that
+    // were judged one at a time are named in `eyeOpen`.
     const g = fighting(205);
     const machine = g.boss as unknown as { state: string };
-    for (const id of ['strawBeam', 'cupSummon', 'nimushiClones'] as const) {
+    for (const id of ['cupSummon', 'nimushiClones'] as const) {
       machine.state = ATTACK_STATES[id];
       expect({ id, open: g.boss.eyeOpen }).toEqual({ id, open: false });
     }
     machine.state = ATTACK_STATES.tapiocaShower;
     expect(g.boss.eyeOpen).toBe(true);
+  });
+
+  /**
+   * The BEAM's telegraph outlives the `attackPrep` state by half a second, so the state alone is
+   * the wrong thing to ask -- what decides it is whether a line is still being PROMISED.
+   */
+  it('keeps the eye shut while a beam is only a warning, and opens it once it burns', () => {
+    const g = fighting(206);
+    const machine = g.boss as unknown as { state: string };
+    machine.state = ATTACK_STATES.strawBeam;
+    g.boss.beams.push({ id: 1, x: 200, width: STRAW_BEAM.width, state: 'warning', timer: STRAW_BEAM.warning });
+    expect(g.boss.eyeOpen).toBe(false);
+    g.boss.beams[0].state = 'live';
+    expect(g.boss.eyeOpen).toBe(true);
+    // ...and for the tail of the attack after the column has gone.
+    g.boss.beams = [];
+    expect(g.boss.eyeOpen).toBe(true);
+  });
+
+  it('shuts the eye through the warning, in a real fight', () => {
+    const g = fighting(207);
+    let warnOpen = 0, warnFrames = 0, liveShut = 0, liveFrames = 0;
+    for (let i = 0; i < 60 / STEP && g.state === 'boss'; i++) {
+      g.player.invincible = 9;
+      g.step(STEP, 0, false);
+      const warning = g.boss.beams.some(b => b.state === 'warning');
+      const live = g.boss.beams.some(b => b.state === 'live');
+      if (warning) { warnFrames++; if (g.boss.eyeOpen) warnOpen++; }
+      if (live) { liveFrames++; if (!g.boss.eyeOpen) liveShut++; }
+    }
+    expect(warnFrames).toBeGreaterThan(0);
+    expect(liveFrames).toBeGreaterThan(0);
+    expect(warnOpen).toBe(0);
+    expect(liveShut).toBe(0);
   });
 });

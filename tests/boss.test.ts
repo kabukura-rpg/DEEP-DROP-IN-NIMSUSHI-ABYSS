@@ -601,15 +601,14 @@ describe('the five attacks', () => {
    * and the weak point above. Cases that drove a live attack went with the rotation and return with
    * it, in the order SHOWER, BEAM, CLONES, CUP.
    */
-  it('runs SHOWER alone, and keeps every other definition intact', () => {
-    for (const phase of ABYSS_PHASES) expect([...phase.attacks]).toEqual(['tapiocaShower']);
+  it('runs SHOWER and BEAM, and keeps every other definition intact', () => {
+    for (const phase of ABYSS_PHASES) expect([...phase.attacks]).toEqual(['tapiocaShower', 'strawBeam']);
     for (const id of Object.keys(NIMUSHI_ATTACKS) as (keyof typeof NIMUSHI_ATTACKS)[]) {
       expect(NIMUSHI_ATTACKS[id].prep).toBeGreaterThan(0);
       expect(ATTACK_STATES[id]).toBe(id);
     }
-    // BEAM and CLONES are out of every rotation, exactly as CUP is.
+    // CLONES are out of every rotation, exactly as CUP is.
     for (const phase of ABYSS_PHASES) {
-      expect(phase.attacks.includes('strawBeam')).toBe(false);
       expect(phase.attacks.includes('nimushiClones')).toBe(false);
     }
   });

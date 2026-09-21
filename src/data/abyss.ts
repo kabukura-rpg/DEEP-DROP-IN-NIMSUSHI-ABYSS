@@ -175,20 +175,21 @@ export type AbyssAttackId = 'tapiocaShower' | 'cupSummon' | 'strawBeam' | 'nimus
  * challenge, it is a stall.
  */
 /**
- * ONE ATTACK IS BACK. The other three are still disabled, and none of them is deleted.
+ * TWO ATTACKS ARE BACK. CUP and CLONES are still disabled, and neither is deleted.
  *
  * The core loop was judged good by hand: gravity, the standing supply of things to stomp, the drop
- * below and the weak point above. SHOWER is the first thing layered back on top of it, alone,
- * because a fight that is answered by dodging is a different game from a fight that is answered by
- * stomping -- and the only way to know which one this is, is to add one attack and look.
+ * below and the weak point above. Attacks go back on one at a time, and each one has to earn its
+ * place against that loop rather than beside it.
  *
- * SHOWER is the right one to be first. It asks the player to be somewhere else across the shaft,
- * which is a thing they were already doing to line up the next stomp; it does not ask them to stop
- * doing it. BEAM, CUP and CLONES all interrupt the loop rather than steering it, so they wait.
+ * SHOWER was first. It asks the player to be somewhere else across the shaft, which is a thing they
+ * were already doing to line up the next stomp. BEAM is second because it asks the same question at
+ * a different scale: one wide column, announced well before it burns, answered by choosing which
+ * side of it the next stomp is on. Fine lane-reading against a single large commitment.
  *
- * Every definition, every state and every spawner for the other three is intact: turning one back
- * on is one entry in the arrays below. The order for re-judging them is BEAM, then CLONES, then
- * CUP, one at a time.
+ * They are never in the air together -- the machine runs one attack at a time, and measured over
+ * six 90-second fights a live beam and a pearl coexisted for 0.00 seconds.
+ *
+ * CUP and CLONES are intact and still out: turning one back on is one entry in the arrays below.
  */
 export const ABYSS_PHASES: readonly AbyssPhase[] = [
   {
@@ -197,16 +198,16 @@ export const ABYSS_PHASES: readonly AbyssPhase[] = [
     breakBlockChance: 0, spikeChance: 0, containerChance: 0, doodadChance: 0,
     groundless: true, clonePool: ['nimushiClone'], heart: true,
     // One attack, low density: this stretch is where the player learns that down is up.
-    // SHOWER only. The stretch where the player learns that down is up, with one thing to dodge.
-    attacks: ['tapiocaShower'],
+    // The stretch where the player learns that down is up, with two things to read.
+    attacks: ['tapiocaShower', 'strawBeam'],
   },
   {
     id: 2, name: 'CATACOMB OF CUPS', role: 'catacomb', from: 0.75,
     rowGap: 355, ledgeWidth: [0, 0],
     breakBlockChance: 0, spikeChance: 0, containerChance: 0, doodadChance: 0,
     groundless: true, clonePool: ['nimushiClone'], heart: true,
-    // SHOWER only: CUP is still out of the rotation, whatever this stretch is called.
-    attacks: ['tapiocaShower'],
+    // CUP is still out of the rotation, whatever this stretch is called.
+    attacks: ['tapiocaShower', 'strawBeam'],
   },
   {
     id: 3, name: 'AQUIFER OF SYRUP', role: 'aquifer', from: 0.5,
@@ -214,16 +215,16 @@ export const ABYSS_PHASES: readonly AbyssPhase[] = [
     rowGap: 350, ledgeWidth: [0, 0],
     breakBlockChance: 0, spikeChance: 0, containerChance: 0.8, doodadChance: 0,
     groundless: true, clonePool: ['nimushiClone'], heart: true,
-    // SHOWER only: BEAM is still out of the rotation.
-    attacks: ['tapiocaShower'],
+    // The stretch the BEAM was named for, and it is finally in it.
+    attacks: ['tapiocaShower', 'strawBeam'],
   },
   {
     id: 4, name: 'LIMBO OF THE DEEP', role: 'limbo', from: 0.25,
     rowGap: 330, ledgeWidth: [0, 0],
     breakBlockChance: 0, spikeChance: 0, containerChance: 0, doodadChance: 0,
     groundless: true, clonePool: ['nimushiShade'], heart: false,
-    // SHOWER only: CLONES and BEAM are both still out of the rotation.
-    attacks: ['tapiocaShower'],
+    // CLONES are still out of the rotation.
+    attacks: ['tapiocaShower', 'strawBeam'],
   },
 ];
 

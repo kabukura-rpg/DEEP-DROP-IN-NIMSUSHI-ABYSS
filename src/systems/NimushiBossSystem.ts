@@ -117,11 +117,18 @@ export class NimushiBossSystem {
    * The 0.7s wind-up is NOT in the list, on purpose: the cast is a warning, and a warning that can
    * be shot is just a longer window. Closed for the tell, open for the answer.
    *
-   * Only the shower. BEAM, CUP and CLONES are out of every rotation; if one comes back, whether it
-   * opens the eye is its own decision to make and not one inherited from here.
+   * `strawBeam` counts for the same reason, once its WARNING has actually become a beam. The beam's
+   * telegraph outlives the `attackPrep` state by half a second, so the state alone is the wrong
+   * thing to ask: what the rule needs is "is there still a line being promised". Closed while one
+   * is, open once the column is burning -- and open for the tail of the state after it has gone.
+   *
+   * CUP and CLONES are out of every rotation; if one comes back, whether it opens the eye is its
+   * own decision to make and not one inherited from here.
    */
   get eyeOpen() {
-    return this.active && (this.state === 'dormant' || this.state === 'eyeOpen' || this.state === 'tapiocaShower');
+    if (!this.active) return false;
+    if (this.state === 'dormant' || this.state === 'eyeOpen' || this.state === 'tapiocaShower') return true;
+    return this.state === 'strawBeam' && !this.beams.some(b => b.state === 'warning');
   }
   /** What the view draws. Derived, so a sprite can never disagree with the machine. */
   get pose(): NimushiPose {
