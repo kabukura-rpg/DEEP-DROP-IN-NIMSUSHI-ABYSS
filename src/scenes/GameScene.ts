@@ -12,6 +12,7 @@ import { SAFE_ZONE_RULES } from '../data/safeZone';
 import { hazardBounds, hazardType, type Hazard } from '../data/hazards';
 import { TerrainWatch } from '../dev/TerrainWatch';
 import { SPEED_PROFILES } from '../data/speedProfiles';
+import { PlayerArtPreview } from '../dev/PlayerArtPreview';
 export interface GameBridge {
   direction: number; firing: boolean; active: boolean;
   onFrame: (model: GameModel) => void;
@@ -21,6 +22,8 @@ interface Particle { x: number; y: number; vx: number; vy: number; life: number;
 export class GameScene extends Phaser.Scene {
   model = new GameModel();
   private graphics!: Phaser.GameObjects.Graphics;
+  private playerArt?: PlayerArtPreview;
+  private artForeground?: Phaser.GameObjects.Graphics;
   private keys!: Record<string, Phaser.Input.Keyboard.Key>;
   private particles: Particle[] = [];
   /**
@@ -39,6 +42,7 @@ export class GameScene extends Phaser.Scene {
   private damageTime = 0;
   private labels: { text: Phaser.GameObjects.Text; y: number; life: number }[] = [];
   constructor(private bridge: GameBridge) { super('Game'); }
+  preload() { if (import.meta.env.DEV) PlayerArtPreview.preload(this); }
   create() {
     // Expose the recorder so a human who sees the terrain misbehave can dump the history at once.
     // DEV only; in a production build `terrainWatch` is null and this never runs.
@@ -67,6 +71,11 @@ export class GameScene extends Phaser.Scene {
       };
     }
     this.graphics = this.add.graphics();
+    if (import.meta.env.DEV) {
+      this.playerArt = new PlayerArtPreview(this, () => this.draw());
+      // Preserve ordering: world -> body -> particles/damage flash/scanlines.
+      this.artForeground = this.add.graphics();
+    }
     this.keys = this.input.keyboard!.addKeys({ left: 'LEFT', right: 'RIGHT', a: 'A', d: 'D', space: 'SPACE' }) as Record<string, Phaser.Input.Keyboard.Key>;
     this.input.keyboard!.addCapture(['SPACE', 'LEFT', 'RIGHT']);
     this.input.keyboard!.on('keydown-SPACE', () => this.requestShot());
@@ -75,6 +84,7 @@ export class GameScene extends Phaser.Scene {
     this.draw();
   }
   startRun(practice = false) {
+    this.playerArt?.reset();
     this.model = new GameModel(practice); this.accumulator = 0; this.particles = []; this.freeze = 0;
     for (const label of this.labels) label.text.destroy();
     this.labels = []; this.flash = 0; this.shake = 0; this.damageTime = 0; this.damageSource = undefined; this.inputBuffer.clear();
@@ -115,6 +125,7 @@ export class GameScene extends Phaser.Scene {
   }
   private dispatchEvents() {
     for (const event of this.model.events.splice(0)) {
+      this.playerArt?.event(event, this.model);
       if (event.type === 'shot' || event.type === 'empty' || event.type === 'jump' || event.type === 'wallJump') this.inputBuffer.consumeShot();
       this.effect(event); this.bridge.onEvent(event, this.model);
     }
@@ -446,23 +457,28 @@ export class GameScene extends Phaser.Scene {
       const flare = 0.5 + Math.abs(Math.sin(this.model.elapsed * 22)) * 0.5;
       for (let i = 0; i < 3; i++) this.rect(x - 6 + i * 5, y + 18 + i, 4, 8 + i * 3, i === 1 ? 0xffe6ae : 0xffa85c, flare);
     }
-    if (!(p.invincible > 0 && Math.floor(p.invincible * 16) % 2)) {
+    const art = this.playerArt?.render(m, g.x, Math.max(-1, Math.min(1, this.bridge.direction + (this.keys?.right.isDown || this.keys?.d.isDown ? 1 : 0) - (this.keys?.left.isDown || this.keys?.a.isDown ? 1 : 0))));
+    if (!art && !(p.invincible > 0 && Math.floor(p.invincible * 16) % 2)) {
       this.rect(x - 19, y - 21, 38, 43, 0xb9ef70, 0.035);
       this.rect(x - 13, y - 14, 26, 21, 0xc8f58b); this.rect(x - 9, y - 19, 18, 5, 0xc8f58b);
       this.rect(x - 10, y - 10, 20, 10, 0x243632); this.rect(x - 7, y - 8, 5, 4, 0xf2ffdb); this.rect(x + 3, y - 8, 5, 4, 0xf2ffdb);
       this.rect(x - 8, y + 7, 6, 8, 0x88af63); this.rect(x + 3, y + 7, 6, 8, 0x88af63); this.rect(x - 3, y + 3, 6, 17, 0xe9eedc);
       this.rect(x - 17, y, 5, 9, 0x85ac65); this.rect(x + 12, y, 5, 9, 0x85ac65);
     }
+    // In production this is still the original single Graphics object.
+    const foreground = this.artForeground ?? g;
+    if (foreground !== g) { foreground.clear().setPosition(g.x, g.y); this.graphics = foreground; }
     for (const particle of this.particles) this.rect(particle.x, particle.y - cam, particle.size, particle.size, particle.color, Math.min(1, particle.life * 4));
     if (this.damageTime > 0 && this.damageSource) {
       const source = m.enemies.find(e => e.id === this.damageSource!.id) || this.damageSource;
-      g.lineStyle(2, 0xffb2c6, this.damageTime / 0.3).strokeCircle(source.x, source.y - cam, 29 + (0.3 - this.damageTime) * 30);
-      g.lineStyle(1, 0xffb2c6, this.damageTime / 0.6).lineBetween(x, y, source.x, source.y - cam);
+      foreground.lineStyle(2, 0xffb2c6, this.damageTime / 0.3).strokeCircle(source.x, source.y - cam, 29 + (0.3 - this.damageTime) * 30);
+      foreground.lineStyle(1, 0xffb2c6, this.damageTime / 0.6).lineBetween(x, y, source.x, source.y - cam);
     }
     this.heatHaze(cam);
     if (this.flash > 0) this.rect(0, 0, 450, 800, 0xfa5277, this.flash);
     // Subtle scanlines keep the whole world at the same visual texture.
     for (let y = 0; y < WORLD.height; y += 4) this.rect(0, y, 450, 1, 0x050b0d, 0.13);
+    this.graphics = g;
   }
   /** Sky, horizon and grass above the AREA 1 entrance; other areas simply omit the colours. */
   private surface(theme: { sky?: number; horizon?: number; grass?: number }, cam: number) {
