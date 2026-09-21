@@ -13,6 +13,7 @@ import { AIR_CONTAINER_RULES, BREAK_BLOCK_RULES, EXIT_RULES, LIMBO_HAZARD_RULES,
 import { DOODAD_RULES, spawnDoodad, type Doodad } from '../data/doodads';
 import { CORPSE_RULES, spawnCorpse, type Corpse } from '../data/corpses';
 import { insideSafeZone, SAFE_ZONE_RULES, type SafeZone } from '../data/safeZone';
+import { CAVE_RULES, caveRewardSpot, inCaveInterior, insideCave, moduleCaveShape, type SideCave } from '../data/sideCave';
 import { BOSS_PHYSICS, GRAVITY_DIRECTION, type BattlePhysics } from '../data/bossPhysics';
 import { spawnEnemy } from '../data/enemies';
 import { ABYSS_SHOP_AREA, shopItem, type ShopOffer } from '../data/shop';
@@ -193,6 +194,11 @@ export class GameModel {
     const p = this.player;
     const zone = this.safeZones.find(z => insideSafeZone(z, p.x, p.y));
     if (zone) return { contains: (x, y) => insideSafeZone(zone, x, y) };
+    // A SIDE CAVE stops the world too, but only once the player is PAST THE THROAT. Standing in the
+    // mouth looking in is still the shaft: the decision to go in has not been made yet, and a hole
+    // that froze the run just for being looked at would make the choice for the player.
+    const cave = this.caves.find(c => inCaveInterior(c, p.x, p.y));
+    if (cave) return { contains: (x, y) => insideCave(cave, x, y) };
     const bubble = this.timeoutBubbles.find(b => Math.hypot(p.x - b.x, p.y - b.y) <= b.radius);
     if (bubble) return { contains: (x, y) => Math.hypot(x - bubble.x, y - bubble.y) <= bubble.radius };
     return null;
@@ -347,6 +353,30 @@ export class GameModel {
    * one clamp it has only ever moves it forward. So the camera's "only ever travels with the pull"
    * rule is never fighting this one.
    */
+  /**
+   * Follow the player sideways while they are in a SIDE CAVE, and ease back to the shaft on the way
+   * out. Eased every frame rather than set, so there is no snap going in and no jump coming out --
+   * the view slides across and slides back, and in the shaft it rests at zero like it always has.
+   *
+   * The target keeps the player centred but is clamped to the cave's own span plus the shaft, so
+   * the view never runs off the end of the rock or loses sight of the way home.
+   */
+  private trackCaveCamera(dt: number) {
+    const cave = this.cave;
+    let want = 0;
+    if (cave) {
+      const span = cave.side === -1
+        ? { from: cave.bounds.x - 8, to: WORLD.width }
+        : { from: 0, to: cave.bounds.x + cave.bounds.width + 8 };
+      want = Math.max(span.from, Math.min(span.to - WORLD.width, this.player.x - WORLD.width / 2));
+    }
+    const ease = Math.min(1, dt * CAVE_RULES.cameraFollow);
+    const limit = CAVE_RULES.cameraMaxSpeed * dt;
+    const move = (want - this.cameraX) * ease;
+    this.cameraX += Math.max(-limit, Math.min(limit, move));
+    if (Math.abs(this.cameraX - want) < 0.2) this.cameraX = want;
+  }
+
   private bossAnchorCamera(): number | null {
     if (!this.inBossArena || !this.boss.enabled) return null;
     // The FRAMED body: NIMUSHI's station, with the hit recoil left out, so shooting the eye jolts
@@ -380,6 +410,14 @@ export class GameModel {
   maxCombo = 0;
   killScore = 0;
   cameraY = 0;
+  /**
+   * The camera's horizontal offset. Zero everywhere in the shaft, which is the whole game except
+   * inside a SIDE CAVE -- a cave reaches outside the shaft, so following the player into one is the
+   * only way to show them. Eased, never snapped, and eased back to zero on the way out.
+   */
+  cameraX = 0;
+  /** The SIDE CAVEs currently loaded. Culled with everything else once they are behind. */
+  caves: SideCave[] = [];
   elapsed = 0;
   cooldown = 0;
   state: 'playing' | 'upgrade' | 'boss' | 'over' | 'clear' | 'shop' = 'playing';
@@ -411,9 +449,28 @@ export class GameModel {
   resetPhysicsTuning() { this.setPhysicsTuning(defaultTuning()); }
   /** Present only for submerged areas; undefined restores the ordinary instant movement. */
   get water() { return this.practice ? undefined : this.boss.enabled ? this.boss.phase.water : this.stage.config.water; }
-  /** The playable span; the player's body stops 12px short of the brickwork on either side. */
-  private get leftEdge() { return WORLD.wall + 12; }
-  private get rightEdge() { return WORLD.width - WORLD.wall - 12; }
+  /**
+   * The SIDE CAVE the player is in, or null. A cave reaches outside the shaft, so this is what
+   * widens the playable span, moves the camera and stops the world -- and it is checked against the
+   * whole cave, including its sill, so walking in off the ledge is never blocked by the shaft wall.
+   */
+  get cave(): SideCave | null {
+    const p = this.player;
+    return this.caves.find(c => insideCave(c, p.x, p.y)) ?? null;
+  }
+  /**
+   * The playable span; the player's body stops 12px short of the brickwork on either side -- or of
+   * the cave's far wall, while they are inside one. There is no third case: a cave's bounds always
+   * overlap the shaft at its mouth, so the span is continuous across the threshold.
+   */
+  private get leftEdge() {
+    const cave = this.cave;
+    return cave && cave.side === -1 ? cave.bounds.x + 12 : WORLD.wall + 12;
+  }
+  private get rightEdge() {
+    const cave = this.cave;
+    return cave && cave.side === 1 ? cave.bounds.x + cave.bounds.width - 12 : WORLD.width - WORLD.wall - 12;
+  }
   /** -1 pressed against the left wall, 1 against the right, 0 in open air. */
   get wallSide(): -1 | 0 | 1 {
     const p = this.player;
@@ -775,7 +832,11 @@ export class GameModel {
       b.travelled += Math.hypot(b.vx, b.vy) * dt;
       if (b.travelled > b.range) { b.alive = false; continue; }
       // Angled rounds stop at the shaft walls rather than leaving the world.
-      if (b.x < WORLD.wall || b.x > WORLD.width - WORLD.wall) { b.alive = false; continue; }
+      // The shaft's brickwork stops a round -- unless it is flying inside a SIDE CAVE, which is
+      // hollowed out of that brickwork and has its own walls further out.
+      if (b.x < WORLD.wall || b.x > WORLD.width - WORLD.wall) {
+        if (!this.caves.some(c => insideCave(c, b.x, b.y))) { b.alive = false; continue; }
+      }
       // A COIN VEIN is mined by shooting it. Checked before the shaft's own obstacles because a
       // vein only ever stands inside a chamber, where none of them are.
       const vein = this.veinAt(b.x, b.y);
@@ -993,6 +1054,9 @@ export class GameModel {
       // The doorway is the player's business rather than the world's, so it runs inside stopped
       // time -- and inside the ABYSS staging room, which is the one place a 'boss' state shops.
       if (!fighting || this.abyssStage === 'staging') this.enterShop();
+      // The horizontal camera runs INSIDE stopped time too: the player is still walking around in
+      // there, and a view that froze with them would leave the far end of the cave off screen.
+      this.trackCaveCamera(dt);
       if (!frozen) {
         this.cameraY = this.leadCamera(p.y);
         this.generate();
@@ -1015,6 +1079,8 @@ export class GameModel {
     this.hazards = this.hazards.filter(h => !this.behindCamera(this.trailingEdge(h.y, h.height), 180));
     this.doodads = this.doodads.filter(d => !this.behindCamera(this.trailingEdge(d.y, d.height), 180));
     this.safeZones = this.safeZones.filter(z => !this.behindCamera(this.trailingEdge(z.y, z.height), 240));
+    // A cave is never culled while the player is inside it, however far the view has travelled.
+    this.caves = this.caves.filter(c => c === this.cave || !this.behindCamera(this.trailingEdge(c.bounds.y, c.bounds.height), 240));
   }
   /**
    * AREA 3's heat pass. Only hazards near the player are considered -- the run's whole hazard list
@@ -1504,6 +1570,7 @@ export class GameModel {
     this.containers = this.containers.filter(box => box.y <= cut);
     this.doodads = this.doodads.filter(d => d.y <= cut);
     this.safeZones = this.safeZones.filter(z => z.y <= cut);
+    this.caves = this.caves.filter(c => c.bounds.y <= cut);
     const rows = this.platforms.filter((row): row is RoutePlatform => 'safeX' in row);
     const deepest = rows.reduce((low, row) => (row.y > low.y ? row : low), rows[0] ?? this.generator.frontierRow);
     const laid = this.generator.layExit(Math.max(cut, deepest.y + EXIT_RULES.depthMargin * WORLD.pixelsPerMeter), deepest);
@@ -1714,7 +1781,7 @@ export class GameModel {
   private openArena() {
     const p = this.player;
     this.platforms = []; this.enemies = []; this.bullets = []; this.doodads = [];
-    this.safeZones = []; this.hazards = []; this.containers = []; this.bubbles = [];
+    this.safeZones = []; this.caves = []; this.cameraX = 0; this.hazards = []; this.containers = []; this.bubbles = [];
     this.pickups = this.pickups.filter(item => !item.taken && item.kind === 'gunModule');
     this.shop.reset();
     this.exit = null;
@@ -1905,7 +1972,7 @@ export class GameModel {
     this.sectionDepth = 0; this.cameraY = 0; this.cooldown = 0; this.lastAirShot = -Infinity;
     this.platforms = [{ ...START_PLATFORM }]; this.enemies = []; this.bullets = []; this.nextChunk = 0;
     this.wallJumpUsed = 0; this.wallKick = 0; this.wallTouchSide = 0; this.wallTouchAge = Infinity;
-    this.pickups = []; this.hazards = []; this.doodads = []; this.safeZones = []; p.vx = 0;
+    this.pickups = []; this.hazards = []; this.doodads = []; this.safeZones = []; this.caves = []; this.cameraX = 0; p.vx = 0;
     // Bodies, blasts and stopped time all belong to the SECTION that made them. TIMEOUT bubbles in
     // particular are cleared here: a bubble surviving into the next SECTION is not something the
     // original suggests, and leaving them would accumulate stopped time across a whole run.
@@ -2203,6 +2270,16 @@ export class GameModel {
       this.platforms.push(...chunk.platforms); this.enemies.push(...chunk.enemies);
       this.pickups.push(...chunk.pickups); this.hazards.push(...chunk.hazards);
       this.doodads.push(...chunk.doodads);
+      for (const cave of chunk.caves) {
+        this.caves.push(cave);
+        // The reward is materialised through the same system a ledge crate uses, so a module found
+        // in a cave and one found anywhere else are the same object taking the same path.
+        const spot = caveRewardSpot(cave, moduleCaveShape(cave.side));
+        if (cave.content?.kind === 'gunModule') {
+          this.pickups.push(spawnGunModule(cave.id + 1, Math.round(spot.x), Math.round(spot.y - 34),
+            cave.content.module ?? STARTING_GUN_MODULE, cave.content.bonus ?? 'heart'));
+        }
+      }
       for (const zone of chunk.safeZones) {
         this.safeZones.push(zone);
         // Content is materialised through the systems that already own it, so a module found in a

@@ -7,6 +7,7 @@ import { AREAS, areaConfig, type SectionId } from '../src/data/areas';
 import { WORLD } from '../src/data/balance';
 import type { Hazard } from '../src/data/hazards';
 import type { SafeZone } from '../src/data/safeZone';
+import type { SideCave } from '../src/data/sideCave';
 
 const seeded = (seed: number) => () => { seed = (Math.imul(seed, 1664525) + 1013904223) >>> 0; return seed / 4294967296; };
 const area1 = areaConfig(1);
@@ -69,14 +70,15 @@ function build(section: SectionId, seed: number) {
   const generator = new StageGenerator(seeded(seed), {
     plan: config.plans![section - 1], enemyPool: config.enemyPool, sectionLength: config.sectionLength,
   });
-  const platforms: RoutePlatform[] = [], hazards: Hazard[] = [], zones: SafeZone[] = [];
+  const platforms: RoutePlatform[] = [], hazards: Hazard[] = [], zones: SafeZone[] = [], caves: SideCave[] = [];
   for (let chunk = 0; chunk < chunks; chunk++) {
     const built = generator.chunk(chunk);
     platforms.push(...built.platforms.filter(p => p.y <= WORLD.startY + pixels));
     hazards.push(...built.hazards.filter(h => h.y <= WORLD.startY + pixels));
-    zones.push(...built.safeZones);
+    zones.push(...built.safeZones); caves.push(...built.caves);
   }
-  return { platforms, hazards, zones };
+  // A GUN MODULE is a cave now, not a chamber; "somewhere to step off the fall line" is both.
+  return { platforms, hazards, zones, rooms: zones.length + caves.length };
 }
 
 describe('AREA 1 enemy roster', () => {
@@ -346,7 +348,7 @@ describe('AREA 1 presentation data', () => {
         blocks += gate.length;
         rewards += gate.filter(p => p.breakBlock!.reward).length;
         zones += shaft.zones.length;
-        expect({ section, seed, chamber: shaft.zones.length >= 1 }).toEqual({ section, seed, chamber: true });
+        expect({ section, seed, chamber: shaft.rooms >= 1 }).toEqual({ section, seed, chamber: true });
       }
     }
     expect(blocks).toBeGreaterThan(0);

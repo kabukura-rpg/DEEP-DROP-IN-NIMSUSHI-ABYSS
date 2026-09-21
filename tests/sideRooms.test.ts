@@ -4,7 +4,7 @@ import { AREAS, areaConfig, type AreaId } from '../src/data/areas';
 import { setTerrainMode } from '../src/data/rhythm';
 import {
   SAFE_ZONE_RULES, getSideRoomMode, setSideRoomMode, sideRoomCount, safeZoneRowClearance,
-  safeZoneDepths, type SafeZone, type SideRoomMode,
+  safeZoneDepths, type SafeZoneContent, type SideRoomMode,
 } from '../src/data/safeZone';
 import { WORLD, BALANCE } from '../src/data/balance';
 import { fallTime, horizontalReach } from '../src/data/difficulty';
@@ -29,10 +29,17 @@ function build(areaId: AreaId, section: number, seed: number) {
   const limit = WORLD.startY + area.sectionLength * WORLD.pixelsPerMeter;
   const chunks = Math.ceil((limit - WORLD.startY) / WORLD.chunkHeight) + 2;
   const bands = new Map<number, RoutePlatform[]>();
-  const zones: SafeZone[] = [];
+  // Chambers AND caves: a GUN MODULE is found in a cave, and both are a chance to step off the
+  // fall line. They are shaped differently, so only what they have in common is read here.
+  const zones: { y: number; height: number; x: number; width: number; side: -1 | 1; content: SafeZoneContent | null }[] = [];
   let enemies = 0;
   for (let c = 0; c < chunks; c++) {
     const k = g.chunk(c);
+    for (const cave of k.caves) {
+      if (cave.bounds.y > limit) continue;
+      // A cave's "mouth" is its opening; that is the spot the fall has to reach.
+      zones.push({ y: cave.opening.y, height: cave.opening.height, x: cave.side === -1 ? WORLD.wall : WORLD.width - WORLD.wall - SAFE_ZONE_RULES.width, width: SAFE_ZONE_RULES.width, side: cave.side, content: cave.content });
+    }
     for (const p of k.platforms) {
       if (p.y > limit || p.safeZone !== undefined) continue;
       const y = Math.round(p.y);

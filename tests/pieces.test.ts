@@ -42,6 +42,8 @@ function build(areaId: AreaId, section: number, seed: number) {
   let enemies = 0, zones = 0;
   for (let c = 0; c < chunks; c++) {
     const k = g.chunk(c);
+    // A GUN MODULE waits in a CAVE rather than a chamber; both are side rooms.
+    zones += k.caves.filter(c2 => c2.bounds.y <= limit).length;
     for (const p of k.platforms) {
       if (p.y > limit || p.safeZone !== undefined) continue;
       const y = Math.round(p.y);

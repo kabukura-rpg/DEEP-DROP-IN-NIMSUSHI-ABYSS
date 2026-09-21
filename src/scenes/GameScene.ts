@@ -180,9 +180,13 @@ export class GameScene extends Phaser.Scene {
   private rect(x: number, y: number, w: number, h: number, color: number, alpha = 1) { this.graphics.fillStyle(color, alpha).fillRect(Math.round(x), Math.round(y), w, h); }
   private draw() {
     const g = this.graphics, m = this.model, cam = m.cameraY;
-    g.clear(); g.setPosition(this.shake && !this.reducedMotion ? (Math.random() - 0.5) * this.shake : 0, 0);
+    // The whole scene slides with the camera's horizontal offset, which is zero everywhere except
+    // inside a SIDE CAVE. One setPosition rather than an offset threaded through every draw call:
+    // the cave is the only thing that ever leaves the shaft, and the shaft is drawn in world x.
+    g.clear(); g.setPosition((this.shake && !this.reducedMotion ? (Math.random() - 0.5) * this.shake : 0) - m.cameraX, 0);
     const theme = m.stage.config.theme;
-    this.rect(-8, 0, 466, 800, 0x10191c);
+    // Wide enough to still cover the view when it has slid sideways into a cave.
+    this.rect(m.cameraX - 8, 0, 466 + Math.abs(m.cameraX) * 2, 800, 0x10191c);
     this.surface(theme, cam);
     this.submerged(theme, cam);
     this.volcanic(theme, cam);
@@ -197,7 +201,11 @@ export class GameScene extends Phaser.Scene {
         this.rect(x - 5, y + 74, 11, 3, theme.pillar, 0.22);
       }
     }
-    this.rect(0, 0, 28, 800, theme.wall); this.rect(422, 0, 28, 800, theme.wall);
+    // The brickwork, extended outward far enough to back whatever the camera can see: in a cave the
+    // view is outside the shaft, and the rock a cave is cut from has to be there behind it.
+    const reach = Math.ceil(Math.abs(m.cameraX)) + 40;
+    this.rect(-reach, 0, 28 + reach, 800, theme.wall); this.rect(422, 0, 28 + reach, 800, theme.wall);
+    this.sideCaves(m, cam, theme);
     this.rect(27, 0, 2, 800, theme.wallEdge); this.rect(421, 0, 2, 800, theme.wallEdge);
     for (let i = 0; i < 19; i++) {
       const y = i * 48 - (cam % 48);
@@ -703,6 +711,50 @@ export class GameScene extends Phaser.Scene {
       this.rect(zone.side === -1 ? right + 6 : zone.x - 26, y, 20, 2, 0x9fe8f5, 0.3 - i * 0.08);
     }
   }
+  /**
+   * SIDE CAVES: hollowed out of the rock beside the shaft, not stuck onto it.
+   *
+   * Drawn before the platforms, so the cave's own floor slabs -- which are ordinary platforms --
+   * land on top of the hollow and read as its ground. The order is: cut the hollow, line it, then
+   * break the shaft wall where the mouth is, so the opening is a hole through the brickwork rather
+   * than a panel laid over it.
+   */
+  private sideCaves(m: GameModel, cam: number, theme: { wall: number; wallEdge: number; accent: number; brick: number }) {
+    for (const cave of m.caves) {
+      const b = cave.bounds, top = b.y - cam;
+      if (top > 900 || top + b.height < -90) continue;
+      const left = cave.side === -1;
+      // The hollow stops at the MOUTH. `bounds` reaches back into the shaft because the sill does,
+      // and the player's own bounds follow it -- but the shaft is not part of the cave and painting
+      // it black put a hole in the middle of the fall corridor.
+      const mouth = left ? cave.opening.x + cave.opening.width : cave.opening.x;
+      const hollowX = left ? b.x : mouth, hollowW = left ? mouth - b.x : b.x + b.width - mouth;
+      this.rect(hollowX, top, hollowW, b.height, 0x070d11, 0.99);
+      this.rect(left ? hollowX : hollowX + hollowW - 8, top, 8, b.height, 0x15303a, 0.85);
+      for (let i = 0; i < 7; i++) {
+        const x = left ? hollowX + 12 + i * 15 : hollowX + hollowW - 14 - i * 15;
+        this.rect(x, top + 6, 2, b.height - 12, 0x9fe8f5, 0.05);
+      }
+      // The roof slabs, so the cave has a ceiling to read against rather than open black.
+      for (const slab of cave.roof) {
+        this.rect(slab.x, slab.y - cam, slab.width, slab.height, theme.brick);
+        this.rect(slab.x, slab.y - cam + slab.height - 2, slab.width, 2, theme.wallEdge, 0.8);
+      }
+      // The mouth, broken through the brickwork: a lintel and a sill that jut into the shaft, and
+      // light spilling out of it, so it is read from the middle of the shaft at falling speed.
+      const o = cave.opening, oy = o.y - cam;
+      const mouthX = left ? o.x + o.width : o.x;
+      const frameX = left ? mouthX - 30 : mouthX - 22, frameW = 52;
+      this.rect(frameX, oy - 8, frameW, 8, 0x3c7a84);
+      this.rect(frameX, oy - 8, frameW, 2, 0x9fe8f5, 0.7);
+      for (let i = 0; i < 8; i++) {
+        const w = 8 + i * 6;
+        this.rect(left ? mouthX : mouthX - w, oy + 8 + i * 2, w, o.height - 16 - i * 4, 0x9fe8f5, 0.085 - i * 0.01);
+      }
+      this.rect(left ? mouthX - 3 : mouthX, oy + 3, 3, o.height - 6, 0x9fe8f5, 0.5);
+    }
+  }
+
   /** Lava reads as a solid bright slab; a vent shows its warning before it ever fires. */
   private hazard(h: Hazard, cam: number) {
     const box = hazardBounds(h), y = box.y - cam;

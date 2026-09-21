@@ -3,6 +3,7 @@ import { GameModel } from '../src/systems/GameModel';
 import { WORLD } from '../src/data/balance';
 import { DOODAD_RULES, spawnDoodad, type Doodad } from '../src/data/doodads';
 import { SAFE_ZONE_RULES, coinVeinTotal, insideSafeZone, rollSafeZoneContent, type SafeZone, type SafeZoneContentKind, sideRoomCount } from '../src/data/safeZone';
+import type { SideCave } from '../src/data/sideCave';
 import { COMBO_TIERS } from '../src/data/combo';
 import { StageGenerator, type Platform, type RoutePlatform } from '../src/systems/StageGenerator';
 import { areaConfig, type AreaId, type SectionId } from '../src/data/areas';
@@ -763,14 +764,15 @@ describe('GUN MODULE, SHOP and COIN VEIN are SAFE ZONE content and nothing else'
       oxygen: config.gimmicks?.oxygen === true, heat: config.gimmicks?.heat === true,
       breakable: config.gimmicks?.breakablePlatforms === true, sectionLength: config.sectionLength,
     });
-    const pickups: Pickup[] = [], zones: SafeZone[] = [], containers: unknown[] = [];
+    const pickups: Pickup[] = [], zones: SafeZone[] = [], containers: unknown[] = [], caves: SideCave[] = [];
     for (let chunk = 0; chunk < chunks; chunk++) {
       const built = generator.chunk(chunk);
       pickups.push(...built.pickups); zones.push(...built.safeZones); containers.push(...built.containers);
+      caves.push(...built.caves);
       // The generator no longer has a way to report a doorway at all.
       expect('shopDoor' in built).toBe(false);
     }
-    return { pickups, zones, containers };
+    return { pickups, zones, containers, caves, rooms: zones.length + caves.length };
   };
 
   it('lays no weapon crate and no shop doorway anywhere in the shaft', () => {
@@ -780,7 +782,7 @@ describe('GUN MODULE, SHOP and COIN VEIN are SAFE ZONE content and nothing else'
         for (let seed = 1; seed <= 12; seed++) {
           const built = sweep(area, section, seed * 613);
           expect(built.pickups.filter(item => item.kind === 'gunModule')).toEqual([]);
-          seenZones += built.zones.length;
+          seenZones += built.rooms;
         }
       }
     }
@@ -797,7 +799,11 @@ describe('GUN MODULE, SHOP and COIN VEIN are SAFE ZONE content and nothing else'
   it('is the only place a run finds a module, a shop or a vein', () => {
     const kinds = new Set<string>();
     for (let seed = 1; seed <= 200; seed++) {
-      for (const zone of sweep(1, 2, seed * 277).zones) if (zone.content) kinds.add(zone.content.kind);
+      const built = sweep(1, 2, seed * 277);
+      // A SHOP and a VEIN wait in a chamber; a GUN MODULE waits in a CAVE. Both are side rooms and
+      // both are the only place their content is found -- which is what this test is about.
+      for (const zone of built.zones) if (zone.content) kinds.add(zone.content.kind);
+      for (const cave of built.caves) if (cave.content) kinds.add(cave.content.kind);
     }
     expect([...kinds].sort()).toEqual(['coinVein', 'gunModule', 'shop']);
   });
@@ -834,14 +840,15 @@ describe('SAFE ZONE generation stays out of everything else', () => {
     });
     const platforms: RoutePlatform[] = [], hazards = [], zones: SafeZone[] = [], doodads: Doodad[] = [];
     const containers = [] as { x: number; y: number; width: number; height: number }[];
+    const caves: SideCave[] = [];
     for (let c = 0; c < chunks; c++) {
       const chunk = generator.chunk(c);
       platforms.push(...chunk.platforms); hazards.push(...chunk.hazards);
       zones.push(...chunk.safeZones); doodads.push(...chunk.doodads);
-      containers.push(...chunk.containers);
+      containers.push(...chunk.containers); caves.push(...chunk.caves);
     }
     const limit = WORLD.startY + pixels;
-    return { limit, length: config.sectionLength, platforms, hazards, zones, doodads, containers };
+    return { limit, length: config.sectionLength, platforms, hazards, zones, doodads, containers, caves, rooms: zones.length + caves.length };
   };
 
   it('cuts the planned number of chambers, inside the shaft and clear of the ends', () => {
@@ -950,16 +957,18 @@ describe('SAFE ZONE supply reaches all twelve SECTIONs', () => {
       oxygen: config.gimmicks?.oxygen === true, heat: config.gimmicks?.heat === true,
       breakable: config.gimmicks?.breakablePlatforms === true, sectionLength: config.sectionLength,
     });
-    const platforms: RoutePlatform[] = [], hazards: Hazard[] = [], zones: SafeZone[] = [];
+    const platforms: RoutePlatform[] = [], hazards: Hazard[] = [], zones: SafeZone[] = [], caves: SideCave[] = [];
     const containers = [] as { x: number; y: number; width: number; height: number }[];
     let exit: { x: number; y: number; width: number; height: number } | undefined;
     for (let c = 0; c < chunks; c++) {
       const chunk = generator.chunk(c);
       platforms.push(...chunk.platforms); hazards.push(...chunk.hazards);
       zones.push(...chunk.safeZones); containers.push(...chunk.containers);
+      caves.push(...chunk.caves);
       if (chunk.exit) exit = chunk.exit;
     }
-    return { length: config.sectionLength, platforms, hazards, zones, containers, exit };
+    // A GUN MODULE is found in a CAVE, so the SECTION's supply is chambers and caves together.
+    return { length: config.sectionLength, platforms, hazards, zones, containers, caves, exit, rooms: zones.length + caves.length };
   };
   /** The chamber and its floor slab as one rectangle -- the space that has to be free. */
   const box = (zone: SafeZone) => ({ x: zone.x, y: zone.y, w: zone.width, h: zone.height + SAFE_ZONE_RULES.floorHeight });
@@ -978,8 +987,8 @@ describe('SAFE ZONE supply reaches all twelve SECTIONs', () => {
       let empty = 0, total = 0;
       for (let seed = 1; seed <= SEEDS; seed++) {
         const shaft = build(area, section, seed * 613);
-        total += shaft.zones.length;
-        if (!shaft.zones.length) empty++;
+        total += shaft.rooms;
+        if (!shaft.rooms) empty++;
       }
       expect({ area, section, empty }).toEqual({ area, section, empty: 0 });
       expect({ area, section, enough: total >= SEEDS }).toEqual({ area, section, enough: true });
@@ -1008,7 +1017,9 @@ describe('SAFE ZONE supply reaches all twelve SECTIONs', () => {
       const seen = new Set<string>();
       for (const section of [1, 2, 3] as SectionId[]) {
         for (let seed = 1; seed <= SEEDS; seed++) {
-          for (const zone of build(area, section, seed * 613).zones) if (zone.content) seen.add(zone.content.kind);
+          const built = build(area, section, seed * 613);
+          for (const zone of built.zones) if (zone.content) seen.add(zone.content.kind);
+          for (const cave of built.caves) if (cave.content) seen.add(cave.content.kind);
         }
       }
       // No AREA may be permanently starved of one of the three.

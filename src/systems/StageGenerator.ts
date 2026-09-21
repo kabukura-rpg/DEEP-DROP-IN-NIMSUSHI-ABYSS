@@ -6,6 +6,7 @@ import { AIR_CONTAINER_RULES, BREAK_BLOCK_RULES, breakBlockWidth, EXIT_RULES, sp
 import { spawnHazard, type Hazard, type SpikeKind } from '../data/hazards';
 import { spawnDoodad, DOODAD_RULES, type Doodad } from '../data/doodads';
 import { rollSafeZoneContent, safeZoneDepths, safeZoneRowClearance, sideRoomCount, SAFE_ZONE_RULES, type SafeZone } from '../data/safeZone';
+import { moduleCaveShape, placeCave, type SideCave } from '../data/sideCave';
 import { rollGunModule as rollModuleForZone } from '../data/gunModules';
 import type { SectionPlan, WaterPhysics } from '../data/areas';
 import { RhythmWalker, getTerrainMode, laneOf, type RhythmBand } from '../data/rhythm';
@@ -386,8 +387,8 @@ export class StageGenerator {
     return { floor, exit: { x: gateX, y: y - EXIT_RULES.height, width: EXIT_RULES.width, height: EXIT_RULES.height } };
   }
 
-  chunk(index: number): { platforms: RoutePlatform[]; enemies: Enemy[]; pickups: Pickup[]; hazards: Hazard[]; containers: AirContainer[]; doodads: Doodad[]; safeZones: SafeZone[]; exit?: StageExit } {
-    const platforms: RoutePlatform[] = [], enemies: Enemy[] = [], pickups: Pickup[] = [], hazards: Hazard[] = [], containers: AirContainer[] = [], doodads: Doodad[] = [], safeZones: SafeZone[] = [];
+  chunk(index: number): { platforms: RoutePlatform[]; enemies: Enemy[]; pickups: Pickup[]; hazards: Hazard[]; containers: AirContainer[]; doodads: Doodad[]; safeZones: SafeZone[]; caves: SideCave[]; exit?: StageExit } {
+    const platforms: RoutePlatform[] = [], enemies: Enemy[] = [], pickups: Pickup[] = [], hazards: Hazard[] = [], containers: AirContainer[] = [], doodads: Doodad[] = [], safeZones: SafeZone[] = [], caves: SideCave[] = [];
     let exit: StageExit | undefined;
     const start = index * WORLD.chunkHeight, end = start + WORLD.chunkHeight;
     // Carry nextY and the previous safe exit across chunk boundaries: no compressed seams.
@@ -530,7 +531,7 @@ export class StageGenerator {
       if (this.context.heat) this.placeHeat(tuning, platform, y, width, start, pickups, hazards, enemies);
       this.placeSpikes(tuning, platform, y, width, start, hazards, enemies, containers);
       this.placeDoodad(tuning, platform, y, start, doodads, hazards, enemies);
-      this.placeSafeZone(platform, y, localDepth, start, safeZones, platforms, hazards, enemies, containers);
+      this.placeSafeZone(platform, y, localDepth, start, safeZones, caves, platforms, hazards, enemies, containers);
       // No weapon crate and no shop doorway are laid in the shaft. Both are SAFE ZONE content and
       // nothing else, so a run is re-armed and re-supplied by finding a chamber -- which is what
       // makes stepping off the fall line to reach one worth doing.
@@ -538,7 +539,7 @@ export class StageGenerator {
       this.previousBand = [platform, ...extras];
       this.nextY += this.rowStep(tuning, band, intent);
     }
-    return { platforms, enemies, pickups, hazards, containers, doodads, safeZones, exit };
+    return { platforms, enemies, pickups, hazards, containers, doodads, safeZones, caves, exit };
   }
 
   /**
@@ -610,7 +611,7 @@ export class StageGenerator {
    * other side is taken rather than the whole row abandoned. With weapons, shops and veins now
    * living only in here, a SECTION that failed to cut one would be a SECTION with no supply at all.
    */
-  private placeSafeZone(platform: RoutePlatform, y: number, localDepth: number, start: number, zones: SafeZone[], platforms: RoutePlatform[], hazards: Hazard[], enemies: Enemy[], containers: AirContainer[]) {
+  private placeSafeZone(platform: RoutePlatform, y: number, localDepth: number, start: number, zones: SafeZone[], caves: SideCave[], platforms: RoutePlatform[], hazards: Hazard[], enemies: Enemy[], containers: AirContainer[]) {
     if (!this.chambers.length || localDepth < this.chambers[0]) return;
     // Past the clearance kept for the exit, the chance has gone: drop it rather than cut a chamber
     // where the way out has to be. Blocking the exit is the one failure worse than going without.
@@ -667,7 +668,7 @@ export class StageGenerator {
     if (!this.sideRoomPilot) {
       const plain = fits(preferred) ? preferred : fits(other) ? other : 0;
       if (plain === 0) return;
-      this.cutChamber(plain, width, floorY, top, y, start, zones, platforms);
+      this.cutChamber(plain, width, floorY, top, y, start, zones, caves, platforms);
       return;
     }
     // Reachable first, alternation second, unobstructed last. A chamber on the wrong wall is worse
@@ -680,11 +681,11 @@ export class StageGenerator {
     const roomToWait = localDepth < ceiling - SAFE_ZONE_RULES.depthMargin;
     const side = reachable ?? (roomToWait ? 0 : order.find(fits) ?? 0);
     if (side === 0) return;
-    this.cutChamber(side, width, floorY, top, y, start, zones, platforms);
+    this.cutChamber(side, width, floorY, top, y, start, zones, caves, platforms);
   }
 
   /** Lay the chamber, once a wall has been chosen. Shared by both entry rules. */
-  private cutChamber(side: -1 | 1, width: number, floorY: number, top: number, y: number, start: number, zones: SafeZone[], platforms: RoutePlatform[]) {
+  private cutChamber(side: -1 | 1, width: number, floorY: number, top: number, y: number, start: number, zones: SafeZone[], caves: SideCave[], platforms: RoutePlatform[]) {
     const height = SAFE_ZONE_RULES.height;
     const x = side === -1 ? WORLD.wall : WORLD.width - WORLD.wall - width;
     this.chambers.shift();
@@ -695,6 +696,30 @@ export class StageGenerator {
     if (forced) this.forcedShopChambers--;
     const roll = forced ? 'shop' as const : rollSafeZoneContent(this.random);
     const module = roll === 'gunModule' ? rollModuleForZone(this.random) : undefined;
+    // A GUN MODULE is found in a CAVE, not in a recess. The shell reaches outside the shaft and
+    // brings its own floor, roof and steps, so nothing else here applies to it -- it does not want
+    // a chamber rectangle, and its reward sits deep inside rather than against the wall.
+    //
+    // Only this archetype is built. SHOP and COIN VEIN keep the chamber they have always had, which
+    // is why the two paths sit side by side rather than one replacing the other.
+    if (roll === 'gunModule' && this.sideRoomPilot) {
+      const mouthX = side === -1 ? WORLD.wall : WORLD.width - WORLD.wall;
+      const cave = placeCave(this.id++, side, mouthX, floorY, moduleCaveShape(side),
+        { kind: roll, module: module?.module, bonus: module?.bonus });
+      caves.push(cave);
+      // Every slab is a real platform, so landing, CHARGE and the chain behave exactly as they do
+      // on any other ground. `safeZone` marks them as shelter: a cave reloads but banks no chain.
+      for (const slab of cave.floors) {
+        platforms.push({
+          id: this.id++, x: slab.x, y: slab.y, width: slab.width,
+          safeSide: side === -1 ? 1 : -1,
+          safeX: side === -1 ? slab.x + slab.width - 26 : slab.x + 26,
+          exitX: side === -1 ? slab.x + slab.width + 12 : slab.x - 12,
+          breakable: false, state: 'stable', safeZone: cave.id,
+        });
+      }
+      return;
+    }
     const zone: SafeZone = {
       id: this.id++, side, x, y: top, width, height,
       content: { kind: roll, module: module?.module, bonus: module?.bonus },
