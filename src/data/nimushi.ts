@@ -385,7 +385,28 @@ export const STRAW_BEAM = {
   warning: 0.85,
   /** Seconds the beam itself is live. */
   live: 1.0,
-  width: 56,
+  /**
+   * How wide the column is. The one number that decides how much the attack ASKS for.
+   *
+   * The beam is aimed at the player's own column at the wind-up, so what it costs them is half this
+   * plus their own half-width, walked at `BOSS_PHYSICS.moveSpeed`. 56 made that 37px and 0.21s
+   * against 0.85s of warning -- four times more time than the move needs, which a human playtest
+   * called easy to the point of not registering.
+   *
+   *   width   escape needed   time to do it   vs the warning   share of the shaft
+   *   56px         37px           0.206s          4.1x               14%
+   *   80px         49px           0.272s          3.1x               20%
+   *
+   * 80 keeps the attack what it is for -- read it, commit, get out -- while making the commitment
+   * cost something. Measured over eight two-minute fights at both widths, nothing structural moved:
+   * every stomp route was closed at once for a single 0.08s frame-batch at BOTH widths, the next
+   * thing to stand on was inside the column 33% -> 39% of live frames with a clear one 50px away,
+   * and a beam and a pearl were in the air together for 0.00s.
+   *
+   * Nothing else about the beam changed with it: warning, damage, live, prep, active and cadence
+   * are all as they were.
+   */
+  width: 80,
   /** Hearts it costs. High, but survivable from full on a first sighting rather than lethal. */
   damage: 2,
 } as const;
