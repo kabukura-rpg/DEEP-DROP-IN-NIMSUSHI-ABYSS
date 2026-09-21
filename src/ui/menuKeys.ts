@@ -11,9 +11,17 @@
  * through one path and there is no second copy of any decision. All that was missing was a way to
  * MOVE the focus without a pointer, and a way to say "never mind".
  *
+ * HUMAN APPROVED / LOCKED. This is the PC menu control scheme; it is not a proposal any more:
+ *
  *   ARROWS / WASD   move between the choices, wrapping at either end
  *   ENTER / SPACE   activate the focused one (the browser's own behaviour, untouched)
- *   ESCAPE          whatever "back" means on this screen, when it means anything
+ *   ESCAPE          cancel or close, on the screens that support it
+ *
+ * Two things it depends on are locked with it: the run RELEASES its Phaser key capture while an
+ * overlay is open and takes it back when one closes (see GameScene.captureKeys -- a captured SPACE
+ * never reaches the focused button, which is why SPACE confirm did nothing at all before), and the
+ * keyboard is withheld from the run for a moment afterwards so the key that confirmed a menu cannot
+ * also be played (see bridge.suppressUntil).
  *
  * Mouse and touch are not changed, and cannot be: nothing here runs unless a key is pressed.
  */

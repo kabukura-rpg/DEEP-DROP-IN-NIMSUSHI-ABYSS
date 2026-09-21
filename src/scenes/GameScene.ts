@@ -106,6 +106,9 @@ export class GameScene extends Phaser.Scene {
   /**
    * Hand SPACE and the arrows back to the page while a menu is up, and take them again after.
    *
+   * HUMAN APPROVED / LOCKED: capture ON during play, RELEASED while an overlay is open, ON again
+   * once it closes. See src/ui/menuKeys.ts for the scheme this belongs to.
+   *
    * Capturing a key means calling `preventDefault` on it for the whole document, which is right
    * during a run -- SPACE must fire the gunboots rather than scroll the page. It is wrong the
    * moment a menu opens: a focused `<button>` answers to SPACE by ITSELF, and a captured SPACE
