@@ -851,15 +851,21 @@ describe('SAFE ZONE generation stays out of everything else', () => {
     return { limit, length: config.sectionLength, platforms, hazards, zones, doodads, containers, caves, rooms: zones.length + caves.length };
   };
 
+  /**
+   * AREA 1's side rooms are CAVES now -- every one of its three content kinds is found in one -- so
+   * the rectangular chamber is an AREA 2-4 shape and these are AREA 2-4 statements. AREA 1's own
+   * side rooms have their own file; what matters here is that the chamber those AREAs still use is
+   * unchanged, and `sideRoomCount` is still what decides how many of them a SECTION gets.
+   */
   it('cuts the planned number of chambers, inside the shaft and clear of the ends', () => {
     for (const section of [1, 2, 3] as SectionId[]) {
       // What the SECTION actually asks for, from the same call the generator makes. `safeZoneCount`
       // is only the floor now; `sideRooms` is what an AREA raises it to once it has been measured.
-      const want = sideRoomCount(areaConfig(1).plans![section - 1]);
+      const want = sideRoomCount(areaConfig(2).plans![section - 1]);
       expect(want).toBeGreaterThan(0);
       let seen = 0;
       for (let seed = 1; seed <= 40; seed++) {
-        const shaft = build(1, section, seed * 613);
+        const shaft = build(2, section, seed * 613);
         seen += shaft.zones.length;
         expect(shaft.zones.length).toBeLessThanOrEqual(want);
         for (const zone of shaft.zones) {
@@ -996,7 +1002,9 @@ describe('SAFE ZONE supply reaches all twelve SECTIONs', () => {
   });
 
   it('uses both walls in every AREA, so a chamber is never always on one side', () => {
-    for (const area of [1, 2, 3, 4] as AreaId[]) {
+    // AREA 1 is excluded by having none: its side rooms are caves, which are checked for the same
+    // property in their own file. This is about the chamber the other three still cut.
+    for (const area of [2, 3, 4] as AreaId[]) {
       let left = 0, right = 0;
       for (const section of [1, 2, 3] as SectionId[]) {
         for (let seed = 1; seed <= SEEDS; seed++) {

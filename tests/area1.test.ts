@@ -347,12 +347,14 @@ describe('AREA 1 presentation data', () => {
         const gate = shaft.platforms.filter(p => p.breakBlock);
         blocks += gate.length;
         rewards += gate.filter(p => p.breakBlock!.reward).length;
-        zones += shaft.zones.length;
+        zones += shaft.rooms;
         expect({ section, seed, chamber: shaft.rooms >= 1 }).toEqual({ section, seed, chamber: true });
       }
     }
     expect(blocks).toBeGreaterThan(0);
     expect(rewards).toBeGreaterThan(0);
+    // Side rooms, which in AREA 1 are CAVES: every one of its three content kinds is found in one,
+    // so the rectangular chamber has no place left in this AREA's shaft at all.
     expect(zones).toBeGreaterThanOrEqual(180);
   });
 });

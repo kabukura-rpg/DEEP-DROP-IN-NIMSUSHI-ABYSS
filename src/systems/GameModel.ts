@@ -13,7 +13,7 @@ import { AIR_CONTAINER_RULES, BREAK_BLOCK_RULES, EXIT_RULES, LIMBO_HAZARD_RULES,
 import { DOODAD_RULES, spawnDoodad, type Doodad } from '../data/doodads';
 import { CORPSE_RULES, spawnCorpse, type Corpse } from '../data/corpses';
 import { insideSafeZone, SAFE_ZONE_RULES, type SafeZone } from '../data/safeZone';
-import { CAVE_RULES, caveRewardSpot, inCaveInterior, insideCave, moduleCaveShape, type SideCave } from '../data/sideCave';
+import { CAVE_RULES, caveRewardSpot, caveVeinBounds, inCaveInterior, insideCave, shapeOf, type SideCave } from '../data/sideCave';
 import { BOSS_PHYSICS, GRAVITY_DIRECTION, type BattlePhysics } from '../data/bossPhysics';
 import { spawnEnemy } from '../data/enemies';
 import { ABYSS_SHOP_AREA, shopItem, type ShopOffer } from '../data/shop';
@@ -1483,30 +1483,46 @@ export class GameModel {
    * the player actually sweeps up, and every coin of it reaches the COIN HIGH meter on the ordinary
    * collection path. A big enough haul can therefore tip a run straight into a HIGH.
    */
-  private mineCoinVein(zone: SafeZone) {
+  private mineCoinVein(zone: SafeZone | SideCave) {
     if (zone.taken || zone.content?.kind !== 'coinVein') return false;
     zone.taken = true;
-    const vein = this.coinVeinBounds(zone);
+    const vein = this.veinBounds(zone);
     const centre = vein.x + vein.width / 2;
     const dropped = this.coins.spill(centre, vein.y + vein.height / 2, SAFE_ZONE_RULES.coinVein.payout, this.random);
     this.events.push({ type: 'coinVein', x: centre, y: vein.y, value: dropped });
     return true;
   }
-  /** True when this point is inside an unmined vein's face, so a round can be tested against it. */
+  /**
+   * True when this point is inside an unmined vein's face, so a round can be tested against it.
+   *
+   * A vein waits in a CAVE now and used to wait in a chamber; AREAs that still cut chambers still
+   * have theirs. Both are searched, because what a round hits is a vein either way.
+   */
   private veinAt(x: number, y: number) {
+    const hit = (v: { x: number; y: number; width: number; height: number }) =>
+      x > v.x && x < v.x + v.width && y > v.y && y < v.y + v.height;
+    for (const cave of this.caves) {
+      if (cave.taken || cave.content?.kind !== 'coinVein') continue;
+      if (hit(this.veinBounds(cave))) return cave;
+    }
     for (const zone of this.safeZones) {
       if (zone.taken || zone.content?.kind !== 'coinVein') continue;
-      const v = this.coinVeinBounds(zone);
-      if (x > v.x && x < v.x + v.width && y > v.y && y < v.y + v.height) return zone;
+      if (hit(this.veinBounds(zone))) return zone;
     }
     return null;
   }
-  /** Where a chamber's COIN VEIN stands: against the back wall, on the floor. */
-  coinVeinBounds(zone: SafeZone) {
-    const { width, height } = SAFE_ZONE_RULES.coinVein;
-    const x = zone.side === -1 ? zone.x + 16 : zone.x + zone.width - 16 - width;
-    return { x, y: zone.y + zone.height - height, width, height };
+  /**
+   * Where a COIN VEIN stands. In a cave it stands on whatever the content spot sits on, deep
+   * inside; in a chamber it stands against the back wall, where it always has.
+   */
+  veinBounds(host: SafeZone | SideCave) {
+    const size = SAFE_ZONE_RULES.coinVein;
+    if ('opening' in host) return caveVeinBounds(host, shapeOf(host), size);
+    const x = host.side === -1 ? host.x + 16 : host.x + host.width - 16 - size.width;
+    return { x, y: host.y + host.height - size.height, width: size.width, height: size.height };
   }
+  /** Kept for the chamber renderer and its tests, which ask about chambers specifically. */
+  coinVeinBounds(zone: SafeZone) { return this.veinBounds(zone); }
   /** Contact breaks a container too, so a stomp and a shot are equally valid keys. */
   private tickContainers(dt: number) {
     const p = this.player;
@@ -2270,16 +2286,7 @@ export class GameModel {
       this.platforms.push(...chunk.platforms); this.enemies.push(...chunk.enemies);
       this.pickups.push(...chunk.pickups); this.hazards.push(...chunk.hazards);
       this.doodads.push(...chunk.doodads);
-      for (const cave of chunk.caves) {
-        this.caves.push(cave);
-        // The reward is materialised through the same system a ledge crate uses, so a module found
-        // in a cave and one found anywhere else are the same object taking the same path.
-        const spot = caveRewardSpot(cave, moduleCaveShape(cave.side));
-        if (cave.content?.kind === 'gunModule') {
-          this.pickups.push(spawnGunModule(cave.id + 1, Math.round(spot.x), Math.round(spot.y - 34),
-            cave.content.module ?? STARTING_GUN_MODULE, cave.content.bonus ?? 'heart'));
-        }
-      }
+      for (const cave of chunk.caves) this.addCave(cave);
       for (const zone of chunk.safeZones) {
         this.safeZones.push(zone);
         // Content is materialised through the systems that already own it, so a module found in a
@@ -2296,5 +2303,25 @@ export class GameModel {
       this.containers.push(...chunk.containers);
     }
   }
+  /**
+   * Take a SIDE CAVE into the world.
+   *
+   * Content is materialised through the systems that already own it, so a module, a shelf or a vein
+   * found in a cave is the same object on the same path as one found anywhere else -- only WHERE it
+   * goes is the cave's business, and that is one call for all three archetypes. The development
+   * preview fixture comes through here too, so what it shows is what the generator builds.
+   */
+  private addCave(cave: SideCave) {
+    this.caves.push(cave);
+    const spot = caveRewardSpot(cave, shapeOf(cave));
+    if (cave.content?.kind === 'gunModule') {
+      this.pickups.push(spawnGunModule(cave.id + 1, Math.round(spot.x), Math.round(spot.y - 34),
+        cave.content.module ?? STARTING_GUN_MODULE, cave.content.bonus ?? 'heart'));
+    } else if (cave.content?.kind === 'shop') {
+      this.shop.placeEntrance(Math.round(spot.x - SHOP_DOOR.width / 2), Math.round(spot.y - SHOP_DOOR.height), SHOP_DOOR.width, SHOP_DOOR.height);
+    }
+    // A COIN VEIN needs nothing here: it is a face on the rock, drawn and shot where it stands.
+  }
+
   private emit(type: GameEvent['type'], x: number, y: number) { this.events.push({ type, x, y }); }
 }

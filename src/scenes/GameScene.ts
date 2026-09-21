@@ -740,6 +740,14 @@ export class GameScene extends Phaser.Scene {
         this.rect(slab.x, slab.y - cam, slab.width, slab.height, theme.brick);
         this.rect(slab.x, slab.y - cam + slab.height - 2, slab.width, 2, theme.wallEdge, 0.8);
       }
+      // A COIN VEIN is the one content a cave draws itself; a module crate and a shop doorway are
+      // their own objects and are drawn by the code that already owns them.
+      if (cave.content?.kind === 'coinVein' && !cave.taken) {
+        const v = m.veinBounds(cave), vy = v.y - cam;
+        this.rect(v.x, vy, v.width, v.height, 0x3a2f14, 0.95);
+        this.graphics.lineStyle(2, 0xffd479, 0.9).strokeRect(v.x, vy, v.width, v.height);
+        for (let i = 0; i < 5; i++) this.rect(v.x + 6 + (i % 3) * 9, vy + 6 + Math.floor(i / 3) * 13, 6, 6, 0xffd479, 0.85);
+      }
       // The mouth, broken through the brickwork: a lintel and a sill that jut into the shaft, and
       // light spilling out of it, so it is read from the middle of the shaft at falling speed.
       const o = cave.opening, oy = o.y - cam;

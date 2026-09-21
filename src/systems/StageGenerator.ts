@@ -6,7 +6,7 @@ import { AIR_CONTAINER_RULES, BREAK_BLOCK_RULES, breakBlockWidth, EXIT_RULES, sp
 import { spawnHazard, type Hazard, type SpikeKind } from '../data/hazards';
 import { spawnDoodad, DOODAD_RULES, type Doodad } from '../data/doodads';
 import { rollSafeZoneContent, safeZoneDepths, safeZoneRowClearance, sideRoomCount, SAFE_ZONE_RULES, type SafeZone } from '../data/safeZone';
-import { moduleCaveShape, placeCave, type SideCave } from '../data/sideCave';
+import { caveShape, placeCave, type CaveArchetype, type SideCave } from '../data/sideCave';
 import { rollGunModule as rollModuleForZone } from '../data/gunModules';
 import type { SectionPlan, WaterPhysics } from '../data/areas';
 import { RhythmWalker, getTerrainMode, laneOf, type RhythmBand } from '../data/rhythm';
@@ -696,15 +696,15 @@ export class StageGenerator {
     if (forced) this.forcedShopChambers--;
     const roll = forced ? 'shop' as const : rollSafeZoneContent(this.random);
     const module = roll === 'gunModule' ? rollModuleForZone(this.random) : undefined;
-    // A GUN MODULE is found in a CAVE, not in a recess. The shell reaches outside the shaft and
-    // brings its own floor, roof and steps, so nothing else here applies to it -- it does not want
-    // a chamber rectangle, and its reward sits deep inside rather than against the wall.
+    // ALL THREE are found in a CAVE now. The shell reaches outside the shaft and brings its own
+    // floor, roof and ledges, so nothing else here applies -- a cave wants no chamber rectangle,
+    // and whatever it holds sits deep inside rather than against the wall.
     //
-    // Only this archetype is built. SHOP and COIN VEIN keep the chamber they have always had, which
-    // is why the two paths sit side by side rather than one replacing the other.
-    if (roll === 'gunModule' && this.sideRoomPilot) {
+    // The archetypes differ in shape, not only in contents: a module cave is a climb, a shop is a
+    // room to stand and read in, a coin cave is a two-second detour. One shell, three fixtures.
+    if (this.sideRoomPilot) {
       const mouthX = side === -1 ? WORLD.wall : WORLD.width - WORLD.wall;
-      const cave = placeCave(this.id++, side, mouthX, floorY, moduleCaveShape(side),
+      const cave = placeCave(this.id++, side, mouthX, floorY, caveShape(roll as CaveArchetype, side),
         { kind: roll, module: module?.module, bonus: module?.bonus });
       caves.push(cave);
       // Every slab is a real platform, so landing, CHARGE and the chain behave exactly as they do

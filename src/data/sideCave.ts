@@ -74,8 +74,16 @@ export interface CaveShape {
    * `rise` is bounded by the ground jump, which peaks at 32px.
    */
   ledges: readonly { from: number; depth: number; rise: number }[];
-  /** Which ledge the reward stands on, by index. It must be one the throat cannot reach into. */
-  rewardLedge: number;
+  /**
+   * Which ledge the content stands on, by index; omitted when it stands on the cave floor.
+   * Either way it must be deep enough that nobody in the mouth can reach it -- see `contentDepth`.
+   */
+  rewardLedge?: number;
+  /**
+   * Depth from the mouth at which the content sits. With `rewardLedge` it is the ledge's own
+   * middle; without one it has to be stated, and it is what keeps a SHOP's door out of the throat.
+   */
+  contentDepth?: number;
 }
 
 /**
@@ -111,6 +119,54 @@ export const MODULE_CAVE_RIGHT: CaveShape = {
   rewardLedge: 1,
 };
 
+/**
+ * SHOP CAVE. The role is different from MODULE's, so the room is.
+ *
+ * A module cave is a climb: go in, get up, take it. A shop is a place to STOP in -- the world is
+ * held while the shelf is open, and the player is reading prices rather than moving -- so this one
+ * is the widest and tallest of the three and has no ledges at all. Flat ground, a short throat, and
+ * the merchant well back from the mouth: far enough that walking in is a decision that has already
+ * been made by the time the shelf opens, which is the rule that matters most here.
+ */
+export const SHOP_CAVE_LEFT: CaveShape = {
+  id: 'shopCaveLeft',
+  throat: { depth: 62, height: 100 },
+  chamber: { depth: 252, height: 196 },
+  ledges: [],
+  contentDepth: 214,
+};
+
+export const SHOP_CAVE_RIGHT: CaveShape = {
+  id: 'shopCaveRight',
+  throat: { depth: 70, height: 104 },
+  chamber: { depth: 238, height: 188 },
+  ledges: [],
+  contentDepth: 206,
+};
+
+/**
+ * REWARD CAVE. The lightest of the three: duck in, take it, leave.
+ *
+ * Barely more than half the depth of the other two, one pocket raised a single jump off the floor,
+ * and the vein on it. Nothing to work out and nothing to stand around for -- if a module cave is a
+ * climb and a shop is a stop, this is a detour that costs a couple of seconds.
+ */
+export const COIN_CAVE_LEFT: CaveShape = {
+  id: 'coinCaveLeft',
+  throat: { depth: 54, height: 94 },
+  chamber: { depth: 148, height: 128 },
+  ledges: [{ from: 108, depth: 82, rise: 24 }],
+  rewardLedge: 0,
+};
+
+export const COIN_CAVE_RIGHT: CaveShape = {
+  id: 'coinCaveRight',
+  throat: { depth: 48, height: 92 },
+  chamber: { depth: 156, height: 134 },
+  ledges: [{ from: 100, depth: 92, rise: 24 }],
+  rewardLedge: 0,
+};
+
 export const CAVE_RULES = {
   /**
    * How far the sill reaches back INTO the shaft, so a fall into the opening has somewhere to land.
@@ -138,8 +194,30 @@ export const CAVE_RULES = {
   farMargin: 26,
 } as const;
 
-/** The shape for a given wall. LEFT and RIGHT are separate fixtures, not one mirrored twice. */
-export const moduleCaveShape = (side: -1 | 1) => side === -1 ? MODULE_CAVE_LEFT : MODULE_CAVE_RIGHT;
+/**
+ * The six fixtures, by what the cave holds and which wall it is in. LEFT and RIGHT are authored
+ * separately rather than mirrored, and the three archetypes differ in shape rather than only in
+ * contents -- the same cave three times would teach the player that a hole is a hole.
+ *
+ *            throat   chamber   ledges   the shape of the visit
+ *   MODULE     ~83     ~236x160    2      go in, climb, take it
+ *   SHOP       ~66     ~245x192    0      go in, stand, read
+ *   COIN       ~51     ~152x131    1      duck in, hop, leave
+ */
+export const CAVE_SHAPES = {
+  gunModule: { '-1': MODULE_CAVE_LEFT, '1': MODULE_CAVE_RIGHT },
+  shop: { '-1': SHOP_CAVE_LEFT, '1': SHOP_CAVE_RIGHT },
+  coinVein: { '-1': COIN_CAVE_LEFT, '1': COIN_CAVE_RIGHT },
+} as const;
+
+export type CaveArchetype = keyof typeof CAVE_SHAPES;
+
+/** The fixture for one archetype on one wall. */
+export const caveShape = (kind: CaveArchetype, side: -1 | 1): CaveShape => CAVE_SHAPES[kind][side === -1 ? '-1' : '1'];
+/** The shape a placed cave was built from, read back off its own content. */
+export const shapeOf = (cave: SideCave) => caveShape((cave.content?.kind ?? 'gunModule') as CaveArchetype, cave.side);
+/** MODULE CAVE's fixtures, by wall. Kept as its own name because that archetype is locked. */
+export const moduleCaveShape = (side: -1 | 1) => caveShape('gunModule', side);
 
 /**
  * Turn a shape into a cave at a wall, with its sill at `sillY`.
@@ -181,12 +259,25 @@ export function placeCave(id: number, side: -1 | 1, mouthX: number, sillY: numbe
   };
 }
 
-/** Where the reward sits inside a placed cave: on top of its reward ledge, deep inside. */
+/**
+ * Where the cave's content sits: on top of its reward ledge, or on the floor at the stated depth.
+ * Deep either way -- nothing an archetype holds may be reachable from the mouth.
+ */
 export function caveRewardSpot(cave: SideCave, shape: CaveShape) {
   const dir = cave.side === -1 ? -1 : 1;
   const mouthX = cave.side === -1 ? cave.opening.x + cave.opening.width : cave.opening.x;
+  const floorY = cave.opening.y + cave.opening.height;
+  if (shape.rewardLedge === undefined) {
+    return { x: mouthX + dir * (shape.contentDepth ?? shape.throat.depth + shape.chamber.depth / 2), y: floorY };
+  }
   const ledge = shape.ledges[shape.rewardLedge];
-  return { x: mouthX + dir * (ledge.from + ledge.depth / 2), y: cave.opening.y + cave.opening.height - ledge.rise };
+  return { x: mouthX + dir * (ledge.from + ledge.depth / 2), y: floorY - ledge.rise };
+}
+
+/** A cave's COIN VEIN: standing on whatever the content spot sits on, facing the way in. */
+export function caveVeinBounds(cave: SideCave, shape: CaveShape, size: { width: number; height: number }) {
+  const spot = caveRewardSpot(cave, shape);
+  return { x: Math.round(spot.x - size.width / 2), y: Math.round(spot.y - size.height), width: size.width, height: size.height };
 }
 
 /** True when a point is inside the cave at all -- used for the player's bounds and the camera. */

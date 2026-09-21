@@ -13,6 +13,7 @@ import { shopItem, type ShopOffer } from './data/shop';
 import { BOSS_TEST_WEAPONS, enterBossTest, type BossTestRequest, type BossTestTarget } from './dev/bossTest';
 import { setTerrainMode, getTerrainMode, type TerrainMode } from './data/rhythm';
 import { setSideRoomMode, getSideRoomMode, type SideRoomMode } from './data/safeZone';
+import { previewSideCave, SIDE_CAVE_FIXTURES } from './dev/sideCavePreview';
 
 const app = document.querySelector<HTMLDivElement>('#app')!;
 app.innerHTML = `
@@ -163,6 +164,23 @@ if (import.meta.env.DEV) {
     roadSeed = seed === undefined ? roadSeed : Math.floor(seed);
     showTitle();
     return `SIDE ROOMS = ${mode} (terrain ${getTerrainMode()})${roadSeed === null ? '' : ` / seed ${roadSeed}`} -- start a run`;
+  };
+  // DEVELOPMENT ONLY: look at one SIDE CAVE immediately.
+  //
+  //   `__sideCavePreview('module-left')`  `__sideCavePreview('shop-right')`  `__sideCavePreview('coin-left')`
+  //
+  // Starts a run and drops the player at that cave's mouth. The cave is built through the same
+  // `placeCave` the generator uses and handed to the same `addCave`, so this shows what a run
+  // builds rather than a mock-up of it. Calling it with nothing lists the six fixtures.
+  (window as unknown as { __sideCavePreview: (name?: string) => string }).__sideCavePreview = name => {
+    if (!ready) return 'not ready yet';
+    if (!name) return `SIDE CAVE fixtures: ${SIDE_CAVE_FIXTURES.join(', ')}`;
+    start();
+    const report = previewSideCave(scene.model, name);
+    if (report.startsWith('unknown')) { showTitle(); return report; }
+    $('run-status').textContent = `SIDE CAVE / ${name.toUpperCase()}`;
+    lastHud = ''; updateHud(scene.model);
+    return report;
   };
   // The model the run is actually using, for development harnesses that need to drive one. A
   // getter rather than a snapshot, because `startRun` replaces the model on every run.
