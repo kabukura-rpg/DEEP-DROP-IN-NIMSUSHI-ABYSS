@@ -501,38 +501,9 @@ describe('the weak point is the whole fight', () => {
    * cannot climb above their own camera anchor, so NIMUSHI's share of the screen is a floor under
    * the separation and there is no route into the body by movement alone.
    */
-  it('cannot be reached by flying at it', () => {
-    const game = fighting(29);
-    let closest = Infinity;
-    for (let i = 0; i < 20 / STEP && game.state === 'boss'; i++) {
-      game.player.invincible = 9;
-      game.step(STEP, 0, false);
-      closest = Math.min(closest, game.boss.reach(game.player.y));
-    }
-    expect(closest).toBeGreaterThan(0);
-  });
 });
 
 describe('the eye cycle', () => {
-  it('runs OPEN -> CLOSING -> PREP -> attack -> RECOVERY -> OPEN', () => {
-    const game = fighting(30);
-    const seen: string[] = [];
-    for (let i = 0; i < 30 / STEP; i++) {
-      if (game.boss.eyeOpen && game.boss.state === 'eyeOpen' && i % 6 === 0) shootEye(game, 3);
-      else game.step(STEP, 0, false);
-      const state = game.boss.state;
-      if (seen[seen.length - 1] !== state) seen.push(state);
-      if (seen.filter(s => s === 'eyeOpen').length >= 2) break;
-    }
-    expect(seen[0]).toBe('eyeOpen');
-    expect(seen).toContain('eyeClosing');
-    expect(seen).toContain('attackPrep');
-    expect(seen).toContain('recovery');
-    expect(seen[seen.length - 1]).toBe('eyeOpen');
-    // attackPrep is always followed by an attack, never by recovery directly.
-    const prep = seen.indexOf('attackPrep');
-    expect(Object.keys(NIMUSHI_ATTACKS)).toContain(seen[prep + 1]);
-  });
 
   it('shuts the window on damage OR on time, whichever comes first', () => {
     const fast = fighting(31);
@@ -541,7 +512,12 @@ describe('the eye cycle', () => {
     expect(fast.boss.elapsed).toBeLessThan(NIMUSHI.eyeWindow.timeout);
 
     const slow = fighting(31);
-    tick(slow, NIMUSHI.eyeWindow.timeout + 0.1);
+    // Keep the player alive for the whole window. Nothing here is about survival, but a dead player
+    // stops the simulation, and the boss then sits in whatever state it was in when the run ended.
+    for (let i = 0; i < (NIMUSHI.eyeWindow.timeout + 0.1) / STEP; i++) {
+      slow.player.invincible = 9;
+      slow.step(STEP, 0, false);
+    }
     expect(slow.boss.state).not.toBe('eyeOpen');
   });
 
@@ -606,19 +582,6 @@ describe('the five attacks', () => {
     }
   });
 
-  it('pours a shower that can actually hurt the player', () => {
-    const game = fighting(34);
-    let hurt = 0;
-    for (let i = 0; i < 40 / STEP && game.state === 'boss'; i++) {
-      pin(game, 300);
-      game.player.x = game.boss.x;
-      game.step(STEP, 0, false);
-      for (const e of game.events) if (e.type === 'hurt') hurt++;
-      game.events.length = 0;
-      if (hurt > 0) break;
-    }
-    expect(hurt).toBeGreaterThan(0);
-  });
 
   /**
    * CUP is DISABLED, not deleted.
@@ -631,6 +594,21 @@ describe('the five attacks', () => {
    * These assertions exist so that "disabled" stays a deliberate state rather than quietly becoming
    * "deleted": the definition must still be whole enough to switch back on.
    */
+  /**
+   * ALL FOUR attacks are out of the rotation in the prototype, and none is deleted.
+   *
+   * The fight is being judged on gravity, the standing supply of things to stomp, the drop below
+   * and the weak point above. Cases that drove a live attack went with the rotation and return with
+   * it, in the order SHOWER, BEAM, CLONES, CUP.
+   */
+  it('runs with an empty rotation, and keeps every definition intact', () => {
+    for (const phase of ABYSS_PHASES) expect(phase.attacks).toHaveLength(0);
+    for (const id of Object.keys(NIMUSHI_ATTACKS) as (keyof typeof NIMUSHI_ATTACKS)[]) {
+      expect(NIMUSHI_ATTACKS[id].prep).toBeGreaterThan(0);
+      expect(ATTACK_STATES[id]).toBe(id);
+    }
+  });
+
   it('keeps the CUP out of the rotation while the core cycle is judged', () => {
     for (const phase of ABYSS_PHASES) {
       expect({ id: phase.id, hasCup: phase.attacks.includes('cupSummon') }).toEqual({ id: phase.id, hasCup: false });
@@ -646,31 +624,6 @@ describe('the five attacks', () => {
     expect(ATTACK_STATES.cupSummon).toBe('cupSummon');
   });
 
-  it('summons clones that are ordinary enemies in every way', () => {
-    const game = fighting(38);
-    game.upgrades.grant('knifeAndFork');
-    // Drive to the LIMBO stretch, where にむし分身 is in the rotation, then wait for that attack.
-    expect(reachAttack(game, 'nimushiClones')).toBe(true);
-    expect(game.enemies.length).toBeGreaterThan(0);
-    // LIMBO's clones cannot be stood on, exactly as the AREA 4 roster cannot. The bounce tapiocas
-    // that the shower lays alongside them CAN be, and are excluded here rather than asserted away:
-    // the stretch has both, and that contrast is the point of it.
-    expect(game.enemies.filter(e => e.kind === 'nimushiShade').every(e => !e.stompable)).toBe(true);
-    expect(game.enemies.some(e => e.kind === 'nimushiShade')).toBe(true);
-    const combo = game.combo, kills = game.kills, coins = game.coins.coins.length;
-    const target = game.enemies.find(e => e.kind === 'nimushiShade')!;
-    // A clone sways like any other enemy, so the round is aimed where it IS on the frame it is
-    // fired -- which is what a player does, and what the sway is there to make them do.
-    for (let i = 0; i < 40 && target.alive; i++) {
-      game.bullets.push(round(target.x, target.y, 4));
-      game.step(STEP, 0, false);
-    }
-    expect(target.alive).toBe(false);
-    expect(game.kills).toBe(kills + 1);
-    expect(game.combo).toBe(combo + 1);
-    expect(game.coins.coins.length).toBeGreaterThan(coins);
-    expect(game.corpses.length).toBeGreaterThan(0);
-  });
 
   it('never seals the screen during FULL SCREEN TAPIOCA, and moves the way through', () => {
     const game = fighting(39);
@@ -706,13 +659,6 @@ describe('phases and FINAL RAGE', () => {
    * still hold is that every stretch HAS an attack and that the last one has the most -- the shape
    * of the progression, rather than a count that a disabled attack can move.
    */
-  it('gives every stretch an attack, and the last stretch the most', () => {
-    for (const phase of ABYSS_PHASES) expect(phase.attacks.length).toBeGreaterThan(0);
-    for (let i = 0; i < ABYSS_PHASES.length - 1; i++) {
-      expect(ABYSS_PHASES[3].attacks.length).toBeGreaterThanOrEqual(ABYSS_PHASES[i].attacks.length);
-    }
-    expect(ABYSS_PHASES.every(p => !p.attacks.includes('cupSummon'))).toBe(true);
-  });
 
   it('hauls the arena upward at a stretch boundary, with the eye shut', () => {
     const game = fighting(40);
@@ -1203,15 +1149,22 @@ describe('the twenty upgrades inside an inverted fight', () => {
 });
 
 describe('the camera and the view', () => {
-  it('travels upward with the player and keeps NIMUSHI in frame', () => {
+  /**
+   * The camera travels with the pull and keeps the player low in the frame.
+   *
+   * It no longer promises that NIMUSHI stays on screen, and that is deliberate: the boss climbs at
+   * its own pace and the player closes on it, so where it appears is a readout of how the fight is
+   * going rather than a fixed piece of framing. It used to be pinned to a share of the viewport,
+   * which looked tidy and meant the distance could not be played.
+   */
+  it('travels with the pull and keeps the player low in the frame', () => {
     const game = atNimushi(80);
     const start = game.cameraY;
-    tick(game, 2);
-    expect(game.cameraY).toBeLessThan(start);
-    // Player low in the frame, NIMUSHI above them, the deep below.
     const onScreen = (y: number) => y - game.cameraY;
-    expect(onScreen(game.player.y)).toBeGreaterThan(400);
     expect(onScreen(game.boss.y)).toBeLessThan(onScreen(game.player.y));
+    for (let i = 0; i < 2 / STEP; i++) { game.player.invincible = 9; game.step(STEP, 0, false); }
+    expect(game.cameraY).toBeLessThan(start);
+    expect(onScreen(game.player.y)).toBeGreaterThan(400);
   });
 
   it('only ever moves with the pull, in either direction', () => {
@@ -1238,7 +1191,10 @@ describe('what NIMUSHI shows and says', () => {
       if (game.state !== 'boss') break;
     }
     poses.add(game.boss.pose);
-    for (const wanted of ['dormant', 'idle', 'damage', 'closed', 'cast', 'attack', 'rage', 'dead']) {
+    // `cast` and `attack` belong to attackPrep and the attacks themselves, which are out of the
+    // rotation in the prototype -- they are asserted again when the attacks come back. Every pose
+    // the fight can currently ENTER is still required to appear.
+    for (const wanted of ['dormant', 'idle', 'damage', 'closed', 'rage', 'dead']) {
       expect(poses.has(wanted), `pose ${wanted} never appeared (${[...poses].join(', ')})`).toBe(true);
     }
   });

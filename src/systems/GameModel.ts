@@ -17,7 +17,7 @@ import { BOSS_PHYSICS, GRAVITY_DIRECTION, type BattlePhysics } from '../data/bos
 import { spawnEnemy } from '../data/enemies';
 import { ABYSS_SHOP_AREA, shopItem, type ShopOffer } from '../data/shop';
 import { CHARGE_AMMO_BONUS, gunModule, rollGunModule, STARTING_GUN_MODULE, volley, volleyRecoil, type GunModuleId, type ShotBoost } from '../data/gunModules';
-import { ABYSS, abyssPhase, TOMATO, type AbyssPhase } from '../data/abyss';
+import { ABYSS, abyssPhase, ARENA_FLOOR, TOMATO, type AbyssPhase } from '../data/abyss';
 import { BOUNCE_TAPIOCA, NIMUSHI, NIMUSHI_LINES, STRAW_BEAM, TAPIOCA_CUP } from '../data/nimushi';
 import { hazardBounds, hazardType, ventStateAt, type Hazard } from '../data/hazards';
 import { pickupType, spawnGunModule, spawnPickup, type Pickup } from '../data/pickups';
@@ -1204,17 +1204,16 @@ export class GameModel {
     }
     // Overtaken. Not damage and not an out-of-bounds fall: a separate ending with its own cause.
     /**
-     * The deep is SCENERY now, not a hazard.
+     * The arena's lower edge: fall too far behind the view and the run ends.
      *
-     * It used to overtake the player and end the run outright. Between NIMUSHI, an attack pattern
-     * and a rising boundary the fight asked for three things at once, and the boundary was the one
-     * with no counterplay -- so it is gone from gameplay entirely: no damage, no crowding, no
-     * anti-stall. The attack cycle and the four stretches carry the pacing.
-     *
-     * `deepY` still rises and is still drawn, because THE ABYSS closing behind you is worth seeing.
-     * If a playtest ever shows the fight can be stalled, an anti-stall rule comes back here -- and
-     * only then.
+     * A fixed rule rather than a chasing boundary. Bouncing downward is how the player buys room
+     * from NIMUSHI, and this is what stops that being free -- the fight is a height to manage
+     * between a boss at the top and a drop at the bottom, which is the shape AREA 1-4 already uses
+     * with the roles the other way up.
      */
+    if (this.inBossArena && this.player.y - this.cameraY > WORLD.height + ARENA_FLOOR.margin) {
+      this.killInstantly('crush');
+    }
   }
 
   /** Everything the fight reports, turned into world changes and events in one place. */
@@ -1235,8 +1234,7 @@ export class GameModel {
       this.events.push({ type: 'bossFire', x: this.boss.x, y: this.boss.y, stage: signal.attack });
     } else if (signal.kind === 'clones') {
       this.summonClones(signal.count, signal.y);
-    } else if (signal.kind === 'bounce') {
-      this.spawnBounceTapioca(signal.lane, signal.lanes);
+
     } else if (signal.kind === 'rage') {
       this.events.push({ type: 'bossRage', x: this.boss.x, y: this.boss.y, value: this.boss.ratio });
     } else if (signal.kind === 'line') {
@@ -1666,6 +1664,10 @@ export class GameModel {
     this.heat.reset(false);
     this.abyssFrontier = this.gravity > 0 ? this.cameraY + WORLD.height : this.cameraY;
     this.layAbyssBatch(phase, true);
+    // One target within reach on the first frame. The opening rows are laid ahead of the player and
+    // take about half a second to matter, and a player who does nothing is inside NIMUSHI in 1.5 --
+    // so the fight would start with its own answer briefly missing.
+    this.layBounceTarget(phase, p.y + NIMUSHI.restGap * 0.5 * this.gravity, this.random);
     this.events.push({ type: 'boss', x: p.x, y: p.y, stage: NIMUSHI.name });
     this.events.push({ type: 'bossPhase', x: p.x, y: p.y, value: phase.id, stage: phase.name });
   }
@@ -1739,6 +1741,9 @@ export class GameModel {
         this.platforms.push(row);
       }
     }
+    // Every row carries something to stand on. Without it the arena has no reload and no way to
+    // buy height, and the fight becomes a slow fall into the body.
+    this.layBounceTarget(phase, y, roll);
     if (roll() < phase.doodadChance) {
       const dx = anchor(DOODAD_RULES.width);
       this.doodads.push(spawnDoodad(this.nextAbyssId--, dx, y - phase.rowGap * 0.45 * this.gravity, roll() < 0.5 ? 'lamp' : 'bracket', true));
@@ -1753,19 +1758,25 @@ export class GameModel {
     }
   }
   /**
-   * Lay the attack's BOUNCE TAPIOCA, in the lane the shower left open.
+   * The arena's standing supply of things to stand on.
    *
-   * It is an ordinary stompable enemy, so everything that follows -- the kill, the bounce against
-   * the pull, the full magazine, the COMBO, the coins, the heart for mistiming it -- comes from the
-   * run's own stomp path with nothing added. The arena has no floor; this carries the floor's job.
+   * One per row, placed where the row's own generator would put anything else. This is the fight:
+   * the player is pulled upward faster than NIMUSHI climbs, so the gap shuts unless they keep
+   * finding something to stomp -- and a stomp is a kill, a full magazine and a throw back down the
+   * shaft, exactly as it is in AREA 1-4.
+   *
+   * It is laid per ROW rather than per attack. A target that arrived with an attack made the reload
+   * a feature of the attack; a target on every row makes it a feature of the arena, which is what
+   * the shaft does and what keeps the loop going with no attacks running at all.
+   *
+   * The x varies with the row and the kind is the stretch's own, so this is a supply with variation
+   * rather than a ladder of identical rungs.
    */
-  private spawnBounceTapioca(lane: number, lanes: number) {
+  private layBounceTarget(phase: AbyssPhase, y: number, roll: () => number) {
     const span = WORLD.width - WORLD.wall * 2;
-    const x = WORLD.wall + span * ((lane + 0.5) / lanes);
-    // Ahead of the player ALONG THE PULL, so they rise into its underside exactly as they fall onto
-    // a slime's head in the shaft.
-    const y = this.player.y + BOUNCE_TAPIOCA.lead * this.gravity;
-    this.enemies.push(spawnEnemy('bounceTapioca', this.nextAbyssId--, x, y, 0, 0, 'open'));
+    const x = Math.round(WORLD.wall + 40 + roll() * (span - 80));
+    this.enemies.push(spawnEnemy('bounceTapioca', this.nextAbyssId--, x, y, 0, roll() * Math.PI * 2, 'open'));
+    void phase;
   }
   /** Ends the run as GAME CLEAR. Called by the fight once the king has finished collapsing. */
   clearBoss() {

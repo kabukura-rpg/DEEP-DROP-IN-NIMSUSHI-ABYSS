@@ -12,6 +12,21 @@ import type { EnemyKind } from './enemies';
  */
 
 /** The staging room, in pixels below the opening platform. */
+/**
+ * The arena's lower edge.
+ *
+ * A FIXED rule, not a rising boundary. The player bounces downward to buy room from NIMUSHI, and
+ * this is what stops that being free: fall far enough behind the view and the abyss takes you.
+ * Measured from the bottom of the screen, so it means the same thing on any viewport.
+ *
+ * It replaces the pressure system, which chased the player and could not be answered. Top is
+ * NIMUSHI, bottom is the drop, and the height between them is the player's to manage.
+ */
+export const ARENA_FLOOR = {
+  /** How far past the bottom of the view the player may fall before the run ends. */
+  margin: 140,
+} as const;
+
 export const ABYSS = {
   /** Plain ledges on the way down, so the drop in is ordinary play rather than a cutscene. */
   ledgeGap: 236,
@@ -122,11 +137,16 @@ export type AbyssAttackId = 'tapiocaShower' | 'cupSummon' | 'strawBeam' | 'nimus
  * challenge, it is a stall.
  */
 /**
- * CUP is disabled in every stretch while the core cycle is judged.
+ * ALL FOUR ATTACKS ARE DISABLED, and none of them is deleted.
  *
- * Its code is untouched and it is one entry away from returning -- the order for re-evaluating the
- * roster is STRAW BEAM, then CLONES, then CUP, one at a time. Tuning four attacks at once is how
- * the fight became unreadable in the first place.
+ * The prototype runs on gravity, the standing supply of things to stomp, the drop below and the
+ * weak point above -- nothing else. The question it exists to answer is whether reversing gravity
+ * is by itself enough of a fight, and no amount of attack tuning can answer that while the attacks
+ * are running.
+ *
+ * Every definition, every state and every spawner is intact: turning one back on is one entry in
+ * the array below. The order for re-judging them is SHOWER, then BEAM, then CLONES, then CUP, one
+ * at a time and only after the core loop is judged good.
  */
 export const ABYSS_PHASES: readonly AbyssPhase[] = [
   {
@@ -135,14 +155,14 @@ export const ABYSS_PHASES: readonly AbyssPhase[] = [
     breakBlockChance: 0, spikeChance: 0, containerChance: 0, doodadChance: 0,
     groundless: true, clonePool: ['nimushiClone'], heart: true,
     // One attack, low density: this stretch is where the player learns that down is up.
-    attacks: ['tapiocaShower'],
+    attacks: [],
   },
   {
     id: 2, name: 'CATACOMB OF CUPS', role: 'catacomb', from: 0.75,
     rowGap: 355, ledgeWidth: [0, 0],
     breakBlockChance: 0, spikeChance: 0, containerChance: 0, doodadChance: 0,
     groundless: true, clonePool: ['nimushiClone'], heart: true,
-    attacks: ['tapiocaShower'],
+    attacks: [],
   },
   {
     id: 3, name: 'AQUIFER OF SYRUP', role: 'aquifer', from: 0.5,
@@ -150,14 +170,14 @@ export const ABYSS_PHASES: readonly AbyssPhase[] = [
     rowGap: 350, ledgeWidth: [0, 0],
     breakBlockChance: 0, spikeChance: 0, containerChance: 0.8, doodadChance: 0,
     groundless: true, clonePool: ['nimushiClone'], heart: true,
-    attacks: ['strawBeam'],
+    attacks: [],
   },
   {
     id: 4, name: 'LIMBO OF THE DEEP', role: 'limbo', from: 0.25,
     rowGap: 330, ledgeWidth: [0, 0],
     breakBlockChance: 0, spikeChance: 0, containerChance: 0, doodadChance: 0,
     groundless: true, clonePool: ['nimushiShade'], heart: false,
-    attacks: ['nimushiClones', 'tapiocaShower', 'strawBeam'],
+    attacks: [],
   },
 ];
 

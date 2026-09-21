@@ -477,11 +477,12 @@ describe('gun modules across the run', () => {
     for (let i = 0; i < 480; i++) {
       game.player.invincible = 99; game.ammo = 40;
       game.player.x = game.boss.x;
-      // Fire from where the fight actually puts the player. NIMUSHI holds a share of the VIEWPORT
-      // now, so the distance to the eye is the same for everyone and cannot be shortened by diving
-      // -- which makes "can this module reach" a real question rather than one the fixture answers
-      // for itself by teleporting the player into range.
+      // Hold the player inside the module's own reach. NIMUSHI no longer keeps a fixed distance --
+      // it climbs at its own pace and the player closes on it by falling -- so "how far away am I"
+      // is now something the player decides. What this asks is whether the module can hit the eye
+      // from inside its stated range, not whether some particular distance happens to suit it.
       game.player.vy = 0;
+      game.player.y = game.boss.face + Math.min(reach * 0.6, 300) * -game.gravitySign;
       // Pulsed: BURST and the other single-shot modules fire once per PRESS, not per frame.
       game.step(1 / 120, 0, i % 8 < 4);
     }

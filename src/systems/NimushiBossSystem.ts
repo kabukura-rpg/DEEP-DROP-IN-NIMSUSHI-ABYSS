@@ -21,7 +21,6 @@ export type NimushiSignal =
   | { kind: 'prep'; attack: AbyssAttackId }
   | { kind: 'attack'; attack: AbyssAttackId }
   | { kind: 'clones'; count: number; y: number }
-  | { kind: 'bounce'; lane: number; lanes: number }
   | { kind: 'rage' }
   | { kind: 'line'; text: string }
   | { kind: 'started' }
@@ -66,8 +65,6 @@ export class NimushiBossSystem {
    */
   /** Extra room bought by weak-point damage, decaying away as the band reasserts itself. */
   private pushback = 0;
-  /** Last frame's camera, so the band can be carried rather than chased. Null before the first. */
-  private lastCameraY: number | null = null;
   mark = 0;
   /** Where the rising deep actually is, in world coordinates. */
   deepY = 0;
@@ -146,7 +143,7 @@ export class NimushiBossSystem {
 
   start(playerY: number, sign: 1 | -1) {
     this.enabled = true; this.sign = sign;
-    this.hp = NIMUSHI.maxHp; this.state = 'dormant'; this.phaseId = 1; this.pushback = 0; this.lastCameraY = null;
+    this.hp = NIMUSHI.maxHp; this.state = 'dormant'; this.phaseId = 1; this.pushback = 0;
     this.elapsed = 0; this.started = false; this.defeated = false; this.raged = false; this.taunted = false;
     this.x = WORLD.width / 2; this.y = playerY + NIMUSHI.restGap * sign;
     this.tapiocas = []; this.cups = []; this.beams = [];
@@ -156,7 +153,7 @@ export class NimushiBossSystem {
   }
   reset() {
     this.enabled = false; this.started = false; this.defeated = false; this.raged = false;
-    this.state = 'dormant'; this.hp = NIMUSHI.maxHp; this.elapsed = 0; this.phaseId = 1; this.pushback = 0; this.lastCameraY = null;
+    this.state = 'dormant'; this.hp = NIMUSHI.maxHp; this.elapsed = 0; this.phaseId = 1; this.pushback = 0;
     this.tapiocas = []; this.cups = []; this.beams = [];
     this.mark = 0; this.deepY = 0; this.windowDamage = 0;
   }
@@ -261,69 +258,45 @@ export class NimushiBossSystem {
    * will actually land in and the telegraph can never lie.
    */
   /**
-   * Hold the top of the screen.
+   * NIMUSHI climbs at its own pace, and nothing corrects the distance.
    *
-   * NIMUSHI keeps a fraction of the VIEWPORT rather than a distance from the player. The camera
-   * already follows the player and the player cannot climb above their own camera anchor, so a
-   * screen band gives the separation a floor by construction -- there is no chasing, no correcting,
-   * and no way for ordinary movement to close on the body.
+   * This is the whole fight now. The player is pulled upward faster than NIMUSHI rises, so doing
+   * nothing closes the gap and ends in the body -- and the way to buy that distance back is the one
+   * AREA 1-4 teaches: stomp something and get thrown the other way.
    *
-   * What came before: a flat `ascentSpeed` that let the gap shut at 370px/s and put the player
-   * inside the body in 2.28s, then a velocity-matching controller that fixed that but measured the
-   * distance from the player, so how much of the fight you could see depended on what you were
-   * doing. The band answers both and is far less machinery.
+   * Everything that used to live here is gone. A velocity-matching controller, then a screen band,
+   * then two screen bands: each of them kept the player at a safe distance FOR them, and each one
+   * quietly removed the reason to play. The distance is the player's problem again.
    */
   private station(dt: number, player: { x: number; y: number; vy: number }, cameraY: number) {
+    void cameraY;
     const haul = this.state === 'phaseTransition' ? NIMUSHI.transitionSpeed : 0;
-    const attacking = (Object.values(ATTACK_STATES) as string[]).includes(this.state);
-
-    /**
-     * Ride the camera, then correct toward the band.
-     *
-     * Carrying the camera's own movement first is what makes the band hold at any speed. Converging
-     * at a fixed rate alone does not: the moment the view travels faster than `bandSpeed`, NIMUSHI
-     * falls out of frame and keeps falling, and the whole fight drifts off the bottom of the screen.
-     * With the camera delta applied, the rate limit only ever has to cover the RESIDUAL error.
-     */
-    const carried = this.lastCameraY === null ? 0 : cameraY - this.lastCameraY;
-    this.lastCameraY = cameraY;
-    this.y += carried;
-
-    // The band, in world coordinates: a fixed share of the screen, offset by whatever room a
-    // weak-point hit has most recently bought.
-    const target = cameraY + WORLD.height * this.band + this.pushback * this.sign;
-    // While an attack runs NIMUSHI corrects more slowly, so a pattern can pull it a little off the
-    // band and let it settle back afterwards rather than looking painted on.
-    const rate = attacking ? NIMUSHI.bandSpeed * NIMUSHI.attackFollow : NIMUSHI.bandSpeed;
-    const step = (rate + haul) * dt;
-    this.y += Math.max(-step, Math.min(step, target - this.y));
-
+    // Well under the arena's terminal speed, so the player always closes when they stop working.
+    this.y += (NIMUSHI.ascentSpeed + haul) * dt * this.sign;
+    // A weak-point hit still shoves it back, and the shove still fades. It is the fight's one piece
+    // of spatial feedback and it is a reaction to being hit, not a rule about where the player may be.
+    this.y += this.pushback * this.sign * dt;
     this.pushback = Math.max(0, this.pushback - (NIMUSHI.pushPerHit / NIMUSHI.pushbackDecay) * dt);
 
-    // No minimum-gap snap. The band is the guarantee now -- the player cannot climb above their own
-    // camera anchor, so the separation has a floor without anyone being teleported. Keeping the old
-    // snap made body contact literally unreachable: it fired on the frame the player touched the
-    // body and threw NIMUSHI 220px clear before the collision could resolve, so the contact rule
-    // existed in code and could never happen in play.
+    /**
+     * NIMUSHI cannot be overtaken.
+     *
+     * This is NOT the safe-distance controller coming back: it does not hold the player at a
+     * comfortable range, and it does nothing at all until they are already inside the body taking
+     * contact damage. What it stops is sailing straight past and leaving the fight behind -- with
+     * nothing here at all, a player who keeps stomping climbs through NIMUSHI and ends up thousands
+     * of pixels above it with no boss on screen.
+     *
+     * NIMUSHI is what the arena is climbing toward. The consequence of reaching it is the body, not
+     * an empty sky.
+     */
+    if (this.along(this.y - player.y) < 0) this.y = player.y;
 
     if (this.state === 'eyeOpen' || this.state === 'dormant' || this.state === 'recovery') {
       const towards = Math.sign(player.x - this.x);
       const edge = WORLD.wall + NIMUSHI.bodyWidth / 2;
       this.x = Math.max(edge, Math.min(WORLD.width - edge, this.x + towards * NIMUSHI.drift * dt));
     }
-  }
-  /**
-   * Which band NIMUSHI wants right now.
-   *
-   * Far while it is winding up or attacking, so the pattern can be read from a distance and the body
-   * is nowhere near the player. Near from the moment it starts recovering until the eye shuts again,
-   * so the counterattack is in reach of every module including the shortest.
-   */
-  get band() {
-    if (this.state === 'attackPrep' || this.state === 'eyeClosing') return NIMUSHI.attackBand;
-    return (Object.values(ATTACK_STATES) as string[]).includes(this.state)
-      ? NIMUSHI.attackBand
-      : NIMUSHI.damageBand;
   }
   /** How far the player currently is from the face -- the one number the fight is really about. */
   reach(playerY: number) { return this.along(this.face - playerY); }
@@ -399,6 +372,10 @@ export class NimushiBossSystem {
         return;
       case 'eyeClosing':
         if (this.timer > 0) return;
+        // A stretch with no attacks in its rotation goes straight to recovery and reopens. The
+        // prototype runs the fight on gravity, stomps and the weak point alone, to find out whether
+        // that is a game before anything is layered on top of it.
+        if (!this.phase.attacks.length) { this.state = 'recovery'; this.timer = NIMUSHI.recovery; return; }
         this.pendingAttack = this.nextAttack();
         this.state = 'attackPrep'; this.timer = NIMUSHI_ATTACKS[this.pendingAttack].prep;
         this.prepare(this.pendingAttack, player);
@@ -519,11 +496,7 @@ export class NimushiBossSystem {
     // A fresh shower starts its gap somewhere new; the waves inside it walk from there.
     if (attack === 'tapiocaShower') {
       this.showerLane = -1;
-      const safe = this.spawnShowerWave(random);
-      // A bounce target, in the corridor this wave just opened. The safe route and the reload are
-      // the same route on purpose: making the player leave cover to reach their ammunition would
-      // turn a rescue into a second hazard that charges for the first one.
-      out.push({ kind: 'bounce', lane: safe[Math.floor(safe.length / 2)], lanes: TAPIOCA_SHOWER.lanes });
+      this.spawnShowerWave(random);
       // Start the clock HERE. Leaving it at zero let `pourShower` fire again on the very next frame,
       // so every shower opened with two waves six pixels apart -- double density at exactly the
       // moment the player is trying to read where the corridor is.

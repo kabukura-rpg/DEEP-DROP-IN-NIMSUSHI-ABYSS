@@ -133,30 +133,14 @@ describe('CHARGE comes back the way the run teaches: a stomp', () => {
   });
 });
 
-describe('the reload sits on the safe route, not off it', () => {
-  it('lays the bounce target in a lane the shower left open', () => {
-    for (const seed of [408, 409, 410]) {
-      const { g, target } = withBounceTarget(seed);
-      const pearlLanes = new Set(g.boss.tapiocas.filter(t => t.life > 0).map(t => laneOf(t.x)));
-      expect({ seed, inCorridor: !pearlLanes.has(laneOf(target.x)) }).toEqual({ seed, inCorridor: true });
-    }
-  });
+describe('the reload is part of the arena, not part of an attack', () => {
 
-  it('offers one with every shower, so a cycle always has a reload', () => {
+  it('offers them continuously, not once per attack', () => {
+    // They are laid per ROW now rather than with an attack, so the loop keeps going with no attacks
+    // running at all -- which is the whole prototype.
     const g = fighting(411);
-    let showers = 0, targets = 0;
-    let wasShower = false;
-    for (let i = 0; i < 90 / STEP && g.state === 'boss'; i++) {
-      g.player.invincible = 9;
-      const before = g.enemies.length;
-      g.step(STEP, 0, false);
-      const isShower = g.boss.state === 'tapiocaShower';
-      if (isShower && !wasShower) showers++;
-      if (g.enemies.length > before && g.enemies.some(e => e.kind === 'bounceTapioca')) targets++;
-      wasShower = isShower;
-    }
-    expect(showers).toBeGreaterThan(0);
-    expect(targets).toBeGreaterThanOrEqual(showers);
+    tick(g, 6);
+    expect(g.enemies.filter(e => e.kind === 'bounceTapioca').length).toBeGreaterThan(1);
   });
 });
 

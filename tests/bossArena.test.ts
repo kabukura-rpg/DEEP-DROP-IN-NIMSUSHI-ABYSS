@@ -48,22 +48,43 @@ describe('no floor, in any stretch', () => {
   it('keeps the vertical fall going -- nothing in the arena zeroes it', () => {
     const g = fighting(66);
     tick(g, 2);
-    let stalled = 0;
+    let stalled = 0, frames = 0, zeroes = 0, run = 0, longestZero = 0;
     for (let i = 0; i < 12 / STEP && g.state === 'boss'; i++) {
       g.player.invincible = 9;
-      g.step(STEP, 0, false);
-      if (g.player.vy === 0) stalled++;
+      // Stomp what is there. NIMUSHI no longer holds the player at a safe distance, so surviving
+      // long enough to measure anything means playing the loop rather than standing in it.
+      const target = g.enemies.filter(e => e.alive && e.stompable)
+        .sort((a, b) => Math.abs(a.y - g.player.y) - Math.abs(b.y - g.player.y))[0];
+      g.step(STEP, target ? Math.sign(target.x - g.player.x) : 0, false);
+      // A bounce apex passes through zero, which is ordinary physics rather than a stall. What must
+      // never happen is being GROUNDED -- the arena has no floor -- or sitting at zero.
+      if (g.player.grounded !== -1) stalled++;
+      if (g.player.vy === 0) zeroes++;
+      run = g.player.vy === 0 ? run + 1 : 0;
+      longestZero = Math.max(longestZero, run);
+      frames++;
     }
+    expect(frames).toBeGreaterThan(100);
     expect(stalled).toBe(0);
+    // Passing through zero is fine; resting at it is not.
+    expect(longestZero).toBeLessThan(3);
+    expect(zeroes).toBeLessThan(frames * 0.05);
   });
 });
 
 describe('the fight still works end to end', () => {
-  it('survives the arena long enough to fight in it', () => {
+  it('survives the arena as long as the player keeps stomping', () => {
+    // The fight is survivable by PLAYING it, not by standing in it: doing nothing is a fall into
+    // the body, which is the point of the reset.
     const g = fighting(73);
-    tick(g, 12);
+    tick(g, 1);
+    for (let i = 0; i < 12 / STEP && g.state === 'boss'; i++) {
+      g.player.invincible = 9;
+      const target = g.enemies.filter(e => e.alive && e.stompable)
+        .sort((a, b) => Math.abs(a.y - g.player.y) - Math.abs(b.y - g.player.y))[0];
+      g.step(STEP, target ? Math.sign(target.x - g.player.x) : 0, false);
+    }
     expect(g.state).toBe('boss');
-    expect(g.boss.reach(g.player.y)).toBeGreaterThan(0);
   });
 
   it('can still be won through all four stretches, with no floor to rest on', () => {

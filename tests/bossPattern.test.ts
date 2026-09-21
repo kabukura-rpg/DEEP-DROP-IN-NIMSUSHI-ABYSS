@@ -7,6 +7,10 @@ import { WORLD } from '../src/data/balance';
 /**
  * EVERY ATTACK MUST HAVE A READABLE SAFE ROUTE.
  *
+ * The attacks are DISABLED in the prototype, so what survives here is the data-level guarantee: the
+ * corridor's shape, its walk, and the telegraphs. The live-attack cases went with the rotation and
+ * come back when the attacks do -- in the order SHOWER, BEAM, CLONES, CUP, one at a time.
+ *
  * Human playtest called the tapioca barrage unavoidable. It was never bullet soup -- the corridor
  * was always guaranteed -- but it was two lanes wide and moved every 0.4s, so answering it meant
  * walking correctly from the first wave with no time to look at it. These tests hold the difference
@@ -52,25 +56,6 @@ describe('the shower is a pattern, not a barrage', () => {
     }
   });
 
-  it('really does leave that corridor empty in the live attack', () => {
-    const g = fighting(201);
-    // Run until a shower is actually pouring, then check the pearls against the lanes.
-    for (let i = 0; i < 40 / STEP && g.boss.state !== 'tapiocaShower'; i++) { g.player.invincible = 9; g.step(STEP, 0, false); }
-    expect(g.boss.state).toBe('tapiocaShower');
-    for (let i = 0; i < 0.2 / STEP; i++) { g.player.invincible = 9; g.step(STEP, 0, false); }
-    // Group by row before counting. Two waves can be in the air at once and the corridor moves
-    // between them, so pooling every pearl on screen measures the walk rather than the gap.
-    const rows = new Map<number, Set<number>>();
-    for (const t of g.boss.tapiocas) {
-      const row = Math.round(t.y / 40);
-      if (!rows.has(row)) rows.set(row, new Set());
-      rows.get(row)!.add(laneOf(t.x));
-    }
-    expect(rows.size).toBeGreaterThan(0);
-    for (const [, lanes] of rows) {
-      expect(lanes.size).toBeLessThanOrEqual(TAPIOCA_SHOWER.lanes - TAPIOCA_SHOWER.safeLanes);
-    }
-  });
 });
 
 describe('FINAL RAGE keeps its corridor', () => {
@@ -104,19 +89,6 @@ describe('the four attacks ask for different answers', () => {
     expect(TAPIOCA_CUP.hp).toBeGreaterThan(0);
   });
 
-  it('gives every attack a wind-up that cannot hurt', () => {
-    for (const id of Object.keys(ATTACK_STATES) as (keyof typeof ATTACK_STATES)[]) {
-      const g = fighting(203);
-      let prepped = false;
-      for (let i = 0; i < 60 / STEP && g.state === 'boss'; i++) {
-        g.player.invincible = 9;
-        g.step(STEP, 0, false);
-        if (g.boss.state === 'attackPrep') { prepped = true; break; }
-      }
-      expect({ id, prepped }).toEqual({ id, prepped: true });
-      break;                                   // one confirmation is enough; the state is shared
-    }
-  });
 });
 
 describe('attack and damage windows stay separate', () => {
@@ -132,17 +104,4 @@ describe('attack and damage windows stay separate', () => {
     expect(overlap).toBe(0);
   });
 
-  it('opens a damage window after the attack, every cycle', () => {
-    const g = fighting(205);
-    const order: string[] = [];
-    for (let i = 0; i < 60 / STEP && g.state === 'boss'; i++) {
-      g.player.invincible = 9;
-      g.step(STEP, 0, false);
-      if (order[order.length - 1] !== g.boss.state) order.push(g.boss.state);
-    }
-    const attack = order.findIndex(s => (Object.values(ATTACK_STATES) as string[]).includes(s));
-    expect(attack).toBeGreaterThanOrEqual(0);
-    expect(order.slice(attack)).toContain('recovery');
-    expect(order.slice(attack)).toContain('eyeOpen');
-  });
 });
