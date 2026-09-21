@@ -91,17 +91,42 @@ describe('the four attacks ask for different answers', () => {
 
 });
 
-describe('attack and damage windows stay separate', () => {
-  it('never has the eye open while an attack is running', () => {
+/**
+ * The SHOWER is the one attack the player fights THROUGH rather than waits out.
+ *
+ * This replaces "never has the eye open while an attack is running", which was true of a fight that
+ * alternated between attacking and being attacked. That alternation turned the attack's own 2.4s
+ * into a stretch with nothing in it but dodging -- a different game wearing the same costume. The
+ * wind-up is still a pure warning; what changed is the answer to it.
+ */
+describe('the shower is fought through, not waited out', () => {
+  it('keeps the eye SHUT through the wind-up and OPEN through the shower', () => {
     const g = fighting(204);
-    let overlap = 0;
+    let prepOpen = 0, prepFrames = 0, showerShut = 0, showerFrames = 0;
     for (let i = 0; i < 60 / STEP && g.state === 'boss'; i++) {
       g.player.invincible = 9;
       g.step(STEP, 0, false);
-      const attacking = (Object.values(ATTACK_STATES) as string[]).includes(g.boss.state);
-      if (attacking && g.boss.eyeOpen) overlap++;
+      if (g.boss.state === 'attackPrep') { prepFrames++; if (g.boss.eyeOpen) prepOpen++; }
+      if (g.boss.state === 'tapiocaShower') { showerFrames++; if (!g.boss.eyeOpen) showerShut++; }
     }
-    expect(overlap).toBe(0);
+    expect(prepFrames).toBeGreaterThan(0);
+    expect(showerFrames).toBeGreaterThan(0);
+    // Closed for the tell...
+    expect(prepOpen).toBe(0);
+    // ...open for the answer.
+    expect(showerShut).toBe(0);
   });
 
+  it('leaves the other three shut, whenever they come back', () => {
+    // BEAM, CUP and CLONES are out of every rotation, and opening the eye is not something they
+    // inherit: only `tapiocaShower` is named in `eyeOpen`.
+    const g = fighting(205);
+    const machine = g.boss as unknown as { state: string };
+    for (const id of ['strawBeam', 'cupSummon', 'nimushiClones'] as const) {
+      machine.state = ATTACK_STATES[id];
+      expect({ id, open: g.boss.eyeOpen }).toEqual({ id, open: false });
+    }
+    machine.state = ATTACK_STATES.tapiocaShower;
+    expect(g.boss.eyeOpen).toBe(true);
+  });
 });

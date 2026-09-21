@@ -299,6 +299,85 @@ describe('the prototype runs on gravity and the weak point alone', () => {
     }
   });
 
+  /**
+   * C. Every weapon can reach the eye DURING a shower, not only between them.
+   *
+   * Driven by real rounds from each weapon's own firing distance, because the three that matter
+   * here are exactly the three the C1 geometry was measured for: the long one that was always fine
+   * and the two short ones that only just became usable.
+   */
+  it('lets MACHINE, SHOTGUN and PUNCHER all hit the weak point during a shower', () => {
+    for (const [id, reach] of [['machine', 400], ['shotgun', 200], ['puncher', 190]] as const) {
+      const g = arena(640);
+      g.gun.equip(id as GunModuleId);
+      g.reloadCharge();
+      const machine = g.boss as unknown as { state: string; timer: number; pendingAttack: string; waveTimer: number };
+      machine.pendingAttack = 'tapiocaShower';
+      machine.state = 'tapiocaShower';
+      machine.timer = 2.4;
+      machine.waveTimer = 0;
+      expect(g.boss.eyeOpen).toBe(true);
+      const hp = g.boss.hp;
+      let landed = false;
+      for (let i = 0; i < 1.6 / STEP && !landed; i++) {
+        g.player.invincible = 9;
+        g.player.vy = 0;
+        g.player.x = g.boss.x;
+        g.player.y = g.boss.face + reach;
+        g.ammo = g.stats.maxAmmo;
+        g.step(STEP, 0, i % 8 < 4);
+        if (g.boss.hp < hp) landed = true;
+      }
+      expect(landed, `${id} could not reach the eye during a shower`).toBe(true);
+    }
+  });
+
+  /**
+   * D. Shooting a pearl and shooting the boss are the same trigger, and neither eats the other.
+   *
+   * A round that meets a pearl dies on it; a round that meets nothing carries on to the eye. The
+   * failure this guards against is a pearl pass that swallows every round in flight.
+   */
+  it('lets a round pass a shower and still reach the eye', () => {
+    const g = arena(641);
+    const machine = g.boss as unknown as { state: string; timer: number; waveTimer: number };
+    machine.state = 'tapiocaShower'; machine.timer = 2.4;
+    (g.boss as unknown as { spawnShowerWave(r: () => number): number[] }).spawnShowerWave(seeded(11));
+    // Hold the next wave off, or the step under test would spawn one and the count would move for
+    // a reason that has nothing to do with the round.
+    machine.waveTimer = TAPIOCA_SHOWER.waveInterval;
+    const before = g.boss.tapiocas.filter(t => t.life > 0).map(t => t.id);
+    expect(before.length).toBeGreaterThan(0);
+    // A round on the eye, in a frame where pearls are also in the air.
+    const hp = g.boss.hp;
+    g.bullets.push(round(g.boss.x, g.boss.eye.y + g.boss.eye.height / 2, 1));
+    g.step(STEP, 0, false);
+    expect(g.boss.hp).toBe(hp - 1);
+    // ...and every pearl that was in the air still is: hitting the boss is not a screen clear.
+    const after = new Set(g.boss.tapiocas.filter(t => t.life > 0).map(t => t.id));
+    for (const id of before) expect({ id, alive: after.has(id) }).toEqual({ id, alive: true });
+  });
+
+  it('closes the eye again once the shower is over', () => {
+    const g = arena(642);
+    let sawShowerOpen = false, sawShutAfter = false, was = '';
+    for (let i = 0; i < 40 / STEP && g.state === 'boss'; i++) {
+      g.player.invincible = 9;
+      if (g.player.y - g.cameraY > WORLD.height * 0.9) g.player.y = g.cameraY + WORLD.height * 0.6;
+      const target = g.enemies.filter(e => e.alive && e.y < g.player.y).sort((a, b) => b.y - a.y)[0];
+      g.step(STEP, target ? Math.sign(target.x - g.player.x) as -1 | 0 | 1 : 0, false);
+      if (g.boss.state === 'tapiocaShower' && g.boss.eyeOpen) sawShowerOpen = true;
+      if (was === 'tapiocaShower' && g.boss.state !== 'tapiocaShower') {
+        // Back to the ordinary cycle: recovery, with the eye shut until it reopens.
+        expect(g.boss.state).toBe('recovery');
+        if (!g.boss.eyeOpen) sawShutAfter = true;
+      }
+      was = g.boss.state;
+    }
+    expect(sawShowerOpen).toBe(true);
+    expect(sawShutAfter).toBe(true);
+  });
+
   it('has SHOWER back, and only SHOWER', () => {
     for (const phase of ABYSS_PHASES) {
       expect({ id: phase.id, rotation: [...phase.attacks] }).toEqual({ id: phase.id, rotation: ['tapiocaShower'] });

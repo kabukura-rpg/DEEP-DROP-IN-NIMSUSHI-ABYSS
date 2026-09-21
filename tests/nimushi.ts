@@ -51,6 +51,20 @@ export function fighting(seed = 5) {
   return game;
 }
 
+/**
+ * The ORDINARY damage window: dormant, or the eye's own open state.
+ *
+ * `boss.eyeOpen` is now true during TAPIOCA SHOWER as well, which is the point of the attack -- but
+ * a fixture that injects `shootEye` on a frame counter has no CHARGE and no dodging to do, so
+ * following the eye into a shower pours four times the damage a player could and finishes the
+ * fight before whatever the test is actually about has happened. Fixtures whose subject is
+ * something else use this and keep the cadence they always had.
+ *
+ * Measured, for the record: a real weapon does LESS damage in a shower than in an ordinary window
+ * (1.7-6.0 against 4.5-7.5), because the player is busy. The uncapped window is a fixture problem.
+ */
+export const inWindow = (game: GameModel) => game.boss.state === 'dormant' || game.boss.state === 'eyeOpen';
+
 /** Hold the player still at a fixed distance behind NIMUSHI's face, so geometry tests are stable. */
 export function pin(game: GameModel, reach = 300) {
   game.player.vy = 0;
@@ -72,7 +86,7 @@ export function defeatNimushi(game: GameModel, limit = 400) {
     // which would quietly change the HP a caller set on purpose. This helper is for WINNING the
     // fight; anything that wants to test healing does it deliberately somewhere else.
     if (game.pickups.some(k => k.kind === 'heart')) game.pickups = game.pickups.filter(k => k.kind !== 'heart');
-    if (game.boss.eyeOpen && i % 8 === 0) {
+    if (inWindow(game) && i % 8 === 0) {
       const eye = game.boss.eye;
       game.bullets.push(round(game.boss.x, eye.y + eye.height / 2, 3));
     }

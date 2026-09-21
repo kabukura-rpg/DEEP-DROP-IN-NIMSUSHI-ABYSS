@@ -7,7 +7,7 @@ import { PLANNED_TOTAL_DEPTH } from '../src/data/areas';
 import { GUN_MODULE_IDS } from '../src/data/gunModules';
 import { SHOP_ITEMS, shopPrice, ABYSS_SHOP_AREA } from '../src/data/shop';
 import { UPGRADE_TUNING } from '../src/data/upgrades';
-import { atNimushi, defeatNimushi, fighting, intoTheAbyss, laneOf, pin, round, seeded, shootBody, shootEye, STEP, tick } from './nimushi';
+import { atNimushi, defeatNimushi, fighting, inWindow, intoTheAbyss, laneOf, pin, round, seeded, shootBody, shootEye, STEP, tick } from './nimushi';
 import { BOSS_PHYSICS } from '../src/data/bossPhysics';
 import { BALANCE } from '../src/data/balance';
 import { WORLD } from '../src/data/balance';
@@ -531,7 +531,7 @@ describe('the eye cycle', () => {
     const game = fighting(32);
     const attackStates = Object.keys(NIMUSHI_ATTACKS);
     for (let i = 0; i < 60 / STEP; i++) {
-      if (game.boss.eyeOpen && game.boss.state === 'eyeOpen' && i % 6 === 0) shootEye(game, 3);
+      if (inWindow(game) && i % 6 === 0) shootEye(game, 3);
       else game.step(STEP, 0, false);
       if (game.state !== 'boss') break;
       expect(attackStates.filter(s => s === game.boss.state).length).toBeLessThanOrEqual(1);
@@ -555,7 +555,7 @@ function reachAttack(game: GameModel, attack: 'cupSummon' | 'strawBeam' | 'nimus
   for (let i = 0; i < limit / STEP; i++) {
     game.player.invincible = 9;
     pin(game, 300);
-    if (game.boss.eyeOpen && game.boss.state === 'eyeOpen' && i % 6 === 0) shootEye(game, 4);
+    if (inWindow(game) && i % 6 === 0) shootEye(game, 4);
     else game.step(STEP, 0, false);
     if (game.state !== 'boss' || game.boss.defeated) return false;
     if (landed()) return true;
@@ -672,7 +672,7 @@ describe('phases and FINAL RAGE', () => {
     for (let i = 0; i < 200 / STEP; i++) {
       game.player.invincible = 9;
       pin(game, 300);
-      if (game.boss.eyeOpen && i % 6 === 0) shootEye(game, 4);
+      if (inWindow(game) && i % 6 === 0) shootEye(game, 4);
       else game.step(STEP, 0, false);
       if (game.boss.state === 'phaseTransition') {
         transitions++;
@@ -694,7 +694,7 @@ describe('phases and FINAL RAGE', () => {
     for (let i = 0; i < 400 / STEP; i++) {
       game.player.invincible = 9;
       pin(game, 300);
-      if (game.boss.eyeOpen && i % 6 === 0) shootEye(game, 4);
+      if (inWindow(game) && i % 6 === 0) shootEye(game, 4);
       else game.step(STEP, 0, false);
       for (const e of game.events) if (e.type === 'bossRage') rages++;
       game.events.length = 0;
@@ -764,7 +764,7 @@ describe('the rising deep', () => {
     for (let i = 0; i < 200 / STEP; i++) {
       game.player.invincible = 9;
       pin(game, 300);
-      if (game.boss.eyeOpen && i % 6 === 0) shootEye(game, 4);
+      if (inWindow(game) && i % 6 === 0) shootEye(game, 4);
       else game.step(STEP, 0, false);
       if (game.boss.state === 'phaseTransition') break;
       if (game.state !== 'boss') break;
@@ -783,7 +783,7 @@ describe('the four ABYSS environments', () => {
     for (let i = 0; i < 400 / STEP && game.boss.phaseId < id; i++) {
       game.player.invincible = 9;
       pin(game, 300);
-      if (game.boss.eyeOpen && i % 6 === 0) shootEye(game, 4);
+      if (inWindow(game) && i % 6 === 0) shootEye(game, 4);
       else game.step(STEP, 0, false);
       if (game.state !== 'boss') break;
     }
@@ -1334,7 +1334,7 @@ describe('the camera and the view', () => {
     for (let i = 0; i < 20 / STEP && many.state === 'boss' && !many.boss.defeated; i++) {
       many.player.invincible = 9;
       const hp = many.boss.hp;
-      if (many.boss.eyeOpen && i % 40 === 0) shootEye(many, 3);
+      if (inWindow(many) && i % 40 === 0) shootEye(many, 3);
       else many.step(STEP, 0, false);
       if (many.boss.hp < hp) landed++;
       expect(Math.abs(many.boss.body.y - many.boss.framedBody.y)).toBeLessThanOrEqual(HIT_REACTION.recoil + 1e-6);
@@ -1372,7 +1372,7 @@ describe('the camera and the view', () => {
     const game = atNimushi(90);
     for (let i = 0; i < 6 / STEP && game.state === 'boss'; i++) {
       game.player.invincible = 9;
-      if (game.boss.eyeOpen && i % 30 === 0) shootEye(game, 3);
+      if (inWindow(game) && i % 30 === 0) shootEye(game, 3);
       else game.step(STEP, 0, false);
       expect(game.boss.framedBody.y - game.cameraY).toBeLessThanOrEqual(WORLD.height * ARENA_VIEW.bossAnchor + 1e-6);
     }
@@ -1479,7 +1479,7 @@ describe('what NIMUSHI shows and says', () => {
     for (let i = 0; i < 400 / STEP && !game.boss.defeated; i++) {
       game.player.invincible = 9;
       pin(game, 300);
-      if (game.boss.eyeOpen && i % 6 === 0) shootEye(game, 4);
+      if (inWindow(game) && i % 6 === 0) shootEye(game, 4);
       else game.step(STEP, 0, false);
       poses.add(game.boss.pose);
       if (game.state !== 'boss') break;
@@ -1506,7 +1506,7 @@ describe('what NIMUSHI shows and says', () => {
     for (let i = 0; i < 400 / STEP && !game.boss.defeated; i++) {
       game.player.invincible = 9;
       pin(game, 300);
-      if (game.boss.eyeOpen && i % 6 === 0) shootEye(game, 4);
+      if (inWindow(game) && i % 6 === 0) shootEye(game, 4);
       else game.step(STEP, 0, false);
       for (const e of game.events) if (e.type === 'bossLine') lines.push(String(e.stage));
       game.events.length = 0;
@@ -1527,7 +1527,7 @@ describe('a long fight does not fill up with entities', () => {
     for (let i = 0; i < 240 / STEP; i++) {
       game.player.invincible = 9;
       pin(game, 300);
-      if (game.boss.eyeOpen && i % 10 === 0) shootEye(game, 2);
+      if (inWindow(game) && i % 10 === 0) shootEye(game, 2);
       else game.step(STEP, 0, true);
       const total = game.boss.tapiocas.length + game.boss.cups.length + game.boss.beams.length
         + game.enemies.length + game.bullets.length + game.coins.coins.length + game.corpses.length
@@ -1543,7 +1543,7 @@ describe('a long fight does not fill up with entities', () => {
     for (let i = 0; i < 300 / STEP; i++) {
       game.player.invincible = 9;
       pin(game, 300);
-      if (game.boss.eyeOpen && i % 6 === 0) shootEye(game, 4);
+      if (inWindow(game) && i % 6 === 0) shootEye(game, 4);
       else game.step(STEP, 0, false);
       if (game.boss.state === 'phaseTransition') break;
       if (game.state !== 'boss') break;

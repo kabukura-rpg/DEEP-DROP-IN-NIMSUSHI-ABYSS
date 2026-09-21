@@ -103,10 +103,26 @@ export class NimushiBossSystem {
   /** True while the fight is live enough to be hit or to hurt: not asleep, not over. */
   get active() { return this.enabled && !this.defeated; }
   /**
-   * The ONLY state in which HP can move. Dormant counts: waking NIMUSHI up is done by shooting the
-   * eye, so the eye has to be a target before the fight has started.
+   * The ONLY state in which HP can move. Three states, and each is deliberate.
+   *
+   * `dormant` counts because waking NIMUSHI up is done by shooting the eye, so the eye has to be a
+   * target before the fight has started.
+   *
+   * `tapiocaShower` counts because of what this fight is. The loop the player was taught is stomp,
+   * bounce, reload, brake, shoot -- and an attack that shuts the weak point turns its own duration
+   * into a phase with nothing in it but dodging, which is a different game wearing the same
+   * costume. With the eye open through the shower, the pearls ask the player to be somewhere else
+   * across the shaft WHILE they keep doing all of it, which is the thing the attack is for.
+   *
+   * The 0.7s wind-up is NOT in the list, on purpose: the cast is a warning, and a warning that can
+   * be shot is just a longer window. Closed for the tell, open for the answer.
+   *
+   * Only the shower. BEAM, CUP and CLONES are out of every rotation; if one comes back, whether it
+   * opens the eye is its own decision to make and not one inherited from here.
    */
-  get eyeOpen() { return this.active && (this.state === 'dormant' || this.state === 'eyeOpen'); }
+  get eyeOpen() {
+    return this.active && (this.state === 'dormant' || this.state === 'eyeOpen' || this.state === 'tapiocaShower');
+  }
   /** What the view draws. Derived, so a sprite can never disagree with the machine. */
   get pose(): NimushiPose {
     if (this.defeated) return 'dead';
