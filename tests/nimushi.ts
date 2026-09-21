@@ -72,6 +72,18 @@ export function pin(game: GameModel, reach = 300) {
 }
 
 /**
+ * Clear whatever NIMUSHI has split off.
+ *
+ * Clones and shades go into the ORDINARY enemy list, which is the point of them -- so they are
+ * stomped, shot and counted like anything else. That also means a fixture testing something else
+ * can have a round absorbed by one, or bank a kill it never meant to. Anything whose subject is not
+ * the clones clears them first.
+ */
+export const clearSummoned = (game: GameModel) => {
+  game.enemies = game.enemies.filter(e => e.kind !== 'nimushiClone' && e.kind !== 'nimushiShade');
+};
+
+/**
  * Take NIMUSHI down the legitimate way: wait for the eye, put rounds in it, never write HP.
  *
  * Used by fixtures that need a WON fight to test something else (the clear screen, TOTAL DEPTH).
@@ -86,6 +98,10 @@ export function defeatNimushi(game: GameModel, limit = 400) {
     // which would quietly change the HP a caller set on purpose. This helper is for WINNING the
     // fight; anything that wants to test healing does it deliberately somewhere else.
     if (game.pickups.some(k => k.kind === 'heart')) game.pickups = game.pickups.filter(k => k.kind !== 'heart');
+    // ...and nothing to stand on, for the same reason. A pinned player drifts through whatever the
+    // arena lays and banks stomps the caller never asked for -- a bounce target or a clone alike.
+    // This helper is for WINNING the fight; anything that wants to count kills does it elsewhere.
+    game.enemies = [];
     if (inWindow(game) && i % 8 === 0) {
       const eye = game.boss.eye;
       game.bullets.push(round(game.boss.x, eye.y + eye.height / 2, 3));

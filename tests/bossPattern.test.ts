@@ -1,6 +1,8 @@
 import { describe, expect, it } from 'vitest';
-import { atNimushi, fighting, laneOf, STEP, tick } from './nimushi';
+import { atNimushi, fighting, laneOf, round, seeded, STEP, tick } from './nimushi';
+import { GameModel } from '../src/systems/GameModel';
 import { NIMUSHI, TAPIOCA_SHOWER, FULL_SCREEN_TAPIOCA, STRAW_BEAM, TAPIOCA_CUP, ATTACK_STATES } from '../src/data/nimushi';
+import { ENEMY_TYPES, spawnEnemy } from '../src/data/enemies';
 import { BOSS_PHYSICS } from '../src/data/bossPhysics';
 import { WORLD } from '../src/data/balance';
 
@@ -189,17 +191,110 @@ describe('the shower is fought through, not waited out', () => {
     expect(liveShut).toBe(0);
   });
 
-  it('leaves CUP and CLONES shut, whenever they come back', () => {
-    // Opening the eye is not something an attack inherits by being an attack: only the two that
+  /**
+   * CLONES asks WHAT to stomp, which is a question the other two never ask.
+   *
+   * What it puts on screen goes into the ORDINARY enemy list, so a clone is stomped, shot, counted
+   * and rewarded by exactly the code a slime is. That is the whole design: the attack adds to the
+   * thing the loop is made of instead of adding something in the way of it.
+   */
+  it('splits off things that live in the ordinary enemy list', () => {
+    const g = fighting(213);
+    const seen = new Map<number, string>();
+    for (let i = 0; i < 90 / STEP && g.state === 'boss'; i++) {
+      g.player.invincible = 9;
+      g.step(STEP, 0, false);
+      for (const e of g.enemies) {
+        if (e.kind === 'nimushiClone' || e.kind === 'nimushiShade') seen.set(e.id, e.kind);
+      }
+    }
+    expect(seen.size).toBeGreaterThan(0);
+    // A clone can be stood on and shot; a shade can only be shot. Both are ordinary enemies.
+    expect(ENEMY_TYPES.nimushiClone.stompable).toBe(true);
+    expect(ENEMY_TYPES.nimushiClone.shootable).toBe(true);
+    expect(ENEMY_TYPES.nimushiShade.stompable).toBe(false);
+    expect(ENEMY_TYPES.nimushiShade.shootable).toBe(true);
+    // ...and the shape says which, because colour never does.
+    expect(ENEMY_TYPES.nimushiClone.silhouette).not.toBe(ENEMY_TYPES.nimushiShade.silhouette);
+  });
+
+  it('pays a clone stomp the ordinary stomp reward, and refuses a shade', () => {
+    for (const [kind, stompable] of [['nimushiClone', true], ['nimushiShade', false]] as const) {
+      const g = atNimushi(214);
+      g.enemies = [spawnEnemy(kind, -900, g.player.x, g.player.y - 60, 0, 0, 'open')];
+      g.ammo = 0;
+      g.player.invincible = 9;
+      g.player.vy = -BOSS_PHYSICS.maxFallSpeed;
+      const combo = g.combo;
+      for (let i = 0; i < 30 && g.combo === combo && g.enemies[0].alive; i++) g.step(STEP, 0, false);
+      expect({ kind, stomped: g.combo > combo }).toEqual({ kind, stomped: stompable });
+      if (stompable) {
+        // The ordinary reward, reached by the ordinary path: bounce and a full magazine.
+        expect(g.player.vy * g.gravitySign).toBeLessThan(0);
+        expect(g.ammo).toBe(g.stats.maxAmmo);
+      }
+    }
+  });
+
+  it('hurts on contact through the ordinary causes, and can be shot down either way', () => {
+    for (const [kind, cause] of [['nimushiClone', 'enemy'], ['nimushiShade', 'spike']] as const) {
+      // Contact: walked into from the side, so a stomp is not what happens.
+      const hit = atNimushi(216);
+      hit.enemies = [spawnEnemy(kind, -901, hit.player.x + 4, hit.player.y, 0, 0, 'open')];
+      hit.player.invincible = 0;
+      hit.player.vy = 0;
+      const hearts = hit.hp;
+      hit.step(STEP, 0, false);
+      expect({ kind, hp: hit.hp }).toEqual({ kind, hp: hearts - 1 });
+      expect(hit.health.lastDamage?.cause).toBe(cause);
+
+      // ...and a round kills either of them, which is the shade's only answer.
+      const shot = atNimushi(217);
+      const e = spawnEnemy(kind, -902, shot.player.x, shot.player.y - 80, 0, 0, 'open');
+      shot.enemies = [e];
+      shot.player.invincible = 9;
+      shot.bullets.push(round(e.x, e.y, 1));
+      shot.step(STEP, 0, false);
+      expect({ kind, alive: e.alive }).toEqual({ kind, alive: false });
+    }
+  });
+
+  it('never stops the arena laying things to stand on', () => {
+    // The attack is layered ON the loop, not instead of it: the standing supply keeps coming.
+    //
+    // NOT `fighting`, which wipes the arena to give a geometry test a clean slate -- this one is
+    // about the supply, so it keeps what the arena itself lays and only clears the terrain.
+    const g = new GameModel(false, seeded(215));
+    g.jumpToNimushi();
+    g.platforms = []; g.doodads = []; g.containers = [];
+    g.bullets.push(round(g.boss.x, g.boss.eye.y + g.boss.eye.height / 2, 1));
+    g.step(STEP, 0, false);
+    let noTarget = 0, frames = 0, sawSummoned = false;
+    for (let i = 0; i < 90 / STEP && g.state === 'boss'; i++) {
+      g.player.invincible = 9;
+      if (g.player.y - g.cameraY > WORLD.height * 0.9) g.player.y = g.cameraY + WORLD.height * 0.6;
+      const target = g.enemies.filter(e => e.alive && e.stompable && e.y < g.player.y).sort((a, b) => b.y - a.y)[0];
+      g.step(STEP, target ? Math.sign(target.x - g.player.x) as -1 | 0 | 1 : 0, false);
+      frames++;
+      if (g.enemies.some(e => e.alive && (e.kind === 'nimushiClone' || e.kind === 'nimushiShade'))) sawSummoned = true;
+      if (!g.enemies.some(e => e.alive && e.stompable && e.y < g.player.y)) noTarget++;
+    }
+    expect(sawSummoned).toBe(true);
+    expect(noTarget).toBe(0);
+    void frames;
+  });
+
+  it('leaves CUP shut, whenever it comes back', () => {
+    // Opening the eye is not something an attack inherits by being an attack: only the three that
     // were judged one at a time are named in `eyeOpen`.
     const g = fighting(205);
     const machine = g.boss as unknown as { state: string };
-    for (const id of ['cupSummon', 'nimushiClones'] as const) {
+    machine.state = ATTACK_STATES.cupSummon;
+    expect(g.boss.eyeOpen).toBe(false);
+    for (const id of ['tapiocaShower', 'nimushiClones'] as const) {
       machine.state = ATTACK_STATES[id];
-      expect({ id, open: g.boss.eyeOpen }).toEqual({ id, open: false });
+      expect({ id, open: g.boss.eyeOpen }).toEqual({ id, open: true });
     }
-    machine.state = ATTACK_STATES.tapiocaShower;
-    expect(g.boss.eyeOpen).toBe(true);
   });
 
   /**

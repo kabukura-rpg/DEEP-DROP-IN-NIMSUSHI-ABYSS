@@ -7,7 +7,7 @@ import { PLANNED_TOTAL_DEPTH } from '../src/data/areas';
 import { GUN_MODULE_IDS } from '../src/data/gunModules';
 import { SHOP_ITEMS, shopPrice, ABYSS_SHOP_AREA } from '../src/data/shop';
 import { UPGRADE_TUNING } from '../src/data/upgrades';
-import { atNimushi, defeatNimushi, fighting, inWindow, intoTheAbyss, laneOf, pin, round, seeded, shootBody, shootEye, STEP, tick } from './nimushi';
+import { atNimushi, clearSummoned, defeatNimushi, fighting, inWindow, intoTheAbyss, laneOf, pin, round, seeded, shootBody, shootEye, STEP, tick } from './nimushi';
 import { BOSS_PHYSICS } from '../src/data/bossPhysics';
 import { BALANCE } from '../src/data/balance';
 import { WORLD } from '../src/data/balance';
@@ -601,16 +601,16 @@ describe('the five attacks', () => {
    * and the weak point above. Cases that drove a live attack went with the rotation and return with
    * it, in the order SHOWER, BEAM, CLONES, CUP.
    */
-  it('runs SHOWER and BEAM, and keeps every other definition intact', () => {
-    for (const phase of ABYSS_PHASES) expect([...phase.attacks]).toEqual(['tapiocaShower', 'strawBeam']);
+  it('runs three of the four, and keeps the fourth intact', () => {
+    for (const phase of ABYSS_PHASES) {
+      expect([...phase.attacks]).toEqual(['tapiocaShower', 'strawBeam', 'nimushiClones']);
+    }
     for (const id of Object.keys(NIMUSHI_ATTACKS) as (keyof typeof NIMUSHI_ATTACKS)[]) {
       expect(NIMUSHI_ATTACKS[id].prep).toBeGreaterThan(0);
       expect(ATTACK_STATES[id]).toBe(id);
     }
-    // CLONES are out of every rotation, exactly as CUP is.
-    for (const phase of ABYSS_PHASES) {
-      expect(phase.attacks.includes('nimushiClones')).toBe(false);
-    }
+    // CUP is the one still out.
+    for (const phase of ABYSS_PHASES) expect(phase.attacks.includes('cupSummon')).toBe(false);
   });
 
   it('keeps the CUP out of the rotation while the core cycle is judged', () => {
@@ -834,7 +834,11 @@ describe('the four ABYSS environments', () => {
     const air = game.oxygen.remaining;
     tick(game, 2);
     expect(game.oxygen.remaining).toBeLessThan(air);
-    const box = game.containers.find(c => !c.broken);
+    // Clear of NIMUSHI's own column: the body is armour and absorbs a round whatever is behind it,
+    // which is correct and is not what this test is about.
+    const clearOfTheBoss = (c: { x: number; width: number }) =>
+      Math.abs(c.x + c.width / 2 - game.boss.x) > NIMUSHI.bodyWidth / 2 + 12;
+    const box = game.containers.find(c => !c.broken && clearOfTheBoss(c));
     expect(box).toBeDefined();
     expect(box!.shotOnly).toBe(true);
     // Swimming into it does nothing at all.
@@ -842,7 +846,10 @@ describe('the four ABYSS environments', () => {
     game.player.y = box!.y + box!.height / 2;
     game.step(STEP, 0, false);
     expect(box!.broken).toBe(false);
-    // A round opens it, and it releases bubbles rather than air.
+    // A round opens it, and it releases bubbles rather than air. Anything NIMUSHI has split off is
+    // cleared first, for the same reason the box was chosen clear of its body: a clone in the way
+    // would absorb the round, which is correct behaviour and not what this test is about.
+    clearSummoned(game);
     const drowning = game.oxygen.remaining;
     game.bullets.push(round(box!.x + box!.width / 2, box!.y + box!.height / 2, 1));
     game.step(STEP, 0, false);

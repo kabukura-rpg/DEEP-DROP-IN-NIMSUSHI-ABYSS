@@ -555,12 +555,12 @@ describe('the prototype runs on gravity and the weak point alone', () => {
     expect(g.boss.beams.some(b => b.state === 'live')).toBe(true);
   });
 
-  it('has SHOWER and BEAM back, and nothing else', () => {
+  it('has SHOWER, BEAM and CLONES back, and nothing else', () => {
     for (const phase of ABYSS_PHASES) {
       expect({ id: phase.id, rotation: [...phase.attacks] })
-        .toEqual({ id: phase.id, rotation: ['tapiocaShower', 'strawBeam'] });
+        .toEqual({ id: phase.id, rotation: ['tapiocaShower', 'strawBeam', 'nimushiClones'] });
     }
-    // CUP and CLONES are still whole enough to switch back on, one entry at a time.
+    // CUP is still whole enough to switch back on.
     expect(NIMUSHI.eyeWindow.timeout).toBeGreaterThan(0);
   });
 

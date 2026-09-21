@@ -124,12 +124,18 @@ export class NimushiBossSystem {
    * thing to ask: what the rule needs is "is there still a line being promised". Closed while one
    * is, open once the column is burning -- and open for the tail of the state after it has gone.
    *
-   * CUP and CLONES are out of every rotation; if one comes back, whether it opens the eye is its
-   * own decision to make and not one inherited from here.
+   * `nimushiClones` counts for the same reason again. What it puts on the screen is things to
+   * READ -- one kind to stand on, one kind that must be shot -- and reading them is done with the
+   * same two buttons the rest of the fight uses. Shutting the eye for it would make the answer
+   * "wait", which is the one answer none of these attacks is allowed to have.
+   *
+   * CUP is out of every rotation; if it comes back, whether it opens the eye is its own decision to
+   * make and not one inherited from here.
    */
   get eyeOpen() {
     if (!this.active) return false;
-    if (this.state === 'dormant' || this.state === 'eyeOpen' || this.state === 'tapiocaShower') return true;
+    if (this.state === 'dormant' || this.state === 'eyeOpen') return true;
+    if (this.state === 'tapiocaShower' || this.state === 'nimushiClones') return true;
     return this.state === 'strawBeam' && !this.beams.some(b => b.state === 'warning');
   }
   /** What the view draws. Derived, so a sprite can never disagree with the machine. */

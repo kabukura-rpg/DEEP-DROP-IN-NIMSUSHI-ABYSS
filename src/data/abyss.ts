@@ -175,21 +175,24 @@ export type AbyssAttackId = 'tapiocaShower' | 'cupSummon' | 'strawBeam' | 'nimus
  * challenge, it is a stall.
  */
 /**
- * TWO ATTACKS ARE BACK. CUP and CLONES are still disabled, and neither is deleted.
+ * THREE ATTACKS ARE BACK. CUP is still disabled, and it is not deleted.
  *
  * The core loop was judged good by hand: gravity, the standing supply of things to stomp, the drop
  * below and the weak point above. Attacks go back on one at a time, and each one has to earn its
- * place against that loop rather than beside it.
+ * place against that loop rather than beside it. Each asks a different question:
  *
- * SHOWER was first. It asks the player to be somewhere else across the shaft, which is a thing they
- * were already doing to line up the next stomp. BEAM is second because it asks the same question at
- * a different scale: one wide column, announced well before it burns, answered by choosing which
- * side of it the next stomp is on. Fine lane-reading against a single large commitment.
+ *   SHOWER   where across the shaft to be, wave by wave
+ *   BEAM     which side of one large announced commitment the next stomp is on
+ *   CLONES   WHAT to stomp -- because some of what arrives cannot be stood on
  *
- * They are never in the air together -- the machine runs one attack at a time, and measured over
- * six 90-second fights a live beam and a pearl coexisted for 0.00 seconds.
+ * CLONES is the only one that adds to the thing the loop is made of rather than to what is in the
+ * way of it. A clone is an ordinary stomp target that also hurts on contact; a shade wears the same
+ * hood with a crown of barbs and cannot be stood on at all. So the attack is read rather than
+ * dodged, and answering it correctly pays a bounce and a full magazine like any other stomp.
  *
- * CUP and CLONES are intact and still out: turning one back on is one entry in the arrays below.
+ * They are never in the air together: the machine runs one attack at a time.
+ *
+ * CUP is intact and still out: turning it back on is one entry in the arrays below.
  */
 export const ABYSS_PHASES: readonly AbyssPhase[] = [
   {
@@ -198,8 +201,8 @@ export const ABYSS_PHASES: readonly AbyssPhase[] = [
     breakBlockChance: 0, spikeChance: 0, containerChance: 0, doodadChance: 0,
     groundless: true, clonePool: ['nimushiClone'], heart: true,
     // One attack, low density: this stretch is where the player learns that down is up.
-    // The stretch where the player learns that down is up, with two things to read.
-    attacks: ['tapiocaShower', 'strawBeam'],
+    // The stretch where the player learns that down is up. Its clones can all be stood on.
+    attacks: ['tapiocaShower', 'strawBeam', 'nimushiClones'],
   },
   {
     id: 2, name: 'CATACOMB OF CUPS', role: 'catacomb', from: 0.75,
@@ -207,7 +210,7 @@ export const ABYSS_PHASES: readonly AbyssPhase[] = [
     breakBlockChance: 0, spikeChance: 0, containerChance: 0, doodadChance: 0,
     groundless: true, clonePool: ['nimushiClone'], heart: true,
     // CUP is still out of the rotation, whatever this stretch is called.
-    attacks: ['tapiocaShower', 'strawBeam'],
+    attacks: ['tapiocaShower', 'strawBeam', 'nimushiClones'],
   },
   {
     id: 3, name: 'AQUIFER OF SYRUP', role: 'aquifer', from: 0.5,
@@ -216,15 +219,15 @@ export const ABYSS_PHASES: readonly AbyssPhase[] = [
     breakBlockChance: 0, spikeChance: 0, containerChance: 0.8, doodadChance: 0,
     groundless: true, clonePool: ['nimushiClone'], heart: true,
     // The stretch the BEAM was named for, and it is finally in it.
-    attacks: ['tapiocaShower', 'strawBeam'],
+    attacks: ['tapiocaShower', 'strawBeam', 'nimushiClones'],
   },
   {
     id: 4, name: 'LIMBO OF THE DEEP', role: 'limbo', from: 0.25,
     rowGap: 330, ledgeWidth: [0, 0],
     breakBlockChance: 0, spikeChance: 0, containerChance: 0, doodadChance: 0,
     groundless: true, clonePool: ['nimushiShade'], heart: false,
-    // CLONES are still out of the rotation.
-    attacks: ['tapiocaShower', 'strawBeam'],
+    // LIMBO's `clonePool` is SHADES: down here none of what NIMUSHI splits off can be stood on.
+    attacks: ['tapiocaShower', 'strawBeam', 'nimushiClones'],
   },
 ];
 
