@@ -192,7 +192,9 @@ export type AbyssAttackId = 'tapiocaShower' | 'cupSummon' | 'strawBeam' | 'nimus
  *
  * They are never in the air together: the machine runs one attack at a time.
  *
- * CUP is intact and still out: turning it back on is one entry in the arrays below.
+ * THREE IS THE SET. CUP was audited against this fight and left out of it for good -- see
+ * TAPIOCA_CUP for what it was built on that no longer exists. Its code is kept whole; what it is
+ * not is pending. A fourth attack is not something this boss is short of.
  */
 export const ABYSS_PHASES: readonly AbyssPhase[] = [
   {

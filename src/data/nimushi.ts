@@ -352,7 +352,26 @@ export const TAPIOCA_SHOWER = {
  * TAPIOCA CUP. Two or three cups dropped past the player, which then turn and fire back up the
  * shaft -- so the player is caught between NIMUSHI's shower from above and the straws below.
  *
- * A cup can be shot down. That is the answer to the pincer, and it is why the cup has HP at all.
+ * NOT PART OF THIS FIGHT. Kept whole, and kept out.
+ *
+ * It was audited against the boss as it now stands and the answer was that it belongs to a
+ * different one. Three things it was built on have since gone, and none of them is a value that
+ * could be tuned back:
+ *
+ *   - it plants itself `standoff` BEHIND the player, which was on screen under a camera that
+ *     followed them. Under the NIMUSHI anchor its median position is ~950 down an 800px frame:
+ *     measured, 65-69% of its frames are below the visible edge.
+ *   - "a cup can be shot down" was true when the gunboots could fire the other way. They fire ALONG
+ *     the pull only, and a cup is behind the player 80-86% of the time: 9 rounds out of 527 ever
+ *     reached one, all of them during its fall.
+ *   - the pincer needs a shower falling while a straw fires. The machine runs ONE attack at a time,
+ *     so that never happens -- while a cup outlives its own attack, 53% of its life spilling into
+ *     whatever the fight did next. It is the only attack that would do that.
+ *
+ * Its idea -- punishing a player for hanging back, since its rounds at `shotSpeed` can only catch
+ * someone slower than that along the pull -- is not covered by SHOWER, BEAM or CLONES. Bringing it
+ * back would mean planting it AHEAD of the player instead, which is a new attack rather than a
+ * tuned one. Nothing here is changed for that: this is a record of the decision, not a start on it.
  */
 export const TAPIOCA_CUP = {
   minCount: 2,
