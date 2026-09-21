@@ -21,6 +21,7 @@ export type NimushiSignal =
   | { kind: 'prep'; attack: AbyssAttackId }
   | { kind: 'attack'; attack: AbyssAttackId }
   | { kind: 'clones'; count: number; y: number }
+  | { kind: 'bounce'; lane: number; lanes: number }
   | { kind: 'rage' }
   | { kind: 'line'; text: string }
   | { kind: 'started' }
@@ -518,7 +519,11 @@ export class NimushiBossSystem {
     // A fresh shower starts its gap somewhere new; the waves inside it walk from there.
     if (attack === 'tapiocaShower') {
       this.showerLane = -1;
-      this.spawnShowerWave(random);
+      const safe = this.spawnShowerWave(random);
+      // A bounce target, in the corridor this wave just opened. The safe route and the reload are
+      // the same route on purpose: making the player leave cover to reach their ammunition would
+      // turn a rescue into a second hazard that charges for the first one.
+      out.push({ kind: 'bounce', lane: safe[Math.floor(safe.length / 2)], lanes: TAPIOCA_SHOWER.lanes });
       // Start the clock HERE. Leaving it at zero let `pourShower` fire again on the very next frame,
       // so every shower opened with two waves six pixels apart -- double density at exactly the
       // moment the player is trying to read where the corridor is.

@@ -317,3 +317,20 @@ export const NIMUSHI_LINES = {
 
 /** Below this share of HP it starts taunting. */
 export const NIMUSHI_DYING_RATIO = 0.12;
+
+/**
+ * BOUNCE TAPIOCA placement.
+ *
+ * One per attack, laid INSIDE the shower's own safe corridor. That position is the whole point: a
+ * reload the player has to leave the safe route to reach is not a rescue, it is a second hazard
+ * charging for the first one. The corridor and the bounce target are one attack route.
+ */
+export const BOUNCE_TAPIOCA = {
+  /**
+   * How far ahead along the pull it sits, in px.
+   *
+   * Far enough that the player has to travel to it deliberately, near enough that it arrives inside
+   * the attack it belongs to. MEASUREMENT REQUIRED, like everything else in this fight.
+   */
+  lead: 240,
+} as const;

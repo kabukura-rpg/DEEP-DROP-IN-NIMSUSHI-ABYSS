@@ -95,8 +95,6 @@ export interface AbyssPhase {
   spikeChance: number;
   containerChance: number;
   doodadChance: number;
-  /** Chance per row of a floating, shootable CHARGE ORB -- the arena's only CHARGE supply. */
-  chargeOrbChance: number;
   /** LIMBO lays no ledge at all: a doodad is the only thing in the arena worth touching. */
   groundless: boolean;
   /** What NIMUSHI splits into while this stretch is running. */
@@ -123,12 +121,18 @@ export type AbyssAttackId = 'tapiocaShower' | 'cupSummon' | 'strawBeam' | 'nimus
  * fight and it is deliberately generous, because running dry with no floor to land on is not a
  * challenge, it is a stall.
  */
+/**
+ * CUP is disabled in every stretch while the core cycle is judged.
+ *
+ * Its code is untouched and it is one entry away from returning -- the order for re-evaluating the
+ * roster is STRAW BEAM, then CLONES, then CUP, one at a time. Tuning four attacks at once is how
+ * the fight became unreadable in the first place.
+ */
 export const ABYSS_PHASES: readonly AbyssPhase[] = [
   {
     id: 1, name: 'CAVERN OF THE PEARL', role: 'cavern', from: 1,
     rowGap: 360, ledgeWidth: [0, 0],
     breakBlockChance: 0, spikeChance: 0, containerChance: 0, doodadChance: 0,
-    chargeOrbChance: 0.55,
     groundless: true, clonePool: ['nimushiClone'], heart: true,
     // One attack, low density: this stretch is where the player learns that down is up.
     attacks: ['tapiocaShower'],
@@ -137,26 +141,23 @@ export const ABYSS_PHASES: readonly AbyssPhase[] = [
     id: 2, name: 'CATACOMB OF CUPS', role: 'catacomb', from: 0.75,
     rowGap: 355, ledgeWidth: [0, 0],
     breakBlockChance: 0, spikeChance: 0, containerChance: 0, doodadChance: 0,
-    chargeOrbChance: 0.6,
     groundless: true, clonePool: ['nimushiClone'], heart: true,
-    attacks: ['tapiocaShower', 'cupSummon'],
+    attacks: ['tapiocaShower'],
   },
   {
     id: 3, name: 'AQUIFER OF SYRUP', role: 'aquifer', from: 0.5,
     gimmicks: { oxygen: true }, water: { gravity: 0.9, responsiveness: 11 },
     rowGap: 350, ledgeWidth: [0, 0],
     breakBlockChance: 0, spikeChance: 0, containerChance: 0.8, doodadChance: 0,
-    chargeOrbChance: 0.6,
     groundless: true, clonePool: ['nimushiClone'], heart: true,
-    attacks: ['cupSummon', 'strawBeam'],
+    attacks: ['strawBeam'],
   },
   {
     id: 4, name: 'LIMBO OF THE DEEP', role: 'limbo', from: 0.25,
     rowGap: 330, ledgeWidth: [0, 0],
     breakBlockChance: 0, spikeChance: 0, containerChance: 0, doodadChance: 0,
-    chargeOrbChance: 0.7,
     groundless: true, clonePool: ['nimushiShade'], heart: false,
-    attacks: ['nimushiClones', 'tapiocaShower', 'cupSummon', 'strawBeam'],
+    attacks: ['nimushiClones', 'tapiocaShower', 'strawBeam'],
   },
 ];
 

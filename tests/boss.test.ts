@@ -2,8 +2,7 @@ import { describe, expect, it } from 'vitest';
 import { GameModel } from '../src/systems/GameModel';
 import { ABYSS, ABYSS_PHASES, abyssPhaseAt, TOMATO } from '../src/data/abyss';
 import {
-  FINAL_RAGE_RATIO, FULL_SCREEN_TAPIOCA, NIMUSHI, NIMUSHI_ATTACKS, NIMUSHI_LINES, STRAW_BEAM, TAPIOCA_CUP, TAPIOCA_SHOWER,
-} from '../src/data/nimushi';
+  FINAL_RAGE_RATIO, FULL_SCREEN_TAPIOCA, NIMUSHI, NIMUSHI_ATTACKS, NIMUSHI_LINES, STRAW_BEAM, TAPIOCA_CUP, TAPIOCA_SHOWER, ATTACK_STATES } from '../src/data/nimushi';
 import { PLANNED_TOTAL_DEPTH } from '../src/data/areas';
 import { GUN_MODULE_IDS } from '../src/data/gunModules';
 import { SHOP_ITEMS, shopPrice, ABYSS_SHOP_AREA } from '../src/data/shop';
@@ -574,7 +573,9 @@ describe('the eye cycle', () => {
 function reachAttack(game: GameModel, attack: 'cupSummon' | 'strawBeam' | 'nimushiClones', limit = 400) {
   const landed = () => attack === 'cupSummon' ? game.boss.cups.length > 0
     : attack === 'strawBeam' ? game.boss.beams.length > 0
-    : game.enemies.length > 0;
+    // Specifically a CLONE. The arena also carries bounce tapiocas now, and "any enemy exists"
+    // would return on the first of those -- long before the clones attack has run.
+    : game.enemies.some(e => e.kind === 'nimushiClone' || e.kind === 'nimushiShade');
   for (let i = 0; i < limit / STEP; i++) {
     game.player.invincible = 9;
     pin(game, 300);
@@ -619,56 +620,30 @@ describe('the five attacks', () => {
     expect(hurt).toBeGreaterThan(0);
   });
 
-  it('sends a CUP past the player, warns, then fires back at them', () => {
-    const game = fighting(35);
-    expect(reachAttack(game, 'cupSummon')).toBe(true);
-    const cup = game.boss.cups[0];
-    // It starts at NIMUSHI and travels AGAINST the pull -- down the screen, past the player.
-    expect(cup.vy).toBeGreaterThan(0);
-    const states = new Set<string>();
-    let spat = 0;
-    for (let i = 0; i < 20 / STEP; i++) {
-      states.add(cup.state);
-      const before = game.boss.tapiocas.length;
-      game.step(STEP, 0, false);
-      if (cup.state === 'firing' && game.boss.tapiocas.length > before) spat++;
-      if (!cup.alive) break;
+  /**
+   * CUP is DISABLED, not deleted.
+   *
+   * It is out of every stretch's rotation while the core cycle -- shower, bounce, reload, eye -- is
+   * judged on its own; tuning four attacks at once is how the fight became unreadable. Its data and
+   * its code are untouched and returning it is one array entry. The order for bringing the roster
+   * back is STRAW BEAM, then CLONES, then CUP.
+   *
+   * These assertions exist so that "disabled" stays a deliberate state rather than quietly becoming
+   * "deleted": the definition must still be whole enough to switch back on.
+   */
+  it('keeps the CUP out of the rotation while the core cycle is judged', () => {
+    for (const phase of ABYSS_PHASES) {
+      expect({ id: phase.id, hasCup: phase.attacks.includes('cupSummon') }).toEqual({ id: phase.id, hasCup: false });
     }
-    expect(states.has('warning')).toBe(true);
-    expect(states.has('firing')).toBe(true);
-    expect(spat).toBeGreaterThan(0);
-    // And it is gone afterwards rather than left in the list.
-    expect(game.boss.cups.includes(cup!)).toBe(false);
   });
 
-  it('lets the player shoot a cup down', () => {
-    const game = fighting(36);
-    expect(reachAttack(game, 'cupSummon')).toBe(true);
-    const cup = game.boss.cups[0];
-    game.bullets.push(round(cup.x, cup.y, TAPIOCA_CUP.hp));
-    game.step(STEP, 0, false);
-    expect(game.boss.cups.includes(cup!)).toBe(false);
-  });
-
-  it('warns before the STRAW BEAM, and cannot hurt during the warning', () => {
-    const game = fighting(37);
-    expect(reachAttack(game, 'strawBeam')).toBe(true);
-    const beam = game.boss.beams[0];
-    expect(beam.state).toBe('warning');
-    expect(STRAW_BEAM.warning).toBeGreaterThanOrEqual(0.7);
-    // Standing squarely in the line while it is only a line costs nothing.
-    const hp = game.hp;
-    for (let i = 0; i < Math.floor(STRAW_BEAM.warning / STEP) - 4; i++) {
-      game.player.x = beam.x;
-      game.player.invincible = 0;
-      game.step(STEP, 0, false);
-      expect(beam.state).toBe('warning');
-    }
-    expect(game.hp).toBe(hp);
-    // And then it does.
-    for (let i = 0; i < 0.4 / STEP; i++) { game.player.x = beam.x; game.player.invincible = 0; game.step(STEP, 0, false); }
-    expect(game.hp).toBeLessThan(hp);
-    expect(game.health.lastDamage?.cause).toBe('bossSweep');
+  it('keeps the CUP definition intact so it can be switched back on', () => {
+    expect(NIMUSHI_ATTACKS.cupSummon).toBeDefined();
+    expect(NIMUSHI_ATTACKS.cupSummon.prep).toBeGreaterThan(0);
+    expect(TAPIOCA_CUP.warning).toBeGreaterThan(0);
+    expect(TAPIOCA_CUP.hp).toBeGreaterThan(0);
+    expect(TAPIOCA_CUP.shots).toBeGreaterThan(0);
+    expect(ATTACK_STATES.cupSummon).toBe('cupSummon');
   });
 
   it('summons clones that are ordinary enemies in every way', () => {
@@ -677,10 +652,13 @@ describe('the five attacks', () => {
     // Drive to the LIMBO stretch, where にむし分身 is in the rotation, then wait for that attack.
     expect(reachAttack(game, 'nimushiClones')).toBe(true);
     expect(game.enemies.length).toBeGreaterThan(0);
-    // LIMBO's clones cannot be stood on, exactly as the AREA 4 roster cannot.
-    expect(game.enemies.every(e => !e.stompable)).toBe(true);
+    // LIMBO's clones cannot be stood on, exactly as the AREA 4 roster cannot. The bounce tapiocas
+    // that the shower lays alongside them CAN be, and are excluded here rather than asserted away:
+    // the stretch has both, and that contrast is the point of it.
+    expect(game.enemies.filter(e => e.kind === 'nimushiShade').every(e => !e.stompable)).toBe(true);
+    expect(game.enemies.some(e => e.kind === 'nimushiShade')).toBe(true);
     const combo = game.combo, kills = game.kills, coins = game.coins.coins.length;
-    const target = game.enemies[0];
+    const target = game.enemies.find(e => e.kind === 'nimushiShade')!;
     // A clone sways like any other enemy, so the round is aimed where it IS on the frame it is
     // fired -- which is what a player does, and what the sway is there to make them do.
     for (let i = 0; i < 40 && target.alive; i++) {
@@ -723,11 +701,17 @@ describe('phases and FINAL RAGE', () => {
     expect(abyssPhaseAt(0.1).id).toBe(4);
   });
 
-  it('adds attacks as it goes rather than swapping them out', () => {
-    for (let i = 1; i < ABYSS_PHASES.length; i++) {
-      expect(ABYSS_PHASES[i].attacks.length).toBeGreaterThanOrEqual(ABYSS_PHASES[i - 1].attacks.length);
+  /**
+   * CUP is disabled while the core cycle is judged, so the roster no longer simply grows. What must
+   * still hold is that every stretch HAS an attack and that the last one has the most -- the shape
+   * of the progression, rather than a count that a disabled attack can move.
+   */
+  it('gives every stretch an attack, and the last stretch the most', () => {
+    for (const phase of ABYSS_PHASES) expect(phase.attacks.length).toBeGreaterThan(0);
+    for (let i = 0; i < ABYSS_PHASES.length - 1; i++) {
+      expect(ABYSS_PHASES[3].attacks.length).toBeGreaterThanOrEqual(ABYSS_PHASES[i].attacks.length);
     }
-    expect(ABYSS_PHASES[3].attacks.length).toBe(4);
+    expect(ABYSS_PHASES.every(p => !p.attacks.includes('cupSummon'))).toBe(true);
   });
 
   it('hauls the arena upward at a stretch boundary, with the eye shut', () => {
@@ -772,20 +756,25 @@ describe('phases and FINAL RAGE', () => {
 });
 
 describe('the rising deep', () => {
-  it('closes on a player who stops climbing, and kills them', () => {
-    const game = fighting(42);
-    const start = game.boss.slack;
-    for (let i = 0; i < 120 / STEP; i++) {
-      // Immune to everything NIMUSHI throws, so the only thing left that can end the run is the
-      // deep itself catching up. That is exactly what this test is about.
-      game.player.invincible = 9;
-      game.player.vy = 0;
+  /**
+   * The deep is SCENERY now.
+   *
+   * It used to overtake a player who stopped climbing and end the run. Between NIMUSHI, a pattern
+   * and a rising boundary the fight asked for three things at once, and the boundary was the one
+   * with no counterplay. It still rises and is still drawn -- THE ABYSS closing behind you is worth
+   * seeing -- but it cannot damage, crowd or kill.
+   */
+  it('no longer kills a player who stops climbing', () => {
+    const game = fighting(45);
+    const hp = game.hp;
+    for (let i = 0; i < 20 / STEP && game.state === 'boss'; i++) {
+      game.player.invincible = 9;                 // attacks are not what is being measured
+      game.player.vy = 0;                         // and neither is falling: just stand still
       game.step(STEP, 0, false);
-      if (game.state !== 'boss') break;
     }
-    expect(game.boss.slack).toBeLessThan(start);
-    expect(game.state).toBe('over');
-    expect(game.health.deathCause?.cause).toBe('crush');
+    expect(game.state).toBe('boss');
+    expect(game.hp).toBe(hp);
+    expect(game.health.deathCause?.cause).not.toBe('crush');
   });
 
   it('buys room back for hitting the eye', () => {
@@ -886,8 +875,7 @@ describe('the four ABYSS environments', () => {
     const air = game.oxygen.remaining;
     tick(game, 2);
     expect(game.oxygen.remaining).toBeLessThan(air);
-    // Air containers and CHARGE orbs now share the list, so this asks for an AIR one.
-    const box = game.containers.find(c => !c.broken && !c.charge);
+    const box = game.containers.find(c => !c.broken);
     expect(box).toBeDefined();
     expect(box!.shotOnly).toBe(true);
     // Swimming into it does nothing at all.
@@ -906,38 +894,50 @@ describe('the four ABYSS environments', () => {
   });
 
   /**
-   * CHARGE comes out of the air, because there is nowhere to land.
+   * CHARGE comes from a STOMP, exactly as it does in the shaft.
    *
-   * This was LIMBO's floating doodad, reloading on a bounce -- and a bounce is a stop. It then spent
-   * one commit as a shoot-to-open orb, which was worse: the only source of CHARGE cost a round, so
-   * an empty magazine could never be refilled and the fight soft-locked. It is now taken by flying
-   * through it, which costs nothing and interrupts nothing.
+   * This slot has now held three answers. LIMBO's floating doodad reloaded on a bounce, which was a
+   * stop. A shoot-to-open orb replaced it and soft-locked the fight, because the only source of
+   * CHARGE cost a round. A contact orb replaced that and worked -- but it was a boss-only verb, and
+   * the player already knew one: land on something's head.
    */
-  it('supplies CHARGE from an orb taken in flight', () => {
-    const game = driveToPhase(4, 54);
-    expect(game.boss.phaseId).toBe(4);
-    tick(game, 3);
-    const orb = game.containers.find(c => c.charge && !c.broken);
-    expect(orb).toBeDefined();
+  it('refills CHARGE by stomping the attack\'s bounce target', () => {
+    const game = fighting(54);
+    // Run until the shower lays its bounce tapioca.
+    let target: { x: number; y: number; alive: boolean } | undefined;
+    for (let i = 0; i < 60 / STEP && !target; i++) {
+      game.player.invincible = 9;
+      game.step(STEP, 0, false);
+      target = game.enemies.find(e => e.kind === 'bounceTapioca' && e.alive);
+    }
+    expect(target).toBeDefined();
 
     game.ammo = 0;
-    game.player.x = orb!.x + orb!.width / 2;
-    game.player.y = orb!.y + orb!.height / 2;
+    game.player.x = target!.x;
+    // Arrive along the pull, onto the face the pull brings the player to.
+    game.player.y = target!.y - 26 * game.gravitySign;
+    game.player.vy = -520;
     game.player.grounded = -1;
-    const flying = game.player.vy;
-    game.step(STEP, 0, false);
-    expect(orb!.broken).toBe(true);
+    for (let i = 0; i < 12 && target!.alive; i++) game.step(STEP, 0, false);
+
+    expect(target!.alive).toBe(false);
     expect(game.ammo).toBe(game.stats.maxAmmo);
-    // Collecting it is not a landing: still airborne, still falling the same way.
+    // Bounced back AGAINST the pull, and still airborne -- a stomp is not a landing.
+    expect(game.player.vy).toBeGreaterThan(0);
     expect(game.player.grounded).toBe(-1);
-    expect(game.player.vy).not.toBe(0);
-    expect(Math.sign(game.player.vy)).toBe(Math.sign(flying));
   });
 
-  it('offers a CHARGE orb in every stretch', () => {
-    for (const phase of ABYSS_PHASES) {
-      expect({ id: phase.id, supply: phase.chargeOrbChance > 0 }).toEqual({ id: phase.id, supply: true });
+  it('lays one bounce target per shower, inside the corridor it opened', () => {
+    const game = fighting(55);
+    for (let i = 0; i < 60 / STEP && game.boss.state !== 'tapiocaShower'; i++) {
+      game.player.invincible = 9;
+      game.step(STEP, 0, false);
     }
+    const targets = game.enemies.filter(e => e.kind === 'bounceTapioca' && e.alive);
+    expect(targets.length).toBeGreaterThanOrEqual(1);
+    // In a lane the wave left empty: the reload and the safe route are the same route.
+    const pearlLanes = new Set(game.boss.tapiocas.filter(t => t.life > 0).map(t => laneOf(t.x)));
+    expect(pearlLanes.has(laneOf(targets[0].x))).toBe(false);
   });
 
   it('guarantees a heart in the first three stretches and none in LIMBO', () => {

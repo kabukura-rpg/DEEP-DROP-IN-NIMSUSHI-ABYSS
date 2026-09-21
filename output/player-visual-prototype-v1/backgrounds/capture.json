@@ -1,0 +1,24 @@
+{
+  "sourceCommit": "6270378",
+  "method": "Actual Phaser renderer snapshots of isolated development fixtures. Original player moved outside canvas; simulation frozen. No sprite integration. UI overlays excluded.",
+  "normalState": {
+    "stage": "1-2",
+    "cameraY": 450,
+    "world": [
+      450,
+      800
+    ],
+    "fixture": true
+  },
+  "bossState": {
+    "stage": "FINAL BOSS",
+    "abyss": "fight",
+    "cameraY": 1261.875,
+    "world": [
+      450,
+      800
+    ],
+    "fixture": true
+  },
+  "errors": []
+}

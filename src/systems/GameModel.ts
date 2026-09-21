@@ -18,7 +18,7 @@ import { spawnEnemy } from '../data/enemies';
 import { ABYSS_SHOP_AREA, shopItem, type ShopOffer } from '../data/shop';
 import { CHARGE_AMMO_BONUS, gunModule, rollGunModule, STARTING_GUN_MODULE, volley, volleyRecoil, type GunModuleId, type ShotBoost } from '../data/gunModules';
 import { ABYSS, abyssPhase, TOMATO, type AbyssPhase } from '../data/abyss';
-import { NIMUSHI, NIMUSHI_LINES, STRAW_BEAM, TAPIOCA_CUP } from '../data/nimushi';
+import { BOUNCE_TAPIOCA, NIMUSHI, NIMUSHI_LINES, STRAW_BEAM, TAPIOCA_CUP } from '../data/nimushi';
 import { hazardBounds, hazardType, ventStateAt, type Hazard } from '../data/hazards';
 import { pickupType, spawnGunModule, spawnPickup, type Pickup } from '../data/pickups';
 import { HealthSystem, type DamageCause } from './HealthSystem';
@@ -484,17 +484,7 @@ export class GameModel {
     const def = this.gun.module;
     this.ammo = Math.max(0, this.ammo - cost);
     const recovery = Math.max(0.65, Math.min(1, 0.65 + (this.elapsed - this.lastAirShot - def.fireInterval) / 0.18 * 0.35));
-    /**
-     * How hard this shot pushes back.
-     *
-     * In the shaft it is the module's own recoil, which is part of what each weapon IS. In the
-     * arena it is a flat figure instead: there the gunboots are the player's vertical dodge, and
-     * leaving that on the weapon made dodging a weapon stat -- the same tapioca pattern was
-     * answerable with LASER and not with NOPPY. Patterns are designed against one dodge speed.
-     */
-    const kick = this.inBossArena
-      ? BOSS_PHYSICS.verticalControl * recovery
-      : volleyRecoil(def, this.stats) * recovery;
+    const kick = volleyRecoil(def, this.stats) * recovery;
     /**
      * RECOIL IS A BRAKE, NEVER A THRUSTER.
      *
@@ -514,17 +504,14 @@ export class GameModel {
      * what no module can do any more is climb.
      */
     /**
-     * The floor the kick can drive the player to, measured along the pull.
+     * Recoil stops at a standstill, in the arena as in the shaft.
      *
-     * In the shaft it is ZERO: recoil kills a descent and stops there, and the gunboots are a brake
-     * and never a thruster. That rule is the run's and is not relaxed.
-     *
-     * In NIMUSHI's arena it is negative, and that is the fight's second axis. Without it the player
-     * has LEFT and RIGHT and nothing else, so a curtain of tapioca can only ever be answered
-     * sideways. Holding fire slows the climb, then holds a hover, then drives the player back down
-     * the shaft -- as far as `maxThrust` and no further, while the boundary keeps rising.
+     * GUNBOOTS = BRAKE, NOT THRUSTER, and the reversed pull does not change the rule -- it only
+     * changes what it means: down the shaft it kills a fall, up the arena it weakens the climb.
+     * A boss-only negative floor once let the player fly the gunboots downward at will, which
+     * replaced everything AREA 1-4 taught about them with a different control scheme for one fight.
      */
-    const floor = this.inBossArena ? -BOSS_PHYSICS.maxThrust : 0;
+    const floor = 0;
     const descent = this.along(p.vy);
     const braked = descent <= floor ? descent : Math.max(descent - kick, floor);
     p.vy = Math.max(-this.physics.maxFallSpeed, Math.min(this.physics.maxFallSpeed, braked * this.gravity));
@@ -1216,7 +1203,18 @@ export class GameModel {
       this.damage(STRAW_BEAM.damage, 'bossSweep');
     }
     // Overtaken. Not damage and not an out-of-bounds fall: a separate ending with its own cause.
-    if (this.boss.caught(p.y)) this.killInstantly('crush');
+    /**
+     * The deep is SCENERY now, not a hazard.
+     *
+     * It used to overtake the player and end the run outright. Between NIMUSHI, an attack pattern
+     * and a rising boundary the fight asked for three things at once, and the boundary was the one
+     * with no counterplay -- so it is gone from gameplay entirely: no damage, no crowding, no
+     * anti-stall. The attack cycle and the four stretches carry the pacing.
+     *
+     * `deepY` still rises and is still drawn, because THE ABYSS closing behind you is worth seeing.
+     * If a playtest ever shows the fight can be stalled, an anti-stall rule comes back here -- and
+     * only then.
+     */
   }
 
   /** Everything the fight reports, turned into world changes and events in one place. */
@@ -1237,6 +1235,8 @@ export class GameModel {
       this.events.push({ type: 'bossFire', x: this.boss.x, y: this.boss.y, stage: signal.attack });
     } else if (signal.kind === 'clones') {
       this.summonClones(signal.count, signal.y);
+    } else if (signal.kind === 'bounce') {
+      this.spawnBounceTapioca(signal.lane, signal.lanes);
     } else if (signal.kind === 'rage') {
       this.events.push({ type: 'bossRage', x: this.boss.x, y: this.boss.y, value: this.boss.ratio });
     } else if (signal.kind === 'line') {
@@ -1397,14 +1397,6 @@ export class GameModel {
   private breakContainer(box: AirContainer) {
     if (box.broken) return;
     box.broken = true; box.debris = AIR_CONTAINER_RULES.debrisTime;
-    if (box.charge) {
-      // A CHARGE ORB. It fills the magazine and nothing else: no bubbles, and deliberately NOT a
-      // landing, so it never settles a chain and never stops the player's climb. Reachable at zero
-      // CHARGE, because it is taken by flying through it rather than by spending a round on it.
-      this.reloadCharge();
-      this.events.push({ type: 'containerBreak', x: box.x + box.width / 2, y: box.y + box.height / 2, value: 0 });
-      return;
-    }
     const span = AIR_CONTAINER_RULES.bubblesMax - AIR_CONTAINER_RULES.bubblesMin;
     const count = AIR_CONTAINER_RULES.bubblesMin + Math.round(this.random() * span);
     for (let i = 0; i < count; i++) {
@@ -1751,26 +1743,6 @@ export class GameModel {
       const dx = anchor(DOODAD_RULES.width);
       this.doodads.push(spawnDoodad(this.nextAbyssId--, dx, y - phase.rowGap * 0.45 * this.gravity, roll() < 0.5 ? 'lamp' : 'bracket', true));
     }
-    if (roll() < phase.chargeOrbChance) {
-      /**
-       * CHARGE ORB: taken by flying through it, NOT by shooting it.
-       *
-       * It was shoot-to-open, and that was a soft-lock: the one thing that refills CHARGE cost a
-       * round to open, so a player who ran dry could never get any back. Contact costs nothing, so
-       * the loop closes -- run out, go and get one, keep fighting.
-       *
-       * `shotOnly` is deliberately left off, so a round still opens one too. That is strictly more
-       * forgiving than contact alone and takes nothing away from a player who has CHARGE to spare.
-       * Touching it is not a landing: nothing here grounds the player, zeroes their fall or settles
-       * a chain, so collecting one never interrupts the climb.
-       */
-      const ox = anchor(AIR_CONTAINER_RULES.size);
-      this.containers.push({
-        id: this.nextAbyssId--, x: ox, y: y - phase.rowGap * 0.3 * this.gravity,
-        width: AIR_CONTAINER_RULES.size, height: AIR_CONTAINER_RULES.size,
-        broken: false, debris: 0, charge: true,
-      });
-    }
     if (roll() < phase.containerChance) {
       const cx = anchor(AIR_CONTAINER_RULES.size);
       this.containers.push({
@@ -1779,6 +1751,21 @@ export class GameModel {
         broken: false, debris: 0, shotOnly: true,
       });
     }
+  }
+  /**
+   * Lay the attack's BOUNCE TAPIOCA, in the lane the shower left open.
+   *
+   * It is an ordinary stompable enemy, so everything that follows -- the kill, the bounce against
+   * the pull, the full magazine, the COMBO, the coins, the heart for mistiming it -- comes from the
+   * run's own stomp path with nothing added. The arena has no floor; this carries the floor's job.
+   */
+  private spawnBounceTapioca(lane: number, lanes: number) {
+    const span = WORLD.width - WORLD.wall * 2;
+    const x = WORLD.wall + span * ((lane + 0.5) / lanes);
+    // Ahead of the player ALONG THE PULL, so they rise into its underside exactly as they fall onto
+    // a slime's head in the shaft.
+    const y = this.player.y + BOUNCE_TAPIOCA.lead * this.gravity;
+    this.enemies.push(spawnEnemy('bounceTapioca', this.nextAbyssId--, x, y, 0, 0, 'open'));
   }
   /** Ends the run as GAME CLEAR. Called by the fight once the king has finished collapsing. */
   clearBoss() {
@@ -1898,26 +1885,9 @@ export class GameModel {
     // Being hit costs HP and nothing else: only a landing ends a chain. Losing a long chain to one
     // unlucky contact is what made holding a combo feel arbitrary rather than risky.
     if (source) source.hurtFlash = 0.3;
-    /**
-     * In the arena, a hit also shoves the player toward the MIDDLE of the combat band.
-     *
-     * The first version pushed "away from NIMUSHI" and claimed it could never shove the player into
-     * the rising deep. Both cannot be true: NIMUSHI is ahead along the pull and the deep is behind
-     * it, so away from one IS toward the other. Measured, it cost 31px of slack per hit and stacked
-     * -- 460px down to 366px over four hits -- which is exactly the hit-into-pressure combo the
-     * shove was supposed to prevent.
-     *
-     * So the direction is chosen from the geometry rather than assumed. The band runs from
-     * NIMUSHI's face to the boundary, and a hit pushes toward its midpoint: crowding the boss still
-     * puts the player back out into the fight, and being hit down near the deep now lifts them off
-     * it instead of burying them in it. Either way the shove REPLACES the velocity rather than
-     * adding to it, so repeated hits cannot stack into something violent.
-     */
-    if (this.inBossArena && this.hp > 0 && this.boss.enabled) {
-      const middle = (this.boss.face + this.boss.deepY) / 2;
-      const toward = Math.sign(middle - this.player.y) || -this.gravity;
-      this.player.vy = toward * BOSS_PHYSICS.hazardKnockback;
-    }
+    // No boss-only knockback. A hit in the arena costs a heart and leaves the player's movement
+    // alone, exactly as it does in the shaft. The band already keeps NIMUSHI's body away, so the
+    // shove it used to correct for is not there to correct.
     this.events.push({ type: 'hurt', x: this.player.x, y: this.player.y, source: source ? { id: source.id, kind: source.kind, x: source.x, y: source.y } : undefined });
     return true;
   }

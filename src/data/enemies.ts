@@ -5,11 +5,11 @@ export type EnemyKind = 'slime' | 'bat' | 'armoredSlime' | 'tank' | 'fish' | 'bu
   | 'fireLizard' | 'fireBat' | 'magmaSlime' | 'fireArmor' | 'frostBeetle'
   | 'demon' | 'wraith' | 'armorGuard' | 'spikeDemon' | 'ruinBreaker'
   | 'voidWisp' | 'hollowShade'
-  | 'nimushiClone' | 'nimushiShade';
+  | 'nimushiClone' | 'nimushiShade' | 'bounceTapioca';
 /** Shape family GameScene draws. Silhouette, never colour alone, tells the player what is stompable. */
 export type EnemySilhouette = 'blob' | 'wing' | 'shell' | 'brute' | 'fin' | 'orb' | 'bell' | 'spiked'
   | 'lizard' | 'ember' | 'flame' | 'plated' | 'crystal'
-  | 'horned' | 'shade' | 'bulwark' | 'barb' | 'breaker' | 'wisp' | 'hollow' | 'nimushi' | 'nimushiBarbed';
+  | 'horned' | 'shade' | 'bulwark' | 'barb' | 'breaker' | 'wisp' | 'hollow' | 'nimushi' | 'nimushiBarbed' | 'bouncePearl';
 /** Spawn weight class. Independent of `stompable`: it only decides how often a row rolls this tier. */
 export type EnemyThreat = 'basic' | 'armored' | 'heavy';
 /** Where the generator may place it: guarding a ledge, loose in open water/air, or either. */
@@ -100,6 +100,19 @@ export const ENEMY_TYPES: Record<EnemyKind, EnemyType> = {
   // drops the same COIN and leaves the same body for KNIFE AND FORK. The shade is the LIMBO-phase
   // variant and declares `stompable: false` on the type, exactly as the LIMBO roster does, rather
   // than having it overridden at spawn.
+  /**
+   * BOUNCE TAPIOCA -- the arena's reload, and its vertical dodge.
+   *
+   * Not a platform and not a boss-only verb: an ordinary stompable enemy, answered with the exact
+   * bargain AREA 1-4 teaches. Stomp it and you kill it, bounce off it against the pull and refill
+   * CHARGE; shoot it and it dies quietly, with no bounce and no reload; brush it from the side and
+   * it costs a heart like anything else. Risk buys movement and ammunition, safety buys neither.
+   *
+   * It exists because the arena has no floor, so it carries the landing's job. Every one of those
+   * consequences already lives in the stomp path, which is gravity-relative -- in here that reads
+   * as rising into its underside and being thrown back down the screen.
+   */
+  bounceTapioca: { id: 'bounceTapioca', name: 'BOUNCE TAPIOCA', shootable: true, stompable: true, flying: true, threat: 'basic', spawnSlot: 'open', spawnWeight: 1, hp: 1, silhouette: 'bouncePearl', bodyWidth: 30, swaySpeed: 0.5, damageCause: 'enemy', contactHint: '踏める', leavesCorpse: false },
   nimushiClone: { id: 'nimushiClone', name: 'NIMUSHI CLONE', shootable: true, stompable: true, flying: true, threat: 'basic', spawnSlot: 'open', spawnWeight: 1, hp: 1, silhouette: 'nimushi', bodyWidth: 26, swaySpeed: 1.35, damageCause: 'enemy', contactHint: '接触', leavesCorpse: true },
   nimushiShade: { id: 'nimushiShade', name: 'NIMUSHI SHADE', shootable: true, stompable: false, flying: true, threat: 'armored', spawnSlot: 'open', spawnWeight: 1, hp: 1, silhouette: 'nimushiBarbed', bodyWidth: 26, swaySpeed: 0.9, damageCause: 'spike', contactHint: '踏めない・撃て', leavesCorpse: true },
   ruinBreaker: { id: 'ruinBreaker', name: 'RUIN BREAKER', shootable: true, stompable: true, flying: false, threat: 'basic', spawnSlot: 'guard', spawnWeight: 0.45, hp: 1, silhouette: 'breaker', bodyWidth: 30, swaySpeed: 0.8, damageCause: 'enemy', contactHint: '接触', leavesCorpse: true, onDefeat: 'shatterNearby' },

@@ -934,6 +934,18 @@ export class GameScene extends Phaser.Scene {
       for (let i = -1; i <= 1; i += 2) this.rect(x + i * 5 - 1.5, y - 8 + drift, 3, 5, 0xe6d8ff, 0.9);
       for (let i = -2; i <= 2; i++) this.rect(x + i * 5 - 1, y + 8 + drift, 2, 7 + Math.abs(i) * 3, color, 0.35);
     }
+    if (type.silhouette === 'bouncePearl') {
+      // A big pearl with a flat, banded crown. Deliberately NOT the hooded clone shape: one of
+      // these is a thing to land on and the other is a thing to shoot, and in LIMBO they share the
+      // screen with a barbed clone that must never be stood on. Shape carries that, never colour.
+      const bob = Math.sin(this.model.elapsed * 2.2 + e.phase) * 2;
+      this.graphics.fillStyle(0x2a1d2e).fillCircle(x, y + bob, 15);
+      this.graphics.fillStyle(0x6b4a7a).fillCircle(x, y + bob, 13);
+      this.graphics.fillStyle(0xd8b6f0, 0.9).fillCircle(x - 4, y - 4 + bob, 4);
+      // The flat crown is the face the pull brings the player onto: the part you land on.
+      this.rect(x - 13, y - 16 + bob, 26, 5, 0xf3e2ff);
+      this.rect(x - 9, y - 19 + bob, 18, 3, 0xd8b6f0, 0.8);
+    }
     if (type.silhouette === 'nimushi' || type.silhouette === 'nimushiBarbed') {
       // A little hooded thing: NIMUSHI in miniature, so where it came from is never in doubt.
       // The LIMBO variant wears the same hood with a crown of barbs, because the shape -- never

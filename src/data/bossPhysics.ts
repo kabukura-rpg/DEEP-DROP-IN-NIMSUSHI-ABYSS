@@ -51,46 +51,12 @@ export const GRAVITY_DIRECTION = { normal: 1, boss: -1 } as const;
 /**
  * NIMUSHI's arena. See the header: boss numbers, not the run's old ones.
  *
- * `hazardKnockback` is boss-only and sits outside `BattlePhysics`, which is the three numbers BOTH
- * modes need. The normal run has no equivalent and must not grow one by accident.
+ * Three numbers, and only three. The arena briefly carried its own vertical thrust, its own flat
+ * dodge force and its own knockback; all of them are gone, because each one replaced something the
+ * player had already learned in AREA 1-4 with a rule that applied to one fight.
  */
-export const BOSS_PHYSICS: BattlePhysics & {
-  /**
-   * Speed a hazard hit shoves the player back along the pull -- away from NIMUSHI, down the screen.
-   *
-   * It exists so that crowding the boss costs more than a heart: taking a hit near the face puts
-   * the player back out in the combat band, which is where the fight is meant to happen. Modest on
-   * purpose -- a hit must never become a shove into the rising boundary and a second death the
-   * player had no answer to.
-   */
-  hazardKnockback: number;
-  /**
-   * The arena's vertical control force, in px/s per shot.
-   *
-   * FLAT: the same for every module. In the shaft, recoil is a weapon trait and LASER kicking harder
-   * than NOPPY is part of its identity. In the arena the gunboots are how the player DODGES, and a
-   * trait became a survival stat -- the same pattern was answerable with one module and not with
-   * another, which is not a weapon choice, it is a tax. Patterns are designed against one dodge
-   * speed, so there is one dodge speed.
-   *
-   * Everything that makes a module itself -- damage, spread, projectile count, fire rate, CHARGE
-   * cost, range -- is untouched, and so is the run's own recoil, where the differences still mean
-   * what they always did.
-   */
-  verticalControl: number;
-  /**
-   * The fastest the gunboots can drive the player AGAINST the pull, in px/s.
-   *
-   * This is the line between a vertical dodge and an escape hatch. Firing buys height away from
-   * NIMUSHI for as long as CHARGE lasts and no faster than this, and the boundary keeps rising the
-   * whole time -- so the shaft below is somewhere to duck, never somewhere to hide.
-   */
-  maxThrust: number;
-} = {
+export const BOSS_PHYSICS: BattlePhysics = {
   gravity: 900,
   maxFallSpeed: 520,
   moveSpeed: 180,
-  hazardKnockback: 240,
-  verticalControl: 420,
-  maxThrust: 300,
 };

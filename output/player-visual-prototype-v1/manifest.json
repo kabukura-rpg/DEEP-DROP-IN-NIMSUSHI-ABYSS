@@ -1,0 +1,100 @@
+{
+  "version": "visual-prototype-v1",
+  "paletteColors": 32,
+  "alpha": "binary 0/255",
+  "origin": [
+    0.5,
+    0.5
+  ],
+  "integrated": false,
+  "poses": {
+    "normal_fall": {
+      "source": "source/normal_fall.png",
+      "file": "sprites-48/normal_fall.png",
+      "size": [
+        48,
+        48
+      ],
+      "pivot": [
+        24,
+        24
+      ],
+      "headSpanTarget": 24,
+      "sourceHeadSpan": 596,
+      "sourceFaceCenterX": 654,
+      "scale": 0.040268456375838924,
+      "alphaBounds": [
+        8,
+        3,
+        36,
+        45
+      ]
+    },
+    "boss_ascend": {
+      "source": "source/boss_ascend.png",
+      "file": "sprites-48/boss_ascend.png",
+      "size": [
+        48,
+        48
+      ],
+      "pivot": [
+        24,
+        24
+      ],
+      "headSpanTarget": 24,
+      "sourceHeadSpan": 535,
+      "sourceFaceCenterX": 620,
+      "scale": 0.044859813084112146,
+      "alphaBounds": [
+        12,
+        2,
+        36,
+        46
+      ]
+    },
+    "boss_brake": {
+      "source": "source/boss_brake.png",
+      "file": "sprites-48/boss_brake.png",
+      "size": [
+        48,
+        48
+      ],
+      "pivot": [
+        24,
+        24
+      ],
+      "headSpanTarget": 24,
+      "sourceHeadSpan": 600,
+      "sourceFaceCenterX": 716,
+      "scale": 0.04,
+      "alphaBounds": [
+        1,
+        9,
+        36,
+        39
+      ]
+    },
+    "boss_descend_thrust": {
+      "source": "source/boss_descend_thrust.png",
+      "file": "sprites-48/boss_descend_thrust.png",
+      "size": [
+        48,
+        48
+      ],
+      "pivot": [
+        24,
+        24
+      ],
+      "headSpanTarget": 24,
+      "sourceHeadSpan": 596,
+      "sourceFaceCenterX": 662,
+      "scale": 0.040268456375838924,
+      "alphaBounds": [
+        8,
+        5,
+        36,
+        43
+      ]
+    }
+  }
+}
