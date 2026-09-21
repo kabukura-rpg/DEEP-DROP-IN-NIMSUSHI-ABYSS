@@ -1,0 +1,12 @@
+{
+  "id": "death_00",
+  "state": "death",
+  "idx": 0,
+  "pose": "DEATH 1 of 4, airborne impact: short shocked expression, hands drawn in, knees softly bent. Remain upright and centered, no ground.",
+  "primary": 0,
+  "path": "/Users/shun/.codex/generated_images/01a0ab84-568f-7d32-9a60-2e2e09e34d04/exec-ff1a376d-8937-4b96-9e0d-9936493f9541.png",
+  "accepted": true,
+  "reason": null,
+  "savedFile": "source/death_00.png",
+  "recordId": "death_00"
+}

@@ -1,0 +1,12 @@
+{
+  "id": "death_02",
+  "state": "death",
+  "idx": 2,
+  "pose": "DEATH 3 of 4, airborne loss of tension: loosen the curl, arms and boots begin hanging, closed eyes, head inclined only slightly, upright readable ears and same face size.",
+  "primary": 0,
+  "path": "/Users/shun/.codex/generated_images/01a0ab84-568f-7d32-9a60-2e2e09e34d04/exec-87d2dade-a116-43de-8246-a46b282abccb.png",
+  "accepted": true,
+  "reason": null,
+  "savedFile": "source/death_02.png",
+  "recordId": "death_02"
+}

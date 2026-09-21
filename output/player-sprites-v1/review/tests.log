@@ -1,0 +1,211 @@
+
+> deep-drop@0.1.0 test
+> vitest run --reporter=dot --maxWorkers=2
+
+
+ RUN  v3.2.7 /Users/shun/Desktop/落ちゲー
+
+·······································································································································································································································································································································stdout | tests/measure/terrain.test.ts > terrain census > counts every category with one agreed vocabulary
+AREA-SEC | pieces | routeLedge | trapLedge | gateBlock | gateRow | hazardPiece | chamberFloor | levels | pieces/level | density
+  1-1    | 33.9 | 22.9      |  0.0     | 10.0     |  2.0    |  0.0       |  1.0        | 22.6 | 1.50 | 9.6 ledges/100m
+  1-2    | 38.8 | 22.8      |  0.0     | 15.0     |  3.0    |  0.0       |  1.0        | 22.8 | 1.70 | 9.5 ledges/100m
+  1-3    | 37.3 | 21.3      |  0.0     | 15.0     |  3.0    |  0.0       |  1.0        | 22.2 | 1.68 | 8.9 ledges/100m
+  2-1    | 38.0 | 27.0      |  7.6     | 10.0     |  2.0    |  0.0       |  1.0        | 30.0 | 1.27 | 9.0 ledges/100m
+  2-2    | 37.6 | 26.6      | 11.6     | 10.0     |  2.0    |  0.0       |  1.0        | 29.6 | 1.27 | 8.9 ledges/100m
+  2-3    | 37.0 | 26.0      | 13.8     | 10.0     |  2.0    |  0.0       |  1.0        | 29.0 | 1.28 | 8.7 ledges/100m
+  3-1    | 42.0 | 31.0      |  0.0     | 10.0     |  2.0    |  0.0       |  1.0        | 34.0 | 1.24 | 9.1 ledges/100m
+  3-2    | 41.1 | 30.1      |  0.0     | 10.0     |  2.0    |  0.0       |  1.0        | 33.1 | 1.24 | 8.9 ledges/100m
+  3-3    | 40.4 | 29.4      |  0.0     | 10.0     |  2.0    |  0.0       |  1.0        | 32.4 | 1.25 | 8.6 ledges/100m
+  4-1    | 38.6 |  3.0      |  0.0     |  0.0     |  0.0    | 34.6       |  1.0        | 38.6 | 1.00 | 0.8 ledges/100m
+  4-2    | 37.8 |  1.0      |  0.0     |  0.0     |  0.0    | 35.8       |  1.0        | 37.8 | 1.00 | 0.3 ledges/100m
+  4-3    | 36.9 |  1.0      |  0.0     |  0.0     |  0.0    | 34.9       |  1.0        | 36.9 | 1.00 | 0.3 ledges/100m
+
+··················stdout | tests/measure/speed-safety.test.ts > D. COLLISION-RISK AUDIT > runs every check at every candidate speed
+SAFETY CURRENT | 520/180 | g900 4.33px/step | plat ok | block ok | container ok 12/12 | limbo ok 12/12 | stomp ok | spike ok | doodad ok | safezone ok | exit ok 12/12 phases (104px window vs 4.33px/step) | camera ok | oxygen ok | a4 ok
+SAFETY FAST-A  | 640/220 | g900 5.33px/step | plat ok | block ok | container ok 12/12 | limbo ok 12/12 | stomp ok | spike ok | doodad ok | safezone ok | exit ok 12/12 phases (104px window vs 5.33px/step) | camera ok | oxygen ok | a4 ok
+SAFETY FAST-B  | 760/260 | g900 6.33px/step | plat ok | block ok | container ok 12/12 | limbo ok 12/12 | stomp ok | spike ok | doodad ok | safezone ok | exit ok 12/12 phases (104px window vs 6.33px/step) | camera ok | oxygen ok | a4 ok
+SAFETY FAST-C  | 900/300 | g900 7.50px/step | plat ok | block ok | container ok 12/12 | limbo ok 12/12 | stomp ok | spike ok | doodad ok | safezone ok | exit ok 12/12 phases (104px window vs 7.50px/step) | camera ok | oxygen ok | a4 ok
+SAFETY VIDEO   | 930/350 | g1680 7.75px/step | plat ok | block ok | container ok 12/12 | limbo ok 12/12 | stomp ok | spike ok | doodad ok | safezone ok | exit ok 12/12 phases (104px window vs 7.75px/step) | camera ok | oxygen ok | a4 ok
+SAFETY (platform slab 16px, safe-zone mouth 116px, spike warning 0.65s)
+
+······································································stdout | tests/measure/gaps.test.ts > level spacing > measures the real vertical gap distribution per AREA
+AREA | levels | gap min/p25/med/p75/max | share within shatterRadius(190) | share a 59px jump clears
+  1  |  1007 | 44/192/232/258/736 | 23.7% | 3.0%
+  2  |  1140 | 44/241/249/256/264 | 2.6% | 2.6%
+  3  |  1259 | 44/241/249/256/264 | 2.4% | 2.4%
+  4  |    90 | 215/215/247/4119/4458 | 0.0% | 0.0%
+
+·············································stdout | tests/measure/boss-brake.test.ts > gap probe > compares a braking player with one who never fires
+PB seed 36 | never fires: closest -56px, body at 2.2s (boss)
+PB seed 36 | brakes:      closest -56px, body at 5.1s (boss)
+PB seed 40 | never fires: closest -56px, body at 2.2s (boss)
+PB seed 40 | brakes:      closest -56px, body at 5.1s (boss)
+PB seed 41 | never fires: closest -56px, body at 2.2s (boss)
+PB seed 41 | brakes:      closest -56px, body at 5.1s (boss)
+PB minGap 220 restGap 430
+
+····································································································································································································································stdout | tests/measure/speed.test.ts > A. CURRENT SPEED > fall
+FALL terminal 930px/s | 15.5px/frame @60fps | 0.52 player-heights/frame
+FALL time to terminal 0.55s over 257.41px
+FALL 100m (2400px) from rest: 2.86s
+FALL one 245px row gap from rest: 0.54s | already at terminal: 0.27s
+
+stdout | tests/measure/speed.test.ts > A. CURRENT SPEED > horizontal
+MOVE 350px/s | playable span 370px (shaft 394px less the player's own width) | wall to wall 1.06s | half 0.53s
+MOVE 15.91 player-widths/sec | 0.5s carries 175px (44.42% of the shaft)
+
+stdout | tests/measure/speed.test.ts > B. CANDIDATES > table
+profile | fall | move | px/frame | H/frame | shaft trav | half | row from rest | row at term | 100m fall | W/sec
+CURRENT |  520 |  180 |     8.67 |    0.29 |       2.06s | 1.03s |          0.63s |        0.48s |      4.77s | 8.18
+FAST-A  |  640 |  220 |    10.67 |    0.36 |       1.68s | 0.84s |          0.58s |        0.38s |      3.94s | 10
+FAST-B  |  760 |  260 |    12.67 |    0.42 |       1.42s | 0.72s |          0.55s |        0.33s |      3.38s | 11.82
+FAST-C  |  900 |  300 |       15 |     0.5 |       1.23s | 0.62s |          0.54s |        0.28s |      2.93s | 13.64
+deltas vs CURRENT:
+  FAST-A: row-from-rest 8% faster | row-at-terminal 19.3% | shaft 18.22% | 100m 17.31%
+  FAST-B: row-from-rest 12% faster | row-at-terminal 31.58% | shaft 30.77% | 100m 29.02%
+  FAST-C: row-from-rest 13.33% faster | row-at-terminal 42.11% | shaft 40.08% | 100m 38.46%
+
+stdout | tests/measure/speed.test.ts > C. RECOIL INTERACTION > what is left of a terminal fall after firing
+profile | terminal | MACHINE 1 | LASER 1 | SHOTGUN 1 | brake as % of terminal (MG) | MG magazine
+CURRENT |      520 |       330 |     100 |       190 |                      36.54% | 7.21% slower
+FAST-A  |      640 |       450 |     220 |       310 |                      29.69% | 5.86% slower
+FAST-B  |      760 |       570 |     340 |       430 |                         25% | 4.94% slower
+FAST-C  |      900 |       710 |     480 |       570 |                      21.11% | 4.17% slower
+
+·················································stdout | tests/measure/video-profile.test.ts > VIDEO PROFILE > speed comparison
+REF shaft 394px | original measured: terminal 2.36 sw/s, accel 4.2 sw/s2, move 0.88-0.91 sw/s
+LEGACY  | gravity  900 (2.28 sw/s2) | terminal 520 (1.32 sw/s) | move 180 (0.46 sw/s)
+        | 8.67px/frame, 0.29H/frame | time to terminal 0.58s over 150.22px
+        | shaft wall-to-wall 2.06s, half 1.03s | row 245px from rest 0.76s, at terminal 0.48s | 100m 4.91s
+VIDEO   | gravity 1680 (4.26 sw/s2) | terminal 930 (2.36 sw/s) | move 350 (0.89 sw/s)
+        | 15.5px/frame, 0.52H/frame | time to terminal 0.56s over 257.41px
+        | shaft wall-to-wall 1.06s, half 0.53s | row 245px from rest 0.54s, at terminal 0.27s | 100m 2.86s
+DELTA terminal 78.85% | move 94.44% | shaft 48.58% faster | row-from-rest 28.57% | 100m 41.77%
+
+stdout | tests/measure/video-profile.test.ts > VIDEO PROFILE > WHAT GRAVITY DRAGS WITH IT -- the locked-as-GOOD moves
+LEGACY  | ground jump 60.5px (2.02H) airtime 0.73s | wall jump 50px | stomp 24.5px | doodad 24.5px | reach 132px
+VIDEO   | ground jump 32.41px (1.08H) airtime 0.39s | wall jump 26.79px | stomp 13.13px | doodad 13.13px | reach 137.5px
+NOTE ground jump falls to 53.57% of its locked height with JUMP.impulse unchanged.
+NOTE holding the SAME ARC at gravity 1680 needs JUMP.impulse 330 (from 330). NOT applied -- JUMP.impulse is locked.
+
+stdout | tests/measure/video-profile.test.ts > VIDEO PROFILE > recoil effectiveness
+LEGACY  | terminal 520 | MACHINE ->330 (36.54% off) | LASER ->100 (80.77%) | SHOTGUN ->190 (63.46%) | MG magazine 14.04% slower over 1.17s
+VIDEO   | terminal 930 | MACHINE ->740 (20.43% off) | LASER ->510 (45.16%) | SHOTGUN ->600 (35.48%) | MG magazine 4.03% slower over 1.17s
+
+································································stdout | tests/measure/boss-loop.test.ts > the core loop > no input: the player is carried into NIMUSHI
+LOOP no input, no targets: body reached at 2.17s, hp 0, state over
+
+stdout | tests/measure/boss-loop.test.ts > the core loop > supply: how often a stompable target is available
+LOOP stompable targets: fewest 4, frames with none 0/1440, longest gap 0.00s, first gap at never
+
+stdout | tests/measure/boss-loop.test.ts > the core loop > a player who stomps holds their height and keeps CHARGE
+LOOP stomping bot: 14 stomps in 25s, closest to NIMUSHI -56px, frames empty 0, state boss, hp 4
+
+stdout | tests/measure/boss-loop.test.ts > the core loop > the lower boundary
+LOOP arena floor: 800 + 140px past the view | player screen 552
+LOOP falling past it: state over, cause crush
+
+····stdout | tests/measure/movement-audit.test.ts > MOVEMENT AUDIT > 2. WALL JUMP -- what actually gates it today
+WJ can-perform: plain wall contact + away input -> SUCCEEDS
+WJ rolling-state required: NO -- fires with no roll state at all
+WJ same wall twice, no reset: refused
+WJ alternating-wall chain: 1 jumps in 20s, net -18148.5px, best 25.43px above start -> no climb
+WJ charge cost: 8 -> 8 (free, correct)
+
+stdout | tests/measure/movement-audit.test.ts > MOVEMENT AUDIT > 3. RECOIL -- the extra-height bug, measured
+RECOIL jump-only peak 31.05px | jump+MG peak 31.05px | EXTRA 0px (0 player-heights)
+RECOIL per module -- jump-only vs jump+fire peak:
+  machine  recoil 190 | peak   31.05px | extra over jump-only 0px
+  burst    recoil 150 | peak   31.05px | extra over jump-only 0px
+  laser    recoil 420 | peak   31.05px | extra over jump-only 0px
+  noppy    recoil  95 | peak   31.05px | extra over jump-only 0px
+  puncher  recoil 165 | peak   31.05px | extra over jump-only 0px
+  shotgun  recoil 330 | peak   31.05px | extra over jump-only 0px
+  triple   recoil 150 | peak   31.05px | extra over jump-only 0px
+RECOIL unlimited ammo, 5s of fire from rest: net 4108.35px DOWN -> no sustained climb
+
+stdout | tests/measure/movement-audit.test.ts > MOVEMENT AUDIT > 5. SPEED FEEL -- where the time actually goes
+SPEED gravity 1680px/s2 | terminal 930px/s (15.5px/frame, 0.52H/frame)
+SPEED time to terminal 0.56s | distance 257.41px
+SPEED move 350px/s, air control 100% | shaft crossing 1.13s
+SPEED jump arc 0.72s -- during which descent is SUSPENDED
+SPEED one magazine brakes for 1.17s
+SPEED a 240m SECTION at terminal = 6.19s of pure falling; median row gap 245px = 0.26s between rows
+
+stdout | tests/measure/movement-audit.test.ts > MOVEMENT AUDIT > 4. GROUND JUMP -- candidate table
+cand     | impulse | peak px | peak /H | airtime | h-reach px | /shaft | vs CURRENT
+CURRENT  |     330 |   31.05 |    1.04 |   0.39s |     137.08 | 34.79% | --
+HIGH     |     280 |   22.17 |    0.74 |   0.33s |     113.75 | 28.87% | -28.61%
+MID      |     240 |   16.15 |    0.54 |   0.28s |      99.17 | 25.17% | -47.99%
+LOW      |     200 |   11.08 |    0.37 |   0.23s |      81.67 | 20.73% | -64.3%
+(player 22x30px, shaft 394px, median row gap 245px, stomp bounce 13.13px, wall jump 26.79px)
+
+····stdout | tests/measure/physics.test.ts > core physics measurement > ground jump
+GROUND JUMP dir=0 | rise 31.05px (1.04 player-heights) | apex 0.19s | arc airtime 0.39s | horizontal reach 0px (0% of shaft, 0 player-widths)
+GROUND JUMP dir=1 | rise 31.05px (1.04 player-heights) | apex 0.19s | arc airtime 0.39s | horizontal reach 137.08px (34.79% of shaft, 6.23 player-widths)
+
+stdout | tests/measure/physics.test.ts > core physics measurement > free fall to terminal
+FREE FALL | vy by frame: f1=14 f2=28 f3=42 f4=56 f5=70 f6=84 f12=168 f24=336 f60=840 | terminal 930px/s reached at 0.56s after 265.7px (8.86 player-heights)
+FREE FALL | held 16.67s unobstructed, ends at vy 930 -- flat, so nothing interrupted it
+FREE FALL | terminal per frame @60fps = 15.5px (0.52 player-heights/frame)
+
+stdout | tests/measure/physics.test.ts > core physics measurement > wall jump
+WALL JUMP left | rise 25.55px (0.85 heights) | apex 0.18s | back to start 0.35s | dx 200.82px (9.13 widths, 50.97% of shaft)
+WALL JUMP right | rise 25.55px (0.85 heights) | apex 0.18s | back to start 0.35s | dx 200.82px (9.13 widths, 50.97% of shaft)
+
+stdout | tests/measure/physics.test.ts > core physics measurement > gunboot recoil
+RECOIL | single shot at terminal: vy 930 -> 740 (delta -190px/s, 20.43% of terminal)
+RECOIL | from TERMINAL, magazine held: 1.17s, fell 1048.67px vs 1092.75px unfired (4.03% slower)
+RECOIL | 8 CHARGE held down: 1.17s of fire, fell 670.73px vs 839.2px unfired -- a full magazine buys 168.47px of held altitude (20.07% slower descent)
+
+stdout | tests/measure/physics.test.ts > core physics measurement > stomp bounce
+STOMP | bounce vy 210 | rise after contact 10.25px (0.34 heights) | apex 0.28s | connected=true
+
+stdout | tests/measure/physics.test.ts > core physics measurement > walk speed and air control
+WALK | 350px/s sustained | crosses the 394px shaft in 1.13s
+AIR  | 350px/s while falling (air control = 100% of ground)
+
+stdout | tests/measure/physics.test.ts > core physics measurement > prints the constants these were produced from
+CONSTANTS | gravity 1680 move 350 terminal 930 recoil 190 bounce 210 jump 330 wall {"impulse":300,"kick":320,"kickTime":0.45,"grace":0.1} | player 22x30 shaft 394 step 0.008333333333333333
+
+·······stdout | tests/measure/boss-band.test.ts > the boss band > reports the screen layout through a fight
+BAND settled: NIMUSHI 216 (27%) | face 272 | player 312 (39%) | deep 772 | reach 40px
+BAND after 25s of play: NIMUSHI 216 (27%) | face 272 | player 318 (40%) | deep 749 | reach 46px
+BAND reach over the fight: min -56px, max 169px
+BAND highest the player ever got on screen: 216 of 800
+BAND weapon reach: MG 900 | BURST 900 | LASER 2000 | NOPPY 620 | PUNCH 330 | SHOT 260 | TRIPLE 700
+BAND attack 0.12 (96px) | damage 0.28 (224px)
+
+·stdout | tests/measure/boss-speed.test.ts > NIMUSHI under the new speed > what happens to an unpinned player in the arena
+BOSS arena physics 900/520/180 (the run is 1680/930/350 and does not reach in here)
+BOSS vs NIMUSHI ascent 280 / retreat 240 / minGap 220
+BOSS first damage at 2.23s | fight ended at 5.89s | hp 0/4 | closest gap 39px
+BOSS player closes the 430px rest gap in 0.83s; retreat is 2.17x slower than the approach (was 3.88x while the run's physics leaked in, which killed an idle player in 3.94s)
+
+······························stdout | tests/measure/boss-gap.test.ts > player / NIMUSHI relative motion > measures the gap over an unplayed fight
+GAP boss terminal 520 | NIMUSHI ascent 280 retreat 240
+GAP rest 430 min 220 max 610 | start gap 388
+GAP closes at up to 240px/s while NIMUSHI cruises, 280px/s while it retreats
+GAP peak player ascent 520px/s | closest -17px
+GAP reaches minGap at 1.25s | body contact at 2.17s | run ends at 5.89s
+GAP  t0.0 gap389 pvy-15 bvy?1335
+GAP  t0.5 gap397 pvy-465 bvy?1195
+GAP  t1.0 gap278 pvy-520 bvy?1055
+GAP  t1.5 gap158 pvy-520 bvy?915
+GAP  t2.0 gap38 pvy-520 bvy?775
+GAP  t2.5 gap84 pvy-37 bvy?635
+GAP  t3.0 gap91 pvy-487 bvy?495
+GAP  t3.5 gap6 pvy165 bvy?355
+GAP  t4.0 gap114 pvy-285 bvy?215
+GAP  t4.5 gap24 pvy-520 bvy?75
+
+stdout | tests/measure/boss-gap.test.ts > player / NIMUSHI relative motion > measures the pressure boundary over the same window
+PRESSURE minimum slack over 10s of no input: 450px (state over)
+
+·····························
+
+ Test Files  44 passed (44)
+      Tests  876 passed (876)
+   Start at  20:22:18
+   Duration  18.32s (transform 654ms, setup 0ms, collect 2.52s, tests 27.56s, environment 4ms, prepare 1.74s)
+

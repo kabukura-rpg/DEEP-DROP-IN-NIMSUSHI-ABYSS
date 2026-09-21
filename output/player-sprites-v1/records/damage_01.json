@@ -1,0 +1,12 @@
+{
+  "id": "damage_01",
+  "state": "damage",
+  "idx": 1,
+  "pose": "DAMAGE recovery: relax the flinch slightly, eyes reopening, arms lowering, tail returns toward its usual shape. Same body size and face placement.",
+  "primary": 0,
+  "path": "/Users/shun/.codex/generated_images/01a0ab84-568f-7d32-9a60-2e2e09e34d04/exec-653bef62-e51b-449d-b5f4-760410429a01.png",
+  "accepted": true,
+  "reason": null,
+  "savedFile": "source/damage_01.png",
+  "recordId": "damage_01"
+}

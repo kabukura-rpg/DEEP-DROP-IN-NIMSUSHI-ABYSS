@@ -1,0 +1,12 @@
+{
+  "id": "run_02",
+  "state": "run",
+  "idx": 2,
+  "pose": "RUN right-facing frame 3: opposite contact, left boot forward and right boot back, arms swap. Tail still behind LEFT; face and head position identical to frame 1.",
+  "primary": 0,
+  "path": "/Users/shun/.codex/generated_images/01a0ab84-568f-7d32-9a60-2e2e09e34d04/exec-1c476617-e887-4185-ae17-01ade10b4faa.png",
+  "accepted": true,
+  "reason": null,
+  "savedFile": "source/run_02.png",
+  "recordId": "run_02"
+}

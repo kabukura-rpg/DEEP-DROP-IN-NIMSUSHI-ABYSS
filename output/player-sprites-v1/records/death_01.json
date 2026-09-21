@@ -1,0 +1,12 @@
+{
+  "id": "death_01",
+  "state": "death",
+  "idx": 1,
+  "pose": "DEATH 2 of 4, airborne curling: curl knees and hands inward below the upright head, eyes close. A compact tucked pose, tail wraps alongside without shrinking.",
+  "primary": 0,
+  "path": "/Users/shun/.codex/generated_images/01a0ab84-568f-7d32-9a60-2e2e09e34d04/exec-01b75e2d-fca8-4251-935b-7bd8542fba70.png",
+  "accepted": true,
+  "reason": null,
+  "savedFile": "source/death_01.png",
+  "recordId": "death_01"
+}

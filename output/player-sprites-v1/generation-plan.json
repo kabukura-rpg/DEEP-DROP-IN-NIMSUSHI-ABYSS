@@ -1,0 +1,236 @@
+{
+  "mode": "built-in image_gen",
+  "references": [
+    "/Users/shun/Desktop/落ちゲー/output/player-visual-prototype-v1/previews/normal_fall-8x.png",
+    "/Users/shun/Desktop/落ちゲー/output/player-visual-prototype-v1/previews/boss_ascend-8x.png",
+    "/Users/shun/Desktop/落ちゲー/output/player-visual-prototype-v1/previews/boss_brake-8x.png",
+    "/Users/shun/Desktop/落ちゲー/output/player-visual-prototype-v1/previews/boss_descend_thrust-8x.png"
+  ],
+  "common": "Use case: identity-preserve. Produce ONE standalone transparent PLAYER animation frame, never a sheet. The FOUR references are approved frames of the SAME locked character. Reference 1 is the closest pose/registration master, the other three only reinforce identity. Preserve the EXACT pixel-character identity: chestnut brown hair, triangular white-inner animal ears, small pale human face, dark eyes, brown jacket/shorts, white chest patch, tiny red accents, chunky gunboots, large brown tail with its two cream/white bands. No redesign. MATCH the references' coarse 48x48 pixel density and limited warm brown/cream/red palette. Do not add finer detail or smooth shading. True alpha background, hard pixel edges, no antialiasing, no ground, scenery, wall, text, frame labels, handheld weapon, projectiles, muzzle flash, flame, dust, sparks or glow. The whole square canvas represents exactly the same 48x48 logical cell as reference 1, enlarged at an integer scale for generation; retain its head size, face horizontal center, and body registration. Do NOT auto-center or enlarge the character to fill empty space. Keep every ear and tail pixel inside the cell. Output only one character in one frame. ",
+  "jobs": [
+    {
+      "id": "idle_00",
+      "state": "idle",
+      "idx": 0,
+      "pose": "IDLE base: upright relaxed body, boots together grounded-neutral, hands resting at sides. Tail curls sideways behind the body instead of streaming upward. Eyes open, calm. No ground.",
+      "primary": 0
+    },
+    {
+      "id": "idle_01",
+      "state": "idle",
+      "idx": 1,
+      "pose": "IDLE breathing second frame: same relaxed upright pose and exact face position, shoulders ONE logical pixel higher, tail tip ONE pixel lower. Very subtle breathing, boots in identical position.",
+      "primary": 0
+    },
+    {
+      "id": "damage_00",
+      "state": "damage",
+      "idx": 0,
+      "pose": "DAMAGE impact: very short airborne hit flinch, shoulders lifted, hands drawn inward, eyes briefly squeezed, mouth small. Keep face placement; tail flicked slightly. No sparks.",
+      "primary": 0
+    },
+    {
+      "id": "damage_01",
+      "state": "damage",
+      "idx": 1,
+      "pose": "DAMAGE recovery: relax the flinch slightly, eyes reopening, arms lowering, tail returns toward its usual shape. Same body size and face placement.",
+      "primary": 0
+    },
+    {
+      "id": "death_00",
+      "state": "death",
+      "idx": 0,
+      "pose": "DEATH 1 of 4, airborne impact: short shocked expression, hands drawn in, knees softly bent. Remain upright and centered, no ground.",
+      "primary": 0
+    },
+    {
+      "id": "death_01",
+      "state": "death",
+      "idx": 1,
+      "pose": "DEATH 2 of 4, airborne curling: curl knees and hands inward below the upright head, eyes close. A compact tucked pose, tail wraps alongside without shrinking.",
+      "primary": 0
+    },
+    {
+      "id": "death_02",
+      "state": "death",
+      "idx": 2,
+      "pose": "DEATH 3 of 4, airborne loss of tension: loosen the curl, arms and boots begin hanging, closed eyes, head inclined only slightly, upright readable ears and same face size.",
+      "primary": 0
+    },
+    {
+      "id": "death_03",
+      "state": "death",
+      "idx": 3,
+      "pose": "DEATH 4 of 4, airborne final: fully limp but still suspended, closed eyes, arms and feet hanging loosely, head gently tilted. No lying on a floor, no ghost, no particles, no fading baked into pixels.",
+      "primary": 0
+    },
+    {
+      "id": "run_00",
+      "state": "run",
+      "idx": 0,
+      "pose": "RUN right-facing frame 1: slight three-quarter face toward RIGHT while retaining both readable eyes; right boot forward, left boot back, arms opposite, tail extending left behind. Small stride.",
+      "primary": 0
+    },
+    {
+      "id": "run_01",
+      "state": "run",
+      "idx": 1,
+      "pose": "RUN right-facing frame 2: passing step, boots near together beneath torso, arms midway, tail held behind to LEFT. Keep head at the identical vertical level as other running frames.",
+      "primary": 0
+    },
+    {
+      "id": "run_02",
+      "state": "run",
+      "idx": 2,
+      "pose": "RUN right-facing frame 3: opposite contact, left boot forward and right boot back, arms swap. Tail still behind LEFT; face and head position identical to frame 1.",
+      "primary": 0
+    },
+    {
+      "id": "run_03",
+      "state": "run",
+      "idx": 3,
+      "pose": "RUN right-facing frame 4: second passing step, boots beneath torso with opposite knee lifting, tail tip small upward motion. Same head height, no hopping.",
+      "primary": 0
+    },
+    {
+      "id": "jump_rise_00",
+      "state": "jump_rise",
+      "idx": 0,
+      "pose": "JUMP_RISE launch pose: upward jump, upright face, one knee slightly lifted and arms close but active, hair and tail trailing DOWN. Boots visible. No jet flame, no flight ability.",
+      "primary": 0
+    },
+    {
+      "id": "jump_rise_01",
+      "state": "jump_rise",
+      "idx": 1,
+      "pose": "JUMP_RISE near apex: same upward jump body as prior frame but legs slightly relax, tail curls down and slightly sideways. Keep head position fixed, gentle secondary motion.",
+      "primary": 0
+    },
+    {
+      "id": "fall_01",
+      "state": "fall",
+      "idx": 1,
+      "pose": "NORMAL_FALL second frame. Modify ONLY reference 1's tail tip by ONE logical pixel sideways and a couple of hair-tip pixels upward. EXACTLY preserve the head, face, body, straight downward legs and all other pixels as closely as possible. Very subtle loop, not a new pose.",
+      "primary": 0
+    },
+    {
+      "id": "fall_02",
+      "state": "fall",
+      "idx": 2,
+      "pose": "NORMAL_FALL third frame. Preserve reference 1's entire face, ears, outfit, boots and head/body position exactly. Tail tip returns ONE logical pixel toward its base direction and hair tips flutter slightly. No body translation.",
+      "primary": 0
+    },
+    {
+      "id": "gunboots_fire_00",
+      "state": "gunboots_fire",
+      "idx": 0,
+      "pose": "GUNBOOTS_FIRE first frame: normal downward falling, boots pulled tightly together pointing DOWN, knees stiffened, hands near sides, tail streams UP. Short firing posture in BODY ONLY. No muzzle flash, projectile, fire or light.",
+      "primary": 0
+    },
+    {
+      "id": "gunboots_fire_01",
+      "state": "gunboots_fire",
+      "idx": 1,
+      "pose": "GUNBOOTS_FIRE second frame: normal downward falling after a shot, feet remain together downward, torso compressed one logical pixel, arms braced. Same face coordinates, tail remains UP. No FX.",
+      "primary": 0
+    },
+    {
+      "id": "gunboots_brake_00",
+      "state": "gunboots_brake",
+      "idx": 0,
+      "pose": "GUNBOOTS_BRAKE normal descent: resist DOWNWARD fall; boots pointing DOWN, knees slightly bent and together, elbows braced, large tail slightly fans UP and sideways. Do not raise boots above the head. No FX.",
+      "primary": 0
+    },
+    {
+      "id": "gunboots_brake_01",
+      "state": "gunboots_brake",
+      "idx": 1,
+      "pose": "GUNBOOTS_BRAKE second normal frame: same downward-pointing boots and braced falling pose, knees ease ONE pixel, tail tip makes small secondary movement upward. Keep face and body center identical.",
+      "primary": 0
+    },
+    {
+      "id": "landing_00",
+      "state": "landing",
+      "idx": 0,
+      "pose": "LANDING first frame: small squat absorbing contact, both boots on same horizontal baseline, knees bent outward slightly, arms out just a little, tail spread sideways. Head lowered only ONE logical pixel. No floor, dust or impact lines.",
+      "primary": 0
+    },
+    {
+      "id": "landing_01",
+      "state": "landing",
+      "idx": 1,
+      "pose": "LANDING second frame: recovering from small squat, knees straighten halfway, boots stay on same baseline, head returns ONE logical pixel. Tail gently settles. No ground or FX.",
+      "primary": 0
+    },
+    {
+      "id": "wall_contact_00",
+      "state": "wall_contact",
+      "idx": 0,
+      "pose": "WALL_CONTACT against an IMAGINARY wall to RIGHT: upright airborne body, right palm touching to right, right boot lightly braced beside it, left arm close, tail trails up-left. Keep face visible. This is a brief contact, NOT a slow sliding/hanging pose. Do not draw a wall or dust.",
+      "primary": 0
+    },
+    {
+      "id": "wall_kick_00",
+      "state": "wall_kick",
+      "idx": 0,
+      "pose": "WALL_KICK push-off frame: push against an IMAGINARY wall to RIGHT with right boot and right palm, body leaning slightly LEFT away from wall; knee extends, tail trails toward upper-right without covering face. No wall, dust or motion streaks.",
+      "primary": 0
+    },
+    {
+      "id": "wall_kick_01",
+      "state": "wall_kick",
+      "idx": 1,
+      "pose": "WALL_KICK release frame: moving LEFT away from imaginary RIGHT wall, knees tucked and arms rebalance, face upright, hair and tail trail back to RIGHT. Same face size and placement; no wall or FX.",
+      "primary": 0
+    },
+    {
+      "id": "boss_ascend_01",
+      "state": "boss_ascend",
+      "idx": 1,
+      "pose": "BOSS_ASCEND second frame: preserve reference 1's whole face, head, outfit and body position exactly. Natural UPWARD movement under inverted gravity. Downward-trailing tail tip changes ONE pixel sideways; hair tips trail gently DOWN. Relaxed, no propulsion.",
+      "primary": 1
+    },
+    {
+      "id": "boss_ascend_02",
+      "state": "boss_ascend",
+      "idx": 2,
+      "pose": "BOSS_ASCEND third frame: same as reference 1 with the downward tail tip ONE pixel the other way and a tiny hair-tip flutter. Face and body unchanged in place. Not a vertical flip, not thrust.",
+      "primary": 1
+    },
+    {
+      "id": "boss_brake_01",
+      "state": "boss_brake",
+      "idx": 1,
+      "pose": "BOSS_BRAKE second frame: preserve reference 1's existing compact braced posture, face and exact framing. Tail remains broadly HORIZONTAL with a ONE-pixel tip recoil; shoulders compress only ONE pixel. No down-thrust pose, no flames.",
+      "primary": 2
+    },
+    {
+      "id": "boss_hover_00",
+      "state": "boss_hover",
+      "idx": 0,
+      "pose": "BOSS_HOVER first frame: variation of reference 1 BOSS_BRAKE, braced knees and boots, horizontal tail, slightly tense shoulders and balanced arms. It is a brief near-zero upward-velocity instant during braking, NOT relaxed levitation. Keep same face position. No thrust effects.",
+      "primary": 2
+    },
+    {
+      "id": "boss_hover_01",
+      "state": "boss_hover",
+      "idx": 1,
+      "pose": "BOSS_HOVER second frame: preserve braced braking posture of reference 1, slight settling of shoulders ONE pixel, tiny horizontal tail-tip motion. Tense temporary near-stop, not free flight. Same face position, no FX.",
+      "primary": 2
+    },
+    {
+      "id": "boss_damage_00",
+      "state": "boss_damage",
+      "idx": 0,
+      "pose": "BOSS_DAMAGE impact: natural upward-motion pose of reference 1 with tail and hair trailing DOWN. Very short flinch, shoulders tense, eyes squeeze closed, arms pulled inward. Keep body/face anchored exactly. No sparks.",
+      "primary": 1
+    },
+    {
+      "id": "boss_damage_01",
+      "state": "boss_damage",
+      "idx": 1,
+      "pose": "BOSS_DAMAGE recovery: restore open eyes and slightly relax shoulders from hit flinch while tail keeps trailing DOWN, natural ascent orientation upright. Same head and body position, no spark/flame.",
+      "primary": 1
+    }
+  ]
+}

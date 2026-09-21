@@ -1,0 +1,12 @@
+{
+  "id": "idle_01",
+  "state": "idle",
+  "idx": 1,
+  "pose": "IDLE breathing second frame: same relaxed upright pose and exact face position, shoulders ONE logical pixel higher, tail tip ONE pixel lower. Very subtle breathing, boots in identical position.",
+  "primary": 0,
+  "path": "/Users/shun/.codex/generated_images/01a0ab84-568f-7d32-9a60-2e2e09e34d04/exec-ea86ce54-536f-4b97-8875-15d027b23647.png",
+  "accepted": false,
+  "reason": "Rejected: tail returned to upward FALL pose; regenerate from idle_00.",
+  "savedFile": "rejected/idle_01.png",
+  "recordId": "idle_01-rejected"
+}

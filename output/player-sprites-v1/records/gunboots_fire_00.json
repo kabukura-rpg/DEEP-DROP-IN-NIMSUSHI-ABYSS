@@ -1,0 +1,12 @@
+{
+  "id": "gunboots_fire_00",
+  "state": "gunboots_fire",
+  "idx": 0,
+  "pose": "GUNBOOTS_FIRE first frame: normal downward falling, boots pulled tightly together pointing DOWN, knees stiffened, hands near sides, tail streams UP. Short firing posture in BODY ONLY. No muzzle flash, projectile, fire or light.",
+  "primary": 0,
+  "path": "/Users/shun/.codex/generated_images/01a0ab84-568f-7d32-9a60-2e2e09e34d04/exec-2254e951-074d-4d99-aa1c-061cb31877df.png",
+  "accepted": true,
+  "reason": null,
+  "savedFile": "source/gunboots_fire_00.png",
+  "recordId": "gunboots_fire_00"
+}

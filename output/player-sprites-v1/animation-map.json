@@ -1,0 +1,725 @@
+{
+  "status": "DEV CANDIDATE / NOT FINAL ADOPTION",
+  "cell": 48,
+  "origin": [
+    0.5,
+    0.5
+  ],
+  "palette": [
+    [
+      20,
+      1,
+      1
+    ],
+    [
+      24,
+      5,
+      3
+    ],
+    [
+      31,
+      8,
+      5
+    ],
+    [
+      34,
+      2,
+      1
+    ],
+    [
+      35,
+      5,
+      2
+    ],
+    [
+      42,
+      13,
+      9
+    ],
+    [
+      75,
+      22,
+      10
+    ],
+    [
+      94,
+      29,
+      14
+    ],
+    [
+      104,
+      37,
+      20
+    ],
+    [
+      109,
+      46,
+      27
+    ],
+    [
+      127,
+      43,
+      23
+    ],
+    [
+      134,
+      50,
+      28
+    ],
+    [
+      148,
+      74,
+      49
+    ],
+    [
+      152,
+      59,
+      35
+    ],
+    [
+      164,
+      68,
+      43
+    ],
+    [
+      167,
+      68,
+      43
+    ],
+    [
+      168,
+      69,
+      44
+    ],
+    [
+      170,
+      71,
+      45
+    ],
+    [
+      171,
+      63,
+      40
+    ],
+    [
+      176,
+      70,
+      44
+    ],
+    [
+      178,
+      73,
+      45
+    ],
+    [
+      180,
+      70,
+      46
+    ],
+    [
+      180,
+      74,
+      46
+    ],
+    [
+      198,
+      90,
+      55
+    ],
+    [
+      219,
+      128,
+      84
+    ],
+    [
+      243,
+      183,
+      152
+    ],
+    [
+      247,
+      216,
+      193
+    ],
+    [
+      250,
+      150,
+      98
+    ],
+    [
+      251,
+      240,
+      229
+    ],
+    [
+      253,
+      233,
+      211
+    ],
+    [
+      253,
+      233,
+      215
+    ],
+    [
+      253,
+      252,
+      251
+    ]
+  ],
+  "frames": {
+    "idle_00": {
+      "file": "frames/idle_00.png",
+      "anchor": {
+        "x": 25,
+        "y": 30
+      },
+      "group": "shared",
+      "sheet": "sheets/player_shared_v1.png",
+      "index": 0,
+      "x": 0,
+      "y": 0
+    },
+    "idle_01": {
+      "file": "frames/idle_01.png",
+      "anchor": {
+        "x": 25,
+        "y": 30
+      },
+      "group": "shared",
+      "sheet": "sheets/player_shared_v1.png",
+      "index": 1,
+      "x": 48,
+      "y": 0
+    },
+    "damage_00": {
+      "file": "frames/damage_00.png",
+      "anchor": {
+        "x": 25,
+        "y": 28
+      },
+      "group": "shared",
+      "sheet": "sheets/player_shared_v1.png",
+      "index": 2,
+      "x": 96,
+      "y": 0
+    },
+    "damage_01": {
+      "file": "frames/damage_01.png",
+      "anchor": {
+        "x": 25,
+        "y": 28
+      },
+      "group": "shared",
+      "sheet": "sheets/player_shared_v1.png",
+      "index": 3,
+      "x": 144,
+      "y": 0
+    },
+    "death_00": {
+      "file": "frames/death_00.png",
+      "anchor": {
+        "x": 25,
+        "y": 30
+      },
+      "group": "shared",
+      "sheet": "sheets/player_shared_v1.png",
+      "index": 4,
+      "x": 0,
+      "y": 48
+    },
+    "death_01": {
+      "file": "frames/death_01.png",
+      "anchor": {
+        "x": 25,
+        "y": 30
+      },
+      "group": "shared",
+      "sheet": "sheets/player_shared_v1.png",
+      "index": 5,
+      "x": 48,
+      "y": 48
+    },
+    "death_02": {
+      "file": "frames/death_02.png",
+      "anchor": {
+        "x": 25,
+        "y": 32
+      },
+      "group": "shared",
+      "sheet": "sheets/player_shared_v1.png",
+      "index": 6,
+      "x": 96,
+      "y": 48
+    },
+    "death_03": {
+      "file": "frames/death_03.png",
+      "anchor": {
+        "x": 25,
+        "y": 33
+      },
+      "group": "shared",
+      "sheet": "sheets/player_shared_v1.png",
+      "index": 7,
+      "x": 144,
+      "y": 48
+    },
+    "run_00": {
+      "file": "frames/run_00.png",
+      "anchor": {
+        "x": 26,
+        "y": 29
+      },
+      "group": "normal",
+      "sheet": "sheets/player_normal_v1.png",
+      "index": 0,
+      "x": 0,
+      "y": 0
+    },
+    "run_01": {
+      "file": "frames/run_01.png",
+      "anchor": {
+        "x": 26,
+        "y": 29
+      },
+      "group": "normal",
+      "sheet": "sheets/player_normal_v1.png",
+      "index": 1,
+      "x": 48,
+      "y": 0
+    },
+    "run_02": {
+      "file": "frames/run_02.png",
+      "anchor": {
+        "x": 26,
+        "y": 29
+      },
+      "group": "normal",
+      "sheet": "sheets/player_normal_v1.png",
+      "index": 2,
+      "x": 96,
+      "y": 0
+    },
+    "run_03": {
+      "file": "frames/run_03.png",
+      "anchor": {
+        "x": 26,
+        "y": 29
+      },
+      "group": "normal",
+      "sheet": "sheets/player_normal_v1.png",
+      "index": 3,
+      "x": 144,
+      "y": 0
+    },
+    "jump_rise_00": {
+      "file": "frames/jump_rise_00.png",
+      "anchor": {
+        "x": 25,
+        "y": 22
+      },
+      "group": "normal",
+      "sheet": "sheets/player_normal_v1.png",
+      "index": 4,
+      "x": 0,
+      "y": 48
+    },
+    "jump_rise_01": {
+      "file": "frames/jump_rise_01.png",
+      "anchor": {
+        "x": 25,
+        "y": 22
+      },
+      "group": "normal",
+      "sheet": "sheets/player_normal_v1.png",
+      "index": 5,
+      "x": 48,
+      "y": 48
+    },
+    "fall_00": {
+      "file": "frames/fall_00.png",
+      "anchor": {
+        "x": 24,
+        "y": 32
+      },
+      "group": "normal",
+      "sheet": "sheets/player_normal_v1.png",
+      "index": 6,
+      "x": 96,
+      "y": 48
+    },
+    "fall_01": {
+      "file": "frames/fall_01.png",
+      "anchor": {
+        "x": 24,
+        "y": 32
+      },
+      "group": "normal",
+      "cleanup": "Generated motion candidate rejected for shape drift; approved raster retained with a 1px tail-tip cleanup variation",
+      "sheet": "sheets/player_normal_v1.png",
+      "index": 7,
+      "x": 144,
+      "y": 48
+    },
+    "fall_02": {
+      "file": "frames/fall_02.png",
+      "anchor": {
+        "x": 24,
+        "y": 32
+      },
+      "group": "normal",
+      "cleanup": "Generated motion candidate rejected for shape drift; approved raster retained with a 1px tail-tip cleanup variation",
+      "sheet": "sheets/player_normal_v1.png",
+      "index": 8,
+      "x": 0,
+      "y": 96
+    },
+    "gunboots_fire_00": {
+      "file": "frames/gunboots_fire_00.png",
+      "anchor": {
+        "x": 24,
+        "y": 31
+      },
+      "group": "normal",
+      "sheet": "sheets/player_normal_v1.png",
+      "index": 9,
+      "x": 48,
+      "y": 96
+    },
+    "gunboots_fire_01": {
+      "file": "frames/gunboots_fire_01.png",
+      "anchor": {
+        "x": 24,
+        "y": 31
+      },
+      "group": "normal",
+      "sheet": "sheets/player_normal_v1.png",
+      "index": 10,
+      "x": 96,
+      "y": 96
+    },
+    "gunboots_brake_00": {
+      "file": "frames/gunboots_brake_00.png",
+      "anchor": {
+        "x": 26,
+        "y": 29
+      },
+      "group": "normal",
+      "sheet": "sheets/player_normal_v1.png",
+      "index": 11,
+      "x": 144,
+      "y": 96
+    },
+    "gunboots_brake_01": {
+      "file": "frames/gunboots_brake_01.png",
+      "anchor": {
+        "x": 26,
+        "y": 29
+      },
+      "group": "normal",
+      "sheet": "sheets/player_normal_v1.png",
+      "index": 12,
+      "x": 0,
+      "y": 144
+    },
+    "landing_00": {
+      "file": "frames/landing_00.png",
+      "anchor": {
+        "x": 25,
+        "y": 32
+      },
+      "group": "normal",
+      "sheet": "sheets/player_normal_v1.png",
+      "index": 13,
+      "x": 48,
+      "y": 144
+    },
+    "landing_01": {
+      "file": "frames/landing_01.png",
+      "anchor": {
+        "x": 25,
+        "y": 31
+      },
+      "group": "normal",
+      "sheet": "sheets/player_normal_v1.png",
+      "index": 14,
+      "x": 96,
+      "y": 144
+    },
+    "wall_contact_00": {
+      "file": "frames/wall_contact_00.png",
+      "anchor": {
+        "x": 26,
+        "y": 29
+      },
+      "group": "normal",
+      "sheet": "sheets/player_normal_v1.png",
+      "index": 15,
+      "x": 144,
+      "y": 144
+    },
+    "wall_kick_00": {
+      "file": "frames/wall_kick_00.png",
+      "anchor": {
+        "x": 23,
+        "y": 27
+      },
+      "group": "normal",
+      "sheet": "sheets/player_normal_v1.png",
+      "index": 16,
+      "x": 0,
+      "y": 192
+    },
+    "wall_kick_01": {
+      "file": "frames/wall_kick_01.png",
+      "anchor": {
+        "x": 22,
+        "y": 25
+      },
+      "group": "normal",
+      "sheet": "sheets/player_normal_v1.png",
+      "index": 17,
+      "x": 48,
+      "y": 192
+    },
+    "boss_ascend_00": {
+      "file": "frames/boss_ascend_00.png",
+      "anchor": {
+        "x": 24,
+        "y": 23
+      },
+      "group": "boss",
+      "sheet": "sheets/player_boss_v1.png",
+      "index": 0,
+      "x": 0,
+      "y": 0
+    },
+    "boss_ascend_01": {
+      "file": "frames/boss_ascend_01.png",
+      "anchor": {
+        "x": 24,
+        "y": 23
+      },
+      "group": "boss",
+      "cleanup": "Generated motion candidate rejected for shape drift; approved raster retained with a 1px tail-tip cleanup variation",
+      "sheet": "sheets/player_boss_v1.png",
+      "index": 1,
+      "x": 48,
+      "y": 0
+    },
+    "boss_ascend_02": {
+      "file": "frames/boss_ascend_02.png",
+      "anchor": {
+        "x": 24,
+        "y": 23
+      },
+      "group": "boss",
+      "cleanup": "Generated motion candidate rejected for shape drift; approved raster retained with a 1px tail-tip cleanup variation",
+      "sheet": "sheets/player_boss_v1.png",
+      "index": 2,
+      "x": 96,
+      "y": 0
+    },
+    "boss_brake_00": {
+      "file": "frames/boss_brake_00.png",
+      "anchor": {
+        "x": 24,
+        "y": 28
+      },
+      "group": "boss",
+      "sheet": "sheets/player_boss_v1.png",
+      "index": 3,
+      "x": 144,
+      "y": 0
+    },
+    "boss_brake_01": {
+      "file": "frames/boss_brake_01.png",
+      "anchor": {
+        "x": 24,
+        "y": 28
+      },
+      "group": "boss",
+      "cleanup": "Generated motion candidate rejected for shape drift; approved raster retained with a 1px tail-tip cleanup variation",
+      "sheet": "sheets/player_boss_v1.png",
+      "index": 4,
+      "x": 0,
+      "y": 48
+    },
+    "boss_hover_00": {
+      "file": "frames/boss_hover_00.png",
+      "anchor": {
+        "x": 25,
+        "y": 28
+      },
+      "group": "boss",
+      "sheet": "sheets/player_boss_v1.png",
+      "index": 5,
+      "x": 48,
+      "y": 48
+    },
+    "boss_hover_01": {
+      "file": "frames/boss_hover_01.png",
+      "anchor": {
+        "x": 25,
+        "y": 28
+      },
+      "group": "boss",
+      "sheet": "sheets/player_boss_v1.png",
+      "index": 6,
+      "x": 96,
+      "y": 48
+    },
+    "boss_damage_00": {
+      "file": "frames/boss_damage_00.png",
+      "anchor": {
+        "x": 24,
+        "y": 22
+      },
+      "group": "boss",
+      "sheet": "sheets/player_boss_v1.png",
+      "index": 7,
+      "x": 144,
+      "y": 48
+    },
+    "boss_damage_01": {
+      "file": "frames/boss_damage_01.png",
+      "anchor": {
+        "x": 24,
+        "y": 22
+      },
+      "group": "boss",
+      "sheet": "sheets/player_boss_v1.png",
+      "index": 8,
+      "x": 0,
+      "y": 96
+    }
+  },
+  "animations": {
+    "idle": {
+      "frames": [
+        "idle_00",
+        "idle_01"
+      ],
+      "fps": 6,
+      "loop": true
+    },
+    "damage": {
+      "frames": [
+        "damage_00",
+        "damage_01"
+      ],
+      "fps": 12,
+      "loop": false
+    },
+    "death": {
+      "frames": [
+        "death_00",
+        "death_01",
+        "death_02",
+        "death_03"
+      ],
+      "fps": 8,
+      "loop": false
+    },
+    "run": {
+      "frames": [
+        "run_00",
+        "run_01",
+        "run_02",
+        "run_03"
+      ],
+      "fps": 10,
+      "loop": true
+    },
+    "jump_rise": {
+      "frames": [
+        "jump_rise_00",
+        "jump_rise_01"
+      ],
+      "fps": 6,
+      "loop": true
+    },
+    "fall": {
+      "frames": [
+        "fall_00",
+        "fall_01",
+        "fall_02"
+      ],
+      "fps": 6,
+      "loop": true
+    },
+    "gunboots_fire": {
+      "frames": [
+        "gunboots_fire_00",
+        "gunboots_fire_01"
+      ],
+      "fps": 12,
+      "loop": false
+    },
+    "gunboots_brake": {
+      "frames": [
+        "gunboots_brake_00",
+        "gunboots_brake_01"
+      ],
+      "fps": 16,
+      "loop": true
+    },
+    "landing": {
+      "frames": [
+        "landing_00",
+        "landing_01"
+      ],
+      "fps": 12,
+      "loop": false
+    },
+    "wall_contact": {
+      "frames": [
+        "wall_contact_00"
+      ],
+      "fps": 6,
+      "loop": true
+    },
+    "wall_kick": {
+      "frames": [
+        "wall_kick_00",
+        "wall_kick_01"
+      ],
+      "fps": 12,
+      "loop": false
+    },
+    "boss_ascend": {
+      "frames": [
+        "boss_ascend_00",
+        "boss_ascend_01",
+        "boss_ascend_02"
+      ],
+      "fps": 6,
+      "loop": true
+    },
+    "boss_brake": {
+      "frames": [
+        "boss_brake_00",
+        "boss_brake_01"
+      ],
+      "fps": 16,
+      "loop": true
+    },
+    "boss_hover": {
+      "frames": [
+        "boss_hover_00",
+        "boss_hover_01"
+      ],
+      "fps": 16,
+      "loop": true
+    },
+    "boss_damage": {
+      "frames": [
+        "boss_damage_00",
+        "boss_damage_01"
+      ],
+      "fps": 12,
+      "loop": false
+    }
+  },
+  "archived": "../player-visual-prototype-v1/sprites-48/boss_descend_thrust.png"
+}

@@ -1,0 +1,12 @@
+{
+  "id": "gunboots_brake_00",
+  "state": "gunboots_brake",
+  "idx": 0,
+  "pose": "GUNBOOTS_BRAKE normal descent: resist DOWNWARD fall; boots pointing DOWN, knees slightly bent and together, elbows braced, large tail slightly fans UP and sideways. Do not raise boots above the head. No FX.",
+  "primary": 0,
+  "path": "/Users/shun/.codex/generated_images/01a0ab84-568f-7d32-9a60-2e2e09e34d04/exec-4e70dc09-ddfd-4455-84a9-15f1ee958079.png",
+  "accepted": true,
+  "reason": null,
+  "savedFile": "source/gunboots_brake_00.png",
+  "recordId": "gunboots_brake_00"
+}

@@ -1,0 +1,12 @@
+{
+  "id": "run_00",
+  "state": "run",
+  "idx": 0,
+  "pose": "RUN right-facing frame 1: slight three-quarter face toward RIGHT while retaining both readable eyes; right boot forward, left boot back, arms opposite, tail extending left behind. Small stride.",
+  "primary": 0,
+  "path": "/Users/shun/.codex/generated_images/01a0ab84-568f-7d32-9a60-2e2e09e34d04/exec-04ab16fd-2ae2-4660-93fd-f5329697a941.png",
+  "accepted": true,
+  "reason": null,
+  "savedFile": "source/run_00.png",
+  "recordId": "run_00"
+}

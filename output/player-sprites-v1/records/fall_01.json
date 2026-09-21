@@ -1,0 +1,19 @@
+{
+  "id": "fall_01",
+  "state": "fall",
+  "idx": 1,
+  "pose": "NORMAL_FALL second frame. Modify ONLY reference 1's tail tip by ONE logical pixel sideways and a couple of hair-tip pixels upward. EXACTLY preserve the head, face, body, straight downward legs and all other pixels as closely as possible. Very subtle loop, not a new pose.",
+  "primary": 0,
+  "path": "/Users/shun/.codex/generated_images/01a0ab84-568f-7d32-9a60-2e2e09e34d04/exec-2ed80a7f-fc3c-434c-86cd-7733b854e2f3.png",
+  "prompt": "Use case: identity-preserve. Produce ONE standalone transparent PLAYER animation frame, never a sheet. The FOUR references are approved frames of the SAME locked character. Reference 1 is the closest pose/registration master, the other three only reinforce identity. Preserve the EXACT pixel-character identity: chestnut brown hair, triangular white-inner animal ears, small pale human face, dark eyes, brown jacket/shorts, white chest patch, tiny red accents, chunky gunboots, large brown tail with its two cream/white bands. No redesign. MATCH the references' coarse 48x48 pixel density and limited warm brown/cream/red palette. Do not add finer detail or smooth shading. True alpha background, hard pixel edges, no antialiasing, no ground, scenery, wall, text, frame labels, handheld weapon, projectiles, muzzle flash, flame, dust, sparks or glow. The whole square canvas represents exactly the same 48x48 logical cell as reference 1, enlarged at an integer scale for generation; retain its head size, face horizontal center, and body registration. Do NOT auto-center or enlarge the character to fill empty space. Keep every ear and tail pixel inside the cell. Output only one character in one frame. NORMAL_FALL second frame. Modify ONLY reference 1's tail tip by ONE logical pixel sideways and a couple of hair-tip pixels upward. EXACTLY preserve the head, face, body, straight downward legs and all other pixels as closely as possible. Very subtle loop, not a new pose.",
+  "references": [
+    "/Users/shun/Desktop/落ちゲー/output/player-visual-prototype-v1/previews/normal_fall-8x.png",
+    "/Users/shun/Desktop/落ちゲー/output/player-visual-prototype-v1/previews/boss_ascend-8x.png",
+    "/Users/shun/Desktop/落ちゲー/output/player-visual-prototype-v1/previews/boss_brake-8x.png",
+    "/Users/shun/Desktop/落ちゲー/output/player-visual-prototype-v1/previews/boss_descend_thrust-8x.png"
+  ],
+  "accepted": true,
+  "savedFile": "source/fall_01.png",
+  "acceptedForFinal": false,
+  "reason": "Generated face/body/tail scale drift. Final frame uses approved raster with documented 1px tail-tip cleanup."
+}

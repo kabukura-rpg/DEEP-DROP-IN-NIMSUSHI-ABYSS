@@ -1,0 +1,12 @@
+{
+  "id": "damage_00",
+  "state": "damage",
+  "idx": 0,
+  "pose": "DAMAGE impact: very short airborne hit flinch, shoulders lifted, hands drawn inward, eyes briefly squeezed, mouth small. Keep face placement; tail flicked slightly. No sparks.",
+  "primary": 0,
+  "path": "/Users/shun/.codex/generated_images/01a0ab84-568f-7d32-9a60-2e2e09e34d04/exec-8bb9bd9b-838c-44af-a9f8-07c1b82550ce.png",
+  "accepted": true,
+  "reason": null,
+  "savedFile": "source/damage_00.png",
+  "recordId": "damage_00"
+}

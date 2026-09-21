@@ -1,0 +1,12 @@
+{
+  "id": "idle_00",
+  "state": "idle",
+  "idx": 0,
+  "pose": "IDLE base: upright relaxed body, boots together grounded-neutral, hands resting at sides. Tail curls sideways behind the body instead of streaming upward. Eyes open, calm. No ground.",
+  "primary": 0,
+  "path": "/Users/shun/.codex/generated_images/01a0ab84-568f-7d32-9a60-2e2e09e34d04/exec-351e7432-6415-4dd0-afb9-22ab3c611718.png",
+  "accepted": true,
+  "reason": null,
+  "savedFile": "source/idle_00.png",
+  "recordId": "idle_00"
+}

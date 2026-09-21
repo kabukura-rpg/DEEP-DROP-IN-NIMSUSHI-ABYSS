@@ -1,0 +1,12 @@
+{
+  "id": "death_03",
+  "state": "death",
+  "idx": 3,
+  "pose": "DEATH 4 of 4, airborne final: fully limp but still suspended, closed eyes, arms and feet hanging loosely, head gently tilted. No lying on a floor, no ghost, no particles, no fading baked into pixels.",
+  "primary": 0,
+  "path": "/Users/shun/.codex/generated_images/01a0ab84-568f-7d32-9a60-2e2e09e34d04/exec-6e0fa0ce-cd7f-4ea8-9f16-8d6a51646060.png",
+  "accepted": true,
+  "reason": null,
+  "savedFile": "source/death_03.png",
+  "recordId": "death_03"
+}

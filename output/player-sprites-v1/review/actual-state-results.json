@@ -1,0 +1,458 @@
+{
+  "observed": {
+    "fall": {
+      "art": {
+        "mode": "prototype",
+        "pose": "fall",
+        "frame": 0,
+        "override": null,
+        "scale": 1,
+        "flipX": false,
+        "origin": [
+          0.5,
+          0.5
+        ],
+        "position": {
+          "x": 225,
+          "y": 180
+        },
+        "visible": true
+      },
+      "state": "playing",
+      "arena": false,
+      "elapsed": 0.09166666666666666,
+      "hp": 4,
+      "ammo": 8,
+      "player": {
+        "x": 225,
+        "y": 187.7,
+        "vy": 154,
+        "vx": 0,
+        "width": 22,
+        "height": 30,
+        "invincible": 0,
+        "grounded": -1
+      },
+      "cameraY": 0,
+      "gravity": 1,
+      "bullets": [],
+      "particles": 0
+    },
+    "landing": {
+      "art": {
+        "mode": "prototype",
+        "pose": "landing",
+        "frame": 0,
+        "override": null,
+        "scale": 1,
+        "flipX": false,
+        "origin": [
+          0.5,
+          0.5
+        ],
+        "position": {
+          "x": 224,
+          "y": 227
+        },
+        "visible": true
+      },
+      "state": "playing",
+      "arena": false,
+      "elapsed": 0.2833333333333334,
+      "hp": 4,
+      "ammo": 8,
+      "player": {
+        "x": 225,
+        "y": 235,
+        "vy": 0,
+        "vx": 0,
+        "width": 22,
+        "height": 30,
+        "invincible": 0,
+        "grounded": -2
+      },
+      "cameraY": 0,
+      "gravity": 1,
+      "bullets": [],
+      "particles": 9
+    },
+    "idle": {
+      "art": {
+        "mode": "prototype",
+        "pose": "idle",
+        "frame": 0,
+        "override": null,
+        "scale": 1,
+        "flipX": false,
+        "origin": [
+          0.5,
+          0.5
+        ],
+        "position": {
+          "x": 265,
+          "y": 229
+        },
+        "visible": true
+      },
+      "state": "playing",
+      "arena": false,
+      "elapsed": 0.45000000000000057,
+      "hp": 4,
+      "ammo": 8,
+      "player": {
+        "x": 265.8333333333333,
+        "y": 235,
+        "vy": 0,
+        "vx": 0,
+        "width": 22,
+        "height": 30,
+        "invincible": 0,
+        "grounded": -2
+      },
+      "cameraY": 0,
+      "gravity": 1,
+      "bullets": [],
+      "particles": 7
+    },
+    "gunboots_fire": {
+      "art": {
+        "mode": "prototype",
+        "pose": "gunboots_fire",
+        "frame": 0,
+        "override": null,
+        "scale": 1,
+        "flipX": false,
+        "origin": [
+          0.5,
+          0.5
+        ],
+        "position": {
+          "x": 289.05830928761515,
+          "y": 223
+        },
+        "visible": true
+      },
+      "state": "playing",
+      "arena": false,
+      "elapsed": 0.5333333333333339,
+      "hp": 4,
+      "ammo": 7,
+      "player": {
+        "x": 289.1666666666668,
+        "y": 229.61666666666667,
+        "vy": -316,
+        "vx": 0,
+        "width": 22,
+        "height": 30,
+        "invincible": 0,
+        "grounded": -1
+      },
+      "cameraY": 0,
+      "gravity": 1,
+      "bullets": [
+        {
+          "x": 289.1666666666668,
+          "y": 260.3333333333333,
+          "vy": 850
+        }
+      ],
+      "particles": 15
+    },
+    "gunboots_brake": {
+      "art": {
+        "mode": "prototype",
+        "pose": "gunboots_brake",
+        "frame": 0,
+        "override": null,
+        "scale": 1,
+        "flipX": false,
+        "origin": [
+          0.5,
+          0.5
+        ],
+        "position": {
+          "x": 328,
+          "y": 219
+        },
+        "visible": true
+      },
+      "state": "playing",
+      "arena": false,
+      "elapsed": 0.8833333333333326,
+      "hp": 4,
+      "ammo": 6,
+      "player": {
+        "x": 330.0000000000004,
+        "y": 224.36666666666667,
+        "vy": 272,
+        "vx": 0,
+        "width": 22,
+        "height": 30,
+        "invincible": 0,
+        "grounded": -1
+      },
+      "cameraY": 0,
+      "gravity": 1,
+      "bullets": [
+        {
+          "x": 289.1666666666668,
+          "y": 557.8333333333329,
+          "vy": 850
+        },
+        {
+          "x": 289.1666666666668,
+          "y": 385.66666666666634,
+          "vy": 850
+        }
+      ],
+      "particles": 6
+    },
+    "wall_contact": {
+      "art": {
+        "mode": "prototype",
+        "pose": "wall_contact",
+        "frame": 0,
+        "override": null,
+        "scale": 1,
+        "flipX": false,
+        "origin": [
+          0.5,
+          0.5
+        ],
+        "position": {
+          "x": 408,
+          "y": 291
+        },
+        "visible": true
+      },
+      "state": "playing",
+      "arena": false,
+      "elapsed": 1.1166666666666651,
+      "hp": 4,
+      "ammo": 6,
+      "player": {
+        "x": 410,
+        "y": 335.20000000000005,
+        "vy": 664,
+        "vx": 0,
+        "width": 22,
+        "height": 30,
+        "invincible": 0,
+        "grounded": -1
+      },
+      "cameraY": 39.200000000000045,
+      "gravity": 1,
+      "bullets": [
+        {
+          "x": 289.1666666666668,
+          "y": 756.1666666666673,
+          "vy": 850
+        },
+        {
+          "x": 289.1666666666668,
+          "y": 583.9999999999998,
+          "vy": 850
+        }
+      ],
+      "particles": 0
+    },
+    "jump_rise": {
+      "art": {
+        "mode": "prototype",
+        "pose": "jump_rise",
+        "frame": 0,
+        "override": null,
+        "scale": 1,
+        "flipX": true,
+        "origin": [
+          0.5,
+          0.5
+        ],
+        "position": {
+          "x": 315.371534713185,
+          "y": 295
+        },
+        "visible": true
+      },
+      "state": "playing",
+      "arena": false,
+      "elapsed": 2.0749999999999953,
+      "hp": 4,
+      "ammo": 8,
+      "player": {
+        "x": 313.7499999999994,
+        "y": 1196,
+        "vy": -210,
+        "vx": 0,
+        "width": 22,
+        "height": 30,
+        "invincible": 0,
+        "grounded": -1
+      },
+      "cameraY": 902.75,
+      "gravity": 1,
+      "bullets": [],
+      "particles": 20
+    },
+    "boss_ascend": {
+      "art": {
+        "mode": "prototype",
+        "pose": "boss_ascend",
+        "frame": 0,
+        "override": null,
+        "scale": 1,
+        "flipX": false,
+        "origin": [
+          0.5,
+          0.5
+        ],
+        "position": {
+          "x": 225,
+          "y": 647
+        },
+        "visible": true
+      },
+      "state": "boss",
+      "arena": true,
+      "elapsed": 0,
+      "hp": 4,
+      "ammo": 8,
+      "player": {
+        "x": 225,
+        "y": 1770,
+        "vy": 0,
+        "vx": 0,
+        "width": 22,
+        "height": 30,
+        "invincible": 0,
+        "grounded": -1
+      },
+      "cameraY": 1124,
+      "gravity": -1,
+      "bullets": [],
+      "particles": 0
+    },
+    "boss_brake": {
+      "art": {
+        "mode": "prototype",
+        "pose": "boss_brake",
+        "frame": 0,
+        "override": null,
+        "scale": 1,
+        "flipX": false,
+        "origin": [
+          0.5,
+          0.5
+        ],
+        "position": {
+          "x": 225.2220510331682,
+          "y": 666
+        },
+        "visible": true
+      },
+      "state": "boss",
+      "arena": true,
+      "elapsed": 0.5250000000000006,
+      "hp": 4,
+      "ammo": 7,
+      "player": {
+        "x": 225,
+        "y": 1647.1666666666665,
+        "vy": -282.5,
+        "vx": 0,
+        "width": 22,
+        "height": 30,
+        "invincible": 0,
+        "grounded": -1
+      },
+      "cameraY": 977.0000000000048,
+      "gravity": -1,
+      "bullets": [
+        {
+          "x": 225,
+          "y": 1616.6458333333335,
+          "vy": -850
+        }
+      ],
+      "particles": 5
+    },
+    "boss_damage": {
+      "art": {
+        "mode": "prototype",
+        "pose": "boss_damage",
+        "frame": 0,
+        "override": null,
+        "scale": 1,
+        "flipX": false,
+        "origin": [
+          0.5,
+          0.5
+        ],
+        "position": {
+          "x": 226.72257935665547,
+          "y": 263
+        },
+        "visible": false
+      },
+      "state": "boss",
+      "arena": true,
+      "elapsed": 2.7916666666666594,
+      "hp": 3,
+      "ammo": 8,
+      "player": {
+        "x": 225,
+        "y": 603.2641975308566,
+        "vy": 202.5,
+        "vx": 0,
+        "width": 22,
+        "height": 30,
+        "invincible": 0.9916666666666667,
+        "grounded": -1
+      },
+      "cameraY": 342.333333333336,
+      "gravity": -1,
+      "bullets": [],
+      "particles": 12
+    },
+    "death": {
+      "art": {
+        "mode": "prototype",
+        "pose": "death",
+        "frame": 0,
+        "override": null,
+        "scale": 1,
+        "flipX": false,
+        "origin": [
+          0.5,
+          0.5
+        ],
+        "position": {
+          "x": 224.012974190023,
+          "y": 251
+        },
+        "visible": true
+      },
+      "state": "over",
+      "arena": true,
+      "elapsed": 7.6666666666668375,
+      "hp": 0,
+      "ammo": 8,
+      "player": {
+        "x": 225,
+        "y": -765.6733024691436,
+        "vy": -520,
+        "vx": 0,
+        "width": 22,
+        "height": 30,
+        "invincible": 1,
+        "grounded": -1
+      },
+      "cameraY": -1022.6666666666662,
+      "gravity": -1,
+      "bullets": [],
+      "particles": 12
+    }
+  },
+  "errors": [],
+  "method": "Existing start/BOSS TEST; real CDP keys; no model writes or visual override"
+}

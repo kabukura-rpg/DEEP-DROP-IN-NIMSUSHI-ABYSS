@@ -1,0 +1,12 @@
+{
+  "id": "run_01",
+  "state": "run",
+  "idx": 1,
+  "pose": "RUN right-facing frame 2: passing step, boots near together beneath torso, arms midway, tail held behind to LEFT. Keep head at the identical vertical level as other running frames.",
+  "primary": 0,
+  "path": "/Users/shun/.codex/generated_images/01a0ab84-568f-7d32-9a60-2e2e09e34d04/exec-fb30507b-bb51-4ca2-a6ba-bbf3fefa570b.png",
+  "accepted": true,
+  "reason": null,
+  "savedFile": "source/run_01.png",
+  "recordId": "run_01"
+}

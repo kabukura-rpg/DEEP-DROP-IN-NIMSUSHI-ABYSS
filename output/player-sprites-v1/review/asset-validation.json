@@ -1,0 +1,463 @@
+{
+  "checks": [
+    {
+      "frame": "idle_00",
+      "size": true,
+      "binaryAlpha": true,
+      "paletteLocked": true,
+      "packedExactly": true,
+      "bounds": [
+        8,
+        10,
+        36,
+        45
+      ]
+    },
+    {
+      "frame": "idle_01",
+      "size": true,
+      "binaryAlpha": true,
+      "paletteLocked": true,
+      "packedExactly": true,
+      "bounds": [
+        8,
+        10,
+        36,
+        45
+      ]
+    },
+    {
+      "frame": "damage_00",
+      "size": true,
+      "binaryAlpha": true,
+      "paletteLocked": true,
+      "packedExactly": true,
+      "bounds": [
+        4,
+        9,
+        37,
+        44
+      ]
+    },
+    {
+      "frame": "damage_01",
+      "size": true,
+      "binaryAlpha": true,
+      "paletteLocked": true,
+      "packedExactly": true,
+      "bounds": [
+        7,
+        9,
+        36,
+        44
+      ]
+    },
+    {
+      "frame": "death_00",
+      "size": true,
+      "binaryAlpha": true,
+      "paletteLocked": true,
+      "packedExactly": true,
+      "bounds": [
+        8,
+        9,
+        37,
+        41
+      ]
+    },
+    {
+      "frame": "death_01",
+      "size": true,
+      "binaryAlpha": true,
+      "paletteLocked": true,
+      "packedExactly": true,
+      "bounds": [
+        7,
+        11,
+        37,
+        42
+      ]
+    },
+    {
+      "frame": "death_02",
+      "size": true,
+      "binaryAlpha": true,
+      "paletteLocked": true,
+      "packedExactly": true,
+      "bounds": [
+        8,
+        4,
+        37,
+        45
+      ]
+    },
+    {
+      "frame": "death_03",
+      "size": true,
+      "binaryAlpha": true,
+      "paletteLocked": true,
+      "packedExactly": true,
+      "bounds": [
+        10,
+        5,
+        38,
+        43
+      ]
+    },
+    {
+      "frame": "run_00",
+      "size": true,
+      "binaryAlpha": true,
+      "paletteLocked": true,
+      "packedExactly": true,
+      "bounds": [
+        4,
+        10,
+        36,
+        42
+      ]
+    },
+    {
+      "frame": "run_01",
+      "size": true,
+      "binaryAlpha": true,
+      "paletteLocked": true,
+      "packedExactly": true,
+      "bounds": [
+        4,
+        10,
+        36,
+        42
+      ]
+    },
+    {
+      "frame": "run_02",
+      "size": true,
+      "binaryAlpha": true,
+      "paletteLocked": true,
+      "packedExactly": true,
+      "bounds": [
+        4,
+        10,
+        36,
+        42
+      ]
+    },
+    {
+      "frame": "run_03",
+      "size": true,
+      "binaryAlpha": true,
+      "paletteLocked": true,
+      "packedExactly": true,
+      "bounds": [
+        4,
+        10,
+        36,
+        43
+      ]
+    },
+    {
+      "frame": "jump_rise_00",
+      "size": true,
+      "binaryAlpha": true,
+      "paletteLocked": true,
+      "packedExactly": true,
+      "bounds": [
+        13,
+        4,
+        35,
+        44
+      ]
+    },
+    {
+      "frame": "jump_rise_01",
+      "size": true,
+      "binaryAlpha": true,
+      "paletteLocked": true,
+      "packedExactly": true,
+      "bounds": [
+        14,
+        4,
+        35,
+        45
+      ]
+    },
+    {
+      "frame": "fall_00",
+      "size": true,
+      "binaryAlpha": true,
+      "paletteLocked": true,
+      "packedExactly": true,
+      "bounds": [
+        8,
+        3,
+        36,
+        45
+      ]
+    },
+    {
+      "frame": "fall_01",
+      "size": true,
+      "binaryAlpha": true,
+      "paletteLocked": true,
+      "packedExactly": true,
+      "bounds": [
+        8,
+        3,
+        36,
+        45
+      ]
+    },
+    {
+      "frame": "fall_02",
+      "size": true,
+      "binaryAlpha": true,
+      "paletteLocked": true,
+      "packedExactly": true,
+      "bounds": [
+        8,
+        3,
+        36,
+        45
+      ]
+    },
+    {
+      "frame": "gunboots_fire_00",
+      "size": true,
+      "binaryAlpha": true,
+      "paletteLocked": true,
+      "packedExactly": true,
+      "bounds": [
+        9,
+        4,
+        35,
+        44
+      ]
+    },
+    {
+      "frame": "gunboots_fire_01",
+      "size": true,
+      "binaryAlpha": true,
+      "paletteLocked": true,
+      "packedExactly": true,
+      "bounds": [
+        9,
+        5,
+        35,
+        43
+      ]
+    },
+    {
+      "frame": "gunboots_brake_00",
+      "size": true,
+      "binaryAlpha": true,
+      "paletteLocked": true,
+      "packedExactly": true,
+      "bounds": [
+        8,
+        10,
+        37,
+        44
+      ]
+    },
+    {
+      "frame": "gunboots_brake_01",
+      "size": true,
+      "binaryAlpha": true,
+      "paletteLocked": true,
+      "packedExactly": true,
+      "bounds": [
+        8,
+        7,
+        37,
+        44
+      ]
+    },
+    {
+      "frame": "landing_00",
+      "size": true,
+      "binaryAlpha": true,
+      "paletteLocked": true,
+      "packedExactly": true,
+      "bounds": [
+        3,
+        13,
+        37,
+        44
+      ]
+    },
+    {
+      "frame": "landing_01",
+      "size": true,
+      "binaryAlpha": true,
+      "paletteLocked": true,
+      "packedExactly": true,
+      "bounds": [
+        5,
+        12,
+        36,
+        43
+      ]
+    },
+    {
+      "frame": "wall_contact_00",
+      "size": true,
+      "binaryAlpha": true,
+      "paletteLocked": true,
+      "packedExactly": true,
+      "bounds": [
+        9,
+        5,
+        37,
+        43
+      ]
+    },
+    {
+      "frame": "wall_kick_00",
+      "size": true,
+      "binaryAlpha": true,
+      "paletteLocked": true,
+      "packedExactly": true,
+      "bounds": [
+        13,
+        8,
+        42,
+        45
+      ]
+    },
+    {
+      "frame": "wall_kick_01",
+      "size": true,
+      "binaryAlpha": true,
+      "paletteLocked": true,
+      "packedExactly": true,
+      "bounds": [
+        12,
+        9,
+        44,
+        39
+      ]
+    },
+    {
+      "frame": "boss_ascend_00",
+      "size": true,
+      "binaryAlpha": true,
+      "paletteLocked": true,
+      "packedExactly": true,
+      "bounds": [
+        12,
+        2,
+        36,
+        46
+      ]
+    },
+    {
+      "frame": "boss_ascend_01",
+      "size": true,
+      "binaryAlpha": true,
+      "paletteLocked": true,
+      "packedExactly": true,
+      "bounds": [
+        12,
+        2,
+        36,
+        46
+      ]
+    },
+    {
+      "frame": "boss_ascend_02",
+      "size": true,
+      "binaryAlpha": true,
+      "paletteLocked": true,
+      "packedExactly": true,
+      "bounds": [
+        12,
+        2,
+        36,
+        46
+      ]
+    },
+    {
+      "frame": "boss_brake_00",
+      "size": true,
+      "binaryAlpha": true,
+      "paletteLocked": true,
+      "packedExactly": true,
+      "bounds": [
+        1,
+        9,
+        36,
+        39
+      ]
+    },
+    {
+      "frame": "boss_brake_01",
+      "size": true,
+      "binaryAlpha": true,
+      "paletteLocked": true,
+      "packedExactly": true,
+      "bounds": [
+        1,
+        9,
+        36,
+        39
+      ]
+    },
+    {
+      "frame": "boss_hover_00",
+      "size": true,
+      "binaryAlpha": true,
+      "paletteLocked": true,
+      "packedExactly": true,
+      "bounds": [
+        2,
+        9,
+        36,
+        41
+      ]
+    },
+    {
+      "frame": "boss_hover_01",
+      "size": true,
+      "binaryAlpha": true,
+      "paletteLocked": true,
+      "packedExactly": true,
+      "bounds": [
+        5,
+        11,
+        37,
+        41
+      ]
+    },
+    {
+      "frame": "boss_damage_00",
+      "size": true,
+      "binaryAlpha": true,
+      "paletteLocked": true,
+      "packedExactly": true,
+      "bounds": [
+        12,
+        3,
+        37,
+        46
+      ]
+    },
+    {
+      "frame": "boss_damage_01",
+      "size": true,
+      "binaryAlpha": true,
+      "paletteLocked": true,
+      "packedExactly": true,
+      "bounds": [
+        12,
+        3,
+        37,
+        46
+      ]
+    }
+  ],
+  "approvedBasesByteIdentical": true,
+  "noDescendThrustInMap": true,
+  "artStatus": "DEV REVIEW CANDIDATES",
+  "note": "Structural validation does not certify artistic approval. In-game override screenshots are explicitly named visual-only."
+}

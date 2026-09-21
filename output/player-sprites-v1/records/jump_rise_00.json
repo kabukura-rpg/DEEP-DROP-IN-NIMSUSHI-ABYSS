@@ -1,0 +1,12 @@
+{
+  "id": "jump_rise_00",
+  "state": "jump_rise",
+  "idx": 0,
+  "pose": "JUMP_RISE launch pose: upward jump, upright face, one knee slightly lifted and arms close but active, hair and tail trailing DOWN. Boots visible. No jet flame, no flight ability.",
+  "primary": 0,
+  "path": "/Users/shun/.codex/generated_images/01a0ab84-568f-7d32-9a60-2e2e09e34d04/exec-cde91581-18c4-4e82-900c-bf2e3db4f6fd.png",
+  "accepted": true,
+  "reason": null,
+  "savedFile": "source/jump_rise_00.png",
+  "recordId": "jump_rise_00"
+}
