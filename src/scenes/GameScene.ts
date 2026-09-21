@@ -27,6 +27,11 @@ export interface GameBridge {
   onFrame: (model: GameModel) => void;
   onEvent: (event: GameEvent, model: GameModel) => void;
 }
+/**
+ * The keys the RUN takes from the page: SPACE must not scroll and the arrows must not pan. They are
+ * given back whenever a menu is open -- see `captureKeys`.
+ */
+const CAPTURED_KEYS = ['SPACE', 'LEFT', 'RIGHT'];
 interface Particle { x: number; y: number; vx: number; vy: number; life: number; color: number; size: number }
 export class GameScene extends Phaser.Scene {
   model = new GameModel();
@@ -86,7 +91,7 @@ export class GameScene extends Phaser.Scene {
       this.artForeground = this.add.graphics();
     }
     this.keys = this.input.keyboard!.addKeys({ left: 'LEFT', right: 'RIGHT', a: 'A', d: 'D', space: 'SPACE' }) as Record<string, Phaser.Input.Keyboard.Key>;
-    this.input.keyboard!.addCapture(['SPACE', 'LEFT', 'RIGHT']);
+    this.applyCapture();
     this.input.keyboard!.on('keydown-SPACE', () => this.requestShot());
     for (const key of ['LEFT', 'A']) this.input.keyboard!.on(`keydown-${key}`, () => { if (this.acceptsKeys) this.inputBuffer.move(-1); });
     for (const key of ['RIGHT', 'D']) this.input.keyboard!.on(`keydown-${key}`, () => { if (this.acceptsKeys) this.inputBuffer.move(1); });
@@ -97,6 +102,31 @@ export class GameScene extends Phaser.Scene {
     this.model = new GameModel(practice); this.accumulator = 0; this.particles = []; this.freeze = 0;
     for (const label of this.labels) label.text.destroy();
     this.labels = []; this.flash = 0; this.shake = 0; this.damageTime = 0; this.damageSource = undefined; this.inputBuffer.clear();
+  }
+  /**
+   * Hand SPACE and the arrows back to the page while a menu is up, and take them again after.
+   *
+   * Capturing a key means calling `preventDefault` on it for the whole document, which is right
+   * during a run -- SPACE must fire the gunboots rather than scroll the page. It is wrong the
+   * moment a menu opens: a focused `<button>` answers to SPACE by ITSELF, and a captured SPACE
+   * never reaches it, so "press SPACE to confirm" silently did nothing on every overlay. The run
+   * does not need the capture while it is not being played.
+   */
+  captureKeys(on: boolean) {
+    this.wantCapture = on;
+    this.applyCapture();
+  }
+  /**
+   * Remembered rather than applied straight away, because the first overlay is put up before the
+   * scene has booted: `create` asks for the state that was wanted by then instead of assuming the
+   * run has the keys.
+   */
+  private wantCapture = true;
+  private applyCapture() {
+    const keyboard = this.input?.keyboard;
+    if (!keyboard) return;
+    if (this.wantCapture) keyboard.addCapture(CAPTURED_KEYS);
+    else keyboard.removeCapture(CAPTURED_KEYS);
   }
   /** True when a key press belongs to the run rather than to a menu that just closed. */
   private get acceptsKeys() { return this.bridge.active && performance.now() >= this.bridge.suppressUntil; }

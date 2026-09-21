@@ -215,6 +215,9 @@ function setOverlay(content: string) {
   $('game-frame').classList.toggle('in-play', inPlay());
   $('pause').toggleAttribute('disabled', !inPlay());
   $('touch-controls').hidden = !!content;
+  // A menu's buttons answer to SPACE themselves, and they never see it while the run is capturing
+  // it. The run has no use for the key while a menu is up, so it lets go of it for the duration.
+  scene.captureKeys(!content);
   physicsPanel?.show(mode);
   if (content) window.setTimeout(() => $('overlay').querySelector<HTMLButtonElement>('button')?.focus({ preventScroll: true }), 60);
 }
