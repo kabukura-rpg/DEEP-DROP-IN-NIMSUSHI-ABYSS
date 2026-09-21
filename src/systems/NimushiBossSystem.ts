@@ -91,6 +91,8 @@ export class NimushiBossSystem {
   private rageLane = 0;
   private rageDir: -1 | 1 = 1;
   /** Where the shower's gap is, and which way it is walking. -1 until the first wave picks it. */
+  /** How many columns of the current beam attack have been raised. One at a time, up to `count`. */
+  private beamsFired = 0;
   private showerLane = -1;
   private showerDir: -1 | 1 = 1;
   private taunted = false;
@@ -219,14 +221,14 @@ export class NimushiBossSystem {
     this.x = WORLD.width / 2; this.y = playerY + NIMUSHI.restGap * sign;
     this.tapiocas = []; this.cups = []; this.beams = [];
     this.mark = playerY; this.deepY = playerY - ABYSS.maxSlack * sign;
-    this.timer = 0; this.defeatTimer = 0; this.windowDamage = 0; this.rotation = 0;
+    this.timer = 0; this.defeatTimer = 0; this.windowDamage = 0; this.rotation = 0; this.beamsFired = 0;
     this.waveTimer = 0; this.rageTimer = 0; this.rageLane = 0; this.rageDir = 1;
   }
   reset() {
     this.enabled = false; this.started = false; this.defeated = false; this.raged = false;
     this.state = 'dormant'; this.hp = NIMUSHI.maxHp; this.elapsed = 0; this.phaseId = 1; this.pushback = 0; this.recoil = 0;
     this.tapiocas = []; this.cups = []; this.beams = [];
-    this.mark = 0; this.deepY = 0; this.windowDamage = 0;
+    this.mark = 0; this.deepY = 0; this.windowDamage = 0; this.beamsFired = 0;
   }
 
   /**
@@ -472,8 +474,20 @@ export class NimushiBossSystem {
         if (this.timer > 0) return;
         this.state = 'recovery'; this.timer = NIMUSHI.recovery;
         return;
-      case 'cupSummon':
       case 'strawBeam':
+        this.nextBeam(player);
+        /**
+         * The SEQUENCE decides when this ends, not a timer kept in step with it.
+         *
+         * `active` sets the floor and the columns set the real end: the state is over once the
+         * clock has run out AND nothing is still burning. Each column is raised the frame after the
+         * last one cleared, so a sequence drifts a few frames past any duration written for it --
+         * and with a timer alone the third beam burned on into `recovery`, where the eye is shut.
+         */
+        if (this.timer > 0 || this.beams.length) return;
+        this.state = 'recovery'; this.timer = NIMUSHI.recovery;
+        return;
+      case 'cupSummon':
       case 'nimushiClones':
         if (this.timer > 0) return;
         this.state = 'recovery'; this.timer = NIMUSHI.recovery;
@@ -549,9 +563,32 @@ export class NimushiBossSystem {
   /** The wind-up. Only the beam has anything to show before it lands -- and it must. */
   private prepare(attack: AbyssAttackId, player: { x: number; y: number }) {
     if (attack !== 'strawBeam') return;
-    // Locked onto the column the player is in at the MOMENT the wind-up starts, so stepping aside
-    // always works and the line the player is shown is the line the beam actually uses.
+    this.beamsFired = 0;
+    this.raiseBeam(player);
+  }
+
+  /**
+   * One column, aimed at where the player is NOW.
+   *
+   * Locked onto the column the player is in at the MOMENT this warning starts, so stepping aside
+   * always works and the line they are shown is the line the beam actually uses. Each column in a
+   * sequence takes its own reading, which is what stops one sidestep answering the whole attack.
+   */
+  private raiseBeam(player: { x: number }) {
     this.beams.push({ id: this.nextId++, x: player.x, width: STRAW_BEAM.width, state: 'warning', timer: STRAW_BEAM.warning });
+    this.beamsFired++;
+  }
+
+  /**
+   * The next column of the sequence, raised only once the previous one has finished burning.
+   *
+   * "The list is empty" IS the rule -- there is no second timer to keep in step, and no way for two
+   * columns to exist at once whatever the durations are set to. So the attack can never pincer the
+   * player between two of them: it asks them to move, three times, and never asks where to.
+   */
+  private nextBeam(player: { x: number }) {
+    if (this.beams.length || this.beamsFired >= STRAW_BEAM.count) return;
+    this.raiseBeam(player);
   }
 
   private launch(attack: AbyssAttackId, player: { x: number; y: number }, random: () => number, out: NimushiSignal[]) {

@@ -72,9 +72,14 @@ describe('doing nothing carries the player into NIMUSHI', () => {
    * with SHOWER and BEAM both live it is -4.0px/s.
    *
    * SURVIVING thirty seconds is the weaker half and is asserted as a measured floor rather than as
-   * a promise: 12/20 seeds, with 0.50 body contacts each. It used to count "never touched NIMUSHI",
-   * which was the same thing when a touch ended the run -- since BODY CONTACT RECOVERY a touch
-   * costs a heart and hands back a bounce, so the title and the criterion had come apart.
+   * a promise. It moves whenever the rotation does, and it has: 12/20 with a single beam, 7/20 once
+   * that beam became a sequence of three that re-aims. That is the sequence working -- one sidestep
+   * used to answer the whole attack -- and this bot reads one column at a time, which is the part a
+   * person does better. The floor is set from the measurement rather than from a hope.
+   *
+   * It used to count "never touched NIMUSHI", which was the same thing when a touch ended the run;
+   * since BODY CONTACT RECOVERY a touch costs a heart and hands back a bounce, so the title and the
+   * criterion had come apart.
    */
   it('can be held for thirty seconds by stomping, bouncing and braking', () => {
     const seeds = Array.from({ length: 20 }, (_, i) => 620 + i);
@@ -114,10 +119,11 @@ describe('doing nothing carries the player into NIMUSHI', () => {
       expect(Math.max(...gaps) - Math.min(...gaps)).toBeGreaterThan(200);
       void contact;
     }
-    // MEASURED at 12/20 over this fixture and bot with both attacks live. A floor, not a promise.
-    expect(held).toBeGreaterThanOrEqual(8);
-    // ...and across seeds the gap goes nowhere in particular, which is what neutral means, and is
-    // the half of this test that the attacks are not allowed to move.
+    // MEASURED at 7/20 here and 16/40 over twice the seeds. A floor, not a promise.
+    expect(held).toBeGreaterThanOrEqual(5);
+    // ...and across seeds the gap still goes nowhere in particular, which is what neutral means and
+    // is the half of this test the attacks are not allowed to move. -9.8px/s with three beams in
+    // the rotation, against -4.0 with one: the attacks cost hearts, not ground.
     expect(Math.abs(drifts.reduce((a, b) => a + b, 0) / drifts.length)).toBeLessThan(15);
   });
 

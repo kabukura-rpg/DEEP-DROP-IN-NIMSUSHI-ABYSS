@@ -297,7 +297,14 @@ export interface NimushiAttackDef {
 export const NIMUSHI_ATTACKS: Record<AbyssAttackId, NimushiAttackDef> = {
   tapiocaShower: { id: 'tapiocaShower', name: 'タピオカシャワー', prep: 0.7, active: 2.4 },
   cupSummon: { id: 'cupSummon', name: 'タピオカカップ', prep: 0.8, active: 1.6 },
-  strawBeam: { id: 'strawBeam', name: 'ストロービーム', prep: 0.35, active: 2.4 },
+  /**
+   * `active` is the FLOOR under the sequence, not its length. Each column lives
+   * `STRAW_BEAM.warning + live` = 1.85s and the first is already 0.35s old when the state starts,
+   * so 3 x 1.85 - 0.35 = 5.2 is what the three of them need. The state then waits for the last one
+   * to finish burning before it hands over, because raising each column the frame after the last
+   * one cleared drifts the real sequence a few frames past any number written here.
+   */
+  strawBeam: { id: 'strawBeam', name: 'ストロービーム', prep: 0.35, active: 5.2 },
   nimushiClones: { id: 'nimushiClones', name: 'にむし分身', prep: 0.6, active: 0.4 },
 };
 
@@ -409,6 +416,21 @@ export const STRAW_BEAM = {
   width: 80,
   /** Hearts it costs. High, but survivable from full on a first sighting rather than lethal. */
   damage: 2,
+  /**
+   * How many columns one attack fires, ONE AT A TIME.
+   *
+   * A single beam is answered by stepping aside once, and a human playtest found that too little to
+   * think about: read it, move, done, and the rest of the attack is free. Three of them, each aimed
+   * at wherever the player is when ITS OWN warning starts, asks the question again twice -- so the
+   * answer is a sequence of decisions rather than one, and it has to be made while still watching
+   * for the next thing to stand on.
+   *
+   * They never overlap. The next warning begins only once the previous column has finished burning,
+   * so there is never more than one to be out of and the attack cannot pincer anybody. Widening the
+   * beam or shortening its warning would have made it harder to READ; this makes it longer to
+   * ANSWER, which is the part that was too easy.
+   */
+  count: 3,
 } as const;
 
 /** にむし分身: how many split off, by stretch. */

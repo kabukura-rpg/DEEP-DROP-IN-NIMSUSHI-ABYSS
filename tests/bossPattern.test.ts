@@ -117,6 +117,78 @@ describe('the shower is fought through, not waited out', () => {
     expect(showerShut).toBe(0);
   });
 
+  /**
+   * THREE COLUMNS, ONE AT A TIME, each aimed where the player is when ITS OWN warning starts.
+   *
+   * One column was answered by stepping aside once and then ignoring the rest of the attack. Three
+   * ask the question again, twice, from wherever the last answer left the player -- so the attack
+   * is a sequence of decisions instead of one, made while still watching for the next stomp.
+   */
+  it('fires three columns in sequence, never two at once', () => {
+    const g = fighting(210);
+    let attacks = 0, twoAtOnce = 0, columnsThisAttack = 0, was = '';
+    const perAttack: number[] = [];
+    const seen = new Set<number>();
+    for (let i = 0; i < 90 / STEP && g.state === 'boss'; i++) {
+      g.player.invincible = 9;
+      g.step(STEP, 0, false);
+      if (g.boss.beams.length > 1) twoAtOnce++;
+      for (const b of g.boss.beams) if (!seen.has(b.id)) { seen.add(b.id); columnsThisAttack++; }
+      const inAttack = g.boss.state === 'strawBeam' || (g.boss.state === 'attackPrep' && g.boss.beams.length > 0);
+      if (!inAttack && was && columnsThisAttack) { perAttack.push(columnsThisAttack); columnsThisAttack = 0; attacks++; }
+      was = inAttack ? 'in' : '';
+    }
+    expect(attacks).toBeGreaterThan(1);
+    // Every attack fired the whole sequence...
+    for (const n of perAttack) expect(n).toBe(STRAW_BEAM.count);
+    // ...and never more than one column existed at a time, which is what stops it pincering.
+    expect(twoAtOnce).toBe(0);
+  });
+
+  it('re-aims every column at where the player is when its warning starts', () => {
+    const g = fighting(211);
+    const raised: { x: number; playerAt: number }[] = [];
+    const seen = new Set<number>();
+    // Walk, so the player is somewhere different by the time each column is raised.
+    for (let i = 0; i < 90 / STEP && g.state === 'boss' && raised.length < 9; i++) {
+      g.player.invincible = 9;
+      g.step(STEP, Math.sin(i / 70) > 0 ? 1 : -1, false);
+      for (const b of g.boss.beams) {
+        if (seen.has(b.id)) continue;
+        seen.add(b.id);
+        raised.push({ x: b.x, playerAt: g.player.x });
+      }
+    }
+    expect(raised.length).toBeGreaterThanOrEqual(6);
+    // Each column stands where the player was at the moment it appeared -- not where the first was.
+    for (const r of raised) expect(Math.abs(r.x - r.playerAt)).toBeLessThan(3);
+    // ...so a walking player is chased rather than answered once.
+    const moves: number[] = [];
+    for (let i = 1; i < raised.length; i++) moves.push(Math.abs(raised[i].x - raised[i - 1].x));
+    expect(Math.max(...moves)).toBeGreaterThan(STRAW_BEAM.width);
+  });
+
+  it('holds the eye shut for each warning and open for each burn, all three times', () => {
+    const g = fighting(212);
+    let warnOpen = 0, warnFrames = 0, liveShut = 0, liveFrames = 0, burns = 0;
+    let wasLive = false;
+    for (let i = 0; i < 90 / STEP && g.state === 'boss'; i++) {
+      g.player.invincible = 9;
+      g.step(STEP, 0, false);
+      const warning = g.boss.beams.some(b => b.state === 'warning');
+      const live = g.boss.beams.some(b => b.state === 'live');
+      if (warning) { warnFrames++; if (g.boss.eyeOpen) warnOpen++; }
+      if (live) { liveFrames++; if (!g.boss.eyeOpen) liveShut++; }
+      if (live && !wasLive) burns++;
+      wasLive = live;
+    }
+    expect(burns).toBeGreaterThanOrEqual(STRAW_BEAM.count);
+    expect(warnFrames).toBeGreaterThan(0);
+    expect(warnOpen).toBe(0);
+    // ...including the last column, which used to burn on into `recovery` with the eye shut.
+    expect(liveShut).toBe(0);
+  });
+
   it('leaves CUP and CLONES shut, whenever they come back', () => {
     // Opening the eye is not something an attack inherits by being an attack: only the two that
     // were judged one at a time are named in `eyeOpen`.
