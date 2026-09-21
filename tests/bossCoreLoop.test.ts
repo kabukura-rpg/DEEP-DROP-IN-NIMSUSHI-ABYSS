@@ -225,6 +225,119 @@ describe('a player who stomps survives, on the run\'s own rules', () => {
   });
 });
 
+/**
+ * BODY CONTACT = DAMAGE RECOVERY.
+ *
+ * A missed stomp used to be fatal on a delay: the player arrived at NIMUSHI with no bounce and no
+ * CHARGE and no way to earn either, and the run was decided several seconds before it ended. A
+ * contact now costs a heart and hands back exactly what the missed stomp cost.
+ */
+describe('walking into NIMUSHI costs a heart and buys a stomp', () => {
+  /** Put the player inside the contact box, lined up, falling into it. */
+  const intoTheBody = (seed: number) => {
+    const g = arena(seed);
+    g.enemies = [];
+    const box = g.boss.contactBox;
+    g.player.x = g.boss.x;
+    g.player.y = box.y + box.height - 1;              // just inside, on the side they arrive from
+    g.player.vy = -BOSS_PHYSICS.maxFallSpeed;         // still being pulled in
+    g.player.invincible = 0;
+    g.ammo = 0;
+    return g;
+  };
+
+  it('costs one heart, throws the player clear and fills CHARGE', () => {
+    const g = intoTheBody(650);
+    const hearts = g.hp;
+    g.step(STEP, 0, false);
+    // A. a heart.
+    expect(g.hp).toBe(hearts - 1);
+    expect(g.health.lastDamage?.cause).toBe('bossContact');
+    // B. thrown AGAINST the pull -- down the screen while the ABYSS pulls up.
+    expect(along(g)).toBeLessThan(0);
+    expect(Math.abs(g.player.vy)).toBeCloseTo(g.stats.bounce, 6);
+    expect(g.player.grounded).toBe(-1);
+    // C. and the magazine the missed stomp would have refilled.
+    expect(g.ammo).toBe(g.stats.maxAmmo);
+    // ...an impulse, never a teleport: only the velocity moved.
+    expect(g.boss.reach(g.player.y)).toBeLessThan(0);
+  });
+
+  it('is the ordinary stomp reward, at the price of a heart', () => {
+    // Same magnitude, same direction, same reload -- no boss-only physics was invented for this.
+    const contact = intoTheBody(651);
+    contact.step(STEP, 0, false);
+    const g = arena(652);
+    const target = g.enemies.filter(e => e.alive && e.y < g.player.y).sort((a, b) => b.y - a.y)[0];
+    expect(target).toBeDefined();
+    g.player.x = target.x;
+    g.player.y = target.y + 40;
+    g.player.vy = -BOSS_PHYSICS.maxFallSpeed;
+    for (let i = 0; i < 20 && g.combo === 0; i++) g.step(STEP, 0, false);
+    expect(g.combo).toBeGreaterThan(0);
+    expect(g.player.vy).toBeCloseTo(contact.player.vy, 6);
+    expect(g.ammo).toBe(g.stats.maxAmmo);
+  });
+
+  /**
+   * D. The anti-exploit, and the reason the recovery is tied to `damage` returning true rather than
+   * to the boxes overlapping: leaning on NIMUSHI through the invulnerability it just granted must
+   * buy nothing at all.
+   */
+  it('gives nothing at all while the player is still invulnerable', () => {
+    const g = intoTheBody(653);
+    g.step(STEP, 0, false);
+    const after = { hp: g.hp, ammo: g.ammo };
+    // Hold them inside the body for the rest of the window, spending CHARGE as they go.
+    let bounces = 0;
+    for (let i = 0; i < 0.6 / STEP; i++) {
+      const box = g.boss.contactBox;
+      g.player.x = g.boss.x;
+      g.player.y = box.y + box.height - 1;
+      g.player.vy = -BOSS_PHYSICS.maxFallSpeed;
+      g.ammo = 0;
+      g.step(STEP, 0, false);
+      if (along(g) < 0) bounces++;
+      expect(g.hp).toBe(after.hp);
+      expect(g.ammo).toBe(0);
+    }
+    expect(bounces).toBe(0);
+    void after;
+  });
+
+  it('does not cancel a killing blow', () => {
+    const g = intoTheBody(654);
+    g.hp = 1;
+    g.step(STEP, 0, false);
+    expect(g.hp).toBe(0);
+    expect(g.state).toBe('over');
+    expect(g.health.deathCause?.cause).toBe('bossContact');
+    // No parting gift: the run is over, not rescued.
+    expect(g.ammo).toBe(0);
+  });
+
+  it('belongs to the body, and to nothing else NIMUSHI throws', () => {
+    // F. A pearl still behaves exactly as a pearl: a heart, and the player's movement left alone.
+    const g = arena(655);
+    g.enemies = [];
+    (g.boss as unknown as { spawnShowerWave(r: () => number): number[] }).spawnShowerWave(seeded(12));
+    const pearl = g.boss.tapiocas.filter(t => t.life > 0)[0];
+    expect(pearl).toBeDefined();
+    g.player.x = pearl.x;
+    g.player.y = pearl.y;
+    g.player.vy = -BOSS_PHYSICS.maxFallSpeed;
+    g.player.invincible = 0;
+    g.ammo = 0;
+    const hearts = g.hp, vy = g.player.vy;
+    g.step(STEP, 0, false);
+    expect(g.hp).toBe(hearts - 1);
+    expect(g.health.lastDamage?.cause).toBe('bossShot');
+    expect(g.ammo).toBe(0);
+    // Still falling the way it was: no bounce, no reload.
+    expect(g.player.vy).toBeLessThan(vy + 1);
+  });
+});
+
 describe('the drop below is the other edge', () => {
   it('ends the run when the player falls past the view', () => {
     const g = arena(607);

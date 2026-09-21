@@ -1218,14 +1218,38 @@ export class GameModel {
     const p = this.player;
     for (const signal of this.boss.update(dt, p, this.random, this.cameraY)) this.onBossSignal(signal);
     if (!this.boss.active) return;
-    // Contact with the body. Reachable on purpose: NIMUSHI hangs directly ahead along the pull, so
-    // a player who keeps falling into it pays for it. It is never stompable and never lethal alone.
-    //
-    // `contactBox` rather than `body`: the fringe the player arrives into is drawn but does not
-    // bite, which is what leaves a short-range weapon room to fire and get out again.
+    /**
+     * Contact with the body -- which costs a heart and then hands back a stomp.
+     *
+     * Reachable on purpose: NIMUSHI hangs directly ahead along the pull, so a player who keeps
+     * falling into it pays for it. What it is NOT any more is the end of the run by itself. Missing
+     * one stomp used to mean arriving with no bounce and no CHARGE and nothing to do about either,
+     * and the fight was over several seconds before the player died in it.
+     *
+     * So a contact buys back exactly what a missed stomp cost, at the price of a heart:
+     *
+     *   SUCCESSFUL STOMP        bounce + full CHARGE
+     *   BODY CONTACT            one heart + bounce + full CHARGE
+     *
+     * Same `bounce`, same `reloadCharge`, same direction rule -- there is no boss-only physics
+     * here, only the ordinary stomp reward reached through the expensive door. It is an IMPULSE and
+     * never a teleport: the 210px/s throws the player about 25px clear over 0.47s, well inside the
+     * second of invulnerability the hit already grants, so the window is real but running out.
+     *
+     * It fires only on a hit that actually landed, because `damage` refuses during invulnerability
+     * -- so leaning on NIMUSHI cannot farm bounces or magazines -- and only on a hit that was
+     * survived, because a killing blow is a killing blow.
+     *
+     * `contactBox` rather than `body`: the fringe the player arrives into is drawn but does not
+     * bite, which is what leaves a short-range weapon room to fire and get out again.
+     */
     const body = this.boss.contactBox;
     if (p.x + 9 > body.x && p.x - 9 < body.x + body.width && p.y + 15 > body.y && p.y - 15 < body.y + body.height) {
-      this.damage(NIMUSHI.contactDamage, 'bossContact');
+      if (this.damage(NIMUSHI.contactDamage, 'bossContact') && this.hp > 0) {
+        p.vy = this.up * this.stats.bounce;
+        p.grounded = -1;
+        this.reloadCharge();
+      }
     }
     for (const pearl of this.boss.tapiocas) {
       if (Math.abs(pearl.x - p.x) > pearl.size + 12 || Math.abs(pearl.y - p.y) > pearl.size + 17) continue;
@@ -1940,9 +1964,10 @@ export class GameModel {
     // Being hit costs HP and nothing else: only a landing ends a chain. Losing a long chain to one
     // unlucky contact is what made holding a combo feel arbitrary rather than risky.
     if (source) source.hurtFlash = 0.3;
-    // No boss-only knockback. A hit in the arena costs a heart and leaves the player's movement
-    // alone, exactly as it does in the shaft. The band already keeps NIMUSHI's body away, so the
-    // shove it used to correct for is not there to correct.
+    // No generic knockback. A hit costs a heart and leaves the player's movement alone, in the
+    // arena exactly as in the shaft -- a pearl, a spike and a slime all behave the same way here.
+    // NIMUSHI's BODY is the one exception and it is handled at its own call site in `tickNimushi`,
+    // where it can be tied to this function having returned true.
     this.events.push({ type: 'hurt', x: this.player.x, y: this.player.y, source: source ? { id: source.id, kind: source.kind, x: source.x, y: source.y } : undefined });
     return true;
   }
