@@ -1,0 +1,17 @@
+{
+  "masterByteIdenticalToAttachment": true,
+  "sourceSize": [
+    128,
+    112
+  ],
+  "alphaValues": [
+    0,
+    255
+  ],
+  "opaquePaletteColors": 23,
+  "browserCases": 6,
+  "browserErrors": [],
+  "geometryUnchanged": true,
+  "modelUnchanged": true,
+  "scope": "Static paused browser visual comparison; not combat validation"
+}

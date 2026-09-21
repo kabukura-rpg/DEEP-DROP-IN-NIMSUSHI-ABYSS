@@ -1,0 +1,281 @@
+{
+  "results": {
+    "A-desktop": {
+      "alignment": "A",
+      "renderOffsetY": 0,
+      "visualTop": 192,
+      "contactTop": 160,
+      "topGap": 32,
+      "body": {
+        "x": 141,
+        "y": 1284,
+        "width": 168,
+        "height": 112
+      },
+      "contact": {
+        "x": 141,
+        "y": 1284,
+        "width": 168,
+        "height": 82
+      },
+      "eye": {
+        "x": 195,
+        "width": 60,
+        "y": 1396,
+        "height": 72
+      },
+      "cameraY": 1124,
+      "artTopLeft": {
+        "x": 97,
+        "y": 176
+      },
+      "artBounds": [
+        8,
+        8,
+        116,
+        104
+      ],
+      "eyeAnchor": {
+        "x": 225,
+        "y": 290
+      },
+      "modelUnchanged": true,
+      "method": "Paused dev BOSS TEST; runtime drawing replacement only; no model edits",
+      "sourceCell": [
+        128,
+        112
+      ]
+    },
+    "A-mobile": {
+      "alignment": "A",
+      "renderOffsetY": 0,
+      "visualTop": 192,
+      "contactTop": 160,
+      "topGap": 32,
+      "body": {
+        "x": 141,
+        "y": 1284,
+        "width": 168,
+        "height": 112
+      },
+      "contact": {
+        "x": 141,
+        "y": 1284,
+        "width": 168,
+        "height": 82
+      },
+      "eye": {
+        "x": 195,
+        "width": 60,
+        "y": 1396,
+        "height": 72
+      },
+      "cameraY": 1124,
+      "artTopLeft": {
+        "x": 97,
+        "y": 176
+      },
+      "artBounds": [
+        8,
+        8,
+        116,
+        104
+      ],
+      "eyeAnchor": {
+        "x": 225,
+        "y": 290
+      },
+      "modelUnchanged": true,
+      "method": "Paused dev BOSS TEST; runtime drawing replacement only; no model edits",
+      "sourceCell": [
+        128,
+        112
+      ]
+    },
+    "A-overlay": {
+      "alignment": "A",
+      "renderOffsetY": 0,
+      "visualTop": 192,
+      "contactTop": 160,
+      "topGap": 32,
+      "body": {
+        "x": 141,
+        "y": 1284,
+        "width": 168,
+        "height": 112
+      },
+      "contact": {
+        "x": 141,
+        "y": 1284,
+        "width": 168,
+        "height": 82
+      },
+      "eye": {
+        "x": 195,
+        "width": 60,
+        "y": 1396,
+        "height": 72
+      },
+      "cameraY": 1124,
+      "artTopLeft": {
+        "x": 97,
+        "y": 176
+      },
+      "artBounds": [
+        8,
+        8,
+        116,
+        104
+      ],
+      "eyeAnchor": {
+        "x": 225,
+        "y": 290
+      },
+      "modelUnchanged": true,
+      "method": "Paused dev BOSS TEST; runtime drawing replacement only; no model edits",
+      "sourceCell": [
+        128,
+        112
+      ]
+    },
+    "B-desktop": {
+      "alignment": "B",
+      "renderOffsetY": -16,
+      "visualTop": 176,
+      "contactTop": 160,
+      "topGap": 16,
+      "body": {
+        "x": 141,
+        "y": 1284,
+        "width": 168,
+        "height": 112
+      },
+      "contact": {
+        "x": 141,
+        "y": 1284,
+        "width": 168,
+        "height": 82
+      },
+      "eye": {
+        "x": 195,
+        "width": 60,
+        "y": 1396,
+        "height": 72
+      },
+      "cameraY": 1124,
+      "artTopLeft": {
+        "x": 97,
+        "y": 160
+      },
+      "artBounds": [
+        8,
+        8,
+        116,
+        104
+      ],
+      "eyeAnchor": {
+        "x": 225,
+        "y": 274
+      },
+      "modelUnchanged": true,
+      "method": "Paused dev BOSS TEST; runtime drawing replacement only; no model edits",
+      "sourceCell": [
+        128,
+        112
+      ]
+    },
+    "B-mobile": {
+      "alignment": "B",
+      "renderOffsetY": -16,
+      "visualTop": 176,
+      "contactTop": 160,
+      "topGap": 16,
+      "body": {
+        "x": 141,
+        "y": 1284,
+        "width": 168,
+        "height": 112
+      },
+      "contact": {
+        "x": 141,
+        "y": 1284,
+        "width": 168,
+        "height": 82
+      },
+      "eye": {
+        "x": 195,
+        "width": 60,
+        "y": 1396,
+        "height": 72
+      },
+      "cameraY": 1124,
+      "artTopLeft": {
+        "x": 97,
+        "y": 160
+      },
+      "artBounds": [
+        8,
+        8,
+        116,
+        104
+      ],
+      "eyeAnchor": {
+        "x": 225,
+        "y": 274
+      },
+      "modelUnchanged": true,
+      "method": "Paused dev BOSS TEST; runtime drawing replacement only; no model edits",
+      "sourceCell": [
+        128,
+        112
+      ]
+    },
+    "B-overlay": {
+      "alignment": "B",
+      "renderOffsetY": -16,
+      "visualTop": 176,
+      "contactTop": 160,
+      "topGap": 16,
+      "body": {
+        "x": 141,
+        "y": 1284,
+        "width": 168,
+        "height": 112
+      },
+      "contact": {
+        "x": 141,
+        "y": 1284,
+        "width": 168,
+        "height": 82
+      },
+      "eye": {
+        "x": 195,
+        "width": 60,
+        "y": 1396,
+        "height": 72
+      },
+      "cameraY": 1124,
+      "artTopLeft": {
+        "x": 97,
+        "y": 160
+      },
+      "artBounds": [
+        8,
+        8,
+        116,
+        104
+      ],
+      "eyeAnchor": {
+        "x": 225,
+        "y": 274
+      },
+      "modelUnchanged": true,
+      "method": "Paused dev BOSS TEST; runtime drawing replacement only; no model edits",
+      "sourceCell": [
+        128,
+        112
+      ]
+    }
+  },
+  "errors": []
+}

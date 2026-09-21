@@ -1,6 +1,8 @@
 # NIMUSHI BOSS ART SPEC v1
 
-状態：APPROVED（2026-09-21、ユーザー承認）。2026-09-22：CHARACTER LOCK PASS開始、IDLE候補1枚生成済み・Human Review待ち。全sheet未生成。
+状態：APPROVED（2026-09-21、ユーザー承認）。2026-09-22：MASTER CHARACTER DESIGNはHUMAN APPROVED / LOCKED。GAMEPLAY ALIGNMENTはHuman Review待ち。全sheet未生成。
+
+最新方針は [NIMUSHI-MASTER-CHARACTER-LOCK.md](NIMUSHI-MASTER-CHARACTER-LOCK.md)。以下の旧候補・配置案より優先する。MASTERを描き直さず、render alignmentのみ調整する。
 
 最新の候補・C1 geometry照合・art側の未解決点は `output/nimushi-boss-art-v1/character-lock/README.md` を参照。以下の旧寸法や全sheet生成案は仕様策定時の履歴。今回の許可範囲はIDLE lock 1枚だけ。
 

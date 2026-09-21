@@ -1,0 +1,24 @@
+<!doctype html><html><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><style>html,body,iframe{margin:0;width:100%;height:100%;border:0;background:#10181d}iframe{position:fixed;inset:0}#note{position:fixed;bottom:4px;left:4px;background:#10181ddd;color:white;font:10px monospace;padding:5px;pointer-events:none;max-width:95%}</style><iframe src="../../../tests/browser.html"></iframe><div id="note">STATIC ART REVIEW / loading</div><script type="module">
+const iframe=document.querySelector('iframe'),meta=await(await fetch('manifest.json')).json();
+await new Promise(resolve=>{const t=setInterval(()=>{if(iframe.contentWindow.__dev?.scene?.playerArt && iframe.contentWindow.__dev?.scene?.graphics && iframe.contentWindow.__bossTest){clearInterval(t);resolve()}},100)});
+const w=iframe.contentWindow;w.__bossTest();w.__dev.bridge.active=false;w.__dev.scene.scene.pause();
+const s=w.__dev.scene,m=s.model;const before=JSON.stringify(m);
+const panel=w.document.querySelector('#check-buttons')?.closest('aside');if(panel)panel.style.display='none';
+const img=new Image;img.src='nimushi_idle_lock_v1.png';await img.decode();s.textures.addImage('nimushi-lock-review',img).setFilter(1);
+// This isolated page replaces only the runtime drawing function. Reload restores legacy.
+s.boss=()=>{};
+const body=m.boss.body,eye=m.boss.eye,contact=m.boss.contactBox;
+const alignment=new URLSearchParams(location.search).get('alignment')==='A'?'A':'B',offset=meta.alignments[alignment].renderOffsetY;
+const x=body.x+body.width/2-meta.pivot[0]*2,y=body.y+body.height/2-m.cameraY-meta.pivot[1]*2+offset;
+const sprite=s.add.image(x,y,'nimushi-lock-review').setOrigin(0).setScale(2);s.children.moveBelow(sprite,s.playerArt.image);
+const overlay=s.add.graphics();const rect=(b,c)=>overlay.lineStyle(1,c,1).strokeRect(b.x,b.y-m.cameraY,b.width,b.height);
+if(new URLSearchParams(location.search).has('overlay')){
+ const [l,t,r,b]=meta.alphaBounds;overlay.lineStyle(1,0x69e4ff,1).strokeRect(x+l*2,y+t*2,(r-l)*2,(b-t)*2);
+ rect(contact,0xff9255);rect(eye,0xf8ed6a);
+ const ex=x+meta.eyeAnchor[0]*2,ey=y+meta.eyeAnchor[1]*2;overlay.lineStyle(1,0x7dff90,1).strokeCircle(ex,ey,4);overlay.lineBetween(ex-7,ey,ex+7,ey);overlay.lineBetween(ex,ey-7,ex,ey+7);
+}
+s.draw();
+const visualTop=y+meta.alphaBounds[1]*2,contactTop=contact.y-m.cameraY;
+window.review={alignment,renderOffsetY:offset,visualTop,contactTop,topGap:visualTop-contactTop,body,contact,eye,cameraY:m.cameraY,artTopLeft:{x,y},artBounds:meta.alphaBounds,eyeAnchor:{x:x+meta.eyeAnchor[0]*2,y:y+meta.eyeAnchor[1]*2},modelUnchanged:before===JSON.stringify(m),method:'Paused dev BOSS TEST; runtime drawing replacement only; no model edits',sourceCell:meta.sourceCell};
+document.querySelector('#note').textContent=alignment+' | offset '+offset+'px | visual top '+visualTop+' / contact top '+contactTop+' | gap '+(visualTop-contactTop)+'px | '+(new URLSearchParams(location.search).has('overlay')?'STATIC / cyan: art | orange: contact | yellow: weak point | green: eyes':'STATIC IDLE LOCK / ART ONLY / NOT COMBAT VALIDATION');
+</script></html>

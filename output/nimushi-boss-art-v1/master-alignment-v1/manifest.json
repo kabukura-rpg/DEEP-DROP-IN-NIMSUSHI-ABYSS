@@ -1,0 +1,69 @@
+{
+  "status": "NIMUSHI CHARACTER DESIGN HUMAN APPROVED / LOCKED; GAMEPLAY ALIGNMENT PENDING",
+  "sourceCell": [
+    128,
+    112
+  ],
+  "displayCell": [
+    256,
+    224
+  ],
+  "scale": 2,
+  "alphaBounds": [
+    8,
+    8,
+    116,
+    104
+  ],
+  "paletteColors": 23,
+  "eyeAnchor": [
+    64,
+    57
+  ],
+  "pivot": [
+    64,
+    20
+  ],
+  "oldSpecEyeAnchor": [
+    64,
+    77
+  ],
+  "oldSpecPivot": [
+    64,
+    40
+  ],
+  "eyeOverlayTopLeft": [
+    46,
+    45
+  ],
+  "placement": "pivot maps to actual body center including existing hit recoil; visual eye center is body center +74px",
+  "geometry": "Actual body/contact/eye getters read at capture time. No gameplay edits.",
+  "postprocess": {
+    "alphaThreshold": 128,
+    "palette": 24,
+    "resample": "NEAREST",
+    "uniformScale": 0.08702659145850121,
+    "crop": [
+      50,
+      41,
+      1291,
+      1142
+    ],
+    "offset": [
+      8,
+      8
+    ]
+  },
+  "eyes": "Both human eyes baked into this lock reference only; separate animated overlay deferred.",
+  "alignments": {
+    "A": {
+      "renderOffsetY": 0
+    },
+    "B": {
+      "renderOffsetY": -16
+    }
+  },
+  "masterFile": "MASTER_NIMUSHI.png",
+  "masterSha256": "ab3ef30577fafd6fe8cc84e852bcf97ec652c8a10c34bdfa9f37f341079f5160",
+  "spriteSha256": "11aff402e7a55128fd4d2d88bc353ed3e0d95b7cf0b40c48d08f1b0ad8a15889"
+}
