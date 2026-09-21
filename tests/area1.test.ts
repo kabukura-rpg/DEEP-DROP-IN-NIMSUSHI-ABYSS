@@ -156,33 +156,44 @@ describe('AREA 1 section pacing', () => {
     expect(flying[1]).toBeLessThan(flying[2]);
   });
   it('puts the air enemy on the ground enemy side often enough to chain, without lining enemies up', () => {
-    const pairs: [Enemy, Enemy][] = [];
-    let maxPerRow = 0;
-    // Enough seeds that the share below is the generator's behaviour and not one draw's luck.
+    let maxPerRow = 0, pairs = 0, choices = 0;
+    // Enough seeds that this is the generator's behaviour and not one draw's luck.
     for (let seed = 1; seed <= 240; seed++) {
       const generator = new StageGenerator(seeded(seed * 613), { plan: plan(3), enemyPool: area1.enemyPool });
+      let previous: RoutePlatform = { ...START_PLATFORM };
       for (let chunk = 0; chunk < 3; chunk++) {
+        const result = generator.chunk(chunk);
         const rows = new Map<number, Enemy[]>();
-        for (const e of generator.chunk(chunk).enemies) {
+        for (const e of result.enemies) {
           const row = Math.round(e.flying ? e.y + 100 : e.y);
           rows.set(row, [...(rows.get(row) ?? []), e]);
         }
-        for (const list of rows.values()) {
-          maxPerRow = Math.max(maxPerRow, list.length);
-          const air = list.find(e => e.flying), guard = list.find(e => !e.flying);
-          if (air && guard) pairs.push([guard, air]);
+        for (const list of rows.values()) maxPerRow = Math.max(maxPerRow, list.length);
+        for (const p of result.platforms) {
+          if (p.safeZone !== undefined || p.breakBlock) { previous = p; continue; }
+          const guard = result.enemies.find(e => !e.flying && e.y === p.y - 15);
+          const air = result.enemies.find(e => e.flying && e.y === p.y - 115);
+          if (!guard || !air) { previous = p; continue; }
+          pairs++;
+          // The rule itself, re-derived: the patrol region is the one whose centre is NEAREST the
+          // guard, out of the regions the safe corridor leaves standing. Asserted exactly rather
+          // than through a share, because how often two regions survive is a matter of where the
+          // rows happen to fall -- which the vertical rhythm is allowed to change, and did.
+          const left = Math.min(previous.exitX, p.safeX) - 48, right = Math.max(previous.exitX, p.safeX) + 48;
+          const regions = [[62, left - 26], [right + 26, 388]].filter(([a, b]) => b - a >= 20);
+          expect(regions.length).toBeGreaterThan(0);
+          if (regions.length > 1) choices++;
+          const nearest = regions.reduce((best, r) => Math.abs((r[0] + r[1]) / 2 - guard.originX) < Math.abs((best[0] + best[1]) / 2 - guard.originX) ? r : best);
+          expect(air.originX).toBe((nearest[0] + nearest[1]) / 2);
+          previous = p;
         }
       }
     }
     // One ground plus one air enemy is the densest row AREA 1 ever builds: no artificial combo lines.
     expect(maxPerRow).toBe(2);
-    expect(pairs.length).toBeGreaterThan(40);
-    const aligned = pairs.filter(([guard, air]) => Math.sign(air.originX - 225) === Math.sign(guard.originX - 225) || Math.abs(air.originX - guard.originX) < 130).length;
-    // The generator always picks the patrol region nearest the guard, but the safe-corridor
-    // exclusion frequently leaves regions only on one side, so this outside-in proxy settles at
-    // ~0.60 however the rows fall. The bound is what beats an unbiased choice between two regions
-    // (0.5) with room for sampling noise; 0.6 was sitting exactly on the mean and flipped a coin.
-    expect(aligned / pairs.length).toBeGreaterThan(0.55);
+    expect(pairs).toBeGreaterThan(40);
+    // ...and the choice was a real one often enough for the rule above to mean something.
+    expect(choices).toBeGreaterThan(pairs * 0.2);
   });
 });
 
@@ -195,8 +206,14 @@ describe('AREA 1 generation safety across seeds', () => {
         let previousEnemy: Enemy | undefined;
         for (let chunk = 0; chunk < 3; chunk++) {
           const result = generator.chunk(chunk);
+          // The tightest row step the SECTION is allowed to ask for. AREA 1 declares this through its
+          // vertical rhythm, so the bound tracks the grammar instead of being a number that has to
+          // be remembered; a SECTION without one keeps the single-gap floor it always had.
+          const rhythm = plan(section as SectionId).rhythm;
+          const floor = rhythm ? Math.min(...rhythm.bands.map(b => b.gap[0])) : 215;
           for (const p of result.platforms) {
-            expect(p.y - previous.y).toBeGreaterThanOrEqual(215);
+            if (p.safeZone !== undefined) continue;
+            expect(p.y - previous.y).toBeGreaterThanOrEqual(floor);
             const guard = result.enemies.find(e => !e.flying && e.y === p.y - 15);
             if (guard) expect(Math.abs(guard.originX - p.safeX) - guard.range).toBeGreaterThanOrEqual(52);
             const fly = result.enemies.find(e => e.flying && e.y === p.y - 115);

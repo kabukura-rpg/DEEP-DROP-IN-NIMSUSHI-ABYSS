@@ -5,9 +5,10 @@ import { spawnPickup, type Pickup, type PickupKind } from '../data/pickups';
 import { AIR_CONTAINER_RULES, BREAK_BLOCK_RULES, breakBlockWidth, EXIT_RULES, spikePlatform, type AirContainer, type SpikePlatform, type StageExit } from '../data/structures';
 import { spawnHazard, type Hazard, type SpikeKind } from '../data/hazards';
 import { spawnDoodad, DOODAD_RULES, type Doodad } from '../data/doodads';
-import { rollSafeZoneContent, safeZoneDepths, SAFE_ZONE_RULES, type SafeZone } from '../data/safeZone';
+import { rollSafeZoneContent, safeZoneDepths, safeZoneRowClearance, SAFE_ZONE_RULES, type SafeZone } from '../data/safeZone';
 import { rollGunModule as rollModuleForZone } from '../data/gunModules';
 import type { SectionPlan, WaterPhysics } from '../data/areas';
+import { RhythmWalker, getTerrainMode, laneOf, type RhythmBand } from '../data/rhythm';
 
 export type { Enemy, EnemyKind } from '../data/enemies';
 export type { Pickup } from '../data/pickups';
@@ -105,6 +106,17 @@ const DEFAULT_POOL: readonly EnemyKind[] = ['slime', 'bat', 'armoredSlime', 'tan
 export class StageGenerator {
   private id = 0;
   private nextY: number;
+  /**
+   * The SECTION's vertical rhythm, or null when it has none -- either because the AREA does not
+   * declare one yet, or because the dev A/B has been put back to `legacy`. Null is the old
+   * behaviour EXACTLY: the walker is never consulted, so not one extra number is drawn from the
+   * seed and a legacy SECTION generates bit for bit as it did before the grammar existed.
+   */
+  private rhythm: RhythmWalker | null = null;
+  /** The widest step any band can ask for. Lookaheads that must stay conservative use this. */
+  private maxRowStep = 0;
+  /** The horizontal answer the previous row asked for, folded so left and right are one question. */
+  private lastLane: 'wall' | 'near' | 'mid' | null = null;
   private previous: RoutePlatform;
   private wallToCover: -1 | 1 = -1;
   private rowsSinceWall = 0;
@@ -137,6 +149,11 @@ export class StageGenerator {
   private forcedShopChambers = 0;
   constructor(private random: () => number = Math.random, private context: GenerationContext = {}) {
     this.nextY = context.startY ?? 465;
+    const grammar = getTerrainMode() === 'legacy' ? undefined : context.plan?.rhythm;
+    if (grammar) {
+      this.rhythm = new RhythmWalker(grammar, random);
+      this.maxRowStep = Math.max(...grammar.bands.map(b => b.gap[1]));
+    }
     this.previous = context.previous ? { ...context.previous } : { ...START_PLATFORM };
     // Keep ids clear of whatever the previous generator already handed out.
     this.id = Math.max(0, Math.round((this.nextY - 465) / 4));
@@ -226,6 +243,14 @@ export class StageGenerator {
     return { minWidth: curve.minWidth, maxWidth: curve.maxWidth, gap: curve.gap, enemyChance: curve.enemyChance, flyChance: curve.flyChance, toughChance: curve.spikeChance, heavyChance: curve.tankChance, comboBias: 0, containerChance: 0, maxOxygenGap: Infinity, bubbleOffside: 0, lavaPoolChance: 0, lavaWallChance: 0, ventChance: 0, iceChance: 0, iceOffside: 0, breakableChance: 0, maxBreakableRun: Infinity, spikeChance: 0, spikeKinds: [], spikePlatformChance: 0, limboHazardChance: 0, groundless: false, doodadChance: 0 };
   }
 
+  /**
+   * How far down the next row goes. A band names its own range outright; without one this is the
+   * SECTION's single `gap` plus the jitter it has always had.
+   */
+  private rowStep(tuning: RowTuning, band: RhythmBand | null) {
+    return band && this.rhythm ? this.rhythm.step(band) : tuning.gap + this.random() * 28;
+  }
+
   private pick<T>(items: readonly T[]) { return items[Math.min(items.length - 1, Math.floor(this.random() * items.length))]; }
   /** Draw inside a tier by spawnWeight, so a rewarding enemy can stay uncommon without a special case. */
   private weighted(kinds: readonly EnemyKind[]): EnemyKind {
@@ -284,6 +309,13 @@ export class StageGenerator {
       const y = this.nextY, localDepth = Math.max(0, (y - WORLD.startY) / WORLD.pixelsPerMeter);
 
       const tuning = this.tuningAt(localDepth);
+      // One band per row, drawn before anything else the row needs, so the step and the ledge width
+      // come from the same decision. Null outside a rhythm, and then nothing below behaves anew.
+      //
+      // A row with a chamber due on it asks for a band roomy enough to cut one into: `safeZoneCount`
+      // is a guaranteed minimum, and a tight band would have silently demoted it to a chance.
+      const chamberDue = this.chambers.length > 0 && localDepth >= this.chambers[0];
+      const band = this.rhythm ? this.rhythm.current(chamberDue ? safeZoneRowClearance() : 0) : null;
       // A gate row takes the whole row: no ledge, no enemies, no hazards, nothing to collect. It is
       // a wall across the shaft and the pause it creates is the point.
       if (this.gates.length && localDepth >= this.gates[0]) {
@@ -292,10 +324,17 @@ export class StageGenerator {
         if (y >= start) platforms.push(...blocks);
         // Any block will do as the route anchor: they all share the landing spot by construction.
         this.previous = blocks[0];
-        this.nextY += tuning.gap + this.random() * 28;
+        // A gate row spans the shaft, so it asks no horizontal question: the row after it is free.
+        this.lastLane = null;
+        this.nextY += this.rowStep(tuning, band);
         continue;
       }
-      const width = Math.round(tuning.minWidth + this.random() * (tuning.maxWidth - tuning.minWidth));
+      // A band draws from its own slice of the SECTION's width range -- tight rows land wider,
+      // open rows narrower -- so width stops being a coin flip independent of the descent's shape.
+      // The AREA's declared envelope is never exceeded, and without a band the slice is the whole
+      // range, which is the single roll this has always been.
+      const [widthLow, widthHigh] = band ? band.widthBias : [0, 1] as const;
+      const width = Math.round(tuning.minWidth + (widthLow + this.random() * (widthHigh - widthLow)) * (tuning.maxWidth - tuning.minWidth));
       const candidates: RoutePlatform[] = [];
       // A finite set always includes both extremes. Random ordering cannot defeat safety.
       for (let x = WORLD.wall; x <= WORLD.width - WORLD.wall - width; x += 2) {
@@ -316,8 +355,16 @@ export class StageGenerator {
         const preparation = (p: RoutePlatform) => Math.abs(p.exitX - targetLanding);
         const nearest = Math.min(...candidates.map(preparation));
         choices = touching.length ? touching : candidates.filter(p => preparation(p) <= nearest + 2);
+      } else if (this.rhythm && this.lastLane) {
+        // Don't ask for the same horizontal answer twice running. Left and right are the same
+        // question mirrored, so they fold together and only the distance across the shaft counts.
+        // Applied ONLY when the row is otherwise free: the wall-alternation rule above outranks it,
+        // because that one is what stops a single held direction walking past a whole SECTION.
+        const fresh = choices.filter(p => laneOf(p, WORLD.wall, WORLD.width - WORLD.wall * 2) !== this.lastLane);
+        if (fresh.length) choices = fresh;
       }
       const platform = choices[Math.min(choices.length - 1, Math.floor(this.random() * choices.length))];
+      this.lastLane = laneOf(platform, WORLD.wall, WORLD.width - WORLD.wall * 2);
       this.rowsSinceWall++;
       const wallGap = this.wallToCover === -1 ? platform.x - WORLD.wall : WORLD.width - WORLD.wall - platform.x - platform.width;
       if (this.rowsSinceWall >= 3 && wallGap <= 8) { this.rowsSinceWall = 0; this.wallToCover = this.wallToCover === -1 ? 1 : -1; }
@@ -377,7 +424,7 @@ export class StageGenerator {
       // nothing else, so a run is re-armed and re-supplied by finding a chamber -- which is what
       // makes stepping off the fall line to reach one worth doing.
       this.previous = platform;
-      this.nextY += tuning.gap + this.random() * 28;
+      this.nextY += this.rowStep(tuning, band);
     }
     return { platforms, enemies, pickups, hazards, containers, doodads, safeZones, exit };
   }
@@ -649,7 +696,7 @@ export class StageGenerator {
     // away rather than one. Looking only one row ahead there is what let a seed run past the plan's
     // ceiling by a whole row -- invisible until the shaft was built the way the game builds it,
     // with a SECTION length and therefore with gate rows in it.
-    const rowStep = tuning.gap + 28;
+    const rowStep = this.maxRowStep || tuning.gap + 28;
     const nextRowDepth = (y + rowStep - WORLD.startY) / WORLD.pixelsPerMeter;
     const gateNext = this.gates.length > 0 && this.gates[0] <= nextRowDepth;
     const overdue = (bandY + rowStep * (gateNext ? 2 : 1) - this.lastAirY) / WORLD.pixelsPerMeter >= tuning.maxOxygenGap;

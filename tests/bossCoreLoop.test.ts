@@ -526,7 +526,11 @@ describe('the prototype runs on gravity and the weak point alone', () => {
    * Here the column is put where the player is not, and the loop is played underneath it.
    */
   it('keeps stomp, bounce, reload and the weak point working while a beam burns', () => {
-    const g = arena(670);
+    // The seed is a fixture parameter, not a subject: the fight needs a stompable target more than
+    // 90px clear of the column, and whether one is standing there is luck. Measured over 161 seeds
+    // it holds 77% of the time, identically on both terrain modes -- 670 simply stopped being one
+    // of them when AREA 1's row spacing moved the shared random stream. 605 holds on both.
+    const g = arena(605);
     const machine = g.boss as unknown as { state: string; timer: number };
     machine.state = 'strawBeam'; machine.timer = 2.4;
     // A column, far from the player, actually burning.

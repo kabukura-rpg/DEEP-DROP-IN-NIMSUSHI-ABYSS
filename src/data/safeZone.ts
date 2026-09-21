@@ -75,6 +75,18 @@ export function safeZoneDepths(count: number, sectionLength?: number): number[] 
   return Array.from({ length: count }, (_, i) => SAFE_ZONE_RULES.depthMargin + usable * (i + 1) / (count + 1));
 }
 
+/**
+ * The vertical room a chamber needs BETWEEN two route rows, in pixels: its own height and floor
+ * slab, the 20px of slack the fit test keeps, and the margins the generator holds off the row above
+ * (40px) and the row below (30px).
+ *
+ * The VERTICAL RHYTHM reads this so it never lays a row gap too tight to hold a chamber where one
+ * is due. `safeZoneCount` is a guaranteed minimum, not a chance, and a rhythm that could squeeze
+ * every candidate row would quietly turn it back into one -- a SECTION with no chamber is a SECTION
+ * a run cannot be re-armed or re-supplied in.
+ */
+export const safeZoneRowClearance = (rules = SAFE_ZONE_RULES) => rules.height + rules.floorHeight + 20 + 40 + 30;
+
 /** Pick the one thing waiting in a chamber. */
 export function rollSafeZoneContent(random: () => number): SafeZoneContentKind {
   const kinds = Object.keys(SAFE_ZONE_RULES.contentWeights) as SafeZoneContentKind[];

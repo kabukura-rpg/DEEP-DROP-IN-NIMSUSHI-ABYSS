@@ -11,6 +11,7 @@ import { comboFeedback } from './systems/ComboFeedback';
 import { AREAS, TOTAL_SECTIONS } from './data/areas';
 import { shopItem, type ShopOffer } from './data/shop';
 import { BOSS_TEST_WEAPONS, enterBossTest, type BossTestRequest, type BossTestTarget } from './dev/bossTest';
+import { setTerrainMode, getTerrainMode, type TerrainMode } from './data/rhythm';
 
 const app = document.querySelector<HTMLDivElement>('#app')!;
 app.innerHTML = `
@@ -96,6 +97,21 @@ physicsPanel = new PhysicsPanel($('physics-tuning'), () => scene.model, () => { 
 if (import.meta.env.DEV) {
   (window as unknown as { __bossTest: (r?: BossTestTarget | BossTestRequest) => string }).__bossTest =
     (request = 'phase1') => bossTest(request);
+  // DEVELOPMENT ONLY: AREA 1 terrain A/B.
+  //
+  //   `__roadTerrain('legacy')`     the single-gap ladder AREA 1 shipped with
+  //   `__roadTerrain('rhythm-v1')`  the vertical rhythm grammar (the default)
+  //
+  // Play the SAME seed both ways: the switch changes only how far apart rows are laid, so a
+  // comparison is about the shape of the descent and nothing else. It is NOT a difficulty setting
+  // and it is not reachable from a production build -- this whole block is compiled out.
+  (window as unknown as { __roadTerrain: (m?: TerrainMode) => string }).__roadTerrain = mode => {
+    if (mode !== 'legacy' && mode !== 'rhythm-v1') return `AREA 1 TERRAIN is ${getTerrainMode()} -- pass 'legacy' or 'rhythm-v1'`;
+    setTerrainMode(mode);
+    // Back to the title, because a SECTION already generated keeps the terrain it was built with.
+    showTitle();
+    return `AREA 1 TERRAIN = ${mode} -- start a run`;
+  };
 }
 
 function setOverlay(content: string) {
