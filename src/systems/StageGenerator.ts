@@ -9,6 +9,7 @@ import { rollSafeZoneContent, safeZoneDepths, safeZoneRowClearance, SAFE_ZONE_RU
 import { rollGunModule as rollModuleForZone } from '../data/gunModules';
 import type { SectionPlan, WaterPhysics } from '../data/areas';
 import { RhythmWalker, getTerrainMode, laneOf, type RhythmBand } from '../data/rhythm';
+import { PiecePlanner, type RowIntent } from '../data/pieces';
 
 export type { Enemy, EnemyKind } from '../data/enemies';
 export type { Pickup } from '../data/pickups';
@@ -113,6 +114,21 @@ export class StageGenerator {
    * seed and a legacy SECTION generates bit for bit as it did before the grammar existed.
    */
   private rhythm: RhythmWalker | null = null;
+  /**
+   * The SECTION's terrain pieces, or null when it has none. A piece spans several rows and states
+   * what that stretch of shaft IS, which is the thing a gap grammar on its own could not change.
+   * When this is set the rhythm walker is not consulted at all -- the piece owns the step too.
+   */
+  private planner: PiecePlanner | null = null;
+  /**
+   * EVERY ledge in the row just laid: the route one first, then any extras beside it.
+   *
+   * This is what makes more than one ledge per band safe. The next row is chosen from candidates
+   * reachable from ALL of these, not just from the route ledge, so whichever one the player lands
+   * on, the way down is the same way down. A band of one -- every row outside a cluster -- reduces
+   * to exactly the old single-platform rule and draws nothing extra from the seed.
+   */
+  private previousBand: RoutePlatform[] = [];
   /** The widest step any band can ask for. Lookaheads that must stay conservative use this. */
   private maxRowStep = 0;
   /** The horizontal answer the previous row asked for, folded so left and right are one question. */
@@ -149,12 +165,21 @@ export class StageGenerator {
   private forcedShopChambers = 0;
   constructor(private random: () => number = Math.random, private context: GenerationContext = {}) {
     this.nextY = context.startY ?? 465;
-    const grammar = getTerrainMode() === 'legacy' ? undefined : context.plan?.rhythm;
-    if (grammar) {
-      this.rhythm = new RhythmWalker(grammar, random);
-      this.maxRowStep = Math.max(...grammar.bands.map(b => b.gap[1]));
+    const mode = getTerrainMode();
+    const pieces = mode === 'grammar-v2' ? context.plan?.pieces : undefined;
+    if (pieces) {
+      this.planner = new PiecePlanner(pieces, random);
+      // The widest span any piece can ask for, for the lookaheads that must stay conservative.
+      this.maxRowStep = 860;
+    } else {
+      const grammar = mode === 'legacy' ? undefined : context.plan?.rhythm;
+      if (grammar) {
+        this.rhythm = new RhythmWalker(grammar, random);
+        this.maxRowStep = Math.max(...grammar.bands.map(b => b.gap[1]));
+      }
     }
     this.previous = context.previous ? { ...context.previous } : { ...START_PLATFORM };
+    this.previousBand = [this.previous];
     // Keep ids clear of whatever the previous generator already handed out.
     this.id = Math.max(0, Math.round((this.nextY - 465) / 4));
     const roster = context.enemyPool?.length ? context.enemyPool : DEFAULT_POOL;
@@ -247,8 +272,58 @@ export class StageGenerator {
    * How far down the next row goes. A band names its own range outright; without one this is the
    * SECTION's single `gap` plus the jitter it has always had.
    */
-  private rowStep(tuning: RowTuning, band: RhythmBand | null) {
+  private rowStep(tuning: RowTuning, band: RhythmBand | null, intent: RowIntent | null) {
+    if (intent) return intent.step;
     return band && this.rhythm ? this.rhythm.step(band) : tuning.gap + this.random() * 28;
+  }
+
+  /**
+   * The extra ledges of a LEDGE CLUSTER band: more than one place to land at the same height.
+   *
+   * They are laid beside the route ledge, never instead of it, and they are bounded by the one
+   * thing that makes a multi-ledge band safe -- the next row has to be reachable from all of them.
+   * That intersection is open only while the band's exit points lie within twice the horizontal
+   * reach of each other, so the spread is held to 1.5x the reach of the step this band is about to
+   * take. A ledge that will not fit inside that window is simply not laid; a cluster with one
+   * fewer ledge is a cluster, a cluster that closes the route is a dead end.
+   *
+   * Extras carry no enemies. They are a choice of landing, and loading them would quietly raise the
+   * AREA's enemy count every time a cluster appeared -- which is the terrain being propped up by
+   * something that is not terrain.
+   */
+  private layExtras(intent: RowIntent, route: RoutePlatform, y: number, tuning: RowTuning): RoutePlatform[] {
+    const out: RoutePlatform[] = [];
+    if (!intent.extras) return out;
+    const window = horizontalReach(intent.step, this.context.water) * 1.5;
+    for (let n = 0; n < intent.extras; n++) {
+      const [lo, hi] = intent.ledgeWidth ?? [tuning.minWidth * 0.45, tuning.minWidth * 0.75];
+      const width = Math.round(lo + this.random() * (hi - lo));
+      const taken = [route, ...out];
+      const options: RoutePlatform[] = [];
+      for (let x = WORLD.wall; x <= WORLD.width - WORLD.wall - width; x += 2) {
+        // Clear of every ledge already in this band, with room to stand between them.
+        if (taken.some(p => x < p.x + p.width + 24 && x + width + 24 > p.x)) continue;
+        for (const side of [-1, 1] as const) {
+          const p: RoutePlatform = {
+            id: this.id, x, y, width, safeSide: side,
+            safeX: side === -1 ? x + 26 : x + width - 26,
+            exitX: side === -1 ? x - 12 : x + width + 12,
+            breakable: false, state: 'stable',
+          };
+          if (p.exitX < WORLD.wall + 12 || p.exitX > WORLD.width - WORLD.wall - 12) continue;
+          // Reachable from the band above, and close enough to the rest of this band that the row
+          // below can still be reached from every one of them.
+          if (!this.previousBand.every(from => canReachPlatform(from, p, this.context.water))) continue;
+          if (taken.some(q => Math.abs(q.exitX - p.exitX) > window)) continue;
+          options.push(p);
+        }
+      }
+      if (!options.length) break;
+      const chosen = options[Math.min(options.length - 1, Math.floor(this.random() * options.length))];
+      this.id++;
+      out.push(chosen);
+    }
+    return out;
   }
 
   private pick<T>(items: readonly T[]) { return items[Math.min(items.length - 1, Math.floor(this.random() * items.length))]; }
@@ -315,38 +390,59 @@ export class StageGenerator {
       // A row with a chamber due on it asks for a band roomy enough to cut one into: `safeZoneCount`
       // is a guaranteed minimum, and a tight band would have silently demoted it to a chance.
       const chamberDue = this.chambers.length > 0 && localDepth >= this.chambers[0];
-      const band = this.rhythm ? this.rhythm.current(chamberDue ? safeZoneRowClearance() : 0) : null;
+      const clearance = chamberDue ? safeZoneRowClearance() : 0;
+      const gateDue = this.gates.length > 0 && localDepth >= this.gates[0];
+      // A piece owns the whole row -- step, width, where the ledge sits and how many there are --
+      // so the rhythm walker is not consulted when one is running. Null leaves both off and the row
+      // behaves exactly as it did before either existed.
+      const intent = this.planner ? this.planner.next(y, clearance, gateDue) : null;
+      const band = this.rhythm && !intent ? this.rhythm.current(clearance) : null;
       // A gate row takes the whole row: no ledge, no enemies, no hazards, nothing to collect. It is
       // a wall across the shaft and the pause it creates is the point.
-      if (this.gates.length && localDepth >= this.gates[0]) {
+      if (gateDue) {
         this.gates.shift();
         const blocks = this.breakBlockRow(y);
         if (y >= start) platforms.push(...blocks);
         // Any block will do as the route anchor: they all share the landing spot by construction.
         this.previous = blocks[0];
+        this.previousBand = [blocks[0]];
         // A gate row spans the shaft, so it asks no horizontal question: the row after it is free.
         this.lastLane = null;
-        this.nextY += this.rowStep(tuning, band);
+        this.nextY += this.rowStep(tuning, band, intent);
         continue;
       }
       // A band draws from its own slice of the SECTION's width range -- tight rows land wider,
       // open rows narrower -- so width stops being a coin flip independent of the descent's shape.
       // The AREA's declared envelope is never exceeded, and without a band the slice is the whole
       // range, which is the single roll this has always been.
-      const [widthLow, widthHigh] = band ? band.widthBias : [0, 1] as const;
-      const width = Math.round(tuning.minWidth + (widthLow + this.random() * (widthHigh - widthLow)) * (tuning.maxWidth - tuning.minWidth));
+      const [widthLow, widthHigh] = intent ? intent.widthBias : band ? band.widthBias : [0, 1] as const;
+      const width = intent?.ledgeWidth
+        ? Math.round(intent.ledgeWidth[0] + this.random() * (intent.ledgeWidth[1] - intent.ledgeWidth[0]))
+        : Math.round(tuning.minWidth + (widthLow + this.random() * (widthHigh - widthLow)) * (tuning.maxWidth - tuning.minWidth));
       const candidates: RoutePlatform[] = [];
       // A finite set always includes both extremes. Random ordering cannot defeat safety.
       for (let x = WORLD.wall; x <= WORLD.width - WORLD.wall - width; x += 2) {
         for (const side of [-1, 1] as const) {
           const p = { id: this.id, x, y, width, safeSide: side, safeX: side === -1 ? x + 26 : x + width - 26, exitX: side === -1 ? x - 12 : x + width + 12 };
-          if (p.exitX >= WORLD.wall + 12 && p.exitX <= WORLD.width - WORLD.wall - 12 && canReachPlatform(this.previous, p, this.context.water)) candidates.push(p);
+          // Reachable from every ledge of the band above, not just from the route one. Outside a
+          // cluster the band is a single ledge and this is the rule it has always been.
+          if (p.exitX >= WORLD.wall + 12 && p.exitX <= WORLD.width - WORLD.wall - 12
+            && this.previousBand.every(from => canReachPlatform(from, p, this.context.water))) candidates.push(p);
         }
       }
       // Bounded widths/gaps leave candidates even when departing beside either wall.
       if (!candidates.length) throw new Error(`No reachable platform at ${y}`);
       let choices = candidates;
-      if (this.rowsSinceWall >= 3) {
+      if (intent?.hug) {
+        // Hold the route against the channel's wall. When nothing there is reachable yet, take the
+        // candidate that best prepares for it instead -- a channel is walked into, not jumped to.
+        const distance = (p: RoutePlatform) => intent.hug === -1 ? p.x - WORLD.wall : WORLD.width - WORLD.wall - p.x - p.width;
+        const touching = candidates.filter(p => distance(p) <= 2);
+        const target = intent.hug === -1 ? WORLD.wall + width - 26 : WORLD.width - WORLD.wall - width + 26;
+        const preparation = (p: RoutePlatform) => Math.abs(p.exitX - target);
+        const nearest = Math.min(...candidates.map(preparation));
+        choices = touching.length ? touching : candidates.filter(p => preparation(p) <= nearest + 2);
+      } else if (this.rowsSinceWall >= 3) {
         // Periodically close each wall lane; don't let a single held direction bypass a run.
         // If the wall is too far, choose the nearest reachable stepping stone first.
         const distance = (p: RoutePlatform) => this.wallToCover === -1 ? p.x - WORLD.wall : WORLD.width - WORLD.wall - p.x - p.width;
@@ -384,6 +480,10 @@ export class StageGenerator {
       if (this.random() < tuning.limboHazardChance) platform.limboHazard = true;
       else if (this.random() < tuning.spikePlatformChance) platform.spikePlatform = spikePlatform();
       if (y >= start) platforms.push(platform);
+      // More than one ledge in this band, when the piece asked for it. Laid before the chamber and
+      // the doodad are placed, so both see them and keep clear the way they keep clear of any ledge.
+      const extras = intent ? this.layExtras(intent, platform, y, tuning) : [];
+      if (y >= start) platforms.push(...extras);
 
       let guard: Enemy | undefined;
       if (this.random() < tuning.enemyChance) {
@@ -424,7 +524,8 @@ export class StageGenerator {
       // nothing else, so a run is re-armed and re-supplied by finding a chamber -- which is what
       // makes stepping off the fall line to reach one worth doing.
       this.previous = platform;
-      this.nextY += this.rowStep(tuning, band);
+      this.previousBand = [platform, ...extras];
+      this.nextY += this.rowStep(tuning, band, intent);
     }
     return { platforms, enemies, pickups, hazards, containers, doodads, safeZones, exit };
   }

@@ -65,15 +65,19 @@ export const AREA1_RHYTHM: RhythmGrammar = {
 };
 
 /**
- * DEVELOPMENT A/B ONLY.
+ * DEVELOPMENT A/B/C ONLY.
  *
- * `legacy` makes the generator ignore every grammar and fall back to the single `plan.gap` number,
- * so the same seed can be played both ways and the difference attributed. Production never calls
- * this: the only call site is behind `import.meta.env.DEV` in main.ts, and the default is the
- * shipping behaviour.
+ *   `legacy`     the single `plan.gap` number AREA 1 shipped with -- one ledge per row, evenly spaced
+ *   `rhythm-v1`  the vertical rhythm of STEP 3A: the gap varies, one ledge per row
+ *   `grammar-v2` terrain pieces: the gap AND the shape vary, and a band may hold several ledges
+ *
+ * All three are kept so the same seed can be played every way and the difference attributed.
+ * `rhythm-v1` is retained deliberately rather than superseded: it is the control that showed a gap
+ * grammar alone does not change what the player decides. Production never calls this -- the only
+ * call site is behind `import.meta.env.DEV` in main.ts, and the default is the shipping behaviour.
  */
-export type TerrainMode = 'rhythm-v1' | 'legacy';
-let terrainMode: TerrainMode = 'rhythm-v1';
+export type TerrainMode = 'grammar-v2' | 'rhythm-v1' | 'legacy';
+let terrainMode: TerrainMode = 'grammar-v2';
 export const setTerrainMode = (mode: TerrainMode) => { terrainMode = mode; };
 export const getTerrainMode = () => terrainMode;
 

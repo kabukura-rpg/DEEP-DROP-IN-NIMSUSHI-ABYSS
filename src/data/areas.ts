@@ -1,6 +1,7 @@
 import type { EnemyKind } from './enemies';
 import type { SpikeKind } from './hazards';
 import { AREA1_RHYTHM, type RhythmGrammar } from './rhythm';
+import { AREA1_GRAMMAR, type PieceGrammar } from './pieces';
 
 export type AreaId = 1 | 2 | 3 | 4;
 export type SectionId = 1 | 2 | 3;
@@ -42,6 +43,15 @@ export interface SectionPlan {
    * the rhythm for the AREA where the floor turns on you.
    */
   rhythm?: RhythmGrammar;
+  /**
+   * TERRAIN PIECES. Where `rhythm` varies how far apart rows are, this varies what a stretch of
+   * shaft IS -- an open fall, a cluster of ledges to choose between, a route down one wall -- and
+   * so what the player has to decide. It supersedes `rhythm` when both are present and the terrain
+   * mode asks for it; `rhythm` is kept as the A/B control rather than deleted.
+   *
+   * AREA 1 only. The others keep the single-gap row generator until each is measured on its own.
+   */
+  pieces?: PieceGrammar;
   /** Per-row chance of a ground enemy and of an air enemy. */
   enemyChance: number;
   flyChance: number;
@@ -207,13 +217,13 @@ export const AREAS: readonly AreaConfig[] = [
       // neighbours have three is the obvious next thing to try, but changing the gate cadence and
       // the vertical rhythm in the same step would leave a Human A/B unable to say which one it
       // was reacting to -- the same reason SAFE ZONE frequency is being held back to a later step.
-      { platformWidth: [176, 196], gap: 232, rhythm: AREA1_RHYTHM, enemyChance: 0.30, flyChance: 0.08, toughChance: 0.17, heavyChance: 0, comboBias: 0.20, graceDepth: 25,
+      { platformWidth: [176, 196], gap: 232, rhythm: AREA1_RHYTHM, pieces: AREA1_GRAMMAR, enemyChance: 0.30, flyChance: 0.08, toughChance: 0.17, heavyChance: 0, comboBias: 0.20, graceDepth: 25,
         breakBlockRows: 2, breakBlockDurability: 1,
         doodadChance: 0.12, safeZoneCount: 1 },
-      { platformWidth: [152, 178], gap: 238, rhythm: AREA1_RHYTHM, enemyChance: 0.38, flyChance: 0.20, toughChance: 0.22, heavyChance: 0, comboBias: 0.22,
+      { platformWidth: [152, 178], gap: 238, rhythm: AREA1_RHYTHM, pieces: AREA1_GRAMMAR, enemyChance: 0.38, flyChance: 0.20, toughChance: 0.22, heavyChance: 0, comboBias: 0.22,
         breakBlockRows: 3, breakBlockDurability: 2,
         doodadChance: 0.12, safeZoneCount: 1 },
-      { platformWidth: [132, 158], gap: 244, rhythm: AREA1_RHYTHM, enemyChance: 0.52, flyChance: 0.30, toughChance: 0.30, heavyChance: 0, comboBias: 0.30,
+      { platformWidth: [132, 158], gap: 244, rhythm: AREA1_RHYTHM, pieces: AREA1_GRAMMAR, enemyChance: 0.52, flyChance: 0.30, toughChance: 0.30, heavyChance: 0, comboBias: 0.30,
         breakBlockRows: 3, breakBlockDurability: 2,
         doodadChance: 0.12, safeZoneCount: 1 },
     ],

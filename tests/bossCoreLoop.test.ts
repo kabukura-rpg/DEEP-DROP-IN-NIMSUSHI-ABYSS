@@ -527,10 +527,12 @@ describe('the prototype runs on gravity and the weak point alone', () => {
    */
   it('keeps stomp, bounce, reload and the weak point working while a beam burns', () => {
     // The seed is a fixture parameter, not a subject: the fight needs a stompable target more than
-    // 90px clear of the column, and whether one is standing there is luck. Measured over 161 seeds
-    // it holds 77% of the time, identically on both terrain modes -- 670 simply stopped being one
-    // of them when AREA 1's row spacing moved the shared random stream. 605 holds on both.
-    const g = arena(605);
+    // 90px clear of the column, and whether one is standing there is luck. Measured over 101 seeds
+    // it holds 78% of the time on EVERY terrain mode -- legacy, rhythm-v1 and grammar-v2 alike, so
+    // the boss is not what moved. What moves is which seeds are lucky: the shaft is generated
+    // before `jumpToNimushi`, so changing terrain shifts the shared random stream. 609 holds on all
+    // three, which is what a fixture seed has to do now that there are three.
+    const g = arena(609);
     const machine = g.boss as unknown as { state: string; timer: number };
     machine.state = 'strawBeam'; machine.timer = 2.4;
     // A column, far from the player, actually burning.

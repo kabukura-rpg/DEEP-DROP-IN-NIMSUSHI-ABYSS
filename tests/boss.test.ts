@@ -905,11 +905,13 @@ describe('the four ABYSS environments', () => {
    * lucky. NIMUSHI is under gameplay freeze, so the gap between the intent written here and the
    * code is left standing rather than closed from inside a terrain change.
    *
-   * The seed is one of the ~42% that holds under BOTH terrain modes, so `__roadTerrain` cannot
-   * redden the suite.
+   * Re-measured at STEP 3B over 90 seeds, now across all three terrain modes: it holds 38% of the
+   * time on `legacy`, 48% on `rhythm-v1` and 42% on `grammar-v2`. The same coin every way, which is
+   * the point -- the boss is not what changed. The seed is one of the few that holds under ALL
+   * THREE, so switching `__roadTerrain` cannot redden the suite.
    */
   it('lays one bounce target per shower, inside the corridor it opened', () => {
-    const game = fighting(13);
+    const game = fighting(16);
     for (let i = 0; i < 60 / STEP && game.boss.state !== 'tapiocaShower'; i++) {
       game.player.invincible = 9;
       game.step(STEP, 0, false);

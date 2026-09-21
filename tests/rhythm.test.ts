@@ -12,7 +12,12 @@ import { WORLD } from '../src/data/balance';
  * shipping default afterwards -- a leaked `legacy` would quietly disarm the rest of the file.
  */
 const seeded = (seed: number) => () => { seed = (Math.imul(seed, 1664525) + 1013904223) >>> 0; return seed / 4294967296; };
-afterEach(() => setTerrainMode('rhythm-v1'));
+afterEach(() => setTerrainMode('grammar-v2'));
+/**
+ * This file is about the VERTICAL RHYTHM, which is no longer the default terrain. Each test selects
+ * the mode it is about; the two that compare against `legacy` still do so explicitly.
+ */
+const withRhythm = <T>(run: () => T): T => { setTerrainMode('rhythm-v1'); try { return run(); } finally { setTerrainMode('grammar-v2'); } };
 
 /** Generate one SECTION and return its route rows, in order. A chamber floor is not a route row. */
 function rowsOf(areaId: 1 | 2 | 3 | 4, section: number, seed: number): RoutePlatform[] {
@@ -37,10 +42,14 @@ const gapsOf = (rows: RoutePlatform[]) => rows.slice(1).map((p, i) => Math.round
 const SEEDS = Array.from({ length: 24 }, (_, i) => 41 + i * 97);
 
 describe('AREA 1 vertical rhythm', () => {
-  it('is on by default, and the dev switch is the only way off it', () => {
-    expect(getTerrainMode()).toBe('rhythm-v1');
-    setTerrainMode('legacy');
-    expect(getTerrainMode()).toBe('legacy');
+  it('is not what ships any more -- grammar-v2 is -- but the switch still reaches it', () => {
+    // STEP 3B: a gap grammar alone did not change what the player decides, so the piece grammar is
+    // the default now. This one is kept as the A/B control, not as the shipping terrain.
+    expect(getTerrainMode()).toBe('grammar-v2');
+    for (const mode of ['legacy', 'rhythm-v1', 'grammar-v2'] as const) {
+      setTerrainMode(mode);
+      expect(getTerrainMode()).toBe(mode);
+    }
   });
 
   it('every row stays reachable, in both modes and on every seed', () => {
@@ -56,7 +65,7 @@ describe('AREA 1 vertical rhythm', () => {
     }
   });
 
-  it('never asks for a step outside a declared band', () => {
+  it('never asks for a step outside a declared band', () => withRhythm(() => {
     const lo = Math.min(...AREA1_RHYTHM.bands.map(b => b.gap[0]));
     const hi = Math.max(...AREA1_RHYTHM.bands.map(b => b.gap[1]));
     for (const seed of SEEDS) for (const section of [1, 2, 3]) {
@@ -67,7 +76,7 @@ describe('AREA 1 vertical rhythm', () => {
         expect(gap).toBeLessThanOrEqual(hi * 2);
       }
     }
-  });
+  }));
 
   it('breaks the single-gap ladder the AREA used to be', () => {
     const spread = (mode: 'rhythm-v1' | 'legacy') => {
@@ -119,7 +128,7 @@ describe('AREA 1 vertical rhythm', () => {
     expect(repeats('rhythm-v1')).toBeLessThan(repeats('legacy') * 0.6);
   });
 
-  it('produces tight runs and open falls, neither of which the AREA had', () => {
+  it('produces tight runs and open falls, neither of which the AREA had', () => withRhythm(() => {
     let dense = 0, open = 0;
     for (const seed of SEEDS) for (const section of [1, 2, 3]) {
       const gaps = gapsOf(rowsOf(1, section, seed));
@@ -133,11 +142,14 @@ describe('AREA 1 vertical rhythm', () => {
     for (const seed of SEEDS) for (const section of [1, 2, 3]) {
       for (const g of gapsOf(rowsOf(1, section, seed))) expect(g).toBeLessThan(310);
     }
-  });
+  }));
 
   it('leaves AREA 2, 3 and 4 on the single-gap step they already had', () => {
     for (const area of AREAS.filter(a => a.id !== 1)) {
-      expect(area.plans?.every(p => p.rhythm === undefined)).toBe(true);
+      // Neither grammar reaches them: no rhythm and no pieces, in any terrain mode.
+      expect(area.plans?.every(p => p.rhythm === undefined && p.pieces === undefined)).toBe(true);
+      for (const mode of ['legacy', 'rhythm-v1', 'grammar-v2'] as const) {
+      setTerrainMode(mode);
       for (const seed of SEEDS.slice(0, 8)) for (let section = 1; section <= area.sections; section++) {
         const plan = area.plans![section - 1];
         for (const gap of gapsOf(rowsOf(area.id, section, seed))) {
@@ -147,6 +159,7 @@ describe('AREA 1 vertical rhythm', () => {
             expect(gap).toBeLessThanOrEqual(plan.gap + 28);
           }
         }
+      }
       }
     }
   });

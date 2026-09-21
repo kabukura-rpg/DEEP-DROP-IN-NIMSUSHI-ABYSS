@@ -12,21 +12,48 @@ const seeded = (seed: number) => () => { seed = (Math.imul(seed, 1664525) + 1013
 const area1 = areaConfig(1);
 const plan = (section: SectionId) => area1.plans![section - 1];
 
-/** Generate one SECTION worth of rows the way GameModel does, and measure what came out. */
+/**
+ * Does this band of ledges tile the shaft edge to edge? A BREAK BLOCK row does, and is therefore
+ * landable from anywhere above it -- the point-reach test that fits a narrow ledge does not apply.
+ */
+export function spansShaft(band: readonly RoutePlatform[]) {
+  const sorted = [...band].sort((a, b) => a.x - b.x);
+  if (!sorted.length || sorted[0].x > WORLD.wall + 1) return false;
+  let edge = sorted[0].x + sorted[0].width;
+  for (const p of sorted.slice(1)) { if (p.x > edge + 1) return false; edge = Math.max(edge, p.x + p.width); }
+  return edge >= WORLD.width - WORLD.wall - 1;
+}
+
+/**
+ * Generate one SECTION worth of rows the way GameModel does, and measure what came out.
+ *
+ * Grouped into BANDS rather than walked platform by platform. A band is every ledge at one height,
+ * which is one ledge everywhere except inside a LEDGE CLUSTER -- and there the route is not a chain
+ * of single platforms any more, so chaining `canReachPlatform` through them asserts something that
+ * was never the rule. What IS the rule is that from every ledge of a band, the next band can be
+ * landed on, and that is what this checks.
+ */
 function sample(section: SectionId, seeds = 24, chunks = 3) {
   let platforms = 0, widthTotal = 0, enemies = 0, rows = 0;
   const kinds = new Set<EnemyKind>();
   const all: Enemy[] = [];
   for (let seed = 1; seed <= seeds; seed++) {
     const generator = new StageGenerator(seeded(seed * 131), { plan: plan(section), enemyPool: area1.enemyPool, depthOffset: (section - 1) * 200 });
-    let previous: RoutePlatform = { ...START_PLATFORM };
+    let previous: RoutePlatform[] = [{ ...START_PLATFORM }];
     for (let chunk = 0; chunk < chunks; chunk++) {
       const result = generator.chunk(chunk);
+      const bands = new Map<number, RoutePlatform[]>();
       for (const p of result.platforms) {
-        expect(canReachPlatform(previous, p)).toBe(true);
         expect(p.x).toBeGreaterThanOrEqual(WORLD.wall);
         expect(p.x + p.width).toBeLessThanOrEqual(WORLD.width - WORLD.wall);
-        platforms++; widthTotal += p.width; rows++; previous = p;
+        platforms++; widthTotal += p.width;
+        const y = Math.round(p.y);
+        bands.set(y, [...(bands.get(y) ?? []), p]);
+      }
+      for (const y of [...bands.keys()].sort((a, b) => a - b)) {
+        const here = bands.get(y)!;
+        if (!spansShaft(here)) expect(here.some(p => previous.every(q => canReachPlatform(q, p)))).toBe(true);
+        rows++; previous = here;
       }
       for (const e of result.enemies) { enemies++; kinds.add(e.kind); all.push(e); }
     }
@@ -121,11 +148,18 @@ describe('AREA 1 stomp rules follow the attribute', () => {
 
 describe('AREA 1 section pacing', () => {
   it('narrows platforms from 1-1 to 1-3', () => {
+    // The declared envelope IS the statement, so assert it rather than a number read off a sample:
+    // a LEDGE CLUSTER states its own ledge size on purpose and dilutes any absolute average.
+    for (const end of [0, 1] as const) {
+      expect(plan(1).platformWidth[end]).toBeGreaterThan(plan(2).platformWidth[end]);
+      expect(plan(2).platformWidth[end]).toBeGreaterThan(plan(3).platformWidth[end]);
+    }
+    // ...and the shaft that comes out still carries it, cluster ledges and all.
     const widths = [1, 2, 3].map(s => sample(s as SectionId).averageWidth);
     expect(widths[0]).toBeGreaterThan(widths[1]);
     expect(widths[1]).toBeGreaterThan(widths[2]);
-    expect(widths[0]).toBeGreaterThan(170);
-    expect(widths[2]).toBeGreaterThan(125);
+    expect(widths[0]).toBeGreaterThan(130);
+    expect(widths[2]).toBeGreaterThan(100);
   });
   it('raises enemy density from 1-1 to 1-3', () => {
     const density = [1, 2, 3].map(s => sample(s as SectionId).density);
@@ -169,7 +203,12 @@ describe('AREA 1 section pacing', () => {
           rows.set(row, [...(rows.get(row) ?? []), e]);
         }
         for (const list of rows.values()) maxPerRow = Math.max(maxPerRow, list.length);
-        for (const p of result.platforms) {
+        // The generator anchors the route on the FIRST ledge it lays at a height; a cluster's extra
+        // ledges follow it. The corridor an air enemy is kept out of is measured off that one, so
+        // the band has to be collapsed to it before the rule can be checked at all.
+        const seenY = new Set<number>();
+        const routeRow = result.platforms.filter(p => { const y = Math.round(p.y); if (seenY.has(y)) return false; seenY.add(y); return true; });
+        for (const p of routeRow) {
           if (p.safeZone !== undefined || p.breakBlock) { previous = p; continue; }
           const guard = result.enemies.find(e => !e.flying && e.y === p.y - 15);
           const air = result.enemies.find(e => e.flying && e.y === p.y - 115);
@@ -206,13 +245,19 @@ describe('AREA 1 generation safety across seeds', () => {
         let previousEnemy: Enemy | undefined;
         for (let chunk = 0; chunk < 3; chunk++) {
           const result = generator.chunk(chunk);
-          // The tightest row step the SECTION is allowed to ask for. AREA 1 declares this through its
-          // vertical rhythm, so the bound tracks the grammar instead of being a number that has to
-          // be remembered; a SECTION without one keeps the single-gap floor it always had.
-          const rhythm = plan(section as SectionId).rhythm;
-          const floor = rhythm ? Math.min(...rhythm.bands.map(b => b.gap[0])) : 215;
+          // The tightest step the SECTION is allowed to ask for BETWEEN two bands. AREA 1 declares
+          // it through whichever grammar is running, so the bound tracks the design rather than a
+          // number that has to be remembered. Ledges at the SAME height are one band and are not a
+          // step at all -- that is what a LEDGE CLUSTER is.
+          const current = plan(section as SectionId);
+          const floor = current.pieces ? Math.min(...current.pieces.pieces.flatMap(x => x.rows(() => 0, -1).map(i => i.step)))
+            : current.rhythm ? Math.min(...current.rhythm.bands.map(b => b.gap[0])) : 215;
+          const seen = new Set<number>();
           for (const p of result.platforms) {
             if (p.safeZone !== undefined) continue;
+            const band = Math.round(p.y);
+            if (seen.has(band)) continue;
+            seen.add(band);
             expect(p.y - previous.y).toBeGreaterThanOrEqual(floor);
             const guard = result.enemies.find(e => !e.flying && e.y === p.y - 15);
             if (guard) expect(Math.abs(guard.originX - p.safeX) - guard.range).toBeGreaterThanOrEqual(52);

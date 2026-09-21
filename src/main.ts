@@ -97,21 +97,58 @@ physicsPanel = new PhysicsPanel($('physics-tuning'), () => scene.model, () => { 
 if (import.meta.env.DEV) {
   (window as unknown as { __bossTest: (r?: BossTestTarget | BossTestRequest) => string }).__bossTest =
     (request = 'phase1') => bossTest(request);
-  // DEVELOPMENT ONLY: AREA 1 terrain A/B.
+  // DEVELOPMENT ONLY: AREA 1 terrain A/B/C.
   //
-  //   `__roadTerrain('legacy')`     the single-gap ladder AREA 1 shipped with
-  //   `__roadTerrain('rhythm-v1')`  the vertical rhythm grammar (the default)
+  //   `__roadTerrain('legacy')`      one ledge per row, evenly spaced -- what AREA 1 shipped with
+  //   `__roadTerrain('rhythm-v1')`   the gap varies, still one ledge per row
+  //   `__roadTerrain('grammar-v2')`  terrain pieces: the SHAPE varies, and a band may hold several
   //
-  // Play the SAME seed both ways: the switch changes only how far apart rows are laid, so a
-  // comparison is about the shape of the descent and nothing else. It is NOT a difficulty setting
-  // and it is not reachable from a production build -- this whole block is compiled out.
-  (window as unknown as { __roadTerrain: (m?: TerrainMode) => string }).__roadTerrain = mode => {
-    if (mode !== 'legacy' && mode !== 'rhythm-v1') return `AREA 1 TERRAIN is ${getTerrainMode()} -- pass 'legacy' or 'rhythm-v1'`;
+  //   `__roadTerrain('grammar-v2', 8891)`   ...and run it on a fixed seed
+  //
+  // With a seed, the run is reproducible: play the same number on each mode and the only thing
+  // that differs is the terrain grammar. Without one a run is unseeded, as it always is, and the
+  // seed it was given is reported so a run worth repeating can be. This is NOT a difficulty
+  // setting, and none of it reaches a production build -- the whole block is compiled out.
+  const seeded = (n: number) => () => { n = (Math.imul(n, 1664525) + 1013904223) >>> 0; return n / 4294967296; };
+  let roadSeed: number | null = null;
+  (window as unknown as { __roadTerrain: (m?: TerrainMode, s?: number) => string }).__roadTerrain = (mode, seed) => {
+    if (mode !== 'legacy' && mode !== 'rhythm-v1' && mode !== 'grammar-v2') {
+      return `AREA 1 TERRAIN is ${getTerrainMode()}${roadSeed === null ? '' : ` / seed ${roadSeed}`} -- pass 'legacy', 'rhythm-v1' or 'grammar-v2'`;
+    }
     setTerrainMode(mode);
+    roadSeed = seed === undefined ? null : Math.floor(seed);
     // Back to the title, because a SECTION already generated keeps the terrain it was built with.
     showTitle();
-    return `AREA 1 TERRAIN = ${mode} -- start a run`;
+    return `AREA 1 TERRAIN = ${mode}${roadSeed === null ? ' / unseeded' : ` / seed ${roadSeed}`} -- start a run`;
   };
+  // A seeded run is built by replacing the model the scene just made. `startRun` is untouched, so
+  // an ordinary run is still exactly an ordinary run.
+  const applySeed = () => {
+    if (roadSeed === null || scene.model.practice) return;
+    scene.model = new GameModel(false, seeded(roadSeed));
+  };
+
+  // The terrain read-out: which PIECE the player is standing in. Development only, so that a
+  // stretch a human reacted to can be named instead of guessed at.
+  const readout = document.createElement('div');
+  readout.style.cssText = 'position:fixed;left:8px;bottom:8px;z-index:60;padding:4px 7px;background:#101a14cc;color:#b9ef70;border:1px solid #3c5a35;font:10px \'IBM Plex Mono\',monospace;letter-spacing:1px;pointer-events:none';
+  document.body.appendChild(readout);
+  const tick = () => {
+    const model = scene.model;
+    const history = (model as unknown as { generator?: { planner?: { history: readonly { piece: string; y: number }[] } } })
+      .generator?.planner?.history ?? [];
+    let here = '';
+    for (const entry of history) if (entry.y <= model.player.y) here = entry.piece;
+    const label = here ? here.replace(/([A-Z])/g, ' $1').toUpperCase() : 'ROW GRAMMAR';
+    readout.textContent = `[${label}] ${getTerrainMode()}${roadSeed === null ? '' : ` #${roadSeed}`}`;
+    readout.hidden = !inPlay();
+    requestAnimationFrame(tick);
+  };
+  requestAnimationFrame(tick);
+  (window as unknown as { __roadSeedApply: () => void }).__roadSeedApply = applySeed;
+  // The model the run is actually using, for development harnesses that need to drive one. A
+  // getter rather than a snapshot, because `startRun` replaces the model on every run.
+  (window as unknown as { __roadModel: () => GameModel }).__roadModel = () => scene.model;
 }
 
 function setOverlay(content: string) {
@@ -147,7 +184,10 @@ function showStageIntro(model: GameModel) {
 function clearInput() { bridge.firing = false; bridge.direction = 0; movementPointers.clear(); firePointers.clear(); scene.resetKeys(); }
 function start(practice = false) {
   if (!ready) return;
-  audio.unlock(); clearInput(); scene.startRun(practice); mode = 'playing'; bridge.active = true;
+  audio.unlock(); clearInput(); scene.startRun(practice);
+  // DEV: a run asked for by seed is rebuilt here, before anything reads the model. Compiled out.
+  if (import.meta.env.DEV) (window as unknown as { __roadSeedApply?: () => void }).__roadSeedApply?.();
+  mode = 'playing'; bridge.active = true;
   comboAnimation?.cancel();
   if (practice) physicsPanel?.startPractice();
   setOverlay(''); lastHud = ''; updateHud(scene.model);
