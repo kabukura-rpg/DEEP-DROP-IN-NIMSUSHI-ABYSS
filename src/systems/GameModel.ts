@@ -63,6 +63,11 @@ export interface Bullet {
    * still, and charging it for the fall as well would cut a machine gun's reach from 900px to about
    * 430 and its life from 1.06s to 0.51. Subtracting what it was thrown with leaves the weapon's
    * own speed, so every module keeps the reach and the lifetime its table declares, at any speed.
+   *
+   * LOCKED with the projectile model in `fireVolley`. Dropping this field and going back to
+   * charging range against world travel would keep the player from overtaking their own shot, but
+   * it would take weapon identity out the back door instead: every module's reach and lifetime
+   * would shrink with how fast the shooter happens to be falling.
    */
   carried?: number;
   /** Drawn as a streak instead of a pellet; damage still uses the ordinary path. */
@@ -622,6 +627,24 @@ export class GameModel {
      */
     const floor = 0;
     /**
+     * GUNBOOTS PROJECTILE MODEL -- HUMAN APPROVED / LOCKED.
+     *
+     *   projectile world velocity = PRE-SHOT player velocity + muzzle-relative velocity
+     *
+     * The contract, in full: the inherited velocity is read BEFORE the gunboots brake; range is
+     * spent on muzzle-relative travel rather than world travel (see `carried` on Bullet); every
+     * module's muzzle speed, spread, damage, range and CHARGE cost is identity and does not move;
+     * and the same rule holds with the pull reversed in the arena. HOT CASING is outside it -- a
+     * casing is debris thrown sideways, not a round fired along the pull.
+     *
+     * WHAT BREAKS IF THIS GOES BACK TO A FIXED WORLD VELOCITY: the player overtakes their own
+     * downward shot. Measured at terminal speed before this was fixed, five of the seven modules
+     * were overtaken by the player who fired them -- machine at 0.38s, burst 0.90s, shotgun 0.23s,
+     * triple 0.17s, and PUNCHER at 0.07s, its 520px/s muzzle being slower than the 930px/s fall it
+     * leaves, so its rounds started behind the player and stayed there. Raising projectileSpeed
+     * instead does not fix it: it re-breaks the moment maxFallSpeed changes, and it moves weapon
+     * identity and enemy combat timing to pay for something that is not a speed problem.
+     *
      * WHAT THE ROUND IS THROWN FROM.
      *
      * A projectile's speed is the weapon's, measured FROM THE GUN -- so it has to be added to
@@ -671,6 +694,9 @@ export class GameModel {
    * it carries its own source and never takes the COIN HIGH boost.
    */
   private ejectCasing() {
+    // Outside the LOCKED projectile model on purpose: a casing is debris thrown out sideways, not a
+    // round fired along the pull, so it inherits nothing and the overtaking rule does not apply.
+
     const p = this.player, tuning = UPGRADE_TUNING.hotCasing;
     const side = this.random() < 0.5 ? -1 : 1;
     this.bullets.push({
@@ -693,7 +719,8 @@ export class GameModel {
       source: 'drone',
       x: from.x, y: from.y, previousX: from.x, previousY: from.y,
       // Thrown from a companion that travels with the player, so it inherits the same descent the
-      // player's own rounds do -- otherwise a fast fall outruns the drone's fire as well.
+      // player's own rounds do -- otherwise a fast fall outruns the drone's fire as well. Same
+      // LOCKED model as the player's volley; see `fireVolley`.
       vx: 0, vy: this.player.vy - this.up * def.projectileSpeed, carried: this.player.vy,
       // Machine baseline on purpose: the companion is not the player's gun and does not inherit a
       // COIN HIGH, a LASER SIGHT, or the module the player happens to be holding.
@@ -865,7 +892,9 @@ export class GameModel {
       b.previousY = b.y; b.previousX = b.x;
       b.x += b.vx * dt; b.y += b.vy * dt;
       // Reach is a weapon trait: PUNCHER dies quickly, LASER runs the length of the shaft.
-      // Flown FROM THE GUN, not through the world: see `carried`.
+      // Flown FROM THE GUN, not through the world: see `carried`, and the LOCKED projectile model
+      // in `fireVolley`. `b.vy` on its own here is the bug this replaced.
+
       b.travelled += Math.hypot(b.vx, b.vy - (b.carried ?? 0)) * dt;
       if (b.travelled > b.range) { b.alive = false; continue; }
       // Angled rounds stop at the shaft walls rather than leaving the world.
