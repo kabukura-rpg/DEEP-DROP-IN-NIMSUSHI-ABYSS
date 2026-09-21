@@ -993,7 +993,11 @@ describe('the fight can be won, and won honestly', () => {
       down.bullets = [];
       down.shoot();
       expect(game.bullets.map(b => Math.round(b.vx)), id).toEqual(down.bullets.map(b => Math.round(b.vx)));
-      expect(game.bullets.map(b => Math.round(Math.abs(b.vy))), id).toEqual(down.bullets.map(b => Math.round(Math.abs(b.vy))));
+      // The vertical half is the same speed mirrored -- measured FROM THE GUN. A round carries the
+      // motion it was fired out of, so its world velocity in a 930px/s inverted fall is not the one
+      // it has fired from a standstill; the module's own speed, which is the pattern, is.
+      const muzzle = (b: { vy: number; carried?: number }) => Math.round(Math.abs(b.vy - (b.carried ?? 0)));
+      expect(game.bullets.map(muzzle), id).toEqual(down.bullets.map(muzzle));
     }
   });
 });

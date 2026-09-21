@@ -54,6 +54,17 @@ export interface Bullet {
   /** BREAK BLOCK ids already hit, so one round can never hit the same block twice. */
   blocks: Set<number>;
   range: number; travelled: number;
+  /**
+   * The shooter's own vertical velocity when this round left the gun, or absent for anything fired
+   * from a standing start.
+   *
+   * `range` is the weapon's reach FROM THE GUN, so the distance flown has to be measured the same
+   * way: a round thrown out of a terminal-speed fall covers more ground than one fired standing
+   * still, and charging it for the fall as well would cut a machine gun's reach from 900px to about
+   * 430 and its life from 1.06s to 0.51. Subtracting what it was thrown with leaves the weapon's
+   * own speed, so every module keeps the reach and the lifetime its table declares, at any speed.
+   */
+  carried?: number;
   /** Drawn as a streak instead of a pellet; damage still uses the ordinary path. */
   beam: boolean;
   hits: Set<number>; alive: boolean;
@@ -610,6 +621,21 @@ export class GameModel {
      * replaced everything AREA 1-4 taught about them with a different control scheme for one fight.
      */
     const floor = 0;
+    /**
+     * WHAT THE ROUND IS THROWN FROM.
+     *
+     * A projectile's speed is the weapon's, measured FROM THE GUN -- so it has to be added to
+     * whatever the gun is already doing, not used as a world velocity on its own. Taken as a world
+     * velocity it meant a falling player closed on their own shot, and once OPEN DROP made long
+     * falls real they caught it: measured at terminal speed, five of the seven modules were
+     * overtaken by the player who fired them, PUNCHER (muzzle 520) within 0.07s of leaving the
+     * barrel because the player was already falling faster than it flies.
+     *
+     * Read BEFORE the brake below. The recoil is the reaction to the shot, so it cannot have
+     * happened yet when the round leaves: the round inherits the descent that was actually under
+     * way, and the brake then answers it.
+     */
+    const inherited = p.vy;
     const descent = this.along(p.vy);
     const braked = descent <= floor ? descent : Math.max(descent - kick, floor);
     p.vy = Math.max(-this.physics.maxFallSpeed, Math.min(this.physics.maxFallSpeed, braked * this.gravity));
@@ -623,7 +649,12 @@ export class GameModel {
       this.bullets.push({
         source: 'player',
         x, y: muzzle, previousY: muzzle, previousX: x,
-        vx: shot.vx, vy: shot.vy * this.gravity, damage: shot.damage, size: shot.size, pierce: shot.pierce,
+        // The weapon's own speed, along the pull, ON TOP of the fall it was fired out of. Only the
+        // vertical half inherits: the shaft moves the player horizontally by position rather than
+        // by velocity, so there is no sideways world velocity to carry, and the fire direction is
+        // vertical anyway. `vx` therefore stays the module's own fan, unchanged.
+        vx: shot.vx, vy: inherited + shot.vy * this.gravity, carried: inherited,
+        damage: shot.damage, size: shot.size, pierce: shot.pierce,
         pierceBlocks: shot.blockPiercing, blocks: new Set(),
         range: shot.range, travelled: 0, beam: shot.beam, hits: new Set(), alive: true,
       });
@@ -661,7 +692,9 @@ export class GameModel {
     this.bullets.push({
       source: 'drone',
       x: from.x, y: from.y, previousX: from.x, previousY: from.y,
-      vx: 0, vy: -this.up * def.projectileSpeed,
+      // Thrown from a companion that travels with the player, so it inherits the same descent the
+      // player's own rounds do -- otherwise a fast fall outruns the drone's fire as well.
+      vx: 0, vy: this.player.vy - this.up * def.projectileSpeed, carried: this.player.vy,
       // Machine baseline on purpose: the companion is not the player's gun and does not inherit a
       // COIN HIGH, a LASER SIGHT, or the module the player happens to be holding.
       damage: def.projectileDamage, size: def.projectileSize,
@@ -832,7 +865,8 @@ export class GameModel {
       b.previousY = b.y; b.previousX = b.x;
       b.x += b.vx * dt; b.y += b.vy * dt;
       // Reach is a weapon trait: PUNCHER dies quickly, LASER runs the length of the shaft.
-      b.travelled += Math.hypot(b.vx, b.vy) * dt;
+      // Flown FROM THE GUN, not through the world: see `carried`.
+      b.travelled += Math.hypot(b.vx, b.vy - (b.carried ?? 0)) * dt;
       if (b.travelled > b.range) { b.alive = false; continue; }
       // Angled rounds stop at the shaft walls rather than leaving the world.
       // The shaft's brickwork stops a round -- unless it is flying inside a SIDE CAVE, which is
