@@ -309,7 +309,10 @@ describe('AREA 3 section pacing', () => {
     // ordinary row, and the ceiling below only ever forces MORE. Anything far above that means the
     // forcing has taken over and the plan is no longer deciding how much air a SECTION has.
     for (const sectionId of [1, 2, 3] as const) {
-      const measured = stats(sectionId).containers, rows = stats(sectionId).rows;
+      // Sampled once. This used to call `stats` twice per section on top of the three at the top of
+      // the test -- nine full generations for three sections' worth of numbers, which put it within
+      // a whisker of the 5s timeout whenever the suite was busy. Same numbers, a third of the work.
+      const { containers: measured, rows } = [one, two, three][sectionId - 1];
       const fromPlan = rows * plan(sectionId).containerChance!;
       expect(measured, `section 2-${sectionId}`).toBeGreaterThan(fromPlan * 0.9);
       expect(measured, `section 2-${sectionId}`).toBeLessThan(fromPlan * 2);

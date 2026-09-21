@@ -12,6 +12,7 @@ import { AREAS, TOTAL_SECTIONS } from './data/areas';
 import { shopItem, type ShopOffer } from './data/shop';
 import { BOSS_TEST_WEAPONS, enterBossTest, type BossTestRequest, type BossTestTarget } from './dev/bossTest';
 import { setTerrainMode, getTerrainMode, type TerrainMode } from './data/rhythm';
+import { setSideRoomMode, getSideRoomMode, type SideRoomMode } from './data/safeZone';
 
 const app = document.querySelector<HTMLDivElement>('#app')!;
 app.innerHTML = `
@@ -140,12 +141,29 @@ if (import.meta.env.DEV) {
     let here = '';
     for (const entry of history) if (entry.y <= model.player.y) here = entry.piece;
     const label = here ? here.replace(/([A-Z])/g, ' $1').toUpperCase() : 'ROW GRAMMAR';
-    readout.textContent = `[${label}] ${getTerrainMode()}${roadSeed === null ? '' : ` #${roadSeed}`}`;
+    readout.textContent = `[${label}] ${getTerrainMode()} · rooms ${getSideRoomMode()}${roadSeed === null ? '' : ` #${roadSeed}`}`;
     readout.hidden = !inPlay();
     requestAnimationFrame(tick);
   };
   requestAnimationFrame(tick);
   (window as unknown as { __roadSeedApply: () => void }).__roadSeedApply = applySeed;
+  // DEVELOPMENT ONLY: AREA 1 side-room A/B.
+  //
+  //   `__roadSideRooms('legacy')`      one chamber per SECTION -- what every AREA shipped with
+  //   `__roadSideRooms('v1')`          two -- the pilot (the default)
+  //   `__roadSideRooms('v1', 8891)`    ...on a fixed seed
+  //
+  // Terrain stays on whatever `__roadTerrain` is set to, so this changes ONE thing: how many times
+  // a SECTION offers somewhere to step off the fall line. Compiled out of a production build.
+  (window as unknown as { __roadSideRooms: (m?: SideRoomMode, s?: number) => string }).__roadSideRooms = (mode, seed) => {
+    if (mode !== 'legacy' && mode !== 'v1') {
+      return `SIDE ROOMS are ${getSideRoomMode()} -- pass 'legacy' or 'v1'`;
+    }
+    setSideRoomMode(mode);
+    roadSeed = seed === undefined ? roadSeed : Math.floor(seed);
+    showTitle();
+    return `SIDE ROOMS = ${mode} (terrain ${getTerrainMode()})${roadSeed === null ? '' : ` / seed ${roadSeed}`} -- start a run`;
+  };
   // The model the run is actually using, for development harnesses that need to drive one. A
   // getter rather than a snapshot, because `startRun` replaces the model on every run.
   (window as unknown as { __roadModel: () => GameModel }).__roadModel = () => scene.model;

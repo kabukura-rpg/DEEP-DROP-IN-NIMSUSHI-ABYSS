@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest';
 import { GameModel } from '../src/systems/GameModel';
 import { WORLD } from '../src/data/balance';
 import { DOODAD_RULES, spawnDoodad, type Doodad } from '../src/data/doodads';
-import { SAFE_ZONE_RULES, coinVeinTotal, insideSafeZone, rollSafeZoneContent, type SafeZone, type SafeZoneContentKind } from '../src/data/safeZone';
+import { SAFE_ZONE_RULES, coinVeinTotal, insideSafeZone, rollSafeZoneContent, type SafeZone, type SafeZoneContentKind, sideRoomCount } from '../src/data/safeZone';
 import { COMBO_TIERS } from '../src/data/combo';
 import { StageGenerator, type Platform, type RoutePlatform } from '../src/systems/StageGenerator';
 import { areaConfig, type AreaId, type SectionId } from '../src/data/areas';
@@ -846,7 +846,9 @@ describe('SAFE ZONE generation stays out of everything else', () => {
 
   it('cuts the planned number of chambers, inside the shaft and clear of the ends', () => {
     for (const section of [1, 2, 3] as SectionId[]) {
-      const want = areaConfig(1).plans![section - 1].safeZoneCount ?? 0;
+      // What the SECTION actually asks for, from the same call the generator makes. `safeZoneCount`
+      // is only the floor now; `sideRooms` is what an AREA raises it to once it has been measured.
+      const want = sideRoomCount(areaConfig(1).plans![section - 1]);
       expect(want).toBeGreaterThan(0);
       let seen = 0;
       for (let seed = 1; seed <= 40; seed++) {

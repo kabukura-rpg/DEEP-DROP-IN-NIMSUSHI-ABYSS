@@ -1,0 +1,219 @@
+import { afterEach, describe, expect, it } from 'vitest';
+import { StageGenerator, type RoutePlatform } from '../src/systems/StageGenerator';
+import { AREAS, areaConfig, type AreaId } from '../src/data/areas';
+import { setTerrainMode } from '../src/data/rhythm';
+import {
+  SAFE_ZONE_RULES, getSideRoomMode, setSideRoomMode, sideRoomCount, safeZoneRowClearance,
+  safeZoneDepths, type SafeZone, type SideRoomMode,
+} from '../src/data/safeZone';
+import { WORLD, BALANCE } from '../src/data/balance';
+import { fallTime, horizontalReach } from '../src/data/difficulty';
+
+/**
+ * SIDE ROOMS, AREA 1.
+ *
+ * Every run here is seeded, and both global switches -- terrain mode and side-room mode -- are put
+ * back to the shipping default afterwards. A leaked mode would quietly disarm the rest of the file.
+ */
+const seeded = (seed: number) => () => { seed = (Math.imul(seed, 1664525) + 1013904223) >>> 0; return seed / 4294967296; };
+afterEach(() => { setSideRoomMode('v1'); setTerrainMode('grammar-v2'); });
+const SEEDS = Array.from({ length: 30 }, (_, i) => 41 + i * 97);
+
+/** One SECTION: its chambers, and the route bands they were cut between. */
+function build(areaId: AreaId, section: number, seed: number) {
+  const area = areaConfig(areaId);
+  const g = new StageGenerator(seeded(seed), {
+    plan: area.plans?.[section - 1], enemyPool: area.enemyPool, water: area.water,
+    oxygen: area.gimmicks?.oxygen, sectionLength: area.sectionLength,
+  });
+  const limit = WORLD.startY + area.sectionLength * WORLD.pixelsPerMeter;
+  const chunks = Math.ceil((limit - WORLD.startY) / WORLD.chunkHeight) + 2;
+  const bands = new Map<number, RoutePlatform[]>();
+  const zones: SafeZone[] = [];
+  let enemies = 0;
+  for (let c = 0; c < chunks; c++) {
+    const k = g.chunk(c);
+    for (const p of k.platforms) {
+      if (p.y > limit || p.safeZone !== undefined) continue;
+      const y = Math.round(p.y);
+      bands.set(y, [...(bands.get(y) ?? []), p]);
+    }
+    zones.push(...k.safeZones.filter(z => z.y <= limit));
+    enemies += k.enemies.filter(e => e.y <= limit).length;
+  }
+  return { zones, bands, enemies, ys: [...bands.keys()].sort((a, b) => a - b), area };
+}
+
+describe('AREA 1 side rooms', () => {
+  it('offers two chances to step off the fall line, where it used to offer one', () => {
+    const per = (mode: SideRoomMode) => {
+      setSideRoomMode(mode);
+      let total = 0, least = Infinity, n = 0;
+      for (const seed of SEEDS) for (const section of [1, 2, 3]) {
+        const count = build(1, section, seed).zones.length;
+        total += count; least = Math.min(least, count); n++;
+      }
+      return { mean: total / n, least };
+    };
+    const legacy = per('legacy'), v1 = per('v1');
+    expect(legacy.mean).toBe(1);
+    expect(v1.mean).toBe(2);
+    // GUARANTEED, not averaged: a SECTION a run cannot be supplied in is the failure this prevents.
+    expect(legacy.least).toBe(1);
+    expect(v1.least).toBe(2);
+  });
+
+  it('puts every chamber where the fall the player is already making can reach it', () => {
+    // v1 only, and deliberately: the entry rule IS part of the pilot. `legacy` is the terrain and
+    // the placement AREA 1 shipped with, where 14% of chambers sat on the wall the fall could not
+    // cross -- that is the thing being fixed, so asserting it of `legacy` would be asserting the
+    // bug is absent from the control.
+    for (const mode of ['v1'] as const) {
+      setSideRoomMode(mode);
+      for (const seed of SEEDS) for (const section of [1, 2, 3]) {
+        const { zones, bands, ys } = build(1, section, seed);
+        for (const z of zones) {
+          const above = ys.filter(y => y < z.y).pop();
+          expect(above, `${mode} seed ${seed} section ${section}: a chamber with no band above it`).toBeDefined();
+          const from = bands.get(above!)![0];
+          const drop = z.y + z.height - from.y;
+          // The nearest standing spot inside the mouth, and the steering that fall actually affords.
+          const mouth = z.side === -1 ? z.x + z.width - 26 : z.x + 26;
+          expect(Math.abs(mouth - from.exitX), `${mode} seed ${seed} section ${section} chamber at ${z.y}`)
+            .toBeLessThanOrEqual(horizontalReach(drop));
+        }
+      }
+    }
+  });
+
+  it('leaves thinking time between seeing the mouth and having to be in it', () => {
+    setSideRoomMode('v1');
+    const lead = Math.round(WORLD.height * 0.63);
+    let worst = Infinity, n = 0;
+    for (const seed of SEEDS) for (const section of [1, 2, 3]) {
+      const { zones, bands, ys } = build(1, section, seed);
+      for (const z of zones) {
+        const from = bands.get(ys.filter(y => y < z.y).pop()!)![0];
+        const drop = z.y + z.height - from.y;
+        const need = Math.abs((z.side === -1 ? z.x + z.width - 26 : z.x + 26) - from.exitX);
+        // Only the part of the fall the mouth is actually on screen for counts: a chamber you can
+        // only reach by already knowing it is there is not a decision, it is memorisation.
+        const visible = Math.min(drop, lead);
+        const onScreen = fallTime(drop) - fallTime(drop - visible);
+        worst = Math.min(worst, onScreen - need / BALANCE.moveSpeed);
+        n++;
+      }
+    }
+    expect(n).toBeGreaterThan(100);
+    expect(worst).toBeGreaterThanOrEqual(SAFE_ZONE_RULES.reactionReserve - 0.001);
+  });
+
+  it('keeps both chambers inside the SECTION and apart from each other', () => {
+    const margin = SAFE_ZONE_RULES.depthMargin * WORLD.pixelsPerMeter;
+    for (const seed of SEEDS) for (const section of [1, 2, 3]) {
+      const { zones, area } = build(1, section, seed);
+      const floor = WORLD.startY + area.sectionLength * WORLD.pixelsPerMeter;
+      const sorted = [...zones].sort((a, b) => a.y - b.y);
+      for (const z of sorted) {
+        expect(z.y).toBeGreaterThan(WORLD.startY);
+        expect(z.y + z.height).toBeLessThan(floor - margin + SAFE_ZONE_RULES.height);
+      }
+      // Far enough apart to read as two separate chances rather than one doubled one.
+      for (let i = 1; i < sorted.length; i++) expect(sorted[i].y - sorted[i - 1].y).toBeGreaterThan(WORLD.height * 0.8);
+    }
+  });
+
+  it('is cut into a band roomy enough to hold it, whatever the terrain grammar is doing', () => {
+    for (const terrain of ['grammar-v2', 'rhythm-v1', 'legacy'] as const) {
+      setTerrainMode(terrain);
+      for (const seed of SEEDS) for (const section of [1, 2, 3]) {
+        const { zones, ys } = build(1, section, seed);
+        for (const z of zones) {
+          const above = ys.filter(y => y < z.y).pop()!;
+          const below = ys.find(y => y > z.y);
+          if (below === undefined) continue;
+          expect(below - above, `${terrain} seed ${seed} chamber at ${z.y}`).toBeGreaterThanOrEqual(safeZoneRowClearance());
+        }
+      }
+    }
+  });
+
+  it('doubles how much side content a SECTION holds, without touching the split', () => {
+    // COUNTS, not "did a SECTION have one". A share is a saturating measure -- two chambers of the
+    // same kind read as one -- and over this many SECTIONs its sampling error is wider than the
+    // effect. The count is linear in how many chambers there are, which is the thing that changed.
+    // More seeds than the rest of the file: this one compares two measured rates, so its error bars
+    // have to be narrower than the effect it is asserting.
+    const many = Array.from({ length: 90 }, (_, i) => 7 + i * 53);
+    const per = (mode: SideRoomMode) => {
+      setSideRoomMode(mode);
+      const held = { shop: 0, gunModule: 0, coinVein: 0 } as Record<string, number>;
+      let sections = 0, withShop = 0;
+      for (const seed of many) for (const section of [1, 2, 3]) {
+        const kinds = build(1, section, seed).zones.map(z => z.content?.kind);
+        for (const k of kinds) if (k) held[k]++;
+        if (kinds.includes('shop')) withShop++;
+        sections++;
+      }
+      return { shop: held.shop / sections, module: held.gunModule / sections, vein: held.coinVein / sections, withShop: withShop / sections };
+    };
+    const legacy = per('legacy'), v1 = per('v1');
+    for (const kind of ['shop', 'module', 'vein'] as const) {
+      expect(v1[kind], kind).toBeGreaterThan(legacy[kind] * 1.6);
+    }
+    // The split itself is untouched: each kind keeps its share of the slots there are.
+    const total = v1.shop + v1.module + v1.vein;
+    expect(v1.shop / total).toBeCloseTo(SAFE_ZONE_RULES.contentWeights.shop / 8, 1);
+    // A SECTION without a shop is still ordinary: this is a supply loop, not a guarantee.
+    expect(v1.withShop).toBeLessThan(0.8);
+  });
+
+  it('leaves AREA 2, 3 and 4 on the single chamber they already had', () => {
+    for (const area of AREAS.filter(a => a.id !== 1)) {
+      expect(area.plans?.every(p => p.sideRooms === undefined)).toBe(true);
+      for (const mode of ['v1', 'legacy'] as const) {
+        setSideRoomMode(mode);
+        for (const plan of area.plans!) expect(sideRoomCount(plan)).toBe(1);
+        for (const seed of SEEDS.slice(0, 10)) for (let section = 1; section <= area.sections; section++) {
+          expect(build(area.id, section, seed).zones.length).toBe(1);
+        }
+      }
+    }
+  });
+
+  it('spreads the chambers through the SECTION rather than stacking them', () => {
+    const depths = safeZoneDepths(2, 240);
+    expect(depths).toEqual([90, 150]);
+    // Both are clear of the opening and of the exit by the margin the rules declare.
+    for (const d of depths) {
+      expect(d).toBeGreaterThanOrEqual(SAFE_ZONE_RULES.depthMargin);
+      expect(d).toBeLessThanOrEqual(240 - SAFE_ZONE_RULES.depthMargin);
+    }
+  });
+
+  it('is the shipping default, and the dev switch is the only way back', () => {
+    expect(getSideRoomMode()).toBe('v1');
+    for (const mode of ['legacy', 'v1'] as const) {
+      setSideRoomMode(mode);
+      expect(getSideRoomMode()).toBe(mode);
+    }
+  });
+
+  it('does not change how many enemies a SECTION holds', () => {
+    const per = (mode: SideRoomMode) => {
+      setSideRoomMode(mode);
+      let total = 0, n = 0;
+      for (const seed of SEEDS) for (const section of [1, 2, 3]) { total += build(1, section, seed).enemies; n++; }
+      return total / n;
+    };
+    const legacy = per('legacy'), v1 = per('v1');
+    expect(Math.abs(v1 - legacy) / legacy).toBeLessThan(0.10);
+  });
+
+  it('generates the same chambers twice from the same seed', () => {
+    for (const seed of SEEDS.slice(0, 8)) for (const section of [1, 2, 3]) {
+      const a = build(1, section, seed).zones, b = build(1, section, seed).zones;
+      expect(a).toEqual(b);
+    }
+  });
+});

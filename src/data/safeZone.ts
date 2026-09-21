@@ -55,7 +55,46 @@ export const SAFE_ZONE_RULES = {
   coinVein: { value: 120, payout: { large: 10, small: 10 }, width: 34, height: 40 },
   /** Metres of clearance kept between a chamber and the SECTION's opening or its exit. */
   depthMargin: 30,
+  /**
+   * Seconds of THINKING time a chamber's mouth must still offer after the steering it takes to
+   * reach it, counted only from the moment the mouth is on screen.
+   *
+   * A chamber that is geometrically reachable is not the same as one a player can decide to enter.
+   * The camera shows 504px below the player, so a mouth is visible for part of the fall and no
+   * longer; if all of that is spent steering, the only way in is to have known it was there. This
+   * is the reserve that keeps "I saw it, so I went" possible, and it is checked against the real
+   * fall curve rather than terminal speed, because the fall is still accelerating.
+   */
+  reactionReserve: 0.15,
 } as const;
+
+/**
+ * DEVELOPMENT A/B ONLY.
+ *
+ *   `legacy`  one chamber per SECTION -- the single guaranteed minimum every AREA shipped with
+ *   `v1`      the SECTION's own `sideRooms` count, where it declares one
+ *
+ * Measured before this existed: a 240m SECTION is 7-11 screens and held exactly ONE chamber, whose
+ * single content slot was contested three ways. A SECTION therefore showed a SHOP 27% of the time
+ * and a GUN MODULE 35%, so across all of AREA 1 a run expected 0.81 shops and 39% of runs saw none
+ * at all. That is what makes side content feel absent: not where the rooms are, but how few.
+ *
+ * Production never calls this. The only call site is behind `import.meta.env.DEV` in main.ts and the
+ * default is the shipping behaviour.
+ */
+export type SideRoomMode = 'v1' | 'legacy';
+let sideRoomMode: SideRoomMode = 'v1';
+export const setSideRoomMode = (mode: SideRoomMode) => { sideRoomMode = mode; };
+export const getSideRoomMode = () => sideRoomMode;
+
+/**
+ * How many chambers this SECTION is owed. `safeZoneCount` is the floor every AREA has always
+ * promised; `sideRooms` is what an AREA raises it to once its own spacing has been measured.
+ */
+export const sideRoomCount = (plan?: { safeZoneCount?: number; sideRooms?: number }) => {
+  const floor = plan?.safeZoneCount ?? 0;
+  return sideRoomMode === 'legacy' ? floor : Math.max(floor, plan?.sideRooms ?? 0);
+};
 
 /**
  * Where a SECTION's chambers may start. `count` is a GUARANTEED MINIMUM, not a quota: each depth is

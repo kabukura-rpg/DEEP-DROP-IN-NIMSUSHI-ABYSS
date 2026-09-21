@@ -215,14 +215,41 @@ export class GameScene extends Phaser.Scene {
       this.rect(x, y, 2, 3, theme.water.light, 0.22);
     }
     // SAFE ZONE chambers, drawn before the platforms so their own floor slab sits on top.
+    //
+    // A chamber has to read as a HOLE at a glance, from the middle of the shaft, at falling speed.
+    // It used to be a slightly darker rectangle laid against an unbroken wall, which read as
+    // decoration. Three things fix that without a single UI marker:
+    //
+    //   the recess is carried THROUGH the wall strip, so the wall's own silhouette is interrupted
+    //   a lintel and a sill jut out past the mouth, so the opening has a frame that is not flat
+    //   light spills out of the mouth into the shaft, so it registers before it is looked at
     for (const zone of m.safeZones) {
       const zy = zone.y - cam;
-      if (zy > 860 || zy + zone.height < -60) continue;
-      // A recess: darker than the shaft, lit from inside, with a lip you duck under to get in.
-      this.rect(zone.x, zy, zone.width, zone.height, 0x0c1418, 0.96);
-      this.rect(zone.x, zy, zone.width, 4, 0x2f5d63);
-      this.rect(zone.side === -1 ? zone.x : zone.x + zone.width - 4, zy, 4, zone.height, 0x2f5d63);
+      if (zy > 900 || zy + zone.height < -90) continue;
+      const left = zone.side === -1;
+      // The cut runs from the outside of the shaft wall to the mouth.
+      const cutX = left ? 0 : zone.x, cutW = zone.width + 28;
+      const mouthX = left ? zone.x + zone.width : zone.x;
+      this.rect(cutX, zy, cutW, zone.height, 0x070d11, 0.98);
+      // A back wall, lit, so the recess has depth rather than being a flat hole.
+      this.rect(left ? 0 : cutX + cutW - 10, zy + 3, 10, zone.height - 3, 0x15303a, 0.9);
       for (let i = 0; i < 4; i++) this.rect(zone.x + 10 + i * (zone.width - 20) / 4, zy + 8, 2, zone.height - 16, 0x9fe8f5, 0.06);
+      // The frame: a lintel above and a sill below, both reaching past the mouth into the shaft.
+      const frameX = left ? cutX : cutX - 22, frameW = cutW + 22;
+      this.rect(frameX, zy - 8, frameW, 8, 0x3c7a84);
+      this.rect(frameX, zy - 8, frameW, 2, 0x9fe8f5, 0.7);
+      this.rect(frameX, zy + zone.height, frameW, 7, 0x3c7a84);
+      this.rect(frameX, zy + zone.height, frameW, 2, 0x9fe8f5, 0.5);
+      // The jambs: short marks at the mouth, top and bottom, pointing into the shaft. Together with
+      // the frame they make a bracket shape that is not a ledge and not an enemy.
+      for (const dy of [0, zone.height - 10]) this.rect(left ? mouthX : mouthX - 22, zy + dy + 1, 22, 9, 0x3c7a84, 0.85);
+      // Light out of the mouth, fading into the shaft. This is what a falling player sees first,
+      // from the middle of the shaft, without looking at it.
+      for (let i = 0; i < 8; i++) {
+        const w = 8 + i * 6;
+        this.rect(left ? mouthX : mouthX - w, zy + 8 + i * 2, w, zone.height - 16 - i * 4, 0x9fe8f5, 0.085 - i * 0.010);
+      }
+      this.rect(left ? mouthX - 3 : mouthX, zy + 3, 3, zone.height - 6, 0x9fe8f5, 0.5);
       this.rect(zone.x + 8, zy + zone.height - 3, zone.width - 16, 3, 0x9fe8f5, 0.22);
       // A COIN VEIN is the one content the chamber draws itself; a module and a doorway are their
       // own objects and are drawn by the code that already owns them.

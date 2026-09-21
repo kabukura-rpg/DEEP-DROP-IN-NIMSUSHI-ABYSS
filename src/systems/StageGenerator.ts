@@ -1,11 +1,11 @@
-import { WORLD } from '../data/balance';
-import { difficultyAt, horizontalReach } from '../data/difficulty';
+import { WORLD, BALANCE } from '../data/balance';
+import { difficultyAt, fallTime, horizontalReach } from '../data/difficulty';
 import { ENEMY_TYPES, enemyType, spawnEnemy, type Enemy, type EnemyKind } from '../data/enemies';
 import { spawnPickup, type Pickup, type PickupKind } from '../data/pickups';
 import { AIR_CONTAINER_RULES, BREAK_BLOCK_RULES, breakBlockWidth, EXIT_RULES, spikePlatform, type AirContainer, type SpikePlatform, type StageExit } from '../data/structures';
 import { spawnHazard, type Hazard, type SpikeKind } from '../data/hazards';
 import { spawnDoodad, DOODAD_RULES, type Doodad } from '../data/doodads';
-import { rollSafeZoneContent, safeZoneDepths, safeZoneRowClearance, SAFE_ZONE_RULES, type SafeZone } from '../data/safeZone';
+import { rollSafeZoneContent, safeZoneDepths, safeZoneRowClearance, sideRoomCount, SAFE_ZONE_RULES, type SafeZone } from '../data/safeZone';
 import { rollGunModule as rollModuleForZone } from '../data/gunModules';
 import type { SectionPlan, WaterPhysics } from '../data/areas';
 import { RhythmWalker, getTerrainMode, laneOf, type RhythmBand } from '../data/rhythm';
@@ -102,6 +102,11 @@ export interface GenerationContext {
  * PROVISIONAL / MEASUREMENT REQUIRED.
  */
 const LIMBO_FALL_LANE = 124;
+/**
+ * How far below the player the camera shows, in pixels. GameModel frames the player at 0.37 of the
+ * viewport, so this is the rest of it -- and therefore how much of a fall a mouth is visible for.
+ */
+const CAMERA_LEAD = Math.round(WORLD.height * 0.63);
 const DEFAULT_POOL: readonly EnemyKind[] = ['slime', 'bat', 'armoredSlime', 'tank'];
 
 export class StageGenerator {
@@ -129,6 +134,11 @@ export class StageGenerator {
    * to exactly the old single-platform rule and draws nothing extra from the seed.
    */
   private previousBand: RoutePlatform[] = [];
+  /**
+   * True when this SECTION is running the SIDE ROOM pilot: it declares `sideRooms` AND the dev A/B
+   * has not been put back to `legacy`. Only then do the measured entry rules apply.
+   */
+  private sideRoomPilot = false;
   /** The widest step any band can ask for. Lookaheads that must stay conservative use this. */
   private maxRowStep = 0;
   /** The horizontal answer the previous row asked for, folded so left and right are one question. */
@@ -193,7 +203,8 @@ export class StageGenerator {
     // a quota: each of these depths is the earliest a chamber may appear, and the row keeps being
     // retried until one fits. Adding optional extra chambers later means pushing more depths in
     // here and nothing else.
-    this.chambers.push(...safeZoneDepths(context.plan?.safeZoneCount ?? 0, context.sectionLength));
+    this.sideRoomPilot = sideRoomCount(context.plan) > (context.plan?.safeZoneCount ?? 0);
+    this.chambers.push(...safeZoneDepths(sideRoomCount(context.plan), context.sectionLength));
     // MEMBER'S CARD guarantees a shop near the top of every later SECTION. It is an EXTRA chamber
     // in front of the ordinary schedule rather than a replacement for one, so the minimum a SECTION
     // already promises is untouched and its content roll still decides what that one holds.
@@ -623,10 +634,58 @@ export class StageGenerator {
       // The row's own ledge must not stick into the mouth either.
       return !overlaps(platform.x, platform.width, platform.y - 4, 20);
     };
+    /**
+     * Can the fall the player is ALREADY making reach this mouth?
+     *
+     * `fits` only says the mouth is unobstructed. That is not the same as being able to get into
+     * it: the player is falling from the row above, and steering is bounded by how long that fall
+     * lasts. Measured before this check existed, 14% of chambers sat on the wall the fall could not
+     * cross in time -- visible, unobstructed, and enterable only by climbing back up, which is
+     * exactly the unnatural detour a side room must never ask for.
+     */
+    const withinReach = (candidate: -1 | 1) => {
+      const x = candidate === -1 ? WORLD.wall : WORLD.width - WORLD.wall - width;
+      const mouth = candidate === -1 ? x + width - 26 : x + 26;
+      const drop = floorY - this.previous.y;
+      if (drop <= 0) return false;
+      const need = Math.abs(mouth - this.previous.exitX);
+      if (need > horizontalReach(drop, this.context.water)) return false;
+      // ...and reachable IN TIME TO DECIDE. The mouth is only on screen for the last CAMERA_LEAD
+      // pixels of the fall, so the steering has to fit inside that window with thinking time spare.
+      const visible = Math.min(drop, CAMERA_LEAD);
+      const onScreen = fallTime(drop, this.context.water?.gravity) - fallTime(drop - visible, this.context.water?.gravity);
+      return onScreen - need / BALANCE.moveSpeed >= SAFE_ZONE_RULES.reactionReserve;
+    };
     const preferred: -1 | 1 = this.nextChamberSide !== 0 ? this.nextChamberSide : (this.random() < 0.5 ? -1 : 1);
     const other: -1 | 1 = preferred === -1 ? 1 : -1;
-    const side = fits(preferred) ? preferred : fits(other) ? other : 0;
+    const order: (-1 | 1)[] = [preferred, other];
+    /**
+     * The entry rule belongs to the SIDE ROOM pilot, and only the AREA that declares `sideRooms`
+     * has been measured for it. Everywhere else -- and on the `legacy` side of the A/B -- the
+     * original rule runs untouched, so AREAs 2, 3 and 4 generate bit for bit as they always have.
+     */
+    if (!this.sideRoomPilot) {
+      const plain = fits(preferred) ? preferred : fits(other) ? other : 0;
+      if (plain === 0) return;
+      this.cutChamber(plain, width, floorY, top, y, start, zones, platforms);
+      return;
+    }
+    // Reachable first, alternation second, unobstructed last. A chamber on the wrong wall is worse
+    // than a chamber on the same wall twice, and both are better than no chamber at all.
+    const reachable = order.find(c => fits(c) && withinReach(c));
+    // Nothing reachable here: wait for a row where there is. A chamber's depth is the EARLIEST it
+    // may appear, not where it must, so passing on a bad band costs nothing while the SECTION still
+    // has depth left. Close to the exit that stops being true, and a chamber on an awkward wall
+    // beats the SECTION having one fewer -- so the last stretch takes whatever fits.
+    const roomToWait = localDepth < ceiling - SAFE_ZONE_RULES.depthMargin;
+    const side = reachable ?? (roomToWait ? 0 : order.find(fits) ?? 0);
     if (side === 0) return;
+    this.cutChamber(side, width, floorY, top, y, start, zones, platforms);
+  }
+
+  /** Lay the chamber, once a wall has been chosen. Shared by both entry rules. */
+  private cutChamber(side: -1 | 1, width: number, floorY: number, top: number, y: number, start: number, zones: SafeZone[], platforms: RoutePlatform[]) {
+    const height = SAFE_ZONE_RULES.height;
     const x = side === -1 ? WORLD.wall : WORLD.width - WORLD.wall - width;
     this.chambers.shift();
     this.nextChamberSide = side === -1 ? 1 : -1;

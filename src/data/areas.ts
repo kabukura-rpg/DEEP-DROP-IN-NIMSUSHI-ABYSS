@@ -121,6 +121,16 @@ export interface SectionPlan {
    */
   safeZoneCount?: number;
   /**
+   * SIDE ROOMS this SECTION is raised to, above the `safeZoneCount` floor. A chamber is the only
+   * place a run finds a weapon, a shop or a vein, and at one per SECTION the three contest a single
+   * slot -- so a whole AREA 1 run expected 0.81 shops and 39% of runs saw none.
+   *
+   * AREA 1 only for now, and only measured for AREA 1: a 240m SECTION offers 13.5 band gaps roomy
+   * enough to cut a chamber into, so two is asking for a sixth of what is available rather than
+   * straining the SECTION. The other AREAs keep the floor until each is measured on its own terms.
+   */
+  sideRooms?: number;
+  /**
    * Per-row chance of an AIR CONTAINER, where oxygen is on. A container holds no air by itself:
    * breaking it releases bubbles that climb away and have to be chased. It is the only air there
    * is -- the sheltering alcove that used to stand beside it is gone, so nowhere in the shaft
@@ -219,13 +229,13 @@ export const AREAS: readonly AreaConfig[] = [
       // was reacting to -- the same reason SAFE ZONE frequency is being held back to a later step.
       { platformWidth: [176, 196], gap: 232, rhythm: AREA1_RHYTHM, pieces: AREA1_GRAMMAR, enemyChance: 0.30, flyChance: 0.08, toughChance: 0.17, heavyChance: 0, comboBias: 0.20, graceDepth: 25,
         breakBlockRows: 2, breakBlockDurability: 1,
-        doodadChance: 0.12, safeZoneCount: 1 },
+        doodadChance: 0.12, safeZoneCount: 1, sideRooms: 2 },
       { platformWidth: [152, 178], gap: 238, rhythm: AREA1_RHYTHM, pieces: AREA1_GRAMMAR, enemyChance: 0.38, flyChance: 0.20, toughChance: 0.22, heavyChance: 0, comboBias: 0.22,
         breakBlockRows: 3, breakBlockDurability: 2,
-        doodadChance: 0.12, safeZoneCount: 1 },
+        doodadChance: 0.12, safeZoneCount: 1, sideRooms: 2 },
       { platformWidth: [132, 158], gap: 244, rhythm: AREA1_RHYTHM, pieces: AREA1_GRAMMAR, enemyChance: 0.52, flyChance: 0.30, toughChance: 0.30, heavyChance: 0, comboBias: 0.30,
         breakBlockRows: 3, breakBlockDurability: 2,
-        doodadChance: 0.12, safeZoneCount: 1 },
+        doodadChance: 0.12, safeZoneCount: 1, sideRooms: 2 },
     ],
   },
   {
