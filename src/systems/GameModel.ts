@@ -345,7 +345,9 @@ export class GameModel {
    */
   private bossAnchorCamera(): number | null {
     if (!this.inBossArena || !this.boss.enabled) return null;
-    const body = this.boss.body;
+    // The FRAMED body: NIMUSHI's station, with the hit recoil left out, so shooting the eye jolts
+    // the boss against a steady view rather than shaking the whole screen.
+    const body = this.boss.framedBody;
     const lead = this.gravity > 0 ? body.y + body.height : body.y;
     return lead - WORLD.height * (this.gravity > 0 ? 1 - ARENA_VIEW.bossAnchor : ARENA_VIEW.bossAnchor);
   }

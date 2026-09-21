@@ -1,7 +1,7 @@
 import { WORLD } from '../data/balance';
 import { ABYSS, ABYSS_PHASES, abyssPhaseAt, type AbyssAttackId, type AbyssPhase } from '../data/abyss';
 import {
-  FINAL_RAGE_RATIO, FULL_SCREEN_TAPIOCA, NIMUSHI, NIMUSHI_ATTACKS, NIMUSHI_CLONES, NIMUSHI_DYING_RATIO,
+  FINAL_RAGE_RATIO, FULL_SCREEN_TAPIOCA, HIT_REACTION, NIMUSHI, NIMUSHI_ATTACKS, NIMUSHI_CLONES, NIMUSHI_DYING_RATIO,
   NIMUSHI_LINES, STRAW_BEAM, TAPIOCA_CUP, TAPIOCA_SHOWER, type NimushiPose, type NimushiState, ATTACK_STATES } from '../data/nimushi';
 
 /** One pearl in the air. Shower pearls, cup spit and FULL SCREEN waves are all just these. */
@@ -65,6 +65,15 @@ export class NimushiBossSystem {
    */
   /** Extra room bought by weak-point damage, decaying away as the band reasserts itself. */
   private pushback = 0;
+  /**
+   * The hit recoil: how far along the pull the body is currently thrown, in pixels.
+   *
+   * It is applied to the BODY rather than to `y`, which keeps two things true at once. The eye, the
+   * hitbox and the sprite all come off the same offset, so they jolt together and can never
+   * disagree; and `y` itself stays monotonic along the pull, which is what the camera's anchor is
+   * built on -- so a hit shakes NIMUSHI against a steady view instead of dragging the view after it.
+   */
+  private recoil = 0;
   mark = 0;
   /** Where the rising deep actually is, in world coordinates. */
   deepY = 0;
@@ -118,11 +127,26 @@ export class NimushiBossSystem {
    */
   get rageActive() { return FULL_SCREEN_TAPIOCA.enabled && this.raged && this.active && this.state !== 'finalRage'; }
 
+  /** Where the body actually is: its station, plus however far the last hit has thrown it. */
   get body() {
+    return { x: this.x - NIMUSHI.bodyWidth / 2, y: this.hitY - NIMUSHI.bodyHeight / 2, width: NIMUSHI.bodyWidth, height: NIMUSHI.bodyHeight };
+  }
+  /**
+   * The body with the hit recoil taken OUT: where the CAMERA frames it.
+   *
+   * The distinction is the whole point of keeping the recoil small. The view is framed on NIMUSHI's
+   * station, which only ever advances, so the recoil reads as NIMUSHI being knocked back rather
+   * than as the camera lurching -- and the anchor keeps the clean monotonic input it needs.
+   */
+  get framedBody() {
     return { x: this.x - NIMUSHI.bodyWidth / 2, y: this.y - NIMUSHI.bodyHeight / 2, width: NIMUSHI.bodyWidth, height: NIMUSHI.bodyHeight };
   }
+  /** Station plus recoil: the one position everything the player can see or touch is built from. */
+  private get hitY() { return this.y + this.recoil * this.sign; }
+  /** How hard NIMUSHI was just hit, 1 down to 0. What the view flashes on; not a mechanic. */
+  get hitFlash() { return Math.max(0, Math.min(1, this.recoil / HIT_REACTION.recoil)); }
   /** The face that looks at the player: the underside of the body while the ABYSS pulls upward. */
-  get face() { return this.y - (NIMUSHI.bodyHeight / 2) * this.sign; }
+  get face() { return this.hitY - (NIMUSHI.bodyHeight / 2) * this.sign; }
   /** The eye, set into that face. Small, and the only thing on NIMUSHI worth aiming at. */
   get eye() {
     const depth = NIMUSHI.eyeHeight;
@@ -149,7 +173,7 @@ export class NimushiBossSystem {
 
   start(playerY: number, sign: 1 | -1) {
     this.enabled = true; this.sign = sign;
-    this.hp = NIMUSHI.maxHp; this.state = 'dormant'; this.phaseId = 1; this.pushback = 0;
+    this.hp = NIMUSHI.maxHp; this.state = 'dormant'; this.phaseId = 1; this.pushback = 0; this.recoil = 0;
     this.elapsed = 0; this.started = false; this.defeated = false; this.raged = false; this.taunted = false;
     this.x = WORLD.width / 2; this.y = playerY + NIMUSHI.restGap * sign;
     this.tapiocas = []; this.cups = []; this.beams = [];
@@ -159,7 +183,7 @@ export class NimushiBossSystem {
   }
   reset() {
     this.enabled = false; this.started = false; this.defeated = false; this.raged = false;
-    this.state = 'dormant'; this.hp = NIMUSHI.maxHp; this.elapsed = 0; this.phaseId = 1; this.pushback = 0;
+    this.state = 'dormant'; this.hp = NIMUSHI.maxHp; this.elapsed = 0; this.phaseId = 1; this.pushback = 0; this.recoil = 0;
     this.tapiocas = []; this.cups = []; this.beams = [];
     this.mark = 0; this.deepY = 0; this.windowDamage = 0;
   }
@@ -198,13 +222,18 @@ export class NimushiBossSystem {
     }
     this.hp = Math.max(0, this.hp - amount);
     this.windowDamage += amount;
-    // Shooting the eye shoves NIMUSHI further along the pull and pushes the boundary back with it.
-    // Both are per point of damage, so the relief a run gets for taking HP off is the same whatever
-    // it is holding -- and both are still capped, the shove by the ordinary gap clamp next frame
-    // and the relief by `maxArena`, so a burst cannot bank unlimited safety out of one window.
-    this.y += NIMUSHI.pushPerHit * amount * this.sign;
-    // Raise the TARGET too, or the controller would simply pull the shove straight back in.
-    this.pushback = Math.min(NIMUSHI.maxGap - NIMUSHI.restGap, this.pushback + NIMUSHI.pushPerHit * amount);
+    // The hit REACTION: the body is knocked back a few pixels and springs home. It is feedback, not
+    // distance -- see HIT_REACTION for what it replaced and why.
+    this.recoil = HIT_REACTION.recoil;
+    if (HIT_REACTION.pushback) {
+      // Shooting the eye shoves NIMUSHI further along the pull and pushes the boundary back with it.
+      // Both are per point of damage, so the relief a run gets for taking HP off is the same whatever
+      // it is holding -- and both are still capped, the shove by the ordinary gap clamp next frame
+      // and the relief by `maxArena`, so a burst cannot bank unlimited safety out of one window.
+      this.y += NIMUSHI.pushPerHit * amount * this.sign;
+      // Raise the TARGET too, or the controller would simply pull the shove straight back in.
+      this.pushback = Math.min(NIMUSHI.maxGap - NIMUSHI.restGap, this.pushback + NIMUSHI.pushPerHit * amount);
+    }
     this.deepY += ABYSS.pushRelief * amount * this.sign * -1;
     if (this.slack > ABYSS.maxSlack) this.deepY = this.mark - ABYSS.maxSlack * this.sign;
     signals.push({ kind: 'hurt' });
@@ -279,10 +308,13 @@ export class NimushiBossSystem {
     const haul = this.state === 'phaseTransition' ? NIMUSHI.transitionSpeed : 0;
     // Well under the arena's terminal speed, so the player always closes when they stop working.
     this.y += (NIMUSHI.ascentSpeed + haul) * dt * this.sign;
-    // A weak-point hit still shoves it back, and the shove still fades. It is the fight's one piece
-    // of spatial feedback and it is a reaction to being hit, not a rule about where the player may be.
-    this.y += this.pushback * this.sign * dt;
-    this.pushback = Math.max(0, this.pushback - (NIMUSHI.pushPerHit / NIMUSHI.pushbackDecay) * dt);
+    // The hit recoil springs home. It moves the body, not the station, so nothing here is a rule
+    // about where the player may be -- and NIMUSHI cannot be shot out of the frame.
+    this.recoil = Math.max(0, this.recoil - (HIT_REACTION.recoil / HIT_REACTION.settle) * dt);
+    if (HIT_REACTION.pushback) {
+      this.y += this.pushback * this.sign * dt;
+      this.pushback = Math.max(0, this.pushback - (NIMUSHI.pushPerHit / NIMUSHI.pushbackDecay) * dt);
+    }
 
     /**
      * NIMUSHI cannot be overtaken.

@@ -792,10 +792,25 @@ export class GameScene extends Phaser.Scene {
     const pose = fight.pose;
     const dead = pose === 'dead';
     const rage = pose === 'rage' || fight.rageActive;
+    /**
+     * The hit reaction.
+     *
+     * NIMUSHI's body has already been knocked back a few pixels by `HIT_REACTION.recoil` -- the box
+     * being drawn here IS the recoiled one, so the sprite, the eye and the hitbox jolt together.
+     * What this adds is the part that costs no distance: the whole silhouette whitens and its rim
+     * light flares, so a landed shot reads instantly even though it no longer moves the fight.
+     */
+    const struck = dead ? 0 : fight.hitFlash;
+    const whiten = (color: number) => {
+      if (struck <= 0) return color;
+      const mix = (shift: number) => Math.round(((color >> shift) & 0xff) + (0xff - ((color >> shift) & 0xff)) * struck * 0.75);
+      return (mix(16) << 16) | (mix(8) << 8) | mix(0);
+    };
     // Hood and hair: brown under a dog hood, which is what makes the thing recognisable at all.
-    const hood = dead ? 0x4a3f45 : rage ? 0x7a2038 : 0x5d4a6b;
-    const hair = dead ? 0x5a4a3a : 0x9a6b3f;
-    this.rect(body.x - 6, y - 6, body.width + 12, body.height + 12, rage ? 0xff4d7a : 0x9d7bd8, dead ? 0.08 : 0.16);
+    const hood = whiten(dead ? 0x4a3f45 : rage ? 0x7a2038 : 0x5d4a6b);
+    const hair = whiten(dead ? 0x5a4a3a : 0x9a6b3f);
+    this.rect(body.x - 6 - struck * 4, y - 6 - struck * 4, body.width + 12 + struck * 8, body.height + 12 + struck * 8,
+      struck > 0 ? 0xffffff : rage ? 0xff4d7a : 0x9d7bd8, dead ? 0.08 : 0.16 + struck * 0.5);
     // Ears, one each side, flopping a little.
     const flop = this.reducedMotion ? 0 : Math.sin(this.model.elapsed * 2.2) * 3;
     this.rect(body.x - 4, y + 6 + flop, 30, 52, hood);
@@ -811,8 +826,10 @@ export class GameScene extends Phaser.Scene {
     // The eye, on the face that looks down at the player. This is the fight.
     const eye = fight.eye, ey = eye.y - cam;
     if (fight.eyeOpen) {
-      const glow = pose === 'damage' ? 0xffffff : rage ? 0xff4d7a : 0xffe9a8;
-      this.rect(eye.x - 4, ey - 4, eye.width + 8, eye.height + 8, glow, 0.25);
+      const glow = pose === 'damage' || struck > 0 ? 0xffffff : rage ? 0xff4d7a : 0xffe9a8;
+      // The weak point flares widest at the moment of the hit: it is what was hit.
+      const ring = 4 + struck * 10;
+      this.rect(eye.x - ring, ey - ring, eye.width + ring * 2, eye.height + ring * 2, glow, 0.25 + struck * 0.55);
       this.graphics.fillStyle(0xf7f2f7, 0.97).fillEllipse(fight.x, ey + eye.height / 2, eye.width, eye.height);
       const look = Math.max(-12, Math.min(12, (m.player.x - fight.x) * 0.12));
       this.graphics.fillStyle(rage ? 0xff2e5c : 0x2a1b20, 1).fillEllipse(fight.x + look, ey + eye.height / 2, 22, eye.height * 0.8);

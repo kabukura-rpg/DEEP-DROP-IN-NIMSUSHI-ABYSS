@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest';
 import { GameModel } from '../src/systems/GameModel';
 import { ABYSS, ABYSS_PHASES, abyssPhaseAt, ARENA_VIEW, TOMATO } from '../src/data/abyss';
 import {
-  FINAL_RAGE_RATIO, FULL_SCREEN_TAPIOCA, NIMUSHI, NIMUSHI_ATTACKS, NIMUSHI_LINES, STRAW_BEAM, TAPIOCA_CUP, TAPIOCA_SHOWER, ATTACK_STATES } from '../src/data/nimushi';
+  FINAL_RAGE_RATIO, FULL_SCREEN_TAPIOCA, HIT_REACTION, NIMUSHI, NIMUSHI_ATTACKS, NIMUSHI_LINES, STRAW_BEAM, TAPIOCA_CUP, TAPIOCA_SHOWER, ATTACK_STATES } from '../src/data/nimushi';
 import { PLANNED_TOTAL_DEPTH } from '../src/data/areas';
 import { GUN_MODULE_IDS } from '../src/data/gunModules';
 import { SHOP_ITEMS, shopPrice, ABYSS_SHOP_AREA } from '../src/data/shop';
@@ -759,7 +759,9 @@ describe('the rising deep', () => {
     }
     expect(game.boss.state).toBe('phaseTransition');
     tick(game, 0.2);
-    expect(game.boss.slack).toBe(ABYSS.maxSlack);
+    // Close rather than exact: `slack` is a difference of two large world coordinates, so whether
+    // it lands on 460 or 459.9999999999999 depends on where in the shaft the fight happens to be.
+    expect(game.boss.slack).toBeCloseTo(ABYSS.maxSlack, 6);
   });
 });
 
@@ -1260,6 +1262,116 @@ describe('the camera and the view', () => {
     // is 450x800, so this is the same fraction of the screen on a 331px phone and a 430px one.
     expect(ARENA_VIEW.bossAnchor).toBeGreaterThan(0);
     expect(ARENA_VIEW.bossAnchor).toBeLessThan(1);
+  });
+
+  /**
+   * A weak-point hit is HP and a jolt, and no longer a shove.
+   *
+   * `HIT_PUSHBACK` used to buy 266px of separation per three-damage hit -- 72 outright plus a 194px
+   * decaying shove -- against the 95px a stomp is worth. It was the fight's real distance mechanic,
+   * it was why NIMUSHI kept flying off the top of the frame, and it did the player's job for them.
+   */
+  it('does not move NIMUSHI hundreds of pixels when the eye is hit', () => {
+    const game = atNimushi(87);
+    const before = game.boss.y;
+    shootEye(game, 3);
+    // The body moved -- that is the hit reaction -- but by a jolt, not a shove.
+    const jolt = Math.abs(game.boss.body.y - game.boss.framedBody.y);
+    expect(jolt).toBeGreaterThan(0);
+    expect(jolt).toBeLessThanOrEqual(HIT_REACTION.recoil + 1e-6);
+    expect(jolt).toBeLessThan(NIMUSHI.pushPerHit);
+    // Its STATION moved by the ordinary ascent for one step and by nothing else: the hit bought
+    // the player no distance at all.
+    expect(game.boss.y).toBeCloseTo(before - NIMUSHI.ascentSpeed * STEP, 6);
+    expect(HIT_REACTION.pushback).toBe(false);
+    // ...and every number the old mechanic needs is still here to switch it back on.
+    expect(NIMUSHI.pushPerHit).toBeGreaterThan(0);
+    expect(NIMUSHI.pushbackDecay).toBeGreaterThan(0);
+    expect(NIMUSHI.maxGap).toBeGreaterThan(NIMUSHI.restGap);
+  });
+
+  it('settles the recoil back, and does not accumulate it over a whole fight', () => {
+    // It springs home, and the body ends up exactly on its station again.
+    const one = atNimushi(88);
+    shootEye(one, 1);
+    expect(one.boss.hitFlash).toBeGreaterThan(0);
+    for (let i = 0; i < (HIT_REACTION.settle + 0.05) / STEP; i++) { one.player.invincible = 9; one.step(STEP, 0, false); }
+    expect(one.boss.hitFlash).toBe(0);
+    expect(one.boss.body.y).toBeCloseTo(one.boss.framedBody.y, 6);
+
+    // ...and through a fight's worth of hits it never stacks up into a displacement.
+    const many = atNimushi(89);
+    let landed = 0;
+    for (let i = 0; i < 20 / STEP && many.state === 'boss' && !many.boss.defeated; i++) {
+      many.player.invincible = 9;
+      const hp = many.boss.hp;
+      if (many.boss.eyeOpen && i % 40 === 0) shootEye(many, 3);
+      else many.step(STEP, 0, false);
+      if (many.boss.hp < hp) landed++;
+      expect(Math.abs(many.boss.body.y - many.boss.framedBody.y)).toBeLessThanOrEqual(HIT_REACTION.recoil + 1e-6);
+    }
+    expect(landed).toBeGreaterThan(5);
+  });
+
+  /**
+   * The jolt moves the body, the eye and the hitbox as one.
+   *
+   * This is the rule that keeps the reaction honest: a displacement applied to the SPRITE would
+   * look the same and make the weak point a lie. It is applied to the body instead, so a round
+   * aimed at where the eye is drawn is a round aimed at where the eye is.
+   */
+  it('moves the weak point and the hitbox with the sprite', () => {
+    const game = atNimushi(89);
+    shootEye(game, 3);
+    const body = game.boss.body, eye = game.boss.eye;
+    expect(eye.y).toBeCloseTo(body.y + body.height, 6);
+    expect(game.boss.face).toBeCloseTo(body.y + body.height, 6);
+    // A round placed on the DRAWN eye still registers as a weak-point hit.
+    const hp = game.boss.hp;
+    game.bullets.push(round(game.boss.x, eye.y + eye.height / 2, 1));
+    game.step(STEP, 0, false);
+    expect(game.boss.hp).toBe(hp - 1);
+  });
+
+  /**
+   * ...and the camera does not follow the jolt.
+   *
+   * The anchor frames NIMUSHI's STATION, so a hit shakes the boss against a steady view rather than
+   * shaking the whole screen -- and the anchor keeps the monotonic input its clamp is built on.
+   */
+  it('shakes NIMUSHI against the view, not the view against NIMUSHI', () => {
+    const game = atNimushi(90);
+    for (let i = 0; i < 6 / STEP && game.state === 'boss'; i++) {
+      game.player.invincible = 9;
+      if (game.boss.eyeOpen && i % 30 === 0) shootEye(game, 3);
+      else game.step(STEP, 0, false);
+      expect(game.boss.framedBody.y - game.cameraY).toBeLessThanOrEqual(WORLD.height * ARENA_VIEW.bossAnchor + 1e-6);
+    }
+  });
+
+  /**
+   * With the shove gone, NIMUSHI stays on screen.
+   *
+   * Not a guarantee and deliberately not one: the only way to promise it outright is to stop the
+   * player earning separation, which is the distance controller. It is an ASSERTION over real runs.
+   * Measured before this change, the body was entirely above the frame for 23-34% of a fight's
+   * frames; measured after, for none of them.
+   */
+  it('keeps the weak point on screen through a real fight, on every seed', () => {
+    for (const seed of [91, 92, 93, 94, 95]) {
+      const game = atNimushi(seed);
+      let offTop = 0, frames = 0;
+      for (let i = 0; i < 20 / STEP && game.state === 'boss'; i++) {
+        game.player.invincible = 9;
+        const target = game.enemies.filter(e => e.alive && e.y < game.player.y).sort((a, b) => b.y - a.y)[0];
+        game.step(STEP, target ? Math.sign(target.x - game.player.x) as -1 | 0 | 1 : 0, game.ammo > 0);
+        frames++;
+        const eye = game.boss.eye;
+        if (eye.y + eye.height - game.cameraY < 0) offTop++;
+      }
+      expect(frames).toBeGreaterThan(60);
+      expect(offTop).toBe(0);
+    }
   });
 
   it('frames nothing outside the arena', () => {

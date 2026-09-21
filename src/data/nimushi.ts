@@ -169,6 +169,37 @@ export const NIMUSHI = {
   transitionSpeed: 260,
 } as const;
 
+/**
+ * What a weak-point hit does to NIMUSHI in SPACE, as opposed to what it does to its HP.
+ *
+ * The fight is NORMAL GAMEPLAY WITH GRAVITY REVERSED, and in that fight the distance between the
+ * player and the boss is the player's to manage -- with stomps and bounces, the same two verbs
+ * AREA 1-4 spends twelve SECTIONs teaching. `pushback` was the last thing left that managed it FOR
+ * them, from the other end: every point of damage threw NIMUSHI `pushPerHit` pixels along the pull
+ * and topped up a decaying shove on top of that, so a good damage window bought hundreds of pixels
+ * of separation outright.
+ *
+ * Measured, that was also why the boss kept leaving the frame. It is switched off here, and what
+ * replaces it is a HIT REACTION: a short recoil that moves the body and the eye TOGETHER, so the
+ * silhouette jolts, the collision jolts with it, and nothing about the fight's geometry changes.
+ *
+ * `pushback` is the one switch, and `NIMUSHI.pushPerHit`, `maxGap` and `pushbackDecay` are all
+ * still there: turn it back on and the old mechanic works exactly as it did.
+ */
+export const HIT_REACTION = {
+  pushback: false,
+  /**
+   * How far the recoil throws NIMUSHI along the pull, in pixels.
+   *
+   * Small ON PURPOSE. It is about a tenth of `bodyHeight`, which is enough to see as a jolt on a
+   * 168x112 silhouette and far too little to change where anything is. It moves the real body, not
+   * a drawing of it, so the eye, the hitbox and the sprite can never disagree.
+   */
+  recoil: 12,
+  /** Seconds for the recoil to settle back. Short enough to read as an impact, not a shove. */
+  settle: 0.14,
+} as const;
+
 export interface NimushiAttackDef {
   id: AbyssAttackId;
   name: string;
