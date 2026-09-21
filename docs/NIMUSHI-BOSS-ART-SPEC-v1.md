@@ -1,6 +1,8 @@
 # NIMUSHI BOSS ART SPEC v1
 
-状態：APPROVED（2026-09-21、ユーザー承認）。ASSET GENERATION NOT STARTED。
+状態：APPROVED（2026-09-21、ユーザー承認）。2026-09-22：CHARACTER LOCK PASS開始、IDLE候補1枚生成済み・Human Review待ち。全sheet未生成。
+
+最新の候補・C1 geometry照合・art側の未解決点は `output/nimushi-boss-art-v1/character-lock/README.md` を参照。以下の旧寸法や全sheet生成案は仕様策定時の履歴。今回の許可範囲はIDLE lock 1枚だけ。
 
 承認範囲：body / eye overlay / clone・shadeの分離、VISUAL = TWO EYES / GAMEPLAY = ONE WEAK POINT、装飾でcollisionを拡張しない、小型敵は専用spriteにする。PLAYER実ゲームレビュー後の次工程はCHARACTER LOCK PASSとしてIDLE基準sprite 1枚のみ。A/B/C全sheet生成はまだ開始しない。
 

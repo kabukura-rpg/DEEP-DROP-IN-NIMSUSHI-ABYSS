@@ -1,0 +1,58 @@
+{
+  "status": "CHARACTER LOCK CANDIDATE",
+  "sourceCell": [
+    128,
+    112
+  ],
+  "displayCell": [
+    256,
+    224
+  ],
+  "scale": 2,
+  "alphaBounds": [
+    8,
+    8,
+    116,
+    104
+  ],
+  "paletteColors": 23,
+  "eyeAnchor": [
+    64,
+    57
+  ],
+  "pivot": [
+    64,
+    20
+  ],
+  "oldSpecEyeAnchor": [
+    64,
+    77
+  ],
+  "oldSpecPivot": [
+    64,
+    40
+  ],
+  "eyeOverlayTopLeft": [
+    46,
+    45
+  ],
+  "placement": "pivot maps to actual body center including existing hit recoil; visual eye center is body center +74px",
+  "geometry": "Actual body/contact/eye getters read at capture time. No gameplay edits.",
+  "postprocess": {
+    "alphaThreshold": 128,
+    "palette": 24,
+    "resample": "NEAREST",
+    "uniformScale": 0.08702659145850121,
+    "crop": [
+      50,
+      41,
+      1291,
+      1142
+    ],
+    "offset": [
+      8,
+      8
+    ]
+  },
+  "eyes": "Both human eyes baked into this lock reference only; separate animated overlay deferred."
+}

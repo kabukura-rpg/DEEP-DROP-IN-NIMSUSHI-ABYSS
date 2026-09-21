@@ -1,0 +1,128 @@
+{
+  "results": {
+    "desktop": {
+      "body": {
+        "x": 141,
+        "y": 1284,
+        "width": 168,
+        "height": 112
+      },
+      "contact": {
+        "x": 141,
+        "y": 1284,
+        "width": 168,
+        "height": 82
+      },
+      "eye": {
+        "x": 195,
+        "width": 60,
+        "y": 1396,
+        "height": 72
+      },
+      "cameraY": 1124,
+      "artTopLeft": {
+        "x": 97,
+        "y": 176
+      },
+      "artBounds": [
+        8,
+        8,
+        116,
+        104
+      ],
+      "eyeAnchor": {
+        "x": 225,
+        "y": 290
+      },
+      "modelUnchanged": true,
+      "method": "Paused dev BOSS TEST; runtime drawing replacement only; no model edits",
+      "sourceCell": [
+        128,
+        112
+      ]
+    },
+    "mobile": {
+      "body": {
+        "x": 141,
+        "y": 1284,
+        "width": 168,
+        "height": 112
+      },
+      "contact": {
+        "x": 141,
+        "y": 1284,
+        "width": 168,
+        "height": 82
+      },
+      "eye": {
+        "x": 195,
+        "width": 60,
+        "y": 1396,
+        "height": 72
+      },
+      "cameraY": 1124,
+      "artTopLeft": {
+        "x": 97,
+        "y": 176
+      },
+      "artBounds": [
+        8,
+        8,
+        116,
+        104
+      ],
+      "eyeAnchor": {
+        "x": 225,
+        "y": 290
+      },
+      "modelUnchanged": true,
+      "method": "Paused dev BOSS TEST; runtime drawing replacement only; no model edits",
+      "sourceCell": [
+        128,
+        112
+      ]
+    },
+    "collision-overlay": {
+      "body": {
+        "x": 141,
+        "y": 1284,
+        "width": 168,
+        "height": 112
+      },
+      "contact": {
+        "x": 141,
+        "y": 1284,
+        "width": 168,
+        "height": 82
+      },
+      "eye": {
+        "x": 195,
+        "width": 60,
+        "y": 1396,
+        "height": 72
+      },
+      "cameraY": 1124,
+      "artTopLeft": {
+        "x": 97,
+        "y": 176
+      },
+      "artBounds": [
+        8,
+        8,
+        116,
+        104
+      ],
+      "eyeAnchor": {
+        "x": 225,
+        "y": 290
+      },
+      "modelUnchanged": true,
+      "method": "Paused dev BOSS TEST; runtime drawing replacement only; no model edits",
+      "sourceCell": [
+        128,
+        112
+      ]
+    }
+  },
+  "errors": []
+}
