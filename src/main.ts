@@ -88,8 +88,11 @@ physicsPanel = new PhysicsPanel($('physics-tuning'), () => scene.model, () => { 
 // part-way in. The stretch shortcuts set NIMUSHI's HP as a debug fixture and let its own systems
 // pick the stretch up from it -- nothing here forces a phase.
 //
-// The object form adds a starting weapon: `__bossTest({ weapon: 'SHOTGUN' })`, or both at once with
-// `__bossTest({ target: 'phase4', weapon: 'PUNCHER' })`. Id, name and HUD short all work.
+// The object form adds a starting weapon and an attack to jump straight to:
+//   `__bossTest({ weapon: 'SHOTGUN' })`
+//   `__bossTest({ attack: 'SHOWER' })`
+//   `__bossTest({ target: 'phase4', weapon: 'PUNCHER', attack: 'SHOWER' })`
+// Weapons take an id, a name or a HUD short; attacks take SHOWER / BEAM / CUP / CLONES.
 if (import.meta.env.DEV) {
   (window as unknown as { __bossTest: (r?: BossTestTarget | BossTestRequest) => string }).__bossTest =
     (request = 'phase1') => bossTest(request);

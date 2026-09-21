@@ -175,16 +175,20 @@ export type AbyssAttackId = 'tapiocaShower' | 'cupSummon' | 'strawBeam' | 'nimus
  * challenge, it is a stall.
  */
 /**
- * ALL FOUR ATTACKS ARE DISABLED, and none of them is deleted.
+ * ONE ATTACK IS BACK. The other three are still disabled, and none of them is deleted.
  *
- * The prototype runs on gravity, the standing supply of things to stomp, the drop below and the
- * weak point above -- nothing else. The question it exists to answer is whether reversing gravity
- * is by itself enough of a fight, and no amount of attack tuning can answer that while the attacks
- * are running.
+ * The core loop was judged good by hand: gravity, the standing supply of things to stomp, the drop
+ * below and the weak point above. SHOWER is the first thing layered back on top of it, alone,
+ * because a fight that is answered by dodging is a different game from a fight that is answered by
+ * stomping -- and the only way to know which one this is, is to add one attack and look.
  *
- * Every definition, every state and every spawner is intact: turning one back on is one entry in
- * the array below. The order for re-judging them is SHOWER, then BEAM, then CLONES, then CUP, one
- * at a time and only after the core loop is judged good.
+ * SHOWER is the right one to be first. It asks the player to be somewhere else across the shaft,
+ * which is a thing they were already doing to line up the next stomp; it does not ask them to stop
+ * doing it. BEAM, CUP and CLONES all interrupt the loop rather than steering it, so they wait.
+ *
+ * Every definition, every state and every spawner for the other three is intact: turning one back
+ * on is one entry in the arrays below. The order for re-judging them is BEAM, then CLONES, then
+ * CUP, one at a time.
  */
 export const ABYSS_PHASES: readonly AbyssPhase[] = [
   {
@@ -193,14 +197,16 @@ export const ABYSS_PHASES: readonly AbyssPhase[] = [
     breakBlockChance: 0, spikeChance: 0, containerChance: 0, doodadChance: 0,
     groundless: true, clonePool: ['nimushiClone'], heart: true,
     // One attack, low density: this stretch is where the player learns that down is up.
-    attacks: [],
+    // SHOWER only. The stretch where the player learns that down is up, with one thing to dodge.
+    attacks: ['tapiocaShower'],
   },
   {
     id: 2, name: 'CATACOMB OF CUPS', role: 'catacomb', from: 0.75,
     rowGap: 355, ledgeWidth: [0, 0],
     breakBlockChance: 0, spikeChance: 0, containerChance: 0, doodadChance: 0,
     groundless: true, clonePool: ['nimushiClone'], heart: true,
-    attacks: [],
+    // SHOWER only: CUP is still out of the rotation, whatever this stretch is called.
+    attacks: ['tapiocaShower'],
   },
   {
     id: 3, name: 'AQUIFER OF SYRUP', role: 'aquifer', from: 0.5,
@@ -208,14 +214,16 @@ export const ABYSS_PHASES: readonly AbyssPhase[] = [
     rowGap: 350, ledgeWidth: [0, 0],
     breakBlockChance: 0, spikeChance: 0, containerChance: 0.8, doodadChance: 0,
     groundless: true, clonePool: ['nimushiClone'], heart: true,
-    attacks: [],
+    // SHOWER only: BEAM is still out of the rotation.
+    attacks: ['tapiocaShower'],
   },
   {
     id: 4, name: 'LIMBO OF THE DEEP', role: 'limbo', from: 0.25,
     rowGap: 330, ledgeWidth: [0, 0],
     breakBlockChance: 0, spikeChance: 0, containerChance: 0, doodadChance: 0,
     groundless: true, clonePool: ['nimushiShade'], heart: false,
-    attacks: [],
+    // SHOWER only: CLONES and BEAM are both still out of the rotation.
+    attacks: ['tapiocaShower'],
   },
 ];
 

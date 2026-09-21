@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest';
 import { fighting, round, seeded, STEP, tick } from './nimushi';
 import { GameModel } from '../src/systems/GameModel';
 import { ABYSS_PHASES, ARENA_FLOOR } from '../src/data/abyss';
-import { FINAL_RAGE_RATIO, FULL_SCREEN_TAPIOCA, NIMUSHI, TRANSITION_HAUL } from '../src/data/nimushi';
+import { FINAL_RAGE_RATIO, FULL_SCREEN_TAPIOCA, NIMUSHI, TAPIOCA_SHOWER, TRANSITION_HAUL } from '../src/data/nimushi';
 import { WORLD } from '../src/data/balance';
 import { GUN_MODULES, GUN_MODULE_IDS, type GunModuleId } from '../src/data/gunModules';
 import { BOSS_PHYSICS } from '../src/data/bossPhysics';
@@ -251,9 +251,59 @@ describe('the drop below is the other edge', () => {
 });
 
 describe('the prototype runs on gravity and the weak point alone', () => {
-  it('has every attack disabled, and none deleted', () => {
-    for (const phase of ABYSS_PHASES) expect(phase.attacks).toHaveLength(0);
-    // Still whole enough to switch back on, one entry at a time.
+  /**
+   * ONE ROUND, ONE PEARL.
+   *
+   * The emergency exit from a shower the player did not read in time, and the reason the attack is
+   * answerable by the run's own verbs rather than by dodging alone. It costs a round from the
+   * magazine they were going to counterattack with, which is the price.
+   *
+   * Deliberately NOT a screen clear: the round dies on the pearl even with piercing left, or a
+   * LASER would wipe a whole wave and the pattern would stop mattering.
+   */
+  it('lets one round take down one pearl, and no more', () => {
+    const g = arena(630);
+    const wave = (g.boss as unknown as { spawnShowerWave(r: () => number): number[] }).spawnShowerWave(seeded(9));
+    const pearls = g.boss.tapiocas.filter(t => t.life > 0);
+    expect(pearls.length).toBeGreaterThan(4);
+    expect(wave.length).toBe(TAPIOCA_SHOWER.safeLanes);
+    // A round with piercing to spare, placed on one pearl in a column of them.
+    const aim = pearls[0];
+    const near = pearls.filter(t => Math.abs(t.x - aim.x) < 1).length;
+    expect(near).toBeGreaterThan(0);
+    const shot = round(aim.x, aim.y, 1);
+    shot.pierce = 9;
+    g.bullets.push(shot);
+    g.step(STEP, 0, false);
+    expect(g.boss.tapiocas.filter(t => t.life > 0).length).toBe(pearls.length - 1);
+    expect(shot.alive).toBe(false);
+  });
+
+  it('never builds a wave with no way through it', () => {
+    const g = arena(631);
+    const fight = g.boss as unknown as { spawnShowerWave(r: () => number): number[] };
+    const roll = seeded(10);
+    for (let i = 0; i < 40; i++) {
+      g.boss.tapiocas = [];
+      const safe = fight.spawnShowerWave(roll);
+      expect(safe.length).toBe(TAPIOCA_SHOWER.safeLanes);
+      // Adjacent, so the corridor is one place to stand rather than three slits.
+      const sorted = [...safe].sort((a, b) => a - b);
+      expect(sorted[sorted.length - 1] - sorted[0]).toBe(TAPIOCA_SHOWER.safeLanes - 1);
+      // ...and nothing was spawned in it.
+      const shaft = WORLD.width - WORLD.wall * 2;
+      for (const t of g.boss.tapiocas) {
+        const lane = Math.floor(((t.x - WORLD.wall) / shaft) * TAPIOCA_SHOWER.lanes);
+        expect(safe.includes(lane)).toBe(false);
+      }
+    }
+  });
+
+  it('has SHOWER back, and only SHOWER', () => {
+    for (const phase of ABYSS_PHASES) {
+      expect({ id: phase.id, rotation: [...phase.attacks] }).toEqual({ id: phase.id, rotation: ['tapiocaShower'] });
+    }
+    // The other three are still whole enough to switch back on, one entry at a time.
     expect(NIMUSHI.eyeWindow.timeout).toBeGreaterThan(0);
   });
 
@@ -307,8 +357,10 @@ describe('FINAL RAGE is framework-only in the prototype', () => {
     expect(FULL_SCREEN_TAPIOCA.waveInterval).toBeGreaterThan(0);
   });
 
-  it('still enters the rage state, and pours nothing', () => {
+  it('still enters the rage state, and the curtain pours nothing of its own', () => {
     const g = arena(611);
+    // Four waves of an ordinary shower can be in the air at once, two pearls per closed lane.
+    const showerCeiling = 4 * (TAPIOCA_SHOWER.lanes - TAPIOCA_SHOWER.safeLanes) * 2;
     g.boss.hp = Math.round(NIMUSHI.maxHp * FINAL_RAGE_RATIO) - 1;
     let raged = false, pearls = 0;
     for (let i = 0; i < 20 / STEP && g.state === 'boss'; i++) {
@@ -321,6 +373,10 @@ describe('FINAL RAGE is framework-only in the prototype', () => {
       pearls = Math.max(pearls, g.boss.tapiocas.filter(t => t.life > 0).length);
     }
     expect(raged).toBe(true);
-    expect(pearls).toBe(0);
+    // The CURTAIN pours nothing. SHOWER is back in the rotation, so pearls do exist now -- what is
+    // asserted is that FINAL RAGE adds none of its own, which is the switch being off.
+    expect(FULL_SCREEN_TAPIOCA.enabled).toBe(false);
+    expect(g.boss.rageActive).toBe(false);
+    expect(pearls).toBeLessThanOrEqual(showerCeiling);
   });
 });
