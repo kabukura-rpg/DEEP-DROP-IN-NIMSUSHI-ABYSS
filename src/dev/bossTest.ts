@@ -1,5 +1,6 @@
 import type { GameModel } from '../systems/GameModel';
 import { ABYSS_PHASES, abyssPhase, type AbyssPhase } from '../data/abyss';
+import { GUN_MODULES, GUN_MODULE_IDS, STARTING_GUN_MODULE, type GunModuleId } from '../data/gunModules';
 import { NIMUSHI, FINAL_RAGE_RATIO } from '../data/nimushi';
 
 /**
@@ -17,6 +18,29 @@ import { NIMUSHI, FINAL_RAGE_RATIO } from '../data/nimushi';
  *   - it is dropped from a production build. Every call site is behind `import.meta.env.DEV`.
  */
 export type BossTestTarget = 'phase1' | 'phase2' | 'phase3' | 'phase4' | 'rage';
+
+/** What a BOSS TEST can be asked for. The bare string form is the stretch, as it always was. */
+export interface BossTestRequest {
+  target?: BossTestTarget;
+  /** Which module to start the fight holding. Id, name or HUD short, in any case. */
+  weapon?: string;
+}
+
+/**
+ * Resolve whatever the console was given to a module id: `shotgun`, `SHOTGUN`, `SHOT`, `MACHINE`,
+ * `MACHINE GUN` all land on the right weapon.
+ *
+ * Three spellings rather than one because the three are what is actually on screen -- the id is in
+ * the code, the name is in the pickup toast and the short is in the HUD -- and a debug utility
+ * nobody can remember the spelling for gets used once.
+ */
+export function bossTestWeapon(value: string): GunModuleId | null {
+  const want = value.trim().toUpperCase();
+  return GUN_MODULE_IDS.find(id => {
+    const def = GUN_MODULES[id];
+    return id.toUpperCase() === want || def.name.toUpperCase() === want || def.short.toUpperCase() === want;
+  }) ?? null;
+}
 
 /**
  * Where each shortcut starts: the HP ratio, and the stretch that ratio belongs to.
@@ -45,11 +69,31 @@ const TARGETS: Record<BossTestTarget, { ratio: number; phase: 1 | 2 | 3 | 4 }> =
  * a fresh run already carries, so nothing has to be faked. Boss physics, the reversed gravity, the
  * camera and BOSS TIME all come from `jumpToNimushi` and the ordinary boss reset.
  */
-export function enterBossTest(model: GameModel, target: BossTestTarget = 'phase1'): string {
+export function enterBossTest(model: GameModel, request: BossTestTarget | BossTestRequest = 'phase1'): string {
+  const { target = 'phase1', weapon } = typeof request === 'string' ? { target: request, weapon: undefined } : request;
   if (!(target in TARGETS)) {
     return `unknown target "${target}" -- try ${Object.keys(TARGETS).join(', ')}`;
   }
+  /**
+   * The weapon is resolved BEFORE anything is entered, so a typo leaves the title screen alone
+   * instead of dropping the tester into the arena holding the wrong gun.
+   */
+  const module = weapon === undefined ? STARTING_GUN_MODULE : bossTestWeapon(weapon);
+  if (module === null) {
+    return `unknown weapon "${weapon}" -- try ${GUN_MODULE_IDS.join(', ')}`;
+  }
   if (!model.jumpToNimushi()) return 'could not enter the arena (practice mode?)';
+  /**
+   * A DEBUG FIXTURE, exactly like the HP one below: the module is swapped through the game's own
+   * `equip`, which is the same call a GUN MODULE crate makes. Nothing about the weapon is altered
+   * -- rate of fire, recoil, spread, range and damage are whatever `GUN_MODULES` says they are, so
+   * what the fight shows is that weapon and not a test build of it.
+   *
+   * It is a starting loadout and nothing more. A run reaching NIMUSHI by the ordinary route still
+   * arrives holding whatever it picked up on the way.
+   */
+  model.gun.equip(module);
+  // CHARGE is filled AFTER the swap, so the fight opens on a full magazine either way.
   model.reloadCharge();
 
   const { ratio, phase } = TARGETS[target];
@@ -71,7 +115,7 @@ export function enterBossTest(model: GameModel, target: BossTestTarget = 'phase1
     (model as unknown as { enterAbyssPhase(p: AbyssPhase): void }).enterAbyssPhase(abyssPhase(phase));
   }
   return [
-    `BOSS TEST -> ${target}`,
+    `BOSS TEST -> ${target}${weapon === undefined ? '' : ` / ${GUN_MODULES[module].name}`}`,
     `NIMUSHI ${model.boss.hp}/${NIMUSHI.maxHp} (${Math.round((model.boss.hp / NIMUSHI.maxHp) * 100)}%) · stretch ${model.boss.phaseId} ${model.boss.phase.name}`,
     `HP ${model.hp}/${model.stats.maxHp} · CHARGE ${model.ammo}/${model.stats.maxAmmo} · ${model.gun.module.short}`,
     `physics ${model.physics.gravity}/${model.physics.maxFallSpeed}/${model.physics.moveSpeed}`,
@@ -81,3 +125,5 @@ export function enterBossTest(model: GameModel, target: BossTestTarget = 'phase1
 
 /** The names the console hook accepts, for its own error message and for the dev button. */
 export const BOSS_TEST_TARGETS = Object.keys(TARGETS) as BossTestTarget[];
+/** The weapons the dev selector offers: all seven, in roster order. */
+export const BOSS_TEST_WEAPONS = GUN_MODULE_IDS;

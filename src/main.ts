@@ -10,7 +10,7 @@ import { PhysicsPanel } from './ui/PhysicsPanel';
 import { comboFeedback } from './systems/ComboFeedback';
 import { AREAS, TOTAL_SECTIONS } from './data/areas';
 import { shopItem, type ShopOffer } from './data/shop';
-import { enterBossTest, type BossTestTarget } from './dev/bossTest';
+import { BOSS_TEST_WEAPONS, enterBossTest, type BossTestRequest, type BossTestTarget } from './dev/bossTest';
 
 const app = document.querySelector<HTMLDivElement>('#app')!;
 app.innerHTML = `
@@ -87,9 +87,12 @@ physicsPanel = new PhysicsPanel($('physics-tuning'), () => scene.model, () => { 
 // DEV only: `__bossTest()` for the dormant fight, or `__bossTest('phase3')` / `('rage')` to start
 // part-way in. The stretch shortcuts set NIMUSHI's HP as a debug fixture and let its own systems
 // pick the stretch up from it -- nothing here forces a phase.
+//
+// The object form adds a starting weapon: `__bossTest({ weapon: 'SHOTGUN' })`, or both at once with
+// `__bossTest({ target: 'phase4', weapon: 'PUNCHER' })`. Id, name and HUD short all work.
 if (import.meta.env.DEV) {
-  (window as unknown as { __bossTest: (t?: BossTestTarget) => string }).__bossTest =
-    (target = 'phase1') => bossTest(target);
+  (window as unknown as { __bossTest: (r?: BossTestTarget | BossTestRequest) => string }).__bossTest =
+    (request = 'phase1') => bossTest(request);
 }
 
 function setOverlay(content: string) {
@@ -142,11 +145,14 @@ function start(practice = false) {
  * only the destination differs. The normal route to the fight is untouched and still has its own
  * end-to-end browser check.
  */
-function bossTest(target: BossTestTarget = 'phase1') {
+function bossTest(request: BossTestTarget | BossTestRequest = 'phase1') {
   if (!import.meta.env.DEV) return 'BOSS TEST is development only';
   if (!ready) return 'not ready yet';
   start();
-  const report = enterBossTest(scene.model, target);
+  const report = enterBossTest(scene.model, request);
+  // A rejected request must not leave a started run behind: put the title back and say why.
+  if (report.startsWith('unknown')) { showTitle(); return report; }
+  const target = typeof request === 'string' ? request : request.target ?? 'phase1';
   $('run-status').textContent = `BOSS TEST / ${target.toUpperCase()}`;
   lastHud = ''; updateHud(scene.model);
   return report;
@@ -164,10 +170,24 @@ function showTitle() {
   // DEV only: a BOSS TEST button beside the ordinary ones. The markup is added here rather than in
   // the title template so that a production build has no trace of it at all.
   if (import.meta.env.DEV) {
+    // ...and a weapon selector beside it, because the question the button is usually being asked is
+    // "is SHOTGUN usable against NIMUSHI at all", not "does the fight start".
+    const picker = document.createElement('select');
+    picker.id = 'boss-test-weapon';
+    picker.title = 'BOSS TEST starting weapon (development only)';
+    // Styled inline rather than through a class: a stylesheet rule would ship in the production CSS
+    // even though nothing in a production build can create the element it styles.
+    picker.style.cssText = "display:block;margin:6px auto 0;padding:5px 8px;background:#17231d;color:#b0baa7;border:1px solid #4a5945;font:10px 'IBM Plex Mono',monospace;letter-spacing:1px";
+    for (const id of BOSS_TEST_WEAPONS) {
+      const option = document.createElement('option');
+      option.value = id; option.textContent = id.toUpperCase();
+      picker.appendChild(option);
+    }
     const button = document.createElement('button');
     button.id = 'boss-test'; button.className = 'text-button'; button.textContent = 'BOSS TEST';
-    button.onclick = () => bossTest('phase1');
-    $('practice').insertAdjacentElement('afterend', button);
+    button.onclick = () => bossTest({ target: 'phase1', weapon: picker.value });
+    $('practice').insertAdjacentElement('afterend', picker);
+    picker.insertAdjacentElement('beforebegin', button);
   }
 }
 let pausedFrom: 'playing' | 'boss' = 'playing';

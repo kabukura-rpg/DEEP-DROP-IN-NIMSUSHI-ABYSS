@@ -3,7 +3,7 @@ import { GameModel } from '../src/systems/GameModel';
 import { BALANCE } from '../src/data/balance';
 import { BOSS_PHYSICS, GRAVITY_DIRECTION } from '../src/data/bossPhysics';
 import { atNimushi, fighting, intoTheAbyss, STEP, tick, shootEye, defeatNimushi } from './nimushi';
-import { GUN_MODULES, type GunModuleId } from '../src/data/gunModules';
+import { GUN_MODULES, GUN_MODULE_IDS, STARTING_GUN_MODULE, type GunModuleId } from '../src/data/gunModules';
 import { enterBossTest } from '../src/dev/bossTest';
 import { NIMUSHI, FINAL_RAGE_RATIO } from '../src/data/nimushi';
 
@@ -214,6 +214,63 @@ describe('BOSS TEST shortcut', () => {
     const before = g.state;
     expect(enterBossTest(g, 'phase9' as never)).toContain('unknown target');
     expect(g.state).toBe(before);
+  });
+
+  /**
+   * The starting weapon. A LOADOUT fixture, so a tester can ask "is SHOTGUN usable against NIMUSHI"
+   * without playing twelve SECTIONs hoping the right crate turns up.
+   *
+   * It swaps through the game's own `equip` -- the same call a GUN MODULE crate makes -- so what
+   * the fight shows is the weapon as it ships. Nothing about its stats is touched here, and that
+   * is the point: the question being asked is whether those stats work at this range.
+   */
+  it('starts the fight holding any of the seven weapons, at full CHARGE', () => {
+    for (const id of GUN_MODULE_IDS) {
+      const g = fresh();
+      const report = enterBossTest(g, { weapon: id });
+      expect(g.gun.module.id).toBe(id);
+      expect(g.ammo).toBe(g.stats.maxAmmo);
+      expect(g.state).toBe('boss');
+      expect(report).toContain(GUN_MODULES[id].name);
+      // A loadout and nothing else: the fight itself is the ordinary one.
+      expect(g.boss.hp).toBe(NIMUSHI.maxHp);
+      expect(g.hp).toBe(g.stats.maxHp);
+      expect(g.upgrades.acquired).toEqual([]);
+    }
+  });
+
+  it('takes the id, the name or the HUD short, in any case', () => {
+    for (const [asked, id] of [['SHOTGUN', 'shotgun'], ['shotgun', 'shotgun'], ['SHOT', 'shotgun'],
+      ['PUNCHER', 'puncher'], ['PUNCH', 'puncher'], ['MACHINE', 'machine'],
+      ['machine gun', 'machine'], ['MG', 'machine'], ['Triple', 'triple']] as const) {
+      const g = fresh();
+      enterBossTest(g, { weapon: asked });
+      expect({ asked, got: g.gun.module.id }).toEqual({ asked, got: id });
+    }
+  });
+
+  it('keeps the stretch shortcut and the weapon independent', () => {
+    const g = fresh();
+    enterBossTest(g, { target: 'phase4', weapon: 'PUNCHER' });
+    expect(g.boss.phaseId).toBe(4);
+    expect(g.gun.module.id).toBe('puncher');
+  });
+
+  it('defaults to what a real run reaches NIMUSHI holding', () => {
+    const g = fresh();
+    enterBossTest(g, 'phase1');
+    expect(g.gun.module.id).toBe(STARTING_GUN_MODULE);
+    // ...and the report only mentions a weapon when one was asked for.
+    expect(enterBossTest(fresh(), 'phase1')).not.toContain('MACHINE GUN');
+  });
+
+  it('rejects an unknown weapon without starting anything', () => {
+    const g = fresh();
+    const before = g.state;
+    const report = enterBossTest(g, { weapon: 'RAILGUN' });
+    expect(report).toContain('unknown weapon');
+    expect(g.state).toBe(before);
+    expect(g.abyssStage).toBe('none');
   });
 
   it('leaks nothing into the next run', () => {
