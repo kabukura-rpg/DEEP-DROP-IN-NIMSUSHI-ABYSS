@@ -7,6 +7,16 @@ import { spawnEnemy, type Enemy, type EnemyKind } from '../src/data/enemies';
 import { initialStats } from '../src/data/balance';
 import { BALANCE } from '../src/data/balance';
 
+/**
+ * Fixtures are SEEDED, never `Math.random`.
+ *
+ * A procedural fixture built from the global RNG is a different world on every run, so a test over
+ * one is really a sample of many -- it passes almost always and fails for reasons nobody can
+ * reproduce. Three separate intermittent failures in this suite were traced to exactly that.
+ * Seeding changes no assertion: it fixes WHICH world each one is asked about.
+ */
+const seeded = (seed: number) => () => { seed = (Math.imul(seed, 1664525) + 1013904223) >>> 0; return seed / 4294967296; };
+
 function emptyGame() { const game = new GameModel(true); game.platforms = []; return game; }
 function enemy(kind: EnemyKind, x = 225, y = 300, id = 1): Enemy { return spawnEnemy(kind, id, x, y); }
 function tick(game: GameModel, seconds: number, direction = 0, fire = false) { for (let i = 0; i < Math.ceil(seconds * 120); i++) game.step(1 / 120, direction, fire); }
@@ -59,7 +69,7 @@ describe('progression', () => {
   });
   it('generates valid platforms and all four enemies with depth', () => { let seed = 12; const random = () => { seed = (Math.imul(seed, 1664525) + 1013904223) >>> 0; return seed / 4294967296; }; const generator = new StageGenerator(random); const kinds = new Set<string>(); for (let i = 0; i < 80; i++) { const chunk = generator.chunk(i); for (const p of chunk.platforms) { expect(p.x).toBeGreaterThanOrEqual(28); expect(p.x + p.width).toBeLessThanOrEqual(422); } chunk.enemies.forEach(e => kinds.add(e.kind)); if (i < 5) expect(chunk.enemies.some(e => e.kind === 'tank' || e.flying)).toBe(false); } expect(kinds.size).toBe(4); });
   it('keeps generated objects bounded during a long descent', () => {
-    const game = new GameModel(false, Math.random, 'endless');
+    const game = new GameModel(false, seeded(4401), 'endless');
     for (let i = 0; i < 150; i++) {
       // The bot teleports a screen at a time, so it can appear already standing inside terrain that
       // kills on contact -- something no actual fall can do. Clearing hazards each step keeps this

@@ -16,7 +16,7 @@ const SECTION_PIXELS = area3.sectionLength * WORLD.pixelsPerMeter;
 const CHUNKS = Math.ceil((WORLD.startY + SECTION_PIXELS) / WORLD.chunkHeight) + 1;
 
 /** A run parked in an AREA 3 section, with the world cleared so a test can place its own fixtures. */
-function inWater(section: SectionId = 1, random = Math.random) {
+function inWater(section: SectionId = 1, random = seeded(4408)) {
   const game = new GameModel(false, random);
   game.jumpToStage(3, section);
   return game;

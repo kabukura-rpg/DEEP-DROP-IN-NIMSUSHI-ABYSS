@@ -8,6 +8,16 @@ import { clearViaExit } from './exitHelper';
 import type { Platform } from '../src/systems/StageGenerator';
 
 /**
+ * Fixtures are SEEDED, never `Math.random`.
+ *
+ * A procedural fixture built from the global RNG is a different world on every run, so a test over
+ * one is really a sample of many -- it passes almost always and fails for reasons nobody can
+ * reproduce. Three separate intermittent failures in this suite were traced to exactly that.
+ * Seeding changes no assertion: it fixes WHICH world each one is asked about.
+ */
+const seeded = (seed: number) => () => { seed = (Math.imul(seed, 1664525) + 1013904223) >>> 0; return seed / 4294967296; };
+
+/**
  * The Downwell CORE loop, as this project now implements it.
  *
  *   ACTION      -- one input. Grounded it jumps; airborne it fires the gunboots.
@@ -322,7 +332,7 @@ describe('Downwell core: only a landing ends a chain', () => {
     expect(game.combo).toBe(12);
   });
   it('keeps the chain across a SECTION boundary, and pays nothing at the rest point', () => {
-    const game = new GameModel(false, Math.random);
+    const game = new GameModel(false, seeded(4405));
     game.combo = 12;
     const coins = game.coins.walletCoins;
     clearViaExit(game);
@@ -333,7 +343,7 @@ describe('Downwell core: only a landing ends a chain', () => {
     expect(game.events.some(e => e.type === 'comboSettle')).toBe(false);
   });
   it('keeps the chain across an AREA boundary', () => {
-    const game = new GameModel(false, Math.random);
+    const game = new GameModel(false, seeded(4406));
     for (let i = 0; i < 2; i++) clearViaExit(game);
     expect(game.stage.label).toBe('1-3');
     game.combo = 9;
@@ -342,7 +352,7 @@ describe('Downwell core: only a landing ends a chain', () => {
     expect(game.combo).toBe(9);
   });
   it('keeps the chain into the FINAL BOSS', () => {
-    const game = new GameModel(false, Math.random);
+    const game = new GameModel(false, seeded(4407));
     game.combo = 17;
     game.jumpToBoss();
     expect(game.state).toBe('boss');

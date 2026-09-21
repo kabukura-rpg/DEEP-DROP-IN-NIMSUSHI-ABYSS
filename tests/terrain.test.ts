@@ -44,7 +44,7 @@ const spikeDensity = (area: AreaId, section: SectionId, seeds = 40) => {
 };
 /** A run parked in a SECTION with the shaft emptied, so a test owns exactly what exists. */
 function bare(area: AreaId, section: SectionId) {
-  const game = new GameModel(false, Math.random);
+  const game = new GameModel(false, seeded(4402));
   game.jumpToStage(area, section);
   game.platforms = []; game.enemies = []; game.pickups = []; game.hazards = [];
   game.containers = []; game.bubbles = [];
@@ -332,7 +332,7 @@ describe('BREAK BLOCK: a row of separate blocks, not one slab', () => {
 
 describe('REWARD BLOCK pays on sight, not on a coin flip', () => {
   /** Practice mode so no shaft is generated and a block can be built exactly as wanted. */
-  const oneBlock = (reward: boolean, random: () => number = Math.random) => {
+  const oneBlock = (reward: boolean, random: () => number = seeded(4403)) => {
     const game = new GameModel(true, random);
     const block: Platform = { id: 51, x: WORLD.wall, y: game.player.y + 40, width: 160, breakable: false, state: 'stable', breakBlock: { hits: 0, durability: 1, slot: 0, reward } };
     game.platforms = [block]; game.player.x = block.x + 80; game.player.vy = 240;
@@ -445,7 +445,7 @@ describe('BREAK BLOCK placement', () => {
   });
   it('still lets every SECTION reach its EXIT with gate rows in the shaft', () => {
     for (const area of [1, 2, 3] as const) for (const s of [1, 2, 3] as const) {
-      const game = new GameModel(false, Math.random);
+      const game = new GameModel(false, seeded(4404));
       game.jumpToStage(area, s as SectionId);
       const gate = reachExit(game);
       expect(game.state).toBe('upgrade');
