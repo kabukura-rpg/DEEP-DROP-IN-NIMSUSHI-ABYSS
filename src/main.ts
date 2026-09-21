@@ -14,6 +14,7 @@ import { BOSS_TEST_WEAPONS, enterBossTest, type BossTestRequest, type BossTestTa
 import { setTerrainMode, getTerrainMode, type TerrainMode } from './data/rhythm';
 import { setSideRoomMode, getSideRoomMode, setCaveFrequency, getCaveFrequency, type SideRoomMode, type CaveFrequency } from './data/safeZone';
 import { previewSideCave, SIDE_CAVE_FIXTURES } from './dev/sideCavePreview';
+import { installMenuKeys } from './ui/menuKeys';
 
 const app = document.querySelector<HTMLDivElement>('#app')!;
 app.innerHTML = `
@@ -52,7 +53,7 @@ let ready = false;
 let physicsPanel: PhysicsPanel | undefined;
 let comboAnimation: Animation | undefined;
 const bridge: GameBridge = {
-  direction: 0, firing: false, active: false,
+  direction: 0, firing: false, active: false, suppressUntil: 0,
   onFrame: updateHud,
   onEvent(event, model) {
     // Events that have no sound simply make none. No cast, so a mismatch is a build error here
@@ -237,12 +238,24 @@ function showStageIntro(model: GameModel) {
   introAnimation.onfinish = () => { intro.hidden = true; };
 }
 function clearInput() { bridge.firing = false; bridge.direction = 0; movementPointers.clear(); firePointers.clear(); scene.resetKeys(); }
+/**
+ * How long the run ignores the keyboard after a menu closes, in ms.
+ *
+ * ENTER or SPACE confirms a menu and is usually still held when the overlay goes; auto-repeat then
+ * delivers that same press to a live run, where SPACE fires the gunboots. Short enough not to be
+ * felt, long enough to outlast the gap before a key repeats.
+ */
+const MENU_INPUT_GUARD_MS = 260;
+/** Hand the keyboard back to the run, but not on the frame a menu let go of it. */
+function resumeInput() { bridge.suppressUntil = performance.now() + MENU_INPUT_GUARD_MS; bridge.active = true; }
+/** True while an overlay menu is up and the keyboard belongs to it. */
+const menuOpen = () => !$('overlay').hidden && mode !== 'playing' && mode !== 'boss';
 function start(practice = false) {
   if (!ready) return;
   audio.unlock(); clearInput(); scene.startRun(practice);
   // DEV: a run asked for by seed is rebuilt here, before anything reads the model. Compiled out.
   if (import.meta.env.DEV) (window as unknown as { __roadSeedApply?: () => void }).__roadSeedApply?.();
-  mode = 'playing'; bridge.active = true;
+  mode = 'playing'; resumeInput();
   comboAnimation?.cancel();
   if (practice) physicsPanel?.startPractice();
   setOverlay(''); lastHud = ''; updateHud(scene.model);
@@ -312,7 +325,7 @@ function pause() {
   setOverlay(`<div class="panel-content"><div class="eyebrow">TAKE A BREATH</div><h2>PAUSED<span>ひと休み。</span></h2><p>深淵は、逃げない。</p><button id="resume" class="primary-button">つづける <span>↓</span></button><button id="restart" class="secondary-button">最初から</button><button id="home" class="text-button">タイトルへ</button></div>`);
   $('resume').onclick = resume; $('restart').onclick = () => start(scene.model.practice); $('home').onclick = showTitle;
 }
-function resume() { scene.model.paused = false; mode = pausedFrom; clearInput(); bridge.active = true; setOverlay(''); }
+function resume() { scene.model.paused = false; mode = pausedFrom; clearInput(); resumeInput(); setOverlay(''); }
 /** A short, skippable SECTION CLEAR card before the rest point. Tap or press any key to move on. */
 let bannerTimer: number | undefined;
 function showSectionClear(model: GameModel, stage: string, areaCleared: string | null) {
@@ -345,6 +358,10 @@ function showUpgrade(model: GameModel) {
     });
     $('selection-summary').textContent = `${u.name}を選択中 · NEXTで確定`;
     $('upgrade-confirm').removeAttribute('disabled'); $('upgrade-confirm').textContent = 'NEXT · 確定して進む';
+    // Step the focus onto NEXT, so choosing and confirming are two presses of the same key and a
+    // keyboard player never has to hunt for the button. A mouse lands there too, which is where
+    // they were going anyway.
+    $('upgrade-confirm').focus({ preventScroll: true });
   }; });
   $('upgrade-confirm').onclick = () => {
     if (!model.confirmUpgrade()) return;
@@ -352,7 +369,7 @@ function showUpgrade(model: GameModel) {
     // A boss hand-off keeps the panel up for one frame; the 'boss' event opens the FINAL BOSS screen.
     if (model.state !== 'playing') return;
     mode = 'playing'; clearInput(); setOverlay(''); lastHud = ''; updateHud(model);
-    $('run-status').textContent = 'DESCENT IN PROGRESS'; bridge.active = true;
+    $('run-status').textContent = 'DESCENT IN PROGRESS'; resumeInput();
   };
 }
 /** The label of the SECTION that NEXT will start, without advancing the run. */
@@ -401,7 +418,7 @@ function showShop(model: GameModel) {
 function closeShop(model: GameModel) {
   if (!model.closeShop()) return;
   mode = 'playing'; clearInput(); setOverlay(''); lastHud = ''; updateHud(model);
-  bridge.active = true;
+  resumeInput();
 }
 /** A short, non-blocking card. Used for weapon swaps and for the exit opening. */
 function showToast(title: string, detail: string) {
@@ -433,7 +450,7 @@ function showAbyss(model: GameModel) {
   $('zone').textContent = 'FINAL · THE ABYSS';
   setOverlay(''); lastHud = ''; updateHud(model);
   $('touch-controls').classList.add('visible');
-  bridge.active = true;
+  resumeInput();
   showBossPhase(0, 'THE ABYSS');
 }
 function showBoss(model: GameModel) {
@@ -442,7 +459,7 @@ function showBoss(model: GameModel) {
   $('zone').textContent = 'FINAL · NIMUSHI';
   setOverlay(''); lastHud = ''; updateHud(model);
   $('touch-controls').classList.add('visible');
-  bridge.active = true;
+  resumeInput();
   showBossPhase(model.boss.phaseId, model.boss.phase.name);
 }
 function showClear(model: GameModel) {
@@ -555,6 +572,23 @@ function updateHud(model: GameModel) {
 $('pause').onclick = pause;
 $('sound').onclick = () => { audio.unlock(); audio.muted = !audio.muted; $('sound').textContent = audio.muted ? '♪̸' : '♪'; $('sound').setAttribute('aria-label', audio.muted ? 'サウンドをオンにする' : 'サウンドをオフにする'); $('sound').setAttribute('aria-pressed', String(audio.muted)); };
 window.addEventListener('keydown', e => { if (inPlay() && ['Space', 'ArrowLeft', 'ArrowRight'].includes(e.code)) e.preventDefault(); if (e.code === 'Escape') { e.preventDefault(); if (inPlay()) pause(); else if (mode === 'paused') resume(); } });
+/**
+ * The menu keys. One install for every overlay, because every overlay is a list of real buttons --
+ * see src/ui/menuKeys.ts for why there is no selection state here and no second code path.
+ *
+ * ESCAPE means "leave" where leaving is a thing this screen offers: the SHOP has a way out, and a
+ * paused run is already handled above. A REST POINT has none -- the choice has to be made -- so
+ * ESCAPE does nothing there rather than something arbitrary.
+ */
+installMenuKeys({
+  root: () => $('overlay'),
+  isOpen: menuOpen,
+  cancel: () => {
+    if (mode !== 'shop') return false;
+    closeShop(scene.model);
+    return true;
+  },
+});
 window.addEventListener('blur', () => { if (inPlay()) pause(); });
 document.addEventListener('visibilitychange', () => { if (document.hidden && inPlay()) pause(); });
 

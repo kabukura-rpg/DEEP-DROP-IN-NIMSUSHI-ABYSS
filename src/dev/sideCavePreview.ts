@@ -32,7 +32,11 @@ export function previewSideCave(model: GameModel, request: string): string {
   // A clean stretch to look at it in: the shaft's own furniture would only be in the way.
   model.enemies = []; model.hazards = []; model.doodads = []; model.containers = [];
   model.caves = []; model.safeZones = []; model.pickups = [];
-  model.shop.reset();
+  // Clear the doorway but KEEP the shelf: `reset()` empties the offers too, and a SHOP CAVE with
+  // nothing on its shelf is not the thing anybody wants to preview. The stock is the SECTION's and
+  // was rolled when the run started.
+  model.shop.placeEntrance(-9999, -9999, 0, 0);
+  model.shop.close();
 
   // Sit the cave a little below the player, with a ledge to arrive on, exactly as a SECTION would.
   const sillY = Math.round(p.y + 260);

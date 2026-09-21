@@ -52,22 +52,26 @@ function build(areaId: AreaId, section: number, seed: number) {
 }
 
 describe('AREA 1 side rooms', () => {
-  it('offers two chances to step off the fall line, where it used to offer one', () => {
+  it('offers more than one chance to step off the fall line, where it used to offer one', () => {
     const per = (mode: SideRoomMode) => {
       setSideRoomMode(mode);
-      let total = 0, least = Infinity, n = 0;
+      let total = 0, least = Infinity, most = 0, n = 0;
       for (const seed of SEEDS) for (const section of [1, 2, 3]) {
         const count = build(1, section, seed).zones.length;
-        total += count; least = Math.min(least, count); n++;
+        total += count; least = Math.min(least, count); most = Math.max(most, count); n++;
       }
-      return { mean: total / n, least };
+      return { mean: total / n, least, most };
     };
     const legacy = per('legacy'), v1 = per('v1');
     expect(legacy.mean).toBe(1);
-    expect(v1.mean).toBe(2);
-    // GUARANTEED, not averaged: a SECTION a run cannot be supplied in is the failure this prevents.
     expect(legacy.least).toBe(1);
-    expect(v1.least).toBe(2);
+    // AREA 1 ships on VARIABLE: one cave or two, so the mean sits between them. How many is the
+    // cave frequency's business and has its own tests; what this one is about is that turning the
+    // pilot on gives a SECTION more than the single chamber it used to have.
+    expect(v1.mean).toBeGreaterThan(legacy.mean);
+    expect(v1.most).toBe(2);
+    // GUARANTEED, not averaged: a SECTION a run cannot be supplied in is the failure this prevents.
+    expect(v1.least).toBeGreaterThanOrEqual(1);
   });
 
   it('puts every chamber where the fall the player is already making can reach it', () => {
@@ -152,7 +156,7 @@ describe('AREA 1 side rooms', () => {
     }
   });
 
-  it('doubles how much side content a SECTION holds, without touching the split', () => {
+  it('raises how much side content a SECTION holds, without touching the split', () => {
     // COUNTS, not "did a SECTION have one". A share is a saturating measure -- two chambers of the
     // same kind read as one -- and over this many SECTIONs its sampling error is wider than the
     // effect. The count is linear in how many chambers there are, which is the thing that changed.
@@ -173,7 +177,9 @@ describe('AREA 1 side rooms', () => {
     };
     const legacy = per('legacy'), v1 = per('v1');
     for (const kind of ['shop', 'module', 'vein'] as const) {
-      expect(v1[kind], kind).toBeGreaterThan(legacy[kind] * 1.6);
+      // On VARIABLE the SECTION holds 1.5 rooms where it held 1, so the content it carries rises
+      // by about half rather than doubling. The SPLIT between the three is what must not move.
+      expect(v1[kind], kind).toBeGreaterThan(legacy[kind] * 1.25);
     }
     // The split itself is untouched: each kind keeps its share of the slots there are.
     const total = v1.shop + v1.module + v1.vein;

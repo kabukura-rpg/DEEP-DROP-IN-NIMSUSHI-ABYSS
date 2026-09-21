@@ -15,6 +15,15 @@ import { SPEED_PROFILES } from '../data/speedProfiles';
 import { PlayerArtPreview } from '../dev/PlayerArtPreview';
 export interface GameBridge {
   direction: number; firing: boolean; active: boolean;
+  /**
+   * `performance.now()` before which keyboard input is not the run's.
+   *
+   * A menu is confirmed with ENTER or SPACE, and the key that confirmed it is usually still down
+   * when the overlay disappears -- the operating system's auto-repeat then fires another keydown
+   * into a run that has just become live, and SPACE is the gunboots. Closing a menu holds the
+   * keyboard off for a moment so the press that dismissed it cannot also be played.
+   */
+  suppressUntil: number;
   onFrame: (model: GameModel) => void;
   onEvent: (event: GameEvent, model: GameModel) => void;
 }
@@ -79,8 +88,8 @@ export class GameScene extends Phaser.Scene {
     this.keys = this.input.keyboard!.addKeys({ left: 'LEFT', right: 'RIGHT', a: 'A', d: 'D', space: 'SPACE' }) as Record<string, Phaser.Input.Keyboard.Key>;
     this.input.keyboard!.addCapture(['SPACE', 'LEFT', 'RIGHT']);
     this.input.keyboard!.on('keydown-SPACE', () => this.requestShot());
-    for (const key of ['LEFT', 'A']) this.input.keyboard!.on(`keydown-${key}`, () => { if (this.bridge.active) this.inputBuffer.move(-1); });
-    for (const key of ['RIGHT', 'D']) this.input.keyboard!.on(`keydown-${key}`, () => { if (this.bridge.active) this.inputBuffer.move(1); });
+    for (const key of ['LEFT', 'A']) this.input.keyboard!.on(`keydown-${key}`, () => { if (this.acceptsKeys) this.inputBuffer.move(-1); });
+    for (const key of ['RIGHT', 'D']) this.input.keyboard!.on(`keydown-${key}`, () => { if (this.acceptsKeys) this.inputBuffer.move(1); });
     this.draw();
   }
   startRun(practice = false) {
@@ -89,7 +98,9 @@ export class GameScene extends Phaser.Scene {
     for (const label of this.labels) label.text.destroy();
     this.labels = []; this.flash = 0; this.shake = 0; this.damageTime = 0; this.damageSource = undefined; this.inputBuffer.clear();
   }
-  requestShot() { if (this.bridge.active) this.inputBuffer.shoot(); }
+  /** True when a key press belongs to the run rather than to a menu that just closed. */
+  private get acceptsKeys() { return this.bridge.active && performance.now() >= this.bridge.suppressUntil; }
+  requestShot() { if (this.acceptsKeys) this.inputBuffer.shoot(); }
   resetKeys() { this.input.keyboard?.resetKeys(); this.bridge.firing = false; this.bridge.direction = 0; this.inputBuffer.clear(); }
   update(_time: number, delta: number) {
     if (!this.graphics) return;

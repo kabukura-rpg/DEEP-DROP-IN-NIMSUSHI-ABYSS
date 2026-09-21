@@ -94,6 +94,8 @@ export const getSideRoomMode = () => sideRoomMode;
  *   `variable`  one or two, 50/50, drawn per SECTION -- a mean of 1.5, so 4.5 across AREA 1
  *   `high`      two per SECTION  -- six across AREA 1, which is what the caves were built at
  *
+ * `variable` is the shipping default. The other two are kept for comparison, not as candidates.
+ *
  * The question this exists to answer is not how many there should be but whether finding one still
  * means anything. Too many and a cave is scenery; too few and the detour never comes up. Nothing
  * else moves with it: the shapes, the contents and the weights are the same in all three.
@@ -101,7 +103,12 @@ export const getSideRoomMode = () => sideRoomMode;
  * Production never calls this -- the only call site is behind `import.meta.env.DEV` in main.ts.
  */
 export type CaveFrequency = 'low' | 'variable' | 'high';
-let caveFrequency: CaveFrequency = 'high';
+/**
+ * VARIABLE is what AREA 1 ships with. Human review compared all three on one seed -- the shaft is
+ * identical in each, so only the number of caves differed -- and chose it: a cave in every SECTION
+ * so the detour is always on offer, but not the two that made finding one routine.
+ */
+let caveFrequency: CaveFrequency = 'variable';
 export const setCaveFrequency = (mode: CaveFrequency) => { caveFrequency = mode; };
 export const getCaveFrequency = () => caveFrequency;
 
