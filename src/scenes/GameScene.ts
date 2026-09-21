@@ -372,8 +372,13 @@ export class GameScene extends Phaser.Scene {
     }
     // The shop doorway, when this SECTION happens to have one.
     this.timeVoid(m, cam);
-    const door = m.shop.entrance;
-    if (door) {
+    // Every doorway this SECTION has: the chamber's, where an AREA still cuts chambers, and one
+    // for EACH shop cave -- a SECTION can hold more than one, and each is its own door.
+    const doors = [
+      ...(m.shop.entrance ? [m.shop.entrance] : []),
+      ...m.caves.filter(c => c.content?.kind === 'shop' && !c.taken).map(c => m.shopDoor(c)),
+    ];
+    for (const door of doors) {
       const dy = door.y - cam;
       if (dy > -120 && dy < 860) {
         this.rect(door.x, dy, door.width, door.height, 0x1e1830, 0.95);

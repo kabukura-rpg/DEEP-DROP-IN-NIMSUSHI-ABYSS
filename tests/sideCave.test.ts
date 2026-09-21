@@ -11,6 +11,8 @@ import {
 import { SHOP_DOOR } from '../src/data/structures';
 import { JUMP, WORLD, BALANCE } from '../src/data/balance';
 import { pickupType } from '../src/data/pickups';
+import { horizontalReach, fallTime } from '../src/data/difficulty';
+import { SAFE_ZONE_RULES } from '../src/data/safeZone';
 import { coinVeinTotal } from '../src/data/safeZone';
 
 /**
@@ -577,5 +579,180 @@ describe('SIDE CAVE frequency', () => {
         expect(zones, `${mode} AREA ${area.id}`).toBeGreaterThanOrEqual(1);
       }
     }
+  });
+});
+
+describe('SIDE CAVE entry contract', () => {
+  const seeded3 = (seed: number) => () => { seed = (Math.imul(seed, 1664525) + 1013904223) >>> 0; return seed / 4294967296; };
+  const CAMERA_LEAD = Math.round(WORLD.height * 0.63);
+  /** Where the sill ACTUALLY holds the player: its own edge, half the body over it. */
+  const sillAt = (side: -1 | 1) => side === -1
+    ? WORLD.wall + CAVE_RULES.sillOverhang
+    : WORLD.width - WORLD.wall - CAVE_RULES.sillOverhang;
+
+  /** Every cave an AREA 1 SECTION cuts, with the route band the fall to it starts from. */
+  function approaches(mode: CaveFrequency, n: number, seed: number) {
+    setCaveFrequency(mode);
+    const area = areaConfig(1);
+    const g = new StageGenerator(seeded3(seed), { plan: area.plans![n - 1], enemyPool: area.enemyPool, sectionLength: area.sectionLength });
+    const limit = WORLD.startY + area.sectionLength * WORLD.pixelsPerMeter;
+    const caves: SideCave[] = []; const bands = new Map<number, { y: number; exitX: number }>();
+    for (let c = 0; c < 8; c++) {
+      const k = g.chunk(c);
+      caves.push(...k.caves.filter(v => v.bounds.y <= limit));
+      for (const p of k.platforms) if (p.y <= limit && p.safeZone === undefined && !bands.has(Math.round(p.y))) {
+        bands.set(Math.round(p.y), { y: p.y, exitX: p.exitX });
+      }
+    }
+    const ys = [...bands.keys()].sort((a, b) => a - b);
+    return caves.map(cave => {
+      const sillY = cave.opening.y + cave.opening.height;
+      const above = ys.filter(y => y < sillY - 20).pop();
+      const from = above === undefined ? undefined : bands.get(above)!;
+      if (!from) return { cave, physical: false, reactable: false, missing: true };
+      const drop = sillY - from.y;
+      const need = Math.abs(sillAt(cave.side) - from.exitX);
+      const physical = drop > 0 && need <= horizontalReach(drop);
+      const visible = Math.min(drop, CAMERA_LEAD);
+      const onScreen = fallTime(drop) - fallTime(drop - visible);
+      return { cave, physical, reactable: physical && onScreen - need / BALANCE.moveSpeed >= SAFE_ZONE_RULES.reactionReserve, missing: false };
+    });
+  }
+  const MANY = Array.from({ length: 110 }, (_, i) => 977 * (i + 1));
+
+  it('validates a cave against its OWN sill, not the chamber width it replaced', () => {
+    // The bug: `withinReach` used SAFE_ZONE_RULES.width (150), putting the landing spot 80px
+    // further into the shaft than a cave's 70px sill actually reaches. Those two numbers must not
+    // be the same thing, and the cave's is the one that exists.
+    expect(CAVE_RULES.sillOverhang).toBeLessThan(SAFE_ZONE_RULES.width);
+    expect(sillAt(-1)).toBe(WORLD.wall + CAVE_RULES.sillOverhang);
+    expect(sillAt(1)).toBe(WORLD.width - WORLD.wall - CAVE_RULES.sillOverhang);
+  });
+
+  it('places no cave the fall cannot physically cross to, on either wall', () => {
+    for (const mode of ['low', 'variable', 'high'] as const) {
+      let checked = 0, left = 0, right = 0;
+      for (const seed of MANY) for (const n of [1, 2, 3]) {
+        for (const a of approaches(mode, n, seed)) {
+          expect(a.missing, `${mode} ${seed}/${n}: a cave with no band above it`).toBe(false);
+          expect(a.physical, `${mode} ${seed}/${n}: a cave the fall cannot reach`).toBe(true);
+          checked++;
+          a.cave.side === -1 ? left++ : right++;
+        }
+      }
+      expect(checked).toBeGreaterThan(300);
+      // Both walls, so this is one algorithm rather than one that happens to suit a side.
+      expect(left).toBeGreaterThan(0);
+      expect(right).toBeGreaterThan(0);
+    }
+  });
+
+  it('leaves the reaction reserve intact on every cave it places', () => {
+    for (const mode of ['low', 'variable', 'high'] as const) {
+      for (const seed of MANY) for (const n of [1, 2, 3]) {
+        for (const a of approaches(mode, n, seed)) {
+          expect(a.reactable, `${mode} ${seed}/${n}: a mouth that cannot be reacted to`).toBe(true);
+        }
+      }
+    }
+  });
+
+  it('still guarantees every SECTION its caves, at every frequency', () => {
+    for (const [mode, want] of [['low', 1], ['high', 2]] as const) {
+      let short = 0, total = 0;
+      for (const seed of MANY) for (const n of [1, 2, 3]) {
+        const caves = approaches(mode, n, seed).length;
+        expect(caves, `${mode} ${seed}/${n}`).toBeGreaterThanOrEqual(1);
+        if (caves < want) short++;
+        total++;
+      }
+      // A frequency is a budget: a slot can run out of SECTION before it finds a band it can be
+      // entered from. Never zero, and rare -- measured at 0.20% for HIGH over 3000 SECTIONs.
+      expect(short / total).toBeLessThan(0.05);
+    }
+    for (const seed of MANY) for (const n of [1, 2, 3]) {
+      expect(approaches('variable', n, seed).length).toBeGreaterThanOrEqual(1);
+    }
+  });
+});
+
+describe('two SHOP caves in one SECTION', () => {
+  const seeded4 = (seed: number) => () => { seed = (Math.imul(seed, 1664525) + 1013904223) >>> 0; return seed / 4294967296; };
+  /** A run whose loaded caves include two shops. */
+  function twoShops() {
+    setCaveFrequency('high');
+    for (let seed = 1; seed <= 3000; seed++) {
+      const g = new GameModel(false, seeded4(seed * 17));
+      const seen = new Map<number, SideCave>();
+      for (let i = 0; i < 100; i++) {
+        g.player.y = WORLD.startY + (8 + i * 4) * WORLD.pixelsPerMeter;
+        g.player.invincible = 999; g.step(STEP, 0, false);
+        for (const c of g.caves) if (c.content?.kind === 'shop') seen.set(c.id, c);
+        const both = [...seen.values()].sort((a, b) => a.opening.y - b.opening.y);
+        if (both.length >= 2 && g.caves.includes(both[0]) && g.caves.includes(both[1])) return { g, a: both[0], b: both[1] };
+      }
+    }
+    return null;
+  }
+  /** Stand in a cave's doorway for one step. */
+  const walkInto = (g: GameModel, cave: SideCave) => {
+    const d = g.shopDoor(cave);
+    g.player.x = d.x + d.width / 2; g.player.y = d.y + d.height / 2;
+    g.player.vy = 0; g.player.invincible = 999;
+    g.step(STEP, 0, false);
+    return g.state;
+  };
+
+  it('opens whichever one is reached first, and then the other', () => {
+    // A -> B
+    const first = twoShops();
+    expect(first, 'no SECTION with two shop caves').not.toBeNull();
+    const { g, a, b } = first!;
+    expect(walkInto(g, a), 'the shallower shop must open').toBe('shop');
+    expect(a.taken).toBe(true);
+    expect(g.closeShop()).toBe(true);
+    expect(walkInto(g, b), 'the deeper shop must open too').toBe('shop');
+    expect(b.taken).toBe(true);
+    expect(g.closeShop()).toBe(true);
+    // Each shop once -- but ONCE EACH, not once per SECTION.
+    expect(walkInto(g, a)).toBe('playing');
+
+    // B -> A, the other way round: opening the deeper one must not disarm the shallower.
+    const second = twoShops()!;
+    expect(walkInto(second.g, second.b)).toBe('shop');
+    expect(second.g.closeShop()).toBe(true);
+    expect(walkInto(second.g, second.a), 'the shallower shop must survive the deeper one').toBe('shop');
+    expect(second.g.closeShop()).toBe(true);
+    expect(walkInto(second.g, second.b)).toBe('playing');
+  });
+
+  it('keeps the SECTION shelf shared, which is what it has always been', () => {
+    const found = twoShops()!;
+    const { g, a, b } = found;
+    const stock = g.shop.offers.map(o => o.item);
+    walkInto(g, a);
+    expect(g.shop.offers.map(o => o.item)).toEqual(stock);
+    g.closeShop();
+    walkInto(g, b);
+    // One shelf per SECTION: two doors onto the same goods, so anything bought at the first is
+    // gone at the second. That is the existing meaning and this change does not touch it.
+    expect(g.shop.offers.map(o => o.item)).toEqual(stock);
+    g.closeShop();
+  });
+
+  it('does not lose the deeper shop when the shallower one drops behind the view', () => {
+    const { g, a, b } = twoShops()!;
+    // Descend until the shallower cave has been culled -- but stop short of the deeper one, which
+    // is still ahead. Passing one shop must not cost the other its door.
+    for (let i = 0; i < 4000 && g.caves.some(c => c.id === a.id); i++) {
+      g.player.y = Math.min(g.player.y + 8, b.opening.y - 300);
+      g.player.invincible = 999;
+      g.step(STEP, 0, false);
+    }
+    expect(g.caves.some(c => c.id === a.id), 'the shallower cave should be behind the view by now').toBe(false);
+    const alive = g.caves.find(c => c.id === b.id);
+    expect(alive, 'the deeper shop must still be there').toBeDefined();
+    expect(alive!.taken).toBe(false);
+    expect(walkInto(g, alive!)).toBe('shop');
   });
 });

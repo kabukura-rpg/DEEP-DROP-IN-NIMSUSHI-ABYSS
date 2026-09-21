@@ -1616,8 +1616,36 @@ export class GameModel {
     }
   }
   /** Walking into the doorway opens the SHOP, which stops the world while it is open. */
+  /**
+   * Where a SHOP CAVE's doorway stands. Derived from the cave rather than stored, so every shop
+   * cave has one and no two can overwrite each other.
+   */
+  shopDoor(cave: SideCave) {
+    const spot = caveRewardSpot(cave, shapeOf(cave));
+    return {
+      x: Math.round(spot.x - SHOP_DOOR.width / 2), y: Math.round(spot.y - SHOP_DOOR.height),
+      width: SHOP_DOOR.width, height: SHOP_DOOR.height,
+    };
+  }
+  /** True when the player is standing in THIS cave's doorway and has not used it yet. */
+  private atShopDoor(cave: SideCave, x: number, y: number) {
+    if (cave.content?.kind !== 'shop' || cave.taken) return false;
+    const d = this.shopDoor(cave);
+    return x + 9 > d.x && x - 9 < d.x + d.width && y + 15 > d.y && y - 15 < d.y + d.height;
+  }
   private enterShop() {
     const p = this.player;
+    // Each SHOP CAVE is its own door with its own used flag: walking into one never disarms
+    // another. "A shop is worth entering once" means EACH shop, not one shop per SECTION.
+    const cave = this.caves.find(c => this.atShopDoor(c, p.x, p.y));
+    if (cave && !this.shop.open) {
+      cave.taken = true;
+      if (!this.shop.openShelf()) return;
+      this.shopReturn = this.state === 'boss' ? 'boss' : 'playing';
+      this.state = 'shop';
+      this.events.push({ type: 'shopOpen', x: p.x, y: p.y, value: this.coins.walletCoins });
+      return;
+    }
     if (!this.shop.touches(p.x, p.y) || !this.shop.enter()) return;
     // Remembered rather than assumed: the ABYSS staging room shops from the 'boss' state, and
     // closing the shelf there must not drop the run back into an ordinary SECTION.
@@ -2329,10 +2357,11 @@ export class GameModel {
     if (cave.content?.kind === 'gunModule') {
       this.pickups.push(spawnGunModule(cave.id + 1, Math.round(spot.x), Math.round(spot.y - 34),
         cave.content.module ?? STARTING_GUN_MODULE, cave.content.bonus ?? 'heart'));
-    } else if (cave.content?.kind === 'shop') {
-      this.shop.placeEntrance(Math.round(spot.x - SHOP_DOOR.width / 2), Math.round(spot.y - SHOP_DOOR.height), SHOP_DOOR.width, SHOP_DOOR.height);
     }
-    // A COIN VEIN needs nothing here: it is a face on the rock, drawn and shot where it stands.
+    // A SHOP CAVE reports no doorway: it carries its own, from `shopDoor`. ShopSystem holds ONE
+    // entrance, so when a SECTION generated two shop caves the second one's `placeEntrance`
+    // overwrote the first and left the shallower shop dead -- measured at 19% of AREA 1 runs.
+    // A COIN VEIN needs nothing here either: it is a face on the rock, drawn and shot where it is.
   }
 
   private emit(type: GameEvent['type'], x: number, y: number) { this.events.push({ type, x, y }); }

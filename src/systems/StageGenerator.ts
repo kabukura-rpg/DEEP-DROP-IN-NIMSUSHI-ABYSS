@@ -6,7 +6,7 @@ import { AIR_CONTAINER_RULES, BREAK_BLOCK_RULES, breakBlockWidth, EXIT_RULES, sp
 import { spawnHazard, type Hazard, type SpikeKind } from '../data/hazards';
 import { spawnDoodad, DOODAD_RULES, type Doodad } from '../data/doodads';
 import { getSideRoomMode, rollSafeZoneContent, safeZoneDepths, safeZoneRowClearance, sideRoomCount, SAFE_ZONE_RULES, type SafeZone } from '../data/safeZone';
-import { caveShape, placeCave, type CaveArchetype, type SideCave } from '../data/sideCave';
+import { CAVE_RULES, caveShape, placeCave, type CaveArchetype, type SideCave } from '../data/sideCave';
 import { rollGunModule as rollModuleForZone } from '../data/gunModules';
 import type { SectionPlan, WaterPhysics } from '../data/areas';
 import { RhythmWalker, getTerrainMode, laneOf, type RhythmBand } from '../data/rhythm';
@@ -660,13 +660,36 @@ export class StageGenerator {
     const height = SAFE_ZONE_RULES.height, floorHeight = SAFE_ZONE_RULES.floorHeight;
     if (bandBottom - bandTop < height + floorHeight + 20) return;
     const width = SAFE_ZONE_RULES.width;
+    /**
+     * HOW FAR THE SIDE ROOM REACHES INTO THE SHAFT, and where its landing spot is.
+     *
+     * A chamber IS the 150px rectangle it occupies, so its own width answers both. A SIDE CAVE is
+     * not: the cave is out in the rock and the only part of it inside the shaft is its SILL, which
+     * comes `sillOverhang` in and no further. Reusing the chamber's width for a cave was the bug --
+     * it put the landing spot at x=152/298 when the sill stops at 98/352, so placement was being
+     * validated against a ledge 80px further in than exists.
+     *
+     * WHERE THE LANDING SPOT IS comes from the collision rule rather than from a convention. A
+     * player lands while their box overlaps the slab -- `p.x + 9 > f.x && p.x - 9 < f.x + width` --
+     * so the deepest point in the shaft at which the sill still holds them is its own edge, with
+     * half the body over it and nine pixels to spare. A chamber keeps the 26px inset it has always
+     * used, because a chamber is the rectangle and its far side is a wall to stand against.
+     *
+     * LEFT and RIGHT come out of one expression; neither is a special case and there is no offset
+     * here that is not either the sill's own reach or the player's own width.
+     */
+    const footprint = this.sideRoomPilot ? CAVE_RULES.sillOverhang : width;
+    const inset = this.sideRoomPilot ? 0 : 26;
+    const landingX = (candidate: -1 | 1) => candidate === -1
+      ? WORLD.wall + footprint - inset
+      : WORLD.width - WORLD.wall - footprint + inset;
     // Sit the chamber so its floor is comfortably inside the band.
     const floorY = Math.round(bandBottom - floorHeight);
     const top = floorY - height;
     const fits = (candidate: -1 | 1) => {
-      const x = candidate === -1 ? WORLD.wall : WORLD.width - WORLD.wall - width;
+      const x = candidate === -1 ? WORLD.wall : WORLD.width - WORLD.wall - footprint;
       const overlaps = (ox: number, ow: number, oy: number, oh: number) =>
-        ox < x + width + 12 && ox + ow > x - 12 && oy < top + height + floorHeight + 12 && oy + oh > top - 12;
+        ox < x + footprint + 12 && ox + ow > x - 12 && oy < top + height + floorHeight + 12 && oy + oh > top - 12;
       if (hazards.some(h => overlaps(h.x, h.width, h.y, h.height))) return false;
       if (containers.some(c => overlaps(c.x, c.width, c.y, c.height))) return false;
       if (enemies.some(e => overlaps(e.originX - e.range - 16, e.range * 2 + 32, e.y - 20, 40))) return false;
@@ -683,18 +706,22 @@ export class StageGenerator {
      * cross in time -- visible, unobstructed, and enterable only by climbing back up, which is
      * exactly the unnatural detour a side room must never ask for.
      */
-    const withinReach = (candidate: -1 | 1) => {
-      const x = candidate === -1 ? WORLD.wall : WORLD.width - WORLD.wall - width;
-      const mouth = candidate === -1 ? x + width - 26 : x + 26;
-      const drop = floorY - this.previous.y;
-      if (drop <= 0) return false;
-      const need = Math.abs(mouth - this.previous.exitX);
-      if (need > horizontalReach(drop, this.context.water)) return false;
-      // ...and reachable IN TIME TO DECIDE. The mouth is only on screen for the last CAMERA_LEAD
-      // pixels of the fall, so the steering has to fit inside that window with thinking time spare.
+    const drop = floorY - this.previous.y;
+    const steering = (candidate: -1 | 1) => Math.abs(landingX(candidate) - this.previous.exitX);
+    /** A. PHYSICALLY REACHABLE: can the fall that is already happening cross to the sill at all? */
+    const physicallyReachable = (candidate: -1 | 1) =>
+      drop > 0 && steering(candidate) <= horizontalReach(drop, this.context.water);
+    /**
+     * B. HUMAN-REACTABLE: can it be crossed by someone who only learns the mouth is there when it
+     * appears? The camera shows CAMERA_LEAD pixels below the player, so the mouth is on screen for
+     * the last part of the fall and no longer. What is left of that window once the steering is
+     * paid for is thinking time, and `reactionReserve` is how much of it there has to be.
+     */
+    const humanReactable = (candidate: -1 | 1) => {
+      if (!physicallyReachable(candidate)) return false;
       const visible = Math.min(drop, CAMERA_LEAD);
       const onScreen = fallTime(drop, this.context.water?.gravity) - fallTime(drop - visible, this.context.water?.gravity);
-      return onScreen - need / BALANCE.moveSpeed >= SAFE_ZONE_RULES.reactionReserve;
+      return onScreen - steering(candidate) / BALANCE.moveSpeed >= SAFE_ZONE_RULES.reactionReserve;
     };
     const roomRandom = this.caveRandom ?? this.random;
     const preferred: -1 | 1 = this.nextChamberSide !== 0 ? this.nextChamberSide : (roomRandom() < 0.5 ? -1 : 1);
@@ -713,13 +740,25 @@ export class StageGenerator {
     }
     // Reachable first, alternation second, unobstructed last. A chamber on the wrong wall is worse
     // than a chamber on the same wall twice, and both are better than no chamber at all.
-    const reachable = order.find(c => fits(c) && withinReach(c));
-    // Nothing reachable here: wait for a row where there is. A chamber's depth is the EARLIEST it
-    // may appear, not where it must, so passing on a bad band costs nothing while the SECTION still
-    // has depth left. Close to the exit that stops being true, and a chamber on an awkward wall
-    // beats the SECTION having one fewer -- so the last stretch takes whatever fits.
+    /**
+     * Which wall, in order of how good the way in is.
+     *
+     * A room's depth is the EARLIEST it may appear, not where it must, so while the SECTION has
+     * depth left the answer to a poor band is to wait for a better one. What the last stretch
+     * settles for is the whole question, and it is graded rather than all-or-nothing:
+     *
+     *   1. HUMAN-REACTABLE   the mouth can be crossed to after it is seen, with thinking time left
+     *   2. PHYSICALLY REACHABLE  the fall can cross to it, but only for someone already going that
+     *                            way -- accepted near the exit, because a SECTION with no side room
+     *                            at all is one a run cannot be supplied in
+     *   3. merely unobstructed   a CHAMBER may still take this; a CAVE never does. This was how
+     *                            rooms ended up on a wall the fall could not cross at all, and a
+     *                            cave nobody can enter is worse than one fewer cave.
+     */
     const roomToWait = localDepth < ceiling - SAFE_ZONE_RULES.depthMargin;
-    const side = reachable ?? (roomToWait ? 0 : order.find(fits) ?? 0);
+    const side = order.find(c => fits(c) && humanReactable(c))
+      ?? (roomToWait ? 0 : order.find(c => fits(c) && physicallyReachable(c)))
+      ?? (roomToWait || this.sideRoomPilot ? 0 : order.find(fits) ?? 0);
     if (side === 0) return;
     this.cutChamber(side, width, floorY, top, y, start, zones, caves, platforms);
   }

@@ -53,6 +53,20 @@ export class ShopSystem {
     this.open = true; this.visited = true;
     return true;
   }
+  /**
+   * Open the shelf for a doorway the CALLER owns.
+   *
+   * A SIDE CAVE carries its own doorway and its own used flag, because a SECTION can hold more than
+   * one shop cave and this class can only remember one `entrance` -- the second one placed used to
+   * overwrite the first and leave the shallower shop dead. The stock itself stays what it has
+   * always been: one shelf per SECTION, so two shop caves in a SECTION are two doors onto the same
+   * goods, and anything bought at the first is gone at the second.
+   */
+  openShelf() {
+    if (this.open) return false;
+    this.open = true;
+    return true;
+  }
   close() { this.open = false; }
 
   get soldOut() { return this.offers.every(o => o.sold); }
