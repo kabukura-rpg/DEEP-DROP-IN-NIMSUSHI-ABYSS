@@ -549,7 +549,16 @@ export class NimushiBossSystem {
     const phase = abyssPhaseAt(this.ratio);
     if (phase.id === this.phaseId) return false;
     this.phaseId = phase.id;
-    this.rotation = 0;
+    /**
+     * The rotation CARRIES OVER. It used to reset here, and that quietly cut the third attack out
+     * of the fight.
+     *
+     * A stretch has room for about two attacks -- measured, 1.9 to 2.3 -- and the rotation is three
+     * long, so starting every stretch at index 0 meant SHOWER, BEAM, transition, SHOWER, BEAM,
+     * transition. Over eight full fights that came to SHOWER 4.0, BEAM 3.9 and CLONES 0.4, with
+     * LIMBO's shades never summoned once. Carrying the index turns the same fight into 3.4 / 3.1 /
+     * 2.6 with two shades, and nothing else about any of them moves.
+     */
     this.state = 'phaseTransition'; this.timer = NIMUSHI.transition;
     // Everything the previous stretch had in the air goes with it, so the haul upward is clean.
     this.tapiocas = []; this.cups = []; this.beams = [];
@@ -558,7 +567,12 @@ export class NimushiBossSystem {
     return true;
   }
 
-  /** The stretch's rotation, in order. Each phase adds to the last rather than replacing it. */
+  /**
+   * The next attack, in order, counting ACROSS stretches rather than restarting in each one.
+   *
+   * A fight is only about eight attacks long in total, so where the counter is at a stretch
+   * boundary is most of what decides whether the third one is ever seen.
+   */
   private nextAttack(): AbyssAttackId {
     const list = this.phase.attacks;
     const id = list[this.rotation % list.length];

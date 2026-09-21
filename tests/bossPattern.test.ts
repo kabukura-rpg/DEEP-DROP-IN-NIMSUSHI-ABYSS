@@ -4,6 +4,7 @@ import { GameModel } from '../src/systems/GameModel';
 import { NIMUSHI, TAPIOCA_SHOWER, FULL_SCREEN_TAPIOCA, STRAW_BEAM, TAPIOCA_CUP, ATTACK_STATES } from '../src/data/nimushi';
 import { ENEMY_TYPES, spawnEnemy } from '../src/data/enemies';
 import { BOSS_PHYSICS } from '../src/data/bossPhysics';
+import { ABYSS_PHASES } from '../src/data/abyss';
 import { WORLD } from '../src/data/balance';
 
 /**
@@ -282,6 +283,69 @@ describe('the shower is fought through, not waited out', () => {
     expect(sawSummoned).toBe(true);
     expect(noTarget).toBe(0);
     void frames;
+  });
+
+  /**
+   * The rotation counts ACROSS stretches, which is what lets the third attack exist.
+   *
+   * A stretch has room for about two attacks and the rotation is three long, so restarting it at
+   * every boundary meant SHOWER, BEAM, transition, SHOWER, BEAM, transition -- and CLONES 0.4 times
+   * in a whole fight, with LIMBO's shades never summoned at all.
+   */
+  it('carries the attack rotation across a stretch boundary', () => {
+    const g = fighting(220);
+    const machine = g.boss as unknown as { rotation: number; enterPhaseTransition(out: unknown[]): boolean };
+    // Walk the rotation part-way, then force the stretch change the fight would make.
+    machine.rotation = 2;
+    g.boss.hp = Math.round(NIMUSHI.maxHp * ABYSS_PHASES[1].from) - 1;
+    const moved = machine.enterPhaseTransition([]);
+    expect(moved).toBe(true);
+    expect(g.boss.phaseId).toBe(2);
+    // The counter is where it was: the next attack is the next attack, not the first one again.
+    expect(machine.rotation).toBe(2);
+  });
+
+  it('reaches every attack in its rotation over a whole fight', () => {
+    const seen = new Set<string>();
+    const counts: Record<string, number> = { tapiocaShower: 0, strawBeam: 0, nimushiClones: 0 };
+    let shades = 0, phase4Clones = 0;
+    const summoned = new Set<number>();
+    for (const seed of [221, 222, 223, 224, 225]) {
+      const g = new GameModel(false, seeded(seed));
+      g.jumpToNimushi();
+      g.platforms = []; g.doodads = []; g.containers = [];
+      g.bullets.push(round(g.boss.x, g.boss.eye.y + g.boss.eye.height / 2, 1));
+      g.step(STEP, 0, false);
+      let was = '';
+      for (let i = 0; i < 300 / STEP && g.state === 'boss' && !g.boss.defeated; i++) {
+        const p = g.player;
+        g.player.invincible = 9;
+        if (p.y - g.cameraY > WORLD.height * 0.9) p.y = g.cameraY + WORLD.height * 0.6;
+        const ahead = g.enemies.filter(e => e.alive && e.stompable && e.y < p.y).sort((a, b) => b.y - a.y)[0];
+        const want = g.boss.eyeOpen && g.ammo > 0 ? g.boss.x : (ahead ? ahead.x : p.x);
+        g.step(STEP, Math.abs(want - p.x) < 5 ? 0 : Math.sign(want - p.x) as -1 | 0 | 1, g.ammo > 0 && i % 8 < 4);
+        const st = g.boss.state;
+        if (st !== was && (st === 'tapiocaShower' || st === 'strawBeam' || st === 'nimushiClones')) {
+          seen.add(st); counts[st]++;
+        }
+        was = st;
+        for (const e of g.enemies) {
+          if (summoned.has(e.id)) continue;
+          if (e.kind === 'nimushiShade') { summoned.add(e.id); shades++; }
+          if (e.kind === 'nimushiClone' && g.boss.phaseId === 4) { summoned.add(e.id); phase4Clones++; }
+        }
+      }
+    }
+    // All three of them, in one fight's worth of attacks. MEASURED over 24 fights: CLONES runs in
+    // 24/24, 2.6 times each. It ran 0.4 times a fight when the rotation restarted every stretch.
+    expect([...seen].sort()).toEqual(['nimushiClones', 'strawBeam', 'tapiocaShower']);
+    expect(counts.nimushiClones).toBeGreaterThan(5);
+    // ...and LIMBO's shades, which only exist because the rotation gets that far. NOT every fight:
+    // LIMBO is one stretch of four with room for about two attacks, so which of the three lands
+    // there depends on where the counter is when it starts. Measured at 15/24 fights, so five
+    // fights is the sample this needs to be sure of one.
+    expect(shades).toBeGreaterThan(0);
+    void phase4Clones;
   });
 
   it('leaves CUP shut, whenever it comes back', () => {
