@@ -95,14 +95,33 @@ export const NIMUSHI = {
   minGap: 220,
   maxGap: 610,
   /**
-   * The pace NIMUSHI keeps when the player is not moving along the pull at all.
+   * The pace NIMUSHI climbs away at. The one number the whole fight balances on.
    *
-   * It is NO LONGER the whole story of how NIMUSHI moves -- see `gapGain` below. It used to be, and
-   * that was the bug: a flat 150px/s against a player being pulled in at 520 closed the gap at
-   * 370px/s, so an untouched controller put the player inside the body in 2.28 seconds. NIMUSHI now
-   * MATCHES the player and corrects for distance; this is only the floor under that.
+   * MEASURED, over 12 seeds x 60s per candidate. Nothing corrects the distance any more, so this
+   * is the entire other half of it: the player is pulled in at up to `BOSS_PHYSICS.maxFallSpeed`
+   * and buys the ground back with stomps, bounces and the gunboots brake. Whether GOOD PLAY is
+   * distance-neutral is decided here and nowhere else.
+   *
+   *   ascent   gap drift   30s held (12 seeds)   NIMUSHI off the top   gap band
+   *   150      -46.1px/s   0/12                   0.0%                 -56..415
+   *   190      -15.0       2/12                   1.0%                 -44..498
+   *   210      -13.2       0/12                   2.3%                 -56..553
+   *   250       -2.1       0/12                  14.5%                 -39..747
+   *   270       +2.3       8/12                  24.4%                  17..837
+   *   280       -0.9      12/12                   7.5%                 160..557
+   *   290       +8.3      12/12                  64.4%                 260..942
+   *
+   * 280 is the only value that holds under BOTH braking styles the bot plays -- at 260 and 270 the
+   * run lives or dies on which one the player happens to use (10/12 vs 0/12, 8/12 vs 1/12). It is
+   * also the narrowest gap band, which is what "the distance oscillates rather than drifts" means
+   * in numbers: the gap reverses direction 1.7 times a second and never trends.
+   *
+   * It is not arbitrary. The player's own mechanics cap their sustainable speed along the pull at
+   * 218-282px/s: between two stomps they must cover one `rowGap`, and the gunboots brake only
+   * slows a 520px/s fall to a measured 447px/s mean, for the 1.18s a magazine lasts -- the
+   * `recovery` floor in `fireVolley` deliberately weakens held-down fire. 280 is that ceiling.
    */
-  ascentSpeed: 150,
+  ascentSpeed: 280,
   /**
    * How fast it backs away when the player closes inside `minGap`.
    *
@@ -165,9 +184,28 @@ export const NIMUSHI = {
    * finding the eye; `bandSpeed` then walks it home.
    */
   pushbackDecay: 1.8,
-  /** Extra ascent while a stretch gives way to the next, which is what hauls the arena up. */
+  /**
+   * Extra ascent while a stretch gives way to the next, which is what hauls the arena up.
+   *
+   * GAMEPLAY DISABLED -- see TRANSITION_HAUL. Kept because the number is still the right one for
+   * the mechanic it belongs to; what changed is that the mechanic is no longer wanted.
+   */
   transitionSpeed: 260,
 } as const;
+
+/**
+ * The burst of extra ascent NIMUSHI used to take on while a stretch gave way to the next.
+ *
+ * GAMEPLAY DISABLED. The definition, the state and the `phaseTransition` beat are all intact; what
+ * is switched off is the speed bonus.
+ *
+ * Two reasons, and the first is arithmetic. `ascentSpeed` is now 280, so the bonus would put
+ * NIMUSHI at 540px/s against a player whose terminal in the arena is 520 -- for 1.6 seconds the
+ * boss would be literally uncatchable, whatever the player did. The second is that the fight no
+ * longer has anything for it to do: there is no rising boundary to haul the player clear of, so a
+ * stretch change hauling the arena upward is a rule left over from a design that is gone.
+ */
+export const TRANSITION_HAUL = { enabled: false } as const;
 
 /**
  * What a weak-point hit does to NIMUSHI in SPACE, as opposed to what it does to its HP.

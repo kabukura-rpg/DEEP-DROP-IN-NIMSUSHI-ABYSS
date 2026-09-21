@@ -1,8 +1,8 @@
 import { describe, expect, it } from 'vitest';
 import { fighting, laneOf, STEP, tick } from './nimushi';
-import { ABYSS_PHASES } from '../src/data/abyss';
+import { ABYSS_PHASES, ARENA_FLOOR } from '../src/data/abyss';
 import { BOSS_PHYSICS } from '../src/data/bossPhysics';
-import { BALANCE } from '../src/data/balance';
+import { BALANCE, WORLD } from '../src/data/balance';
 import { ENEMY_TYPES } from '../src/data/enemies';
 import { GameModel } from '../src/systems/GameModel';
 
@@ -60,17 +60,29 @@ describe('the boss-only verbs are gone', () => {
     expect((BOSS_PHYSICS as unknown as { hazardKnockback?: number }).hazardKnockback).toBeUndefined();
   });
 
-  it('has no gameplay pressure: standing still costs nothing', () => {
+  /**
+   * No boundary chases the player. Standing still still ends the run -- but at the bottom of the
+   * FRAME, which is the ordinary "fell off the screen" every SECTION already has, not a pressure
+   * system closing in with no counterplay.
+   */
+  it('has no gameplay pressure: nothing closes on a player who stands still', () => {
     const g = fighting(403);
     const hp = g.hp;
+    const floor = (m: typeof g) => m.player.y - m.cameraY > WORLD.height + ARENA_FLOOR.margin;
+    let insideHp = hp, endedPastTheFloor = false;
     for (let i = 0; i < 20 / STEP && g.state === 'boss'; i++) {
       g.player.invincible = 9;
       g.player.vy = 0;
+      const wasInside = !floor(g);
       g.step(STEP, 0, false);
+      if (wasInside && g.state === 'boss') insideHp = g.hp;
+      if (g.state !== 'boss') endedPastTheFloor = floor(g);
     }
-    expect(g.state).toBe('boss');
-    expect(g.hp).toBe(hp);
-    expect(g.health.deathCause?.cause).not.toBe('crush');
+    // Nothing touched them for as long as they were in the frame: no boundary, no attack, no crowd.
+    expect(insideHp).toBe(hp);
+    // The run did end -- at the bottom of the view, which is where a SECTION ends too.
+    expect(g.health.deathCause?.cause).toBe('crush');
+    expect(endedPastTheFloor).toBe(true);
   });
 
   it('keeps the deep as scenery, still rising', () => {

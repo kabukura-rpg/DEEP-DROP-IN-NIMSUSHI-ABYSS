@@ -1,7 +1,7 @@
 import { WORLD } from '../data/balance';
 import { ABYSS, ABYSS_PHASES, abyssPhaseAt, type AbyssAttackId, type AbyssPhase } from '../data/abyss';
 import {
-  FINAL_RAGE_RATIO, FULL_SCREEN_TAPIOCA, HIT_REACTION, NIMUSHI, NIMUSHI_ATTACKS, NIMUSHI_CLONES, NIMUSHI_DYING_RATIO,
+  FINAL_RAGE_RATIO, FULL_SCREEN_TAPIOCA, HIT_REACTION, TRANSITION_HAUL, NIMUSHI, NIMUSHI_ATTACKS, NIMUSHI_CLONES, NIMUSHI_DYING_RATIO,
   NIMUSHI_LINES, STRAW_BEAM, TAPIOCA_CUP, TAPIOCA_SHOWER, type NimushiPose, type NimushiState, ATTACK_STATES } from '../data/nimushi';
 
 /** One pearl in the air. Shower pearls, cup spit and FULL SCREEN waves are all just these. */
@@ -305,7 +305,7 @@ export class NimushiBossSystem {
    */
   private station(dt: number, player: { x: number; y: number; vy: number }, cameraY: number) {
     void cameraY;
-    const haul = this.state === 'phaseTransition' ? NIMUSHI.transitionSpeed : 0;
+    const haul = TRANSITION_HAUL.enabled && this.state === 'phaseTransition' ? NIMUSHI.transitionSpeed : 0;
     // Well under the arena's terminal speed, so the player always closes when they stop working.
     this.y += (NIMUSHI.ascentSpeed + haul) * dt * this.sign;
     // The hit recoil springs home. It moves the body, not the station, so nothing here is a rule

@@ -313,35 +313,39 @@ export class GameModel {
    * holds the player 37% of a frame behind its leading edge, which in the ABYSS puts them 37% up
    * from the bottom so NIMUSHI above and the boundary below are both in shot.
    *
-   * In the arena it takes a second rule: it also never runs so far ahead that NIMUSHI sinks past
-   * its share of the frame. The two are combined by taking whichever is FURTHER BEHIND along the
-   * pull, which is what makes the anchor purely a piece of framing:
+   * In the arena it stops following the player at all and follows NIMUSHI instead:
    *
-   *   - it can only ever hold the view BACK, never drive it forward, so the lower edge of the arena
-   *     -- `cameraY` plus a screen plus `ARENA_FLOOR.margin` -- is never closer to the player than
-   *     the plain player-led camera would have put it. This change cannot kill anybody.
-   *   - it moves the CAMERA, never NIMUSHI and never the player. The gap between them is still
-   *     whatever their own physics made it, so closing it still ends in the body.
+   *   BOSS SCREEN POSITION   fixed, at `ARENA_VIEW.bossAnchor` of the frame
+   *   PLAYER SCREEN POSITION free, wherever their own physics has put them
    *
-   * The player therefore stops being pinned at 63% and is free to rise up the frame as they close,
-   * which is the fight: NIMUSHI overhead, the drop below, and the player's own height between them.
+   * That is the opposite way round from the shaft, and it is the fight. NIMUSHI is the thing the
+   * arena is measured from -- it climbs at its own pace and the view climbs with it -- so the
+   * player's height in the frame IS the gap, read directly off the screen. Rise too far and the
+   * top of the frame is the body; sink too far and the bottom of the frame is the drop. The
+   * playable space between them is what the player is managing, and it is finally visible.
+   *
+   * Nothing here touches the player. There is no anchor holding them at a share of the frame, no
+   * minimum gap and no correction: they move on physics alone, and the camera only decides where
+   * the two of them are drawn. What it costs is the old promise that the view could never run
+   * ahead of the player -- it can now, and `ARENA_FLOOR` catching them is exactly the point.
    */
   private leadCamera(py: number) {
-    const want = py - WORLD.height * (this.gravity > 0 ? 0.37 : 0.63);
     const held = this.bossAnchorCamera();
-    const target = held !== null && this.along(held - want) < 0 ? held : want;
-    return this.gravity > 0 ? Math.max(this.cameraY, target) : Math.min(this.cameraY, target);
+    // Still monotonic along the pull, and for free: NIMUSHI's own position only ever advances.
+    if (held !== null) return this.gravity > 0 ? Math.max(this.cameraY, held) : Math.min(this.cameraY, held);
+    const want = py - WORLD.height * (this.gravity > 0 ? 0.37 : 0.63);
+    return this.gravity > 0 ? Math.max(this.cameraY, want) : Math.min(this.cameraY, want);
   }
   /**
-   * The camera that would hold NIMUSHI's leading edge at `ARENA_VIEW.bossAnchor` of the frame, or
-   * null when there is no fight to frame.
+   * The camera that holds NIMUSHI's leading edge at `ARENA_VIEW.bossAnchor` of the frame, or null
+   * when there is no fight to frame.
    *
    * The leading edge is whichever face of the body the pull leads toward -- the top of it while the
    * ABYSS pulls upward -- so the boss is framed the same way round whichever way the world is.
    *
-   * It is monotonic along the pull for free, because NIMUSHI's own position is: it ascends, a
-   * weak-point hit shoves it further on, and the one clamp it has only ever moves it forward. So
-   * the camera's "only ever travels with the pull" rule is never fighting this one.
+   * It is monotonic along the pull for free, because NIMUSHI's own position is: it ascends, and the
+   * one clamp it has only ever moves it forward. So the camera's "only ever travels with the pull"
+   * rule is never fighting this one.
    */
   private bossAnchorCamera(): number | null {
     if (!this.inBossArena || !this.boss.enabled) return null;
@@ -1690,9 +1694,12 @@ export class GameModel {
     // Set outright rather than eased: `leadCamera` only ever travels WITH the pull, and the pull
     // has just reversed, so asking it to follow would leave the view where the descent left it.
     // The arena opening is the one moment the camera is allowed to jump.
-    this.cameraY = p.y - WORLD.height * (this.gravity > 0 ? 0.37 : 0.63);
+    //
+    // NIMUSHI is placed FIRST so the view can open on its anchor. Opening on the player instead
+    // and letting the anchor take over would drop the whole frame 142px on the first step.
     this.bossAscent = 0;
     this.boss.start(p.y, this.gravity);
+    this.cameraY = this.bossAnchorCamera() ?? p.y - WORLD.height * (this.gravity > 0 ? 0.37 : 0.63);
     const phase = abyssPhase(1);
     this.oxygen.reset(phase.gimmicks?.oxygen === true);
     this.heat.reset(false);

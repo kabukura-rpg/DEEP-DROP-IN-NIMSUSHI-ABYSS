@@ -703,24 +703,31 @@ describe('phases and FINAL RAGE', () => {
 
 describe('the rising deep', () => {
   /**
-   * The deep is SCENERY now.
+   * The deep is SCENERY, and it stays scenery.
    *
    * It used to overtake a player who stopped climbing and end the run. Between NIMUSHI, a pattern
    * and a rising boundary the fight asked for three things at once, and the boundary was the one
    * with no counterplay. It still rises and is still drawn -- THE ABYSS closing behind you is worth
    * seeing -- but it cannot damage, crowd or kill.
+   *
+   * Standing still IS fatal now, and the distinction is the whole point of this test. What ends the
+   * run is the bottom of the FRAME: the view climbs with NIMUSHI, so a player who stops keeping up
+   * slides out of it, exactly as falling off the bottom of the screen ends a SECTION. No boundary
+   * chased them down to do it.
    */
-  it('no longer kills a player who stops climbing', () => {
+  it('never catches the player itself, however long they stand still', () => {
     const game = fighting(45);
-    const hp = game.hp;
+    let caught = false;
     for (let i = 0; i < 20 / STEP && game.state === 'boss'; i++) {
       game.player.invincible = 9;                 // attacks are not what is being measured
       game.player.vy = 0;                         // and neither is falling: just stand still
       game.step(STEP, 0, false);
+      if (game.boss.caught(game.player.y)) caught = true;
     }
-    expect(game.state).toBe('boss');
-    expect(game.hp).toBe(hp);
-    expect(game.health.deathCause?.cause).not.toBe('crush');
+    expect(caught).toBe(false);
+    // The run did end -- and it ended at the bottom of the view, a screen and a margin behind it.
+    expect(game.state).toBe('over');
+    expect(game.health.deathCause?.cause).toBe('crush');
   });
 
   it('buys room back for hitting the eye', () => {
@@ -909,10 +916,21 @@ describe('the fight can be won, and won honestly', () => {
       const game = atNimushi(61);
       game.gun.equip(id);
       expect(game.upgrades.acquired.length).toBe(0);
+      // Each weapon is tested at a distance IT can work at, rather than at one number for all
+      // seven. A round lives `range / projectileSpeed` seconds while the face runs away at
+      // `ascentSpeed`, so what it can close is `range * (1 - ascentSpeed / projectileSpeed)`, plus
+      // the 21px the muzzle already sits ahead. At 280 that is 1806px for LASER and 173px for
+      // PUNCHER -- a real spread, and pinning all seven at 260 would only have tested whether they
+      // happen to out-reach one arbitrary number.
+      const def = game.gun.module;
+      const reach = 21 + def.range * (1 - NIMUSHI.ascentSpeed / def.projectileSpeed);
+      // Every weapon must reach from somewhere the fight actually puts the player. The gap swings
+      // between 160px and 557px in a measured fight, so anything under 160 would be locked out.
+      expect(reach, `${id} cannot reach the eye from anywhere in the fight's gap band`).toBeGreaterThan(160);
       let hits = 0;
       for (let i = 0; i < 400 / STEP && !game.boss.defeated; i++) {
         game.player.invincible = 9;
-        pin(game, 260);
+        pin(game, Math.min(260, reach * 0.8));
         game.player.x = game.boss.x;
         game.ammo = game.stats.maxAmmo;
         const before = game.boss.hp;
@@ -1184,24 +1202,30 @@ describe('the camera and the view', () => {
   });
 
   /**
-   * The anchor can only ever hold the view BACK.
+   * The view is NIMUSHI's, and the player floats in it.
    *
-   * This is the property that makes it safe. The arena's lower edge is `cameraY` plus a screen plus
-   * `ARENA_FLOOR.margin`, so a camera that ran AHEAD of the player-led one would drag that edge up
-   * to meet them and invent a death. Taking whichever of the two rules is further behind means the
-   * edge is never closer than it was -- checked here step by step, which by induction is the whole
-   * run. (Measured: at the widest gap a real fight produced, a camera pinned to NIMUSHI's other
-   * side would have put the player 1345px down a 940px arena. Instantly fatal. Hence one-sided.)
+   *   BOSS SCREEN POSITION   fixed
+   *   PLAYER SCREEN POSITION free
+   *
+   * This replaces the property the one-sided clamp used to guarantee -- that the view could never
+   * run ahead of the player. It can now, deliberately: NIMUSHI is what the arena is measured from,
+   * so the player's height in the frame IS the gap, and losing ground means sliding down the frame
+   * toward `ARENA_FLOOR`. That is the fight rather than a side effect.
    */
-  it('never runs further ahead than the player-led camera would', () => {
+  it('lets the player move through the frame while NIMUSHI stays still in it', () => {
     const game = atNimushi(83);
+    const ceiling = WORLD.height * ARENA_VIEW.bossAnchor;
+    const seen: number[] = [];
     for (let i = 0; i < 20 / STEP && game.state === 'boss'; i++) {
-      const previous = game.cameraY;
-      game.step(STEP, Math.sin(i / 51) > 0 ? 1 : -1, i % 20 === 0);
-      const plain = Math.min(previous, game.player.y - WORLD.height * 0.63);
-      expect(game.cameraY).toBeGreaterThanOrEqual(plain - 1e-6);
-      expect(game.player.y - game.cameraY).toBeGreaterThan(0);
+      game.player.invincible = 9;
+      const target = game.enemies.filter(e => e.alive && e.y < game.player.y).sort((a, b) => b.y - a.y)[0];
+      game.step(STEP, target ? Math.sign(target.x - game.player.x) as -1 | 0 | 1 : 0, game.ammo > 0);
+      expect(game.boss.framedBody.y - game.cameraY).toBeCloseTo(ceiling, 6);
+      seen.push(game.player.y - game.cameraY);
     }
+    // The player is NOT anchored: stomping and falling move them a long way through the frame.
+    expect(Math.max(...seen) - Math.min(...seen)).toBeGreaterThan(WORLD.height * 0.25);
+    expect(Math.min(...seen)).toBeGreaterThan(0);
   });
 
   /**

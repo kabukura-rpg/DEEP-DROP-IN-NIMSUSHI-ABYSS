@@ -2,9 +2,10 @@ import { describe, expect, it } from 'vitest';
 import { fighting, round, seeded, STEP, tick } from './nimushi';
 import { GameModel } from '../src/systems/GameModel';
 import { ABYSS_PHASES, ARENA_FLOOR } from '../src/data/abyss';
-import { FINAL_RAGE_RATIO, FULL_SCREEN_TAPIOCA, NIMUSHI } from '../src/data/nimushi';
+import { FINAL_RAGE_RATIO, FULL_SCREEN_TAPIOCA, NIMUSHI, TRANSITION_HAUL } from '../src/data/nimushi';
 import { WORLD } from '../src/data/balance';
 import { GUN_MODULES, type GunModuleId } from '../src/data/gunModules';
+import { BOSS_PHYSICS } from '../src/data/bossPhysics';
 
 /**
  * NORMAL GAMEPLAY, ONLY GRAVITY IS REVERSED.
@@ -44,7 +45,68 @@ describe('doing nothing carries the player into NIMUSHI', () => {
   });
 
   it('climbs slower than the player falls, which is what makes that true', () => {
-    expect(NIMUSHI.ascentSpeed).toBeLessThan(520);
+    expect(NIMUSHI.ascentSpeed).toBeLessThan(BOSS_PHYSICS.maxFallSpeed);
+  });
+
+  it('reaches the body in one to three seconds, which is the whole failure state', () => {
+    for (const seed of [610, 611, 612, 613]) {
+      const g = arena(seed);
+      let contact = -1;
+      for (let i = 0; i < 8 / STEP && contact < 0; i++) {
+        g.enemies = [];                               // nothing to stomp: the pure fall
+        g.player.invincible = 9;
+        g.step(STEP, 0, false);
+        if (g.boss.reach(g.player.y) <= 0) contact = i * STEP;
+      }
+      expect(contact).toBeGreaterThan(1);
+      expect(contact).toBeLessThan(3);
+    }
+  });
+
+  /**
+   * ...and the success state. GOOD PLAY is distance-neutral.
+   *
+   * `ascentSpeed` is the only number that decides this, and it was chosen on it: over 12 seeds the
+   * gap drifts -0.9px/s at 280 against -46.1px/s at the 150 this replaced, and 12/12 seeds hold
+   * thirty seconds under either braking style rather than 0/12. What is asserted here is the
+   * SHAPE of that, on a player who uses the three verbs AREA 1-4 teaches and nothing else.
+   */
+  it('can be held for thirty seconds by stomping, bouncing and braking', () => {
+    const seeds = [620, 621, 622, 623, 624, 625, 626, 627, 628, 629];
+    const drifts: number[] = [];
+    let held = 0;
+    for (const seed of seeds) {
+      const g = arena(seed);
+      const gaps: number[] = [];
+      let contact = -1;
+      for (let i = 0; i < 30 / STEP && g.state === 'boss'; i++) {
+        // Steer at the nearest thing to stand on ahead along the pull, and hold the gunboots. No
+        // boss-only verb: this is stomp, bounce, reload and brake, exactly as the shaft plays them.
+        const target = g.enemies.filter(e => e.alive && e.y < g.player.y).sort((a, b) => b.y - a.y)[0];
+        g.step(STEP, target ? Math.sign(target.x - g.player.x) as -1 | 0 | 1 : 0, g.ammo > 0);
+        const reach = g.boss.reach(g.player.y);
+        gaps.push(reach);
+        if (contact < 0 && reach <= 0) contact = i * STEP;
+      }
+      if (contact < 0) held++;
+      drifts.push((gaps[gaps.length - 1] - gaps[0]) / (gaps.length * STEP));
+      // Whatever happens to the run, the distance is MANAGED rather than held: it swings.
+      expect(Math.max(...gaps) - Math.min(...gaps)).toBeGreaterThan(200);
+    }
+    // MEASURED at 37/40 seeds over this same fixture and bot, so this is the property as it is
+    // rather than as it would be tidy: most runs hold, and the ones that do not lose slowly.
+    expect(held).toBeGreaterThanOrEqual(8);
+    // ...and across seeds the gap goes nowhere in particular, which is what neutral means.
+    expect(Math.abs(drifts.reduce((a, b) => a + b, 0) / drifts.length)).toBeLessThan(15);
+  });
+
+  it('gives NIMUSHI one pace and no bursts of a second one', () => {
+    // A stretch change used to haul it up by `transitionSpeed` on top of the ascent. At 280 that
+    // would be 540px/s against a player whose terminal here is 520: uncatchable, whatever they do.
+    expect(TRANSITION_HAUL.enabled).toBe(false);
+    expect(NIMUSHI.ascentSpeed + NIMUSHI.transitionSpeed).toBeGreaterThan(BOSS_PHYSICS.maxFallSpeed);
+    // ...and the number is still there, so the mechanic can come back if the pace ever changes.
+    expect(NIMUSHI.transitionSpeed).toBeGreaterThan(0);
   });
 
   it('cannot be sailed straight past and left behind', () => {
