@@ -5,7 +5,7 @@ import { spawnPickup, type Pickup, type PickupKind } from '../data/pickups';
 import { AIR_CONTAINER_RULES, BREAK_BLOCK_RULES, breakBlockWidth, EXIT_RULES, spikePlatform, type AirContainer, type SpikePlatform, type StageExit } from '../data/structures';
 import { spawnHazard, type Hazard, type SpikeKind } from '../data/hazards';
 import { spawnDoodad, DOODAD_RULES, type Doodad } from '../data/doodads';
-import { rollSafeZoneContent, safeZoneDepths, safeZoneRowClearance, sideRoomCount, SAFE_ZONE_RULES, type SafeZone } from '../data/safeZone';
+import { getSideRoomMode, rollSafeZoneContent, safeZoneDepths, safeZoneRowClearance, sideRoomCount, SAFE_ZONE_RULES, type SafeZone } from '../data/safeZone';
 import { caveShape, placeCave, type CaveArchetype, type SideCave } from '../data/sideCave';
 import { rollGunModule as rollModuleForZone } from '../data/gunModules';
 import type { SectionPlan, WaterPhysics } from '../data/areas';
@@ -140,6 +140,25 @@ export class StageGenerator {
    * has not been put back to `legacy`. Only then do the measured entry rules apply.
    */
   private sideRoomPilot = false;
+  /**
+   * The SIDE CAVEs' own randomness, separate from the run's.
+   *
+   * Everything about a cave -- how many, which wall, what is in it -- is drawn from here, and the
+   * run's stream pays for it exactly once, at construction, whatever the answers turn out to be.
+   * That is what lets the frequency A/B mean anything: choosing `low` or `high` used to move every
+   * draw after it and hand the player a completely different shaft, so the two could not be
+   * compared. Measured before this existed, terrain differed in 120 of 120 SECTIONs.
+   *
+   * Only an AREA that declares `sideRooms` pays the draw, so the AREAs that still cut chambers are
+   * untouched down to the bit.
+   */
+  private caveRandom: (() => number) | null = null;
+  /**
+   * How many of the scheduled slots this SECTION may actually cut a cave into. Below the number
+   * scheduled, the extra slots are searched for exactly as they would be and then passed over --
+   * the terrain has already been shaped around them, which is the point.
+   */
+  private caveBudget = 0;
   /** The widest step any band can ask for. Lookaheads that must stay conservative use this. */
   private maxRowStep = 0;
   /** The horizontal answer the previous row asked for, folded so left and right are one question. */
@@ -204,8 +223,28 @@ export class StageGenerator {
     // a quota: each of these depths is the earliest a chamber may appear, and the row keeps being
     // retried until one fits. Adding optional extra chambers later means pushing more depths in
     // here and nothing else.
-    this.sideRoomPilot = sideRoomCount(context.plan) > (context.plan?.safeZoneCount ?? 0);
-    this.chambers.push(...safeZoneDepths(sideRoomCount(context.plan), context.sectionLength));
+    // An AREA that declares `sideRooms` is running caves. How MANY is the frequency mode's answer
+    // and is drawn below; that it uses caves at all is not a frequency question.
+    this.sideRoomPilot = context.plan?.sideRooms !== undefined && getSideRoomMode() !== 'legacy';
+    if (this.sideRoomPilot) {
+      // One draw from the run, spent here, to seed a stream of the caves' own. Every frequency
+      // costs the same one draw, so the shaft that comes out is the same shaft.
+      let seed = Math.floor(random() * 4294967296) >>> 0;
+      this.caveRandom = () => { seed = (Math.imul(seed, 1664525) + 1013904223) >>> 0; return seed / 4294967296; };
+    }
+    // THE SCHEDULE IS THE SAME IN EVERY FREQUENCY; only how many of its slots are actually cut
+    // changes. A cave needs 220px of clearance, and the terrain grammar yields a NORMAL stretch to
+    // give it -- so a SECTION that reserved fewer slots would come out a different shaft, and the
+    // A/B would be comparing two things at once. Reserving both and cutting one is what makes
+    // `low` and `high` the same descent with a different number of caves in it.
+    const scheduled = this.sideRoomPilot
+      ? Math.max(context.plan?.safeZoneCount ?? 0, context.plan?.sideRooms ?? 0)
+      : sideRoomCount(context.plan);
+    // Drawn in EVERY frequency and read only by `variable`, so the cave stream runs the same way
+    // in all three and the caves a SECTION does cut are the same caves in the same places.
+    const countRoll = this.caveRandom ? this.caveRandom() : 1;
+    this.caveBudget = this.sideRoomPilot ? sideRoomCount(context.plan, countRoll) : scheduled;
+    this.chambers.push(...safeZoneDepths(scheduled, context.sectionLength));
     // MEMBER'S CARD guarantees a shop near the top of every later SECTION. It is an EXTRA chamber
     // in front of the ordinary schedule rather than a replacement for one, so the minimum a SECTION
     // already promises is untouched and its content roll still decides what that one holds.
@@ -657,7 +696,8 @@ export class StageGenerator {
       const onScreen = fallTime(drop, this.context.water?.gravity) - fallTime(drop - visible, this.context.water?.gravity);
       return onScreen - need / BALANCE.moveSpeed >= SAFE_ZONE_RULES.reactionReserve;
     };
-    const preferred: -1 | 1 = this.nextChamberSide !== 0 ? this.nextChamberSide : (this.random() < 0.5 ? -1 : 1);
+    const roomRandom = this.caveRandom ?? this.random;
+    const preferred: -1 | 1 = this.nextChamberSide !== 0 ? this.nextChamberSide : (roomRandom() < 0.5 ? -1 : 1);
     const other: -1 | 1 = preferred === -1 ? 1 : -1;
     const order: (-1 | 1)[] = [preferred, other];
     /**
@@ -690,12 +730,17 @@ export class StageGenerator {
     const x = side === -1 ? WORLD.wall : WORLD.width - WORLD.wall - width;
     this.chambers.shift();
     this.nextChamberSide = side === -1 ? 1 : -1;
+    // Out of budget: the slot was scheduled and searched so the shaft is shaped the same way, and
+    // then simply not cut. Nothing is drawn for a cave that is not made, on either stream.
+    if (this.caveBudget <= 0) return;
+    this.caveBudget--;
     if (y < start) return;
     // The first chamber of a MEMBER'S CARD section is a shop by fiat; every other one still rolls.
     const forced = this.forcedShopChambers > 0;
     if (forced) this.forcedShopChambers--;
-    const roll = forced ? 'shop' as const : rollSafeZoneContent(this.random);
-    const module = roll === 'gunModule' ? rollModuleForZone(this.random) : undefined;
+    const roomRandom = this.caveRandom ?? this.random;
+    const roll = forced ? 'shop' as const : rollSafeZoneContent(roomRandom);
+    const module = roll === 'gunModule' ? rollModuleForZone(roomRandom) : undefined;
     // ALL THREE are found in a CAVE now. The shell reaches outside the shaft and brings its own
     // floor, roof and ledges, so nothing else here applies -- a cave wants no chamber rectangle,
     // and whatever it holds sits deep inside rather than against the wall.

@@ -12,7 +12,7 @@ import { AREAS, TOTAL_SECTIONS } from './data/areas';
 import { shopItem, type ShopOffer } from './data/shop';
 import { BOSS_TEST_WEAPONS, enterBossTest, type BossTestRequest, type BossTestTarget } from './dev/bossTest';
 import { setTerrainMode, getTerrainMode, type TerrainMode } from './data/rhythm';
-import { setSideRoomMode, getSideRoomMode, type SideRoomMode } from './data/safeZone';
+import { setSideRoomMode, getSideRoomMode, setCaveFrequency, getCaveFrequency, type SideRoomMode, type CaveFrequency } from './data/safeZone';
 import { previewSideCave, SIDE_CAVE_FIXTURES } from './dev/sideCavePreview';
 
 const app = document.querySelector<HTMLDivElement>('#app')!;
@@ -142,7 +142,7 @@ if (import.meta.env.DEV) {
     let here = '';
     for (const entry of history) if (entry.y <= model.player.y) here = entry.piece;
     const label = here ? here.replace(/([A-Z])/g, ' $1').toUpperCase() : 'ROW GRAMMAR';
-    readout.textContent = `[${label}] ${getTerrainMode()} · rooms ${getSideRoomMode()}${roadSeed === null ? '' : ` #${roadSeed}`}`;
+    readout.textContent = `[${label}] ${getTerrainMode()} · caves ${getCaveFrequency()}${roadSeed === null ? '' : ` #${roadSeed}`}`;
     readout.hidden = !inPlay();
     requestAnimationFrame(tick);
   };
@@ -164,6 +164,25 @@ if (import.meta.env.DEV) {
     roadSeed = seed === undefined ? roadSeed : Math.floor(seed);
     showTitle();
     return `SIDE ROOMS = ${mode} (terrain ${getTerrainMode()})${roadSeed === null ? '' : ` / seed ${roadSeed}`} -- start a run`;
+  };
+  // DEVELOPMENT ONLY: how often a SIDE CAVE turns up.
+  //
+  //   `__sideCaveFrequency('low', 8891)`       one per SECTION  -- three across AREA 1
+  //   `__sideCaveFrequency('variable', 8891)`  one or two, 50/50 -- about four and a half
+  //   `__sideCaveFrequency('high', 8891)`      two per SECTION  -- six, which is what they were built at
+  //
+  // Play the same seed on each. The shaft is IDENTICAL in all three -- caves draw from their own
+  // stream and the same slots are reserved whatever the budget is -- so the only thing that differs
+  // is how many caves are cut into it. Compiled out of a production build.
+  (window as unknown as { __sideCaveFrequency: (m?: CaveFrequency, s?: number) => string }).__sideCaveFrequency = (mode, seed) => {
+    if (mode !== 'low' && mode !== 'variable' && mode !== 'high') {
+      return `SIDE CAVES are ${getCaveFrequency()} -- pass 'low', 'variable' or 'high'`;
+    }
+    setCaveFrequency(mode);
+    roadSeed = seed === undefined ? roadSeed : Math.floor(seed);
+    showTitle();
+    const per = mode === 'low' ? '1' : mode === 'high' ? '2' : '1-2';
+    return `SIDE CAVES = ${mode} (${per} per SECTION)${roadSeed === null ? '' : ` / seed ${roadSeed}`} -- start a run`;
   };
   // DEVELOPMENT ONLY: look at one SIDE CAVE immediately.
   //

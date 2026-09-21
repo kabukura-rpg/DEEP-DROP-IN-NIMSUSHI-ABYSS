@@ -88,12 +88,41 @@ export const setSideRoomMode = (mode: SideRoomMode) => { sideRoomMode = mode; };
 export const getSideRoomMode = () => sideRoomMode;
 
 /**
- * How many chambers this SECTION is owed. `safeZoneCount` is the floor every AREA has always
- * promised; `sideRooms` is what an AREA raises it to once its own spacing has been measured.
+ * DEVELOPMENT A/B/C ONLY: how often a SIDE CAVE turns up.
+ *
+ *   `low`       one per SECTION  -- three across AREA 1
+ *   `variable`  one or two, 50/50, drawn per SECTION -- a mean of 1.5, so 4.5 across AREA 1
+ *   `high`      two per SECTION  -- six across AREA 1, which is what the caves were built at
+ *
+ * The question this exists to answer is not how many there should be but whether finding one still
+ * means anything. Too many and a cave is scenery; too few and the detour never comes up. Nothing
+ * else moves with it: the shapes, the contents and the weights are the same in all three.
+ *
+ * Production never calls this -- the only call site is behind `import.meta.env.DEV` in main.ts.
  */
-export const sideRoomCount = (plan?: { safeZoneCount?: number; sideRooms?: number }) => {
+export type CaveFrequency = 'low' | 'variable' | 'high';
+let caveFrequency: CaveFrequency = 'high';
+export const setCaveFrequency = (mode: CaveFrequency) => { caveFrequency = mode; };
+export const getCaveFrequency = () => caveFrequency;
+
+/**
+ * How many side rooms this SECTION is owed.
+ *
+ * An AREA that declares `sideRooms` is running caves, and its count comes from the frequency mode.
+ * `roll` is a number the CALLER has already drawn from the cave's own stream: it is drawn in every
+ * frequency and only read by `variable`, so all three consume the stream identically and a SECTION
+ * puts the same cave in the same place whichever of them is running. Choosing a frequency changes
+ * how many caves there are and nothing else at all.
+ *
+ * Everywhere else `safeZoneCount` is the floor it has always been, and `legacy` puts an AREA that
+ * has caves back on the single chamber it had before them.
+ */
+export const sideRoomCount = (plan?: { safeZoneCount?: number; sideRooms?: number }, roll = 1) => {
   const floor = plan?.safeZoneCount ?? 0;
-  return sideRoomMode === 'legacy' ? floor : Math.max(floor, plan?.sideRooms ?? 0);
+  if (sideRoomMode === 'legacy' || plan?.sideRooms === undefined) return floor;
+  if (caveFrequency === 'low') return 1;
+  if (caveFrequency === 'high') return Math.max(floor, plan.sideRooms);
+  return roll < 0.5 ? 1 : Math.max(floor, plan.sideRooms);
 };
 
 /**
