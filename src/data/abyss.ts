@@ -27,6 +27,44 @@ export const ARENA_FLOOR = {
   margin: 140,
 } as const;
 
+/**
+ * Where NIMUSHI sits in the FRAME.
+ *
+ * PRESENTATION ONLY, and the distinction is the whole point. This moves the CAMERA and nothing
+ * else: NIMUSHI's world path, the player's world path and the distance between them are exactly
+ * what their own physics made them. Falling into the body still costs a heart, and no rule here
+ * holds the player at a comfortable range -- that was the gap controller, and it is not coming back.
+ *
+ * What it fixes is that the boss had no stable place in the frame at all. Measured over three
+ * 60-second fights, its body wandered from 88% of a screen ABOVE the top -- invisible -- down to
+ * 63%, the dead centre, where it sat for 81% of the frames of a no-input run. "Falling upward
+ * toward the thing above you" cannot read when the thing above you is in the middle of the screen.
+ */
+export const ARENA_VIEW = {
+  /**
+   * How far down the frame NIMUSHI's leading edge may sink, as a share of the viewport height.
+   *
+   * A SHARE, never a pixel count: the canvas is 450x800 and `#game-frame` is locked to 9:16, so
+   * this is the same fraction of the screen on a 331px phone frame and a 430px one.
+   *
+   * 0.2 is MEASURED rather than chosen. The HUD's lowest row (hearts / AMMO) ends at canvas y
+   * 198-244 depending on frame width -- worst case 244, on the narrowest desktop cabinet. NIMUSHI's
+   * body is `bodyHeight` tall and the EYE, the only thing on it worth aiming at, sits in the
+   * `eyeHeight` below that. Holding the body's leading edge at 0.2 puts the body at 160-272 and the
+   * eye at 272-308: clear of the worst-case HUD by 28px. An anchor at 0.1, the other end of the
+   * band that was asked for, would put the eye at 192-228 and bury it under the AMMO row.
+   */
+  bossAnchor: 0.2,
+  /**
+   * The lowest the HUD reaches, in canvas pixels, across every viewport the game ships at.
+   *
+   * Measured in the browser at 1280x900, 1280x800, 1440x1080, 390x844, 375x667 and 430x932; the
+   * binding case is the 350px-wide desktop frame, where the CSS-pixel HUD scales up the most.
+   * Recorded here so the choice of `bossAnchor` is checkable rather than a remembered number.
+   */
+  hudSafeBottom: 244,
+} as const;
+
 export const ABYSS = {
   /** Plain ledges on the way down, so the drop in is ordinary play rather than a cutscene. */
   ledgeGap: 236,

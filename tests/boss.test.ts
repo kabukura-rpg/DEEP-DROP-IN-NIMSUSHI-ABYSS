@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { GameModel } from '../src/systems/GameModel';
-import { ABYSS, ABYSS_PHASES, abyssPhaseAt, TOMATO } from '../src/data/abyss';
+import { ABYSS, ABYSS_PHASES, abyssPhaseAt, ARENA_VIEW, TOMATO } from '../src/data/abyss';
 import {
   FINAL_RAGE_RATIO, FULL_SCREEN_TAPIOCA, NIMUSHI, NIMUSHI_ATTACKS, NIMUSHI_LINES, STRAW_BEAM, TAPIOCA_CUP, TAPIOCA_SHOWER, ATTACK_STATES } from '../src/data/nimushi';
 import { PLANNED_TOTAL_DEPTH } from '../src/data/areas';
@@ -1150,21 +1150,126 @@ describe('the twenty upgrades inside an inverted fight', () => {
 
 describe('the camera and the view', () => {
   /**
-   * The camera travels with the pull and keeps the player low in the frame.
+   * SCREEN-SPACE PRESENTATION ANCHOR.
    *
-   * It no longer promises that NIMUSHI stays on screen, and that is deliberate: the boss climbs at
-   * its own pace and the player closes on it, so where it appears is a readout of how the fight is
-   * going rather than a fixed piece of framing. It used to be pinned to a share of the viewport,
-   * which looked tidy and meant the distance could not be played.
+   * NIMUSHI is held near the top of the frame, and that is a statement about the CAMERA and about
+   * nothing else. What it replaces is not a distance rule but the absence of one in the framing:
+   * measured over three 60-second fights, the body wandered from 88% of a screen above the top --
+   * invisible -- down to 63%, the dead centre, where a no-input run left it for 81% of its frames.
+   *
+   * The two halves that follow are the whole spec, and they are deliberately in tension:
+   *   VISUAL POSITION = the top of the screen, held by the camera.
+   *   GAMEPLAY DISTANCE = whatever the player's own physics made it, including zero.
    */
-  it('travels with the pull and keeps the player low in the frame', () => {
+  it('holds NIMUSHI at the top of the frame, whatever the gap is doing', () => {
     const game = atNimushi(80);
-    const start = game.cameraY;
-    const onScreen = (y: number) => y - game.cameraY;
-    expect(onScreen(game.boss.y)).toBeLessThan(onScreen(game.player.y));
-    for (let i = 0; i < 2 / STEP; i++) { game.player.invincible = 9; game.step(STEP, 0, false); }
-    expect(game.cameraY).toBeLessThan(start);
-    expect(onScreen(game.player.y)).toBeGreaterThan(400);
+    const ceiling = WORLD.height * ARENA_VIEW.bossAnchor;
+    let anchored = 0, frames = 0;
+    for (let i = 0; i < 12 / STEP && game.state === 'boss'; i++) {
+      game.player.invincible = 9;
+      game.step(STEP, 0, false);
+      frames++;
+      const top = game.boss.body.y - game.cameraY;
+      // Never allowed to sink past its share of the frame. It may be HIGHER -- a player who has
+      // bought hundreds of pixels of separation has earned an empty sky -- but never lower.
+      expect(top).toBeLessThanOrEqual(ceiling + 1e-6);
+      if (Math.abs(top - ceiling) < 1) anchored++;
+      // The player is below it, on screen, always.
+      expect(game.boss.body.y - game.cameraY).toBeLessThan(game.player.y - game.cameraY);
+    }
+    // ...and for a player who just falls, it is pinned there rather than drifting to the middle.
+    expect(anchored / frames).toBeGreaterThan(0.6);
+  });
+
+  /**
+   * The anchor can only ever hold the view BACK.
+   *
+   * This is the property that makes it safe. The arena's lower edge is `cameraY` plus a screen plus
+   * `ARENA_FLOOR.margin`, so a camera that ran AHEAD of the player-led one would drag that edge up
+   * to meet them and invent a death. Taking whichever of the two rules is further behind means the
+   * edge is never closer than it was -- checked here step by step, which by induction is the whole
+   * run. (Measured: at the widest gap a real fight produced, a camera pinned to NIMUSHI's other
+   * side would have put the player 1345px down a 940px arena. Instantly fatal. Hence one-sided.)
+   */
+  it('never runs further ahead than the player-led camera would', () => {
+    const game = atNimushi(83);
+    for (let i = 0; i < 20 / STEP && game.state === 'boss'; i++) {
+      const previous = game.cameraY;
+      game.step(STEP, Math.sin(i / 51) > 0 ? 1 : -1, i % 20 === 0);
+      const plain = Math.min(previous, game.player.y - WORLD.height * 0.63);
+      expect(game.cameraY).toBeGreaterThanOrEqual(plain - 1e-6);
+      expect(game.player.y - game.cameraY).toBeGreaterThan(0);
+    }
+  });
+
+  /**
+   * VISUAL POSITION and GAMEPLAY DISTANCE are separate things.
+   *
+   * NIMUSHI sitting at the top of the screen must not mean it cannot be reached. Nothing here holds
+   * the player away from it: they are pulled into it, and arriving costs a heart exactly as before.
+   */
+  it('does not put NIMUSHI out of reach by putting it at the top', () => {
+    const game = atNimushi(84);
+    game.enemies = [];
+    let contact = -1;
+    const hearts = game.hp;
+    for (let i = 0; i < 6 / STEP && game.state === 'boss'; i++) {
+      game.enemies = [];
+      game.step(STEP, 0, false);
+      if (contact < 0 && game.boss.reach(game.player.y) <= 0) contact = i * STEP;
+    }
+    expect(contact).toBeGreaterThan(0);
+    expect(game.hp).toBeLessThan(hearts);
+    expect(game.health.lastDamage?.cause).toBe('bossContact');
+    // And it was the camera that moved, not the boss: NIMUSHI is still where the player walked into
+    // it, at the top of the frame, rather than having been shoved anywhere to make room.
+    expect(game.boss.body.y - game.cameraY).toBeLessThanOrEqual(WORLD.height * ARENA_VIEW.bossAnchor + 1e-6);
+  });
+
+  /**
+   * The weak point comes with it.
+   *
+   * Body, eye and everything drawn share one world-to-screen transform, so this cannot drift -- but
+   * a future anchor applied to the SPRITE rather than the camera would break it silently, and this
+   * is what would catch that.
+   */
+  it('keeps the weak point on the sprite', () => {
+    const game = atNimushi(85);
+    for (let i = 0; i < 8 / STEP && game.state === 'boss'; i++) {
+      game.player.invincible = 9;
+      game.step(STEP, 0, false);
+      const body = game.boss.body, eye = game.boss.eye;
+      // The eye sits in the face, and the face is the edge of the body the player is looking at.
+      expect(eye.y).toBeCloseTo(body.y + body.height, 6);
+      expect(eye.x).toBeGreaterThanOrEqual(body.x);
+      expect(eye.x + eye.width).toBeLessThanOrEqual(body.x + body.width);
+      expect(game.boss.face).toBeCloseTo(body.y + body.height, 6);
+    }
+  });
+
+  /**
+   * The anchor clears the HUD, and that is what chose 0.2 rather than the 0.1 at the other end of
+   * the band. Pure arithmetic on the constants, so the choice stays checkable if any of them move.
+   */
+  it('keeps the weak point clear of the HUD', () => {
+    const eyeBottom = WORLD.height * ARENA_VIEW.bossAnchor + NIMUSHI.bodyHeight + NIMUSHI.eyeHeight;
+    const eyeTop = WORLD.height * ARENA_VIEW.bossAnchor + NIMUSHI.bodyHeight;
+    expect(eyeTop).toBeGreaterThanOrEqual(ARENA_VIEW.hudSafeBottom);
+    expect(eyeBottom).toBeLessThan(WORLD.height * 0.5);
+    // A SHARE of the viewport, never a pixel count: `#game-frame` is locked to 9:16 and the canvas
+    // is 450x800, so this is the same fraction of the screen on a 331px phone and a 430px one.
+    expect(ARENA_VIEW.bossAnchor).toBeGreaterThan(0);
+    expect(ARENA_VIEW.bossAnchor).toBeLessThan(1);
+  });
+
+  it('frames nothing outside the arena', () => {
+    // The staging room is an ordinary descent and the anchor has no business there.
+    const game = new GameModel(false, seeded(86));
+    game.jumpToBoss();
+    for (let i = 0; i < 1 / STEP; i++) game.step(STEP, 0, false);
+    expect(game.abyssStage).toBe('staging');
+    expect(game.boss.enabled).toBe(false);
+    expect(game.cameraY).toBeCloseTo(Math.max(0, game.player.y - WORLD.height * 0.37), 6);
   });
 
   it('only ever moves with the pull, in either direction', () => {
