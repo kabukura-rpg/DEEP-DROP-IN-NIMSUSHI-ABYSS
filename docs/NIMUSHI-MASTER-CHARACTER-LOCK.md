@@ -1,5 +1,15 @@
 # NIMUSHI CHARACTER DESIGN — HUMAN APPROVED / LOCKED
 
+## Latest decision: GAMEPLAY ALIGNMENT B — HUMAN APPROVED / LOCKED
+
+2026-09-22：Humanは「Aだと物理的に近すぎるのでB」を選択し、その後「見えている目を撃ったのに当たらない」違和感も特に感じないと確認した。配置B（renderOffsetY = −16 logical px、上方向16px）を採用する。以下のalignment未承認という記述は、この確認前の履歴。
+
+contact / weak point / physics / camera / MASTERは変更しない。上端空白16pxという測定自体は残るが、Humanの実プレイ評価を優先する。BODY/EYE別offsetによる補正は追加しない。
+
+この確認は配置Bの承認。HIGH/LOWの解像度選択を別途承認したものとは扱わず、全frame制作はまだ開始しない。
+
+## Master approval history
+
 2026-09-22、ユーザー添付 `codex-clipboard-0c670789-eb7b-4fcc-89b3-93f7d94a99de.png` を正式MASTERとして承認。
 
 保存先：`output/nimushi-boss-art-v1/master-alignment-v1/MASTER_NIMUSHI.png`。SHA-256は同ディレクトリmanifest.json。
