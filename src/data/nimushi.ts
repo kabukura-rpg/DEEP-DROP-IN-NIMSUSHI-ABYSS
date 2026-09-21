@@ -84,7 +84,50 @@ export const NIMUSHI = {
    * because NIMUSHI is above and the player below. Small on purpose: it has to be aimed at.
    */
   eyeWidth: 60,
-  eyeHeight: 36,
+  /**
+   * How far the weak point stands out from the face, toward the player.
+   *
+   * MEASURED, and it is a RANGE number rather than an art one. A round has to reach the eye's near
+   * edge, so the furthest a weapon can fire from is `21 + eyeHeight + range * (1 - ascent/speed)`:
+   * the muzzle offset, this, and whatever the round itself can close against a face climbing away
+   * at `ascentSpeed`. For the long weapons that last term dominates and this barely registers. For
+   * the short ones it is most of what they have.
+   *
+   * At 36 the two shortest weapons were unusable by hand -- not because they could not land (a bot
+   * gets 7.3 and 19.5 hits a fight with them) but because the window was too brief to line up in:
+   *
+   *   weapon    firing band    window at 240px/s of closing    by hand
+   *   MACHINE      645px          2.69s                        comfortable
+   *   TRIPLE       501px          2.09s                        comfortable
+   *   NOPPY        477px          1.99s                        comfortable
+   *   SHOTGUN      209px          0.87s                        unusable
+   *   PUNCHER      193px          0.80s                        unusable
+   *
+   * Crossing a quarter of the shaft takes 0.55s at `BOSS_PHYSICS.moveSpeed`, and the eye is 60px
+   * wide, so a window under a second cannot absorb a line-up. Measured after the change, with
+   * `contactInset`:
+   *
+   *   SHOTGUN   0.87s -> 1.15s      PUNCHER   0.80s -> 1.08s      MACHINE   2.69s -> 2.85s
+   *
+   * About 40% of what MACHINE gets rather than 32%, which keeps SHORT RANGE = HIGH RISK while
+   * stopping HIGH RISK from meaning UNUSABLE. MACHINE's own reach moves 8px, and the 0.16s it
+   * gains is `contactInset`, which every weapon gets.
+   */
+  eyeHeight: 72,
+  /**
+   * How far the box that COSTS A HEART is set inside the drawn silhouette, on the side the player
+   * arrives from. The other three sides are the sprite exactly.
+   *
+   * Only that side, because only that side was measured. The fight is a vertical approach and it is
+   * the vertical margin that was short; NIMUSHI's left and right have never been reported as a
+   * problem, so they are left alone rather than changed on a guess.
+   *
+   * What it takes off the box is hood, ears and hair -- decoration that reads as NIMUSHI and not as
+   * NIMUSHI's body. It is 30 of `bodyHeight` 112, so a player can be a little way into the fringe
+   * and not yet into the thing wearing it. Rounds still stop on the drawn silhouette: the forgiving
+   * half of "visual is not collision" is the half that protects the player.
+   */
+  contactInset: 30,
 
   /**
    * How it holds station. It hangs `restGap` ahead of the player along the pull and will neither

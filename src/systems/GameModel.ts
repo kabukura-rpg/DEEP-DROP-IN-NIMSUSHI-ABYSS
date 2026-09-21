@@ -1220,7 +1220,10 @@ export class GameModel {
     if (!this.boss.active) return;
     // Contact with the body. Reachable on purpose: NIMUSHI hangs directly ahead along the pull, so
     // a player who keeps falling into it pays for it. It is never stompable and never lethal alone.
-    const body = this.boss.body;
+    //
+    // `contactBox` rather than `body`: the fringe the player arrives into is drawn but does not
+    // bite, which is what leaves a short-range weapon room to fire and get out again.
+    const body = this.boss.contactBox;
     if (p.x + 9 > body.x && p.x - 9 < body.x + body.width && p.y + 15 > body.y && p.y - 15 < body.y + body.height) {
       this.damage(NIMUSHI.contactDamage, 'bossContact');
     }

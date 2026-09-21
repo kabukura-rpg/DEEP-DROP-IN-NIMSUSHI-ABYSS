@@ -4,7 +4,7 @@ import { GameModel } from '../src/systems/GameModel';
 import { ABYSS_PHASES, ARENA_FLOOR } from '../src/data/abyss';
 import { FINAL_RAGE_RATIO, FULL_SCREEN_TAPIOCA, NIMUSHI, TRANSITION_HAUL } from '../src/data/nimushi';
 import { WORLD } from '../src/data/balance';
-import { GUN_MODULES, type GunModuleId } from '../src/data/gunModules';
+import { GUN_MODULES, GUN_MODULE_IDS, type GunModuleId } from '../src/data/gunModules';
 import { BOSS_PHYSICS } from '../src/data/bossPhysics';
 
 /**
@@ -98,6 +98,38 @@ describe('doing nothing carries the player into NIMUSHI', () => {
     expect(held).toBeGreaterThanOrEqual(8);
     // ...and across seeds the gap goes nowhere in particular, which is what neutral means.
     expect(Math.abs(drifts.reduce((a, b) => a + b, 0) / drifts.length)).toBeLessThan(15);
+  });
+
+  /**
+   * Every weapon can fire from outside the boss's danger zone, and the short ones by enough time to
+   * line up in. MEASURED by firing real rounds: the furthest reach a press lands from, against the
+   * reach at which contact starts, divided by how fast the gap closes.
+   *
+   *   weapon    window before C1    after      by hand before
+   *   MACHINE      2.69s            2.85s      comfortable
+   *   SHOTGUN      0.87s            1.15s      unusable
+   *   PUNCHER      0.80s            1.08s      unusable
+   *
+   * The bar is one second, because crossing a quarter of the shaft to line up with a 60px eye
+   * costs 0.55s and the shortest weapon's own fire interval is another 0.55s.
+   */
+  it('leaves every weapon a firing window it can be aimed in', () => {
+    const closing = BOSS_PHYSICS.maxFallSpeed - NIMUSHI.ascentSpeed;
+    const contactBegins = -15;                    // measured: `contactInset` puts it inside the face
+    for (const id of GUN_MODULE_IDS) {
+      const def = GUN_MODULES[id];
+      // What a round can close on a face climbing away, plus the muzzle offset and the eye's reach.
+      const far = 21 + NIMUSHI.eyeHeight + def.range * (1 - NIMUSHI.ascentSpeed / def.projectileSpeed);
+      const window = (far - contactBegins) / closing;
+      expect(window, `${id} has only ${window.toFixed(2)}s to fire in`).toBeGreaterThan(1);
+    }
+    // ...and the spread between them is kept: short range is still the risky way to play.
+    const windowOf = (id: GunModuleId) => {
+      const def = GUN_MODULES[id];
+      return (21 + NIMUSHI.eyeHeight + def.range * (1 - NIMUSHI.ascentSpeed / def.projectileSpeed) - contactBegins) / closing;
+    };
+    expect(windowOf('shotgun')).toBeLessThan(windowOf('machine') * 0.6);
+    expect(windowOf('puncher')).toBeLessThan(windowOf('shotgun'));
   });
 
   it('gives NIMUSHI one pace and no bursts of a second one', () => {

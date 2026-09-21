@@ -1398,6 +1398,54 @@ describe('the camera and the view', () => {
     }
   });
 
+  /**
+   * SHORT-RANGE SAFE APPROACH GEOMETRY.
+   *
+   * The drawn body is the sprite. The box that costs a heart is set `contactInset` inside it on the
+   * side the player arrives from, and the weak point stands `eyeHeight` out of the face toward
+   * them. Together those are what let a 260px weapon fire and still get out.
+   */
+  it('costs a heart on a box set inside the drawn body, on the player side only', () => {
+    const game = atNimushi(96);
+    const drawn = game.boss.body, hurts = game.boss.contactBox;
+    // Three sides are the sprite exactly: only the approach side is pulled in.
+    expect(hurts.x).toBe(drawn.x);
+    expect(hurts.width).toBe(drawn.width);
+    expect(hurts.y).toBe(drawn.y);
+    // Under an upward pull the player is below, so the inset comes off the underside.
+    expect(drawn.y + drawn.height - (hurts.y + hurts.height)).toBe(NIMUSHI.contactInset);
+    // A fringe, never a hollow: a player can never end up more than part-way into the silhouette.
+    expect(NIMUSHI.contactInset).toBeLessThan(NIMUSHI.bodyHeight / 2);
+  });
+
+  it('still stops a ROUND on the drawn silhouette, not on the smaller box', () => {
+    // The asymmetry runs one way on purpose. Contact is forgiving; a shot into the hood is not,
+    // because a round vanishing into a body that turns out to be hollow is the unfair half.
+    const game = atNimushi(97);
+    const drawn = game.boss.body, hurts = game.boss.contactBox;
+    const inFringe = hurts.y + hurts.height + NIMUSHI.contactInset / 2;   // drawn, but does not bite
+    expect(inFringe).toBeGreaterThan(hurts.y + hurts.height);
+    expect(inFringe).toBeLessThan(drawn.y + drawn.height);
+    expect(game.boss.hitTest({ x: drawn.x + 14, y: inFringe, previousY: inFringe, size: 4 })).toBe('body');
+  });
+
+  /**
+   * The weak point stands out of the face far enough to be shot at from outside contact.
+   *
+   * This is the whole of C1 in one assertion: the eye's near edge has to be further from NIMUSHI
+   * than the point at which touching it costs a heart, or a short weapon's range and the boss's
+   * danger zone are the same place -- which is what made SHOTGUN and PUNCHER unusable by hand.
+   */
+  it('puts the weak point outside the box that hurts', () => {
+    const game = atNimushi(98);
+    const eye = game.boss.eye, hurts = game.boss.contactBox;
+    const contactBegins = (hurts.y + hurts.height) + 15;          // the player's own half-height
+    const eyeNearEdge = eye.y + eye.height;
+    expect(eyeNearEdge).toBeGreaterThan(contactBegins);
+    // In reach terms: how much room a weapon has between "can hit" and "is being hit".
+    expect(eyeNearEdge - contactBegins).toBeGreaterThanOrEqual(NIMUSHI.eyeHeight / 2);
+  });
+
   it('frames nothing outside the arena', () => {
     // The staging room is an ordinary descent and the anchor has no business there.
     const game = new GameModel(false, seeded(86));

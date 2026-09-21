@@ -141,6 +141,24 @@ export class NimushiBossSystem {
   get framedBody() {
     return { x: this.x - NIMUSHI.bodyWidth / 2, y: this.y - NIMUSHI.bodyHeight / 2, width: NIMUSHI.bodyWidth, height: NIMUSHI.bodyHeight };
   }
+  /**
+   * The box that costs a heart -- which is NOT the box that is drawn.
+   *
+   * `NIMUSHI.contactInset` is taken off the side the player arrives from, so the outermost fringe of
+   * the silhouette is decoration rather than body. The asymmetry is deliberate and it runs one way:
+   * a ROUND still stops on the drawn body (`hitTest` uses `body`), because a shot disappearing into
+   * a hood that turns out to be hollow would be the unfair half of the same idea.
+   */
+  get contactBox() {
+    const body = this.body;
+    const inset = Math.max(0, Math.min(NIMUSHI.contactInset, NIMUSHI.bodyHeight - 1));
+    // The player-facing side is the face, and the face is whichever end of the body the pull leads
+    // away from -- so the inset is taken off the bottom under an upward pull and the top under a
+    // downward one, and the rule reads the same whichever way the world is.
+    return this.sign < 0
+      ? { x: body.x, y: body.y, width: body.width, height: body.height - inset }
+      : { x: body.x, y: body.y + inset, width: body.width, height: body.height - inset };
+  }
   /** Station plus recoil: the one position everything the player can see or touch is built from. */
   private get hitY() { return this.y + this.recoil * this.sign; }
   /** How hard NIMUSHI was just hit, 1 down to 0. What the view flashes on; not a mechanic. */
