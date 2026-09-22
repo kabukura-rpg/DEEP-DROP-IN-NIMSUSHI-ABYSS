@@ -27,7 +27,7 @@ app.innerHTML = `
       <div id="game" aria-label="縦落下アクションのプレイ画面"></div>
       <div id="hud" class="hud"><div id="boss-bar" class="boss-bar" hidden><span class="boss-name">NIMUSHI <b id="boss-phase"></b></span><div class="boss-track"><i id="boss-fill"></i></div><small id="boss-percent">100%</small></div><div class="hud-top"><div><span class="hud-label"><b id="stage-label">1-1</b>DEPTH</span><div class="depth-number"><span id="depth">000</span><small id="depth-goal">/ 200m</small></div></div><div class="purse"><span id="coin-wallet">COIN 0</span><small id="coin-score">SCORE 0</small><div id="coin-high" class="coin-high"><div class="coin-high-bar"><i id="coin-high-fill"></i></div><b id="coin-high-state">HIGH</b></div></div><button id="pause" class="pause-button" aria-label="ポーズ" disabled>Ⅱ</button></div><div class="hud-status"><div><div id="hearts" aria-label="HP 4">♥ ♥ ♥ ♥</div><small id="life-gauge"></small></div><div class="ammo-group"><span id="ammo-label">AMMO</span><div id="ammo"></div><b id="gun-module" class="gun-module">MG</b></div></div><div id="oxygen" class="oxygen" hidden><span class="oxygen-label">OXYGEN <b id="oxygen-state"></b></span><div class="oxygen-bar"><i id="oxygen-fill"></i></div><small id="oxygen-seconds">12.0s</small></div><div id="heat" class="heat" hidden><span class="heat-label">HEAT <b id="heat-state"></b></span><div class="heat-bar"><i id="heat-fill"></i></div><small id="heat-percent">0%</small></div><div id="stage-intro" class="stage-intro" hidden aria-live="polite"></div><div id="combo" class="combo" hidden></div><div id="gun-toast" class="gun-toast" hidden aria-live="polite"></div><div id="boss-line" class="boss-line" hidden aria-live="polite"></div><div id="practice-label" hidden>CONTROL LAB <span>落下 → 射撃 → 着地</span></div><div class="depth-progress"><div id="progress"></div></div></div>
       <div id="overlay" class="overlay"></div>
-      <div id="touch-controls"><button id="left-control" aria-label="左移動">←</button><button id="fire-control" aria-label="射撃">FIRE<span>↓</span></button><button id="right-control" aria-label="右移動">→</button></div>
+      <div id="touch-controls"><div id="move-pad"><button id="left-control" aria-label="左移動">←</button><button id="right-control" aria-label="右移動">→</button></div><div id="fire-pad"><button id="fire-control" aria-label="射撃">FIRE<span>↓</span></button></div></div>
     </div>
     <div class="cabinet-bottom"><span><span class="live-dot"></span> <span id="run-status">READY TO DESCEND</span></span><span>↓ 4 AREAS · 12 SECTIONS</span></div>
     <section id="physics-tuning" class="physics-tuning" aria-label="練習用の物理調整" hidden></section>
@@ -205,6 +205,10 @@ if (import.meta.env.DEV) {
   // The model the run is actually using, for development harnesses that need to drive one. A
   // getter rather than a snapshot, because `startRun` replaces the model on every run.
   (window as unknown as { __roadModel: () => GameModel }).__roadModel = () => scene.model;
+  // The input bridge, for development harnesses that drive the touch controls and need to read what
+  // reached the run. A getter, because `bridge` is a live object the scene reads every frame.
+  (window as unknown as { __roadInput: () => { direction: number; firing: boolean; active: boolean } }).__roadInput =
+    () => ({ direction: bridge.direction, firing: bridge.firing, active: bridge.active });
 }
 
 function setOverlay(content: string) {
@@ -595,25 +599,105 @@ installMenuKeys({
 window.addEventListener('blur', () => { if (inPlay()) pause(); });
 document.addEventListener('visibilitychange', () => { if (document.hidden && inPlay()) pause(); });
 
+/**
+ * TOUCH CONTROLS: three explicit buttons, and nothing else on screen that moves or shoots.
+ *
+ * WHY NOT TOUCH ZONES. The playfield used to be its own controller: a touch anywhere set the
+ * direction from which half of the screen it landed in and fired at the same time, and dragging
+ * re-aimed it. Played on a real phone that is unusable for this game -- moving and shooting are the
+ * same gesture, so you cannot fire without drifting, you cannot adjust position without firing, and
+ * a thumb resting on the glass to aim is already steering. AREA 1 asks for exactly the things that
+ * breaks: steering while firing, nudging a landing mid-fall, and flicking left-right.
+ *
+ * WHY EACH POINTER IS ITS OWN ENTRY. A phone gives one pointerId per finger, and the left thumb's
+ * `pointerup` must never clear what the right thumb is holding. So held state is keyed by pointerId
+ * and the bridge is recomputed from all of them, rather than being set directly by whichever event
+ * fired last. `pointercancel` -- which a phone raises on its own when a call arrives or the browser
+ * takes the gesture -- releases through the same path, so it can never leave a direction stuck on.
+ */
 const movementPointers = new Map<number, number>();
 const firePointers = new Set<number>();
+/**
+ * BOTH HELD CANCELS OUT, which is what the keyboard already does: GameScene sums `right ? 1 : 0`
+ * and `left ? -1 : 0`, so A+D is a standstill. Touch sums the same way rather than inventing a
+ * last-press-wins rule -- one semantics, whichever hand is playing.
+ */
 function syncPointers() { bridge.direction = Math.sign([...movementPointers.values()].reduce((sum, value) => sum + value, 0)); bridge.firing = firePointers.size > 0; }
-for (const [id, direction] of [['left-control', -1], ['right-control', 1], ['fire-control', 0]] as const) {
-  const button = $(id);
-  button.addEventListener('pointerdown', e => { if (!inPlay()) return; e.preventDefault(); audio.unlock(); button.setPointerCapture(e.pointerId); if (direction) movementPointers.set(e.pointerId, direction); else { firePointers.add(e.pointerId); scene.requestShot(); } syncPointers(); });
-  const release = (e: PointerEvent) => { movementPointers.delete(e.pointerId); firePointers.delete(e.pointerId); syncPointers(); };
-  button.addEventListener('pointerup', release); button.addEventListener('pointercancel', release); button.addEventListener('lostpointercapture', release);
+/** A touch belongs to the run only once the run has the input, exactly as a key press does. */
+const touchAccepted = () => inPlay() && performance.now() >= bridge.suppressUntil;
+/**
+ * Capture is an optimisation, not a requirement: it keeps a finger reporting to the control it
+ * started on even when it strays. Browsers refuse it for a pointer they no longer consider active,
+ * and a throw there would abandon the press half-registered -- leaving a direction held with no
+ * pointer to release it. Held state is keyed by pointerId either way, so failing to capture costs
+ * nothing that matters.
+ */
+function capture(element: Element, pointerId: number) {
+  try { element.setPointerCapture(pointerId); } catch { /* the press still registers */ }
 }
-const frame = $('game-frame');
-frame.addEventListener('pointerdown', e => {
-  if (!inPlay() || (e.target as HTMLElement).closest('button')) return;
-  e.preventDefault(); audio.unlock(); frame.setPointerCapture(e.pointerId);
-  if (e.pointerType !== 'mouse') { const bounds = frame.getBoundingClientRect(); movementPointers.set(e.pointerId, e.clientX < bounds.left + bounds.width / 2 ? -1 : 1); syncPointers(); }
+
+/**
+ * The MOVE PAD owns both direction buttons, and the pointer is captured by the PAD rather than by
+ * either button. That is what makes a flick work: a thumb resting between LEFT and RIGHT slides
+ * from one to the other and the direction changes under it, with no lift and no gap. Captured by a
+ * button instead, the slide would keep reporting the button it started on.
+ *
+ * Sliding into the gap between them keeps the last direction rather than dropping to neutral: the
+ * gap is a rendering detail, and a dead strip in the middle of the one control that needs to be
+ * fast would be felt as the input sticking.
+ */
+const movePad = $('move-pad');
+const directionAt = (x: number, y: number): number | null => {
+  for (const [id, value] of [['left-control', -1], ['right-control', 1]] as const) {
+    const r = $(id).getBoundingClientRect();
+    if (x >= r.left && x <= r.right && y >= r.top - 24 && y <= r.bottom + 24) return value;
+  }
+  return null;
+};
+movePad.addEventListener('pointerdown', e => {
+  if (!touchAccepted()) return;
+  const direction = directionAt(e.clientX, e.clientY);
+  if (direction === null) return;
+  e.preventDefault(); audio.unlock();
+  capture(movePad, e.pointerId);
+  movementPointers.set(e.pointerId, direction);
+  syncPointers();
+});
+movePad.addEventListener('pointermove', e => {
+  if (!movementPointers.has(e.pointerId)) return;
+  const direction = directionAt(e.clientX, e.clientY);
+  if (direction !== null) { movementPointers.set(e.pointerId, direction); syncPointers(); }
+});
+const releaseMove = (e: PointerEvent) => { if (movementPointers.delete(e.pointerId)) syncPointers(); };
+movePad.addEventListener('pointerup', releaseMove);
+movePad.addEventListener('pointercancel', releaseMove);
+movePad.addEventListener('lostpointercapture', releaseMove);
+
+/** FIRE takes the same path SPACE does: a shot on the press, and held fire while it is down. */
+const fireButton = $('fire-control');
+fireButton.addEventListener('pointerdown', e => {
+  if (!touchAccepted()) return;
+  e.preventDefault(); audio.unlock();
+  capture(fireButton, e.pointerId);
+  firePointers.add(e.pointerId);
+  syncPointers();
   scene.requestShot();
 });
-frame.addEventListener('pointermove', e => { if (!movementPointers.has(e.pointerId) || e.pointerType === 'mouse' || e.target !== frame) return; const bounds = frame.getBoundingClientRect(); movementPointers.set(e.pointerId, e.clientX < bounds.left + bounds.width / 2 ? -1 : 1); syncPointers(); });
-const releaseFrame = (e: PointerEvent) => { movementPointers.delete(e.pointerId); firePointers.delete(e.pointerId); syncPointers(); };
-frame.addEventListener('pointerup', releaseFrame); frame.addEventListener('pointercancel', releaseFrame); frame.addEventListener('lostpointercapture', releaseFrame);
+const releaseFire = (e: PointerEvent) => { if (firePointers.delete(e.pointerId)) syncPointers(); };
+fireButton.addEventListener('pointerup', releaseFire);
+fireButton.addEventListener('pointercancel', releaseFire);
+fireButton.addEventListener('lostpointercapture', releaseFire);
+
+/**
+ * The playfield itself is no longer a control on touch. A MOUSE click still fires, because that is
+ * how the desktop build has always worked and nothing about a mouse was the problem.
+ */
+const frame = $('game-frame');
+frame.addEventListener('pointerdown', e => {
+  if (e.pointerType !== 'mouse' || !inPlay() || (e.target as HTMLElement).closest('button')) return;
+  e.preventDefault(); audio.unlock();
+  scene.requestShot();
+});
 showTitle(); updateHud(scene.model);
 window.addEventListener('pagehide', () => { game.loop.sleep(); });
 window.addEventListener('pageshow', () => { game.loop.wake(); });
