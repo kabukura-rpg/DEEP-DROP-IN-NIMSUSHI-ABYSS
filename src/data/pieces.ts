@@ -28,7 +28,17 @@
  * route's own safety, and no piece can produce an unreachable row by asking for the wrong thing --
  * the generator would throw instead, which the tests rely on.
  */
-export type PieceId = 'normal' | 'openDrop' | 'ledgeCluster' | 'wallChannel' | 'breakableDrop';
+/**
+ * The first five are AREA 1's, below. The last three are SUNKEN RUINS' and live in waterTerrain.ts,
+ * because a piece is only ever a request to this same generator -- a second AREA wanting different
+ * shapes needs new entries here and a grammar of its own, not a second terrain system.
+ *
+ * `normal` and `breakableDrop` are shared names rather than shared shapes: the planner forces those
+ * two by id when a chamber or a gate row is due, so every grammar has to provide something under
+ * each, built at its own AREA's scale.
+ */
+export type PieceId = 'normal' | 'openDrop' | 'ledgeCluster' | 'wallChannel' | 'breakableDrop'
+  | 'openLane' | 'crossShelf' | 'shelfPair';
 
 /** What one row of a piece asks the generator for. Everything here is a request, not a placement. */
 export interface RowIntent {
@@ -58,7 +68,7 @@ export interface RowIntent {
   openSpan: boolean;
 }
 
-interface PieceSpec {
+export interface PieceSpec {
   id: PieceId;
   weight: number;
   /** Builds the piece's rows. `random` is the generator's own seeded source. */
@@ -135,8 +145,19 @@ export const AREA1_PIECES: readonly PieceSpec[] = [
   },
 ];
 
-export interface PieceGrammar { pieces: readonly PieceSpec[] }
-export const AREA1_GRAMMAR: PieceGrammar = { pieces: AREA1_PIECES };
+export interface PieceGrammar {
+  pieces: readonly PieceSpec[];
+  /**
+   * The widest step any piece in this grammar can ask for, in pixels.
+   *
+   * The generator's air-gap lookahead has to assume the worst case, and it used to assume a
+   * literal 860 -- AREA 1's number, written into the generator. A grammar that opens further than
+   * that would have had its air ceiling checked against a step shorter than the one it was about
+   * to take. Declared per grammar so the check is always measured against the shaft being built.
+   */
+  maxStep: number;
+}
+export const AREA1_GRAMMAR: PieceGrammar = { pieces: AREA1_PIECES, maxStep: 860 };
 
 /**
  * Walks a SECTION's pieces, handing out one row intent at a time.

@@ -5,7 +5,7 @@ import { DOODAD_RULES, spawnDoodad, type Doodad } from '../src/data/doodads';
 import { SAFE_ZONE_RULES, coinVeinTotal, insideSafeZone, rollSafeZoneContent, type SafeZone, type SafeZoneContentKind, sideRoomCount } from '../src/data/safeZone';
 import type { SideCave } from '../src/data/sideCave';
 import { COMBO_TIERS } from '../src/data/combo';
-import { StageGenerator, type Platform, type RoutePlatform } from '../src/systems/StageGenerator';
+import { StageGenerator, START_PLATFORM, type Platform, type RoutePlatform } from '../src/systems/StageGenerator';
 import { areaConfig, type AreaId, type SectionId } from '../src/data/areas';
 import { spawnEnemy } from '../src/data/enemies';
 import { type Hazard } from '../src/data/hazards';
@@ -1193,22 +1193,38 @@ describe('SAFE ZONE supply reaches all twelve SECTIONs', () => {
     }
   });
 
+  /**
+   * A chamber occupies one wall. The air the run needs must still arrive at least as often as the
+   * SECTION plan promises, with no chamber buried on top of a container.
+   *
+   * MEASURED FROM THE START PLATFORM, which is where the run and the ceiling both begin. The
+   * generator seeds `lastAirY` with START_PLATFORM.y and bounds every source from there; depth 0 is
+   * WORLD.startY, 70px above it, so measuring the first stretch from 0 asks for 2.9m the generator
+   * never promised. It only started mattering once the shaft opened up and the first band got long
+   * enough to spend that slack -- the rule itself has not moved, and the source-to-source gaps below
+   * are checked with no tolerance at all.
+   *
+   * The stretch before the first source is not a dry stretch in any case: a SECTION begins with a
+   * full tank, on that platform.
+   */
   it('keeps AREA 3 able to reach air past every chamber', () => {
-    // A chamber occupies one wall. The air the run needs must still arrive at least as often as the
-    // SECTION plan promises, with no chamber buried on top of a container.
     for (const section of [1, 2, 3] as SectionId[]) {
       const maxGap = areaConfig(3).plans![section - 1].maxOxygenGap;
       for (let seed = 1; seed <= SEEDS; seed++) {
         const shaft = build(3, section, seed * 613);
         expect(shaft.containers.length).toBeGreaterThan(0);
         const depths = shaft.containers
-          .map(c => (c.y - WORLD.startY) / WORLD.pixelsPerMeter)
+          .map(c => (c.y + c.height / 2 - WORLD.startY) / WORLD.pixelsPerMeter)
           .filter(d => d <= shaft.length)
           .sort((a, b) => a - b);
-        let previous = 0;
+        let previous = (START_PLATFORM.y - WORLD.startY) / WORLD.pixelsPerMeter;
+        let first = true;
         for (const d of depths) {
-          if (maxGap !== undefined) expect({ section, seed, gap: d - previous <= maxGap + 1 }).toEqual({ section, seed, gap: true });
-          previous = d;
+          if (maxGap !== undefined) {
+            const within = d - previous <= maxGap + (first ? 0.5 : 0);
+            expect({ section, seed, gap: within }).toEqual({ section, seed, gap: true });
+          }
+          previous = d; first = false;
         }
       }
     }

@@ -200,7 +200,10 @@ export class StageGenerator {
     if (pieces) {
       this.planner = new PiecePlanner(pieces, random);
       // The widest span any piece can ask for, for the lookaheads that must stay conservative.
-      this.maxRowStep = 860;
+      // The GRAMMAR states it. It used to be a literal 860 -- AREA 1's number, written into the
+      // generator -- so a grammar that opened further would have had its air ceiling checked
+      // against a step shorter than the one it was about to take.
+      this.maxRowStep = pieces.maxStep;
     } else {
       const grammar = mode === 'legacy' ? undefined : context.plan?.rhythm;
       if (grammar) {
@@ -448,18 +451,42 @@ export class StageGenerator {
       // behaves exactly as it did before either existed.
       const intent = this.planner ? this.planner.next(y, clearance, gateDue) : null;
       const band = this.rhythm && !intent ? this.rhythm.current(clearance) : null;
+      // The air lookahead needs the step this row is ABOUT to take, so it is settled here and
+      // then used for `nextY` as well -- one decision, read twice. Computed only where air is
+      // generated, so every AREA that draws its step from `random()` still draws it at exactly the
+      // point in the stream it always has.
+      const plannedStep = this.context.oxygen ? this.rowStep(tuning, band, intent) : undefined;
       // A gate row takes the whole row: no ledge, no enemies, no hazards, nothing to collect. It is
       // a wall across the shaft and the pause it creates is the point.
       if (gateDue) {
         this.gates.shift();
         const blocks = this.breakBlockRow(y);
         if (y >= start) platforms.push(...blocks);
+        /**
+         * AIR STILL BELONGS IN THE WATER ABOVE A GATE.
+         *
+         * A gate row carries no furniture of its own, and until now that included the air check --
+         * so the band above every gate was the one place in the SECTION where `maxOxygenGap` had no
+         * enforcement point at all. The band below it is the next row's business, which makes a gate
+         * a TWO-band blind spot, and the lookahead in `placeAir` can only widen its threshold: it
+         * cannot put a source in a band it is never called for.
+         *
+         * At CATACOMB spacing two bands came to ~500px and the ceiling was never troubled. In open
+         * water they come to 1080px, and measured before this line existed, 300 of 300 3-1 SECTIONs
+         * breached their own 30m ceiling, the worst by 24m. The source goes in the open water ABOVE
+         * the stone, which is where the fall actually passes -- `placeAir` centres it in the band and
+         * the band stops 54px short of the row, so it can never be buried in the gate itself.
+         *
+         * Only an AREA whose air drains ever reaches this: `context.oxygen` is false everywhere else,
+         * so no other AREA's gate rows draw so much as a random number differently.
+         */
+        if (this.context.oxygen) this.placeAir(tuning, blocks[0], y, start, containers, enemies, plannedStep!);
         // Any block will do as the route anchor: they all share the landing spot by construction.
         this.previous = blocks[0];
         this.previousBand = [blocks[0]];
         // A gate row spans the shaft, so it asks no horizontal question: the row after it is free.
         this.lastLane = null;
-        this.nextY += this.rowStep(tuning, band, intent);
+        this.nextY += plannedStep ?? this.rowStep(tuning, band, intent);
         continue;
       }
       // A band draws from its own slice of the SECTION's width range -- tight rows land wider,
@@ -566,7 +593,7 @@ export class StageGenerator {
           }
         }
       }
-      if (this.context.oxygen) this.placeAir(tuning, platform, y, start, containers, enemies);
+      if (this.context.oxygen) this.placeAir(tuning, platform, y, start, containers, enemies, plannedStep!);
       if (this.context.heat) this.placeHeat(tuning, platform, y, width, start, pickups, hazards, enemies);
       this.placeSpikes(tuning, platform, y, width, start, hazards, enemies, containers);
       this.placeDoodad(tuning, platform, y, start, doodads, hazards, enemies);
@@ -576,7 +603,7 @@ export class StageGenerator {
       // makes stepping off the fall line to reach one worth doing.
       this.previous = platform;
       this.previousBand = [platform, ...extras];
-      this.nextY += this.rowStep(tuning, band, intent);
+      this.nextY += plannedStep ?? this.rowStep(tuning, band, intent);
     }
     return { platforms, enemies, pickups, hazards, containers, doodads, safeZones, caves, exit };
   }
@@ -954,26 +981,50 @@ export class StageGenerator {
    * gone -- nowhere in the shaft refills a tank simply by being stood in -- so the ceiling below is
    * the whole safety net, and it is what stops a seed building a stretch nobody could survive.
    */
-  private placeAir(tuning: RowTuning, platform: RoutePlatform, y: number, start: number, containers: AirContainer[], enemies: Enemy[]) {
+  private placeAir(tuning: RowTuning, platform: RoutePlatform, y: number, start: number, containers: AirContainer[], enemies: Enemy[], nextStep: number) {
     const bandTop = this.previous.y + 46, bandBottom = y - 54;
     if (bandBottom - bandTop < 30) return;
     const bandY = (bandTop + bandBottom) / 2;
-    // Place now if skipping this band could push the next one past the ceiling. Measured against
-    // the last source's real position and the widest the next row can be, so the cap always holds.
-    //
-    // A gate row lays no air at all, so when one is due next the following band is TWO row-gaps
-    // away rather than one. Looking only one row ahead there is what let a seed run past the plan's
-    // ceiling by a whole row -- invisible until the shaft was built the way the game builds it,
-    // with a SECTION length and therefore with gate rows in it.
-    const rowStep = this.maxRowStep || tuning.gap + 28;
-    const nextRowDepth = (y + rowStep - WORLD.startY) / WORLD.pixelsPerMeter;
-    const gateNext = this.gates.length > 0 && this.gates[0] <= nextRowDepth;
-    const overdue = (bandY + rowStep * (gateNext ? 2 : 1) - this.lastAirY) / WORLD.pixelsPerMeter >= tuning.maxOxygenGap;
+    /**
+     * Place now if skipping this band would push the NEXT chance past the plan's ceiling.
+     *
+     * The next chance is the middle of the band this row is about to open, and `nextStep` is how
+     * tall that band will be -- the step the generator has already decided on and is about to take,
+     * handed in rather than guessed at.
+     *
+     * It used to be guessed at, as `maxRowStep`: the widest step the SECTION could possibly ask for,
+     * doubled when a gate row was due next because a gate laid no air. Both of those were worked
+     * around rather than fixed, and in open water the workaround ate the AREA. SUNKEN RUINS caps its
+     * own lanes at the air ceiling, so `maxRowStep / pixelsPerMeter` IS `maxOxygenGap` -- which made
+     * the test `bandY + ceiling - lastAirY >= ceiling` true on literally every row, and the ceiling,
+     * not the plan, decided how much air the AREA had. Measured: 3-3 laid 16.2 containers where its
+     * own `containerChance` asks for 3.1, and the AREA's air curve -- one source every 16.9m in 3-1
+     * falling to every 33.8m in 3-3 -- flattened to 18m throughout.
+     *
+     * With the real step, the forcing is what it was always described as: a floor nobody reaches
+     * except where the terrain genuinely outruns the plan. Gate rows now lay air of their own, so
+     * there is no two-band blind spot left to double for either.
+     */
+    const nextChance = y + nextStep / 2;
+    const overdue = (nextChance - this.lastAirY) / WORLD.pixelsPerMeter >= tuning.maxOxygenGap;
     if (!overdue && this.random() >= tuning.containerChance) return;
 
     // Everything an air source needs: a spot the fall from the previous exit can actually steer to,
     // leaning away from the safe landing by the plan's offside share so taking it costs a detour.
-    const reach = horizontalReach(bandBottom - this.previous.y, this.context.water);
+    //
+    // MEASURED AT THE SOURCE'S OWN HEIGHT, not at the bottom of the band.
+    //
+    // A container hangs at `bandY`, the middle of the band -- but this used to be clamped against
+    // the reach a fall to `bandBottom` buys, which is a longer fall and therefore more steering than
+    // the player has actually had when they arrive level with the box. Measured on the old terrain
+    // that was worth up to 41px of over-reach on 74% of 3-2's containers; it went unnoticed because
+    // a 250px band hides the difference. Open water does not: with bands running to 1200px the same
+    // optimism reached 101px, which is a container placed where the fall cannot get to it.
+    //
+    // The fix is to ask the question at the height the answer is needed. Nothing about how OFTEN a
+    // source appears changes -- `containerChance` and the `maxOxygenGap` force are both decided
+    // above this line, and no draw happens below it.
+    const reach = horizontalReach(bandY - this.previous.y, this.context.water);
     const exit = this.previous.exitX;
     const lean = Math.sign(exit - platform.safeX) || (exit < WORLD.width / 2 ? 1 : -1);
     const clamp = (value: number, margin: number) =>

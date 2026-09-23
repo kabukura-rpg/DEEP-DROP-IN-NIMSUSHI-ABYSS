@@ -2,6 +2,7 @@ import type { EnemyKind } from './enemies';
 import type { SpikeKind } from './hazards';
 import { AREA1_RHYTHM, type RhythmGrammar } from './rhythm';
 import { AREA1_GRAMMAR, type PieceGrammar } from './pieces';
+import { AREA3_CROSS_CURRENT, AREA3_DROWNED_RUINS, AREA3_OPEN_WATER } from './waterTerrain';
 
 export type AreaId = 1 | 2 | 3 | 4;
 export type SectionId = 1 | 2 | 3;
@@ -268,14 +269,36 @@ export const AREAS: readonly AreaConfig[] = [
     gimmicks: { oxygen: true },
     water: { gravity: 0.90, responsiveness: 11 },
     plans: [
-      // The gaps are the AREA's difficulty curve. They are held below what one tank can cross, and
-      // the generator forces a source whenever a dry run would exceed them.
-      { platformWidth: [150, 174], gap: 236, enemyChance: 0.34, flyChance: 0.26, toughChance: 0.22, heavyChance: 0, comboBias: 0.18, graceDepth: 12, containerChance: 0.44, maxOxygenGap: 30, bubbleOffside: 0.35,
-        breakBlockRows: 2, breakBlockDurability: 2, doodadChance: 0.10, safeZoneCount: 1 },
-      { platformWidth: [138, 162], gap: 242, enemyChance: 0.46, flyChance: 0.32, toughChance: 0.30, heavyChance: 0, comboBias: 0.24, containerChance: 0.29, maxOxygenGap: 40, bubbleOffside: 0.62,
-        breakBlockRows: 2, breakBlockDurability: 2, doodadChance: 0.10, safeZoneCount: 1 },
-      { platformWidth: [126, 150], gap: 248, enemyChance: 0.56, flyChance: 0.38, toughChance: 0.38, heavyChance: 0, comboBias: 0.28, containerChance: 0.21, maxOxygenGap: 50, bubbleOffside: 0.85,
-        breakBlockRows: 2, breakBlockDurability: 2, doodadChance: 0.10, safeZoneCount: 1 },
+      // SUNKEN RUINS TERRAIN, per SECTION. The three grammars are in waterTerrain.ts and are what
+      // makes this AREA read as water rather than as the catacombs painted blue; the numbers here
+      // are the envelope they work inside.
+      //
+      // WHAT MOVED, AND WHY, AGAINST THE CATACOMB PLAN THESE USED TO BE A COPY OF:
+      //
+      //   platformWidth  UP. A ledge in open water is a SHELF -- something arrived on from a long
+      //                  fall, with drift still in the controls. Every floor here is above the 82px
+      //                  `minSafeLanding` derived from the player's body plus the water's own drift.
+      //   gap            UP, and now only the fallback: the pieces own the spacing. Far fewer rows
+      //                  over the same SECTION, which is what opens the shaft up.
+      //   doodadChance   UP. Open water needs something to bounce from, or a long lane is a stretch
+      //                  with no way to keep a chain or reload alive.
+      //   breakBlockRows 1 / 2 / 2 rather than 2 / 2 / 2. Measured: with far fewer rows in a SECTION
+      //                  a gate row is a much larger share of what the player meets: three of them
+      //                  made BREAKABLE DROP 32 per cent of every piece in 3-3, so the gates rather
+      //                  than the water became the AREA. One in 3-1 leaves open water uninterrupted.
+      //
+      // WHAT DID NOT MOVE: every oxygen number (containerChance, maxOxygenGap, bubbleOffside), every
+      // enemy number, the water physics, and safeZoneCount. The air ceilings in particular are load
+      // bearing here -- they are what caps how long an open lane may be.
+      // 3-1 OPEN WATER. The widest shelves and the fewest of them.
+      { platformWidth: [182, 214], gap: 330, pieces: AREA3_OPEN_WATER, enemyChance: 0.34, flyChance: 0.26, toughChance: 0.22, heavyChance: 0, comboBias: 0.18, graceDepth: 12, containerChance: 0.44, maxOxygenGap: 30, bubbleOffside: 0.35,
+        breakBlockRows: 1, breakBlockDurability: 2, doodadChance: 0.34, safeZoneCount: 1 },
+      // 3-2 CROSS CURRENT. Alternating shelves take over; the lateral decision arrives earlier.
+      { platformWidth: [168, 198], gap: 336, pieces: AREA3_CROSS_CURRENT, enemyChance: 0.46, flyChance: 0.32, toughChance: 0.30, heavyChance: 0, comboBias: 0.24, containerChance: 0.29, maxOxygenGap: 40, bubbleOffside: 0.62,
+        breakBlockRows: 2, breakBlockDurability: 2, doodadChance: 0.40, safeZoneCount: 1 },
+      // 3-3 DROWNED RUINS. Lanes, shelves, branches, gates and scenery at the AREA's widest spacing.
+      { platformWidth: [152, 182], gap: 342, pieces: AREA3_DROWNED_RUINS, enemyChance: 0.56, flyChance: 0.38, toughChance: 0.38, heavyChance: 0, comboBias: 0.28, containerChance: 0.21, maxOxygenGap: 50, bubbleOffside: 0.85,
+        breakBlockRows: 2, breakBlockDurability: 2, doodadChance: 0.46, safeZoneCount: 1 },
     ],
   },
   {

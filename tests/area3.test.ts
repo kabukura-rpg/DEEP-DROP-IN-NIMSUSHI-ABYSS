@@ -8,6 +8,7 @@ import { areaConfig, type SectionId } from '../src/data/areas';
 import { horizontalReach } from '../src/data/difficulty';
 import { WORLD, BALANCE } from '../src/data/balance';
 import { AIR_CONTAINER_RULES, type AirContainer } from '../src/data/structures';
+import { minSafeLanding } from '../src/data/waterTerrain';
 
 const seeded = (seed: number) => () => { seed = (Math.imul(seed, 1664525) + 1013904223) >>> 0; return seed / 4294967296; };
 const area3 = areaConfig(3);
@@ -305,17 +306,34 @@ describe('AREA 3 section pacing', () => {
     expect(per100(three.containers)).toBeLessThan(3.4);
     expect(one.containers).toBeGreaterThan(three.containers);
     expect(two.containers).toBeGreaterThan(three.containers);
-    // The density is the plan's own, not a number somebody liked: the roll happens once per
-    // ordinary row, and the ceiling below only ever forces MORE. Anything far above that means the
-    // forcing has taken over and the plan is no longer deciding how much air a SECTION has.
+    /**
+     * HOW MUCH AIR A SECTION HAS, BOUNDED BY THE TWO THINGS THAT PUT IT THERE.
+     *
+     * Two independent sources, and the total can never be outside them:
+     *
+     *   THE PLAN   one roll per ordinary row, `rows * containerChance`.
+     *   THE CEILING  `maxOxygenGap` forces a source whenever the plan's rolls have not produced one
+     *                in time, so it demands at least `sectionLength / maxOxygenGap` of them.
+     *
+     * This used to be written as `plan * 0.9 .. plan * 2`, which read the plan as the whole story.
+     * It was, at CATACOMB spacing: AREA 3 had ~34 rows and 0.21 of them carried air, so the plan
+     * alone very nearly met the ceiling's demand and the forcing barely fired. Open water has 14.7
+     * rows in the same 340m, so the same `containerChance` asks for 3.1 containers where the 50m
+     * ceiling needs 6.8 -- the forcing HAS to do most of the work, and a bound written against the
+     * plan alone was measuring a relationship between rows and metres that no longer exists.
+     *
+     * `containerChance` and `maxOxygenGap` are both unchanged; what changed is how many rows a
+     * SECTION has. So the bound is stated against both terms, which is true of either terrain.
+     */
     for (const sectionId of [1, 2, 3] as const) {
       // Sampled once. This used to call `stats` twice per section on top of the three at the top of
       // the test -- nine full generations for three sections' worth of numbers, which put it within
       // a whisker of the 5s timeout whenever the suite was busy. Same numbers, a third of the work.
       const { containers: measured, rows } = [one, two, three][sectionId - 1];
       const fromPlan = rows * plan(sectionId).containerChance!;
-      expect(measured, `section 2-${sectionId}`).toBeGreaterThan(fromPlan * 0.9);
-      expect(measured, `section 2-${sectionId}`).toBeLessThan(fromPlan * 2);
+      const fromCeiling = area3.sectionLength / plan(sectionId).maxOxygenGap!;
+      expect(measured, `section 3-${sectionId} floor`).toBeGreaterThan(Math.max(fromPlan, fromCeiling) * 0.9);
+      expect(measured, `section 3-${sectionId} cap`).toBeLessThan(fromPlan + fromCeiling);
     }
     // A full tank must still cover the worst planned dry stretch with room to spare.
     for (const sectionId of [1, 2, 3] as const) expect(plan(sectionId).maxOxygenGap!).toBeLessThan(60);
@@ -388,17 +406,44 @@ describe('AREA 3 generation safety', () => {
       }
     }
   });
+  /**
+   * THE ROUTE IS A CHAIN OF BANDS, NOT A LIST OF PLATFORMS.
+   *
+   * A band is every ledge at one height. SHELF PAIR puts two of them there, so walking the array in
+   * order and measuring `p.y - previous.y` between two ledges of the SAME band asks what a fall of
+   * zero pixels can steer -- nothing -- and fails on terrain that is perfectly sound. The generator's
+   * own rule is per band and is the stronger one, so that is what is checked here:
+   *
+   *   every ledge in a band is reachable from EVERY ledge in the band above it,
+   *
+   * which is what makes more than one landing safe -- whichever the player takes, the way down is
+   * the same way down. A SAFE ZONE floor is a chamber's own slab against a wall rather than a step
+   * on the route, and a gate row is edge-to-edge stone that nothing falls past and nothing has to
+   * steer to, so neither is part of this chain.
+   */
   it('still guarantees a reachable route with submerged travel maths', () => {
     for (let sectionId = 1; sectionId <= 3; sectionId++) {
       for (let seed = 1; seed <= 40; seed++) {
         const s = section(sectionId as SectionId, seed * 4423);
-        let previous: RoutePlatform = { ...START_PLATFORM };
-        // A SAFE ZONE floor is a side chamber's own slab against a wall, not a step on the route:
-        // the generator never chains the next row's reach from it. Measuring the fall from one is
-        // measuring the wrong object, exactly as applying the air-reach rule to a crate was.
-        for (const p of s.platforms.filter(f => f.safeZone === undefined)) {
-          expect(Math.abs(p.safeX - previous.exitX)).toBeLessThanOrEqual(horizontalReach(p.y - previous.y, area3.water));
-          previous = p;
+        const rows = [...s.platforms, ...s.blocks].filter(f => f.safeZone === undefined);
+        const heights = [...new Set(rows.map(f => Math.round(f.y)))].sort((a, b) => a - b);
+        let above: RoutePlatform[] = [{ ...START_PLATFORM }];
+        for (const y of heights) {
+          const here = rows.filter(f => Math.round(f.y) === y);
+          const gate = here.length > 1 && here.every(f => f.breakBlock);
+          if (gate) {
+            // Airtight, edge to edge: the way past is opened with a round, never steered to.
+            const sorted = [...here].sort((a, b) => a.x - b.x);
+            expect(sorted[0].x).toBeLessThanOrEqual(WORLD.wall);
+            expect(sorted[sorted.length - 1].x + sorted[sorted.length - 1].width).toBeGreaterThanOrEqual(WORLD.width - WORLD.wall);
+            for (let i = 1; i < sorted.length; i++) expect(sorted[i].x).toBeCloseTo(sorted[i - 1].x + sorted[i - 1].width, 3);
+          } else {
+            for (const p of here) for (const from of above) {
+              expect(Math.abs(p.safeX - from.exitX), `3-${sectionId} seed ${seed} y${y}`)
+                .toBeLessThanOrEqual(horizontalReach(p.y - from.y, area3.water));
+            }
+          }
+          above = here as RoutePlatform[];
         }
       }
     }
@@ -676,5 +721,146 @@ describe('AREA 3 -> AREA 4: the supply is released, debt and all', () => {
     oxygen.reset(true);
     oxygen.remaining = 0;
     expect(oxygen.tick(1 / 120)).toBe(false);
+  });
+});
+
+/**
+ * AREA 3 TERRAIN: OPEN WATER, NOT THE CATACOMBS.
+ *
+ * SUNKEN RUINS used to be AREA 2's plan with water poured over it -- identical platformWidth, gap,
+ * enemyChance, flyChance, toughChance, comboBias, breakBlockRows and safeZoneCount, SECTION for
+ * SECTION. These lock the shape that replaced it, and every bound is either derived from the
+ * player's own physics or compared against CATACOMB RUINS rather than written down.
+ */
+describe('AREA 3 terrain reads as water before anything moves', () => {
+  const area2 = areaConfig(2);
+  const LIMIT = WORLD.startY + area3.sectionLength * WORLD.pixelsPerMeter;
+  /** The camera shows this much shaft below the player, so a longer band is a lane, not a gap. */
+  const LANE = Math.round(WORLD.height * 0.63);
+
+  /** Everything one SECTION of an AREA generates, as rows grouped by height. */
+  const shaftOf = (areaId: 2 | 3, sectionId: SectionId, seed: number) => {
+    const area = areaId === 2 ? area2 : area3;
+    const limit = WORLD.startY + area.sectionLength * WORLD.pixelsPerMeter;
+    const generator = new StageGenerator(seeded(seed), {
+      plan: area.plans![sectionId - 1], enemyPool: area.enemyPool, water: area.water,
+      oxygen: area.gimmicks?.oxygen === true, sectionLength: area.sectionLength,
+    });
+    const all: RoutePlatform[] = [];
+    for (let chunk = 0; chunk < CHUNKS + 8; chunk++) all.push(...generator.chunk(chunk).platforms);
+    const rows = all.filter(p => p.y <= limit && p.safeZone === undefined);
+    const heights = [...new Set(rows.map(p => Math.round(p.y)))].sort((a, b) => a - b);
+    return { rows, heights, ledges: rows.filter(p => !p.breakBlock), height: limit - WORLD.startY };
+  };
+
+  it('never puts the route on a ledge narrower than the water lets the player aim at', () => {
+    // 18px of body plus the 31.8px a submerged player carries after letting go, on each side.
+    expect(minSafeLanding(area3.water!)).toBe(82);
+    for (const plan of area3.plans!) expect(plan.platformWidth[0]).toBeGreaterThan(minSafeLanding(area3.water!));
+    // And the pieces that name their own width, which the SECTION envelope does not cover.
+    for (const plan of area3.plans!) {
+      for (const piece of plan.pieces!.pieces) {
+        for (const row of piece.rows(seeded(99), 1)) {
+          if (row.ledgeWidth) expect(row.ledgeWidth[0]).toBeGreaterThan(minSafeLanding(area3.water!));
+        }
+      }
+    }
+  });
+
+  it('caps every open span at the SECTION\'s own air ceiling, so the ceiling stays reachable', () => {
+    for (const [index, plan] of area3.plans!.entries()) {
+      const ceilingPx = plan.maxOxygenGap! * WORLD.pixelsPerMeter;
+      expect(plan.pieces!.maxStep, `3-${index + 1}`).toBeLessThanOrEqual(ceilingPx);
+      for (const piece of plan.pieces!.pieces) {
+        for (let draw = 1; draw <= 40; draw++) {
+          for (const row of piece.rows(seeded(draw * 17), draw % 2 ? 1 : -1)) {
+            expect(row.step, `3-${index + 1} ${piece.id}`).toBeLessThanOrEqual(ceilingPx);
+          }
+        }
+      }
+    }
+  });
+
+  it('lays fewer and wider ledges than the catacombs, in every SECTION', () => {
+    for (const sectionId of [1, 2, 3] as SectionId[]) {
+      let water = { count: 0, width: 0 }, stone = { count: 0, width: 0 };
+      for (let seed = 1; seed <= 60; seed++) {
+        const a3 = shaftOf(3, sectionId, seed * 811), a2 = shaftOf(2, sectionId, seed * 811);
+        water.count += a3.ledges.length; stone.count += a2.ledges.length;
+        for (const p of a3.ledges) water.width += p.width;
+        for (const p of a2.ledges) stone.width += p.width;
+      }
+      // Fewer: AREA 3 covers a LONGER section with well under three quarters of the rows.
+      expect(water.count / 60, `3-${sectionId} ledges`).toBeLessThan(stone.count / 60 * 0.75);
+      // Wider: a shelf is arrived on from a long fall with drift still in the controls.
+      expect(water.width / water.count, `3-${sectionId} width`).toBeGreaterThan(stone.width / stone.count);
+    }
+  });
+
+  it('opens real lanes where the catacombs have none at all', () => {
+    for (const sectionId of [1, 2, 3] as SectionId[]) {
+      let open3 = 0, total3 = 0, open2 = 0, total2 = 0;
+      for (let seed = 1; seed <= 60; seed++) {
+        for (const [areaId, acc] of [[3, 0], [2, 1]] as const) {
+          const s = shaftOf(areaId as 2 | 3, sectionId, seed * 1487);
+          let open = 0;
+          for (let i = 1; i < s.heights.length; i++) {
+            const band = s.heights[i] - s.heights[i - 1];
+            if (band >= LANE) open += band;
+          }
+          if (acc === 0) { open3 += open; total3 += s.height; } else { open2 += open; total2 += s.height; }
+        }
+      }
+      // A quarter of SUNKEN RUINS is fall the player reads from the top...
+      expect(open3 / total3, `3-${sectionId}`).toBeGreaterThan(0.25);
+      // ...and the catacombs, whose rows are 236-248px apart, have not one band that long.
+      expect(open2 / total2, `2-${sectionId}`).toBe(0);
+    }
+  });
+
+  it('crosses the shaft from wall to wall, and leaves water in the middle to cross', () => {
+    const RIGHT = WORLD.width - WORLD.wall;
+    for (const sectionId of [1, 2, 3] as SectionId[]) {
+      let againstAWall = 0, ledges = 0, transfers = 0;
+      const crossings: number[] = [];
+      for (let seed = 1; seed <= 60; seed++) {
+        const s = shaftOf(3, sectionId, seed * 2371);
+        const sorted = [...s.ledges].sort((a, b) => a.y - b.y);
+        for (const p of sorted) { ledges++; if (p.x <= WORLD.wall + 2 || p.x + p.width >= RIGHT - 2) againstAWall++; }
+        for (let i = 1; i < sorted.length; i++) {
+          const a = sorted[i - 1], b = sorted[i];
+          const left = (p: RoutePlatform) => p.x <= WORLD.wall + 2, right = (p: RoutePlatform) => p.x + p.width >= RIGHT - 2;
+          if ((left(a) && right(b)) || (right(a) && left(b))) { transfers++; crossings.push(Math.abs(b.safeX - a.exitX)); }
+        }
+      }
+      // A third of the AREA's ledges are shelves held against a wall...
+      expect(againstAWall / ledges, `3-${sectionId} wall share`).toBeGreaterThan(0.3);
+      // ...they alternate often enough to be the SECTION's shape rather than an accident...
+      expect(transfers / 60, `3-${sectionId} transfers`).toBeGreaterThan(1.5);
+      // ...and the crossing between two of them is a real traverse, never a drift. Built at the
+      // SECTION's own 152-214px envelope this came out at 38px; the piece names a narrower width
+      // precisely so there is water left in the middle.
+      const median = crossings.sort((a, b) => a - b)[crossings.length >> 1];
+      expect(median, `3-${sectionId} crossing`).toBeGreaterThan(90);
+      // And never wider than the fall that leads into it can steer.
+      for (const c of crossings) expect(c).toBeLessThanOrEqual(horizontalReach(470, area3.water));
+    }
+  });
+
+  it('keeps the catacombs on their own plan, unchanged', () => {
+    // The two AREAs were the same plan. Whatever else moved, AREA 2 did not.
+    for (const [index, plan] of area2.plans!.entries()) {
+      expect(plan.pieces, `2-${index + 1}`).toBeUndefined();
+      expect(plan.rhythm, `2-${index + 1}`).toBeUndefined();
+      expect(plan.containerChance, `2-${index + 1}`).toBeUndefined();
+      expect(plan.gap).toBe([236, 242, 248][index]);
+      expect(plan.platformWidth).toEqual([[150, 174], [138, 162], [126, 150]][index]);
+      expect(plan.doodadChance).toBe([0.24, 0.26, 0.28][index]);
+    }
+    // And no two SECTIONs of the two AREAs share a terrain envelope any more.
+    for (let i = 0; i < 3; i++) {
+      expect(area3.plans![i].platformWidth).not.toEqual(area2.plans![i].platformWidth);
+      expect(area3.plans![i].gap).not.toBe(area2.plans![i].gap);
+    }
   });
 });

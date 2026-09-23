@@ -144,8 +144,13 @@ describe('AREA 1 vertical rhythm', () => {
     }
   }));
 
-  it('leaves AREA 2, 3 and 4 on the single-gap step they already had', () => {
-    for (const area of AREAS.filter(a => a.id !== 1)) {
+  /**
+   * AREA 2 and AREA 4 keep the single-gap step. AREA 3 no longer does: SUNKEN RUINS runs a terrain
+   * grammar of its own, so it is excluded here for the same reason AREA 1 is -- it has been measured
+   * on its own terms and given its own shapes, rather than left on the number it inherited.
+   */
+  it('leaves AREA 2 and AREA 4 on the single-gap step they already had', () => {
+    for (const area of AREAS.filter(a => a.id !== 1 && a.id !== 3)) {
       // Neither grammar reaches them: no rhythm and no pieces, in any terrain mode.
       expect(area.plans?.every(p => p.rhythm === undefined && p.pieces === undefined)).toBe(true);
       for (const mode of ['legacy', 'rhythm-v1', 'grammar-v2'] as const) {

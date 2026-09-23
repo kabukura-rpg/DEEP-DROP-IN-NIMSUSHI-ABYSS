@@ -61,11 +61,27 @@ function build(areaId: AreaId, section: number, seed: number) {
 }
 
 describe('AREA 1 terrain pieces', () => {
-  it('runs in all three AREA 1 SECTIONs, and in no other AREA', () => {
+  /**
+   * AREA 1 and AREA 3 each run a grammar; AREA 2 and AREA 4 still run the single-gap step.
+   *
+   * The two grammars share this generator and nothing else. AREA 1's pieces live in pieces.ts and
+   * AREA 3's in waterTerrain.ts, and an AREA gets one by naming it in its own plan -- which is what
+   * stops a shape written for the SECTION where the controls are learned turning up in the one
+   * where the breath gauge is the clock.
+   */
+  it('runs in every AREA 1 and AREA 3 SECTION, and in neither of the others', () => {
     expect(areaConfig(1).plans?.every(p => p.pieces !== undefined)).toBe(true);
-    for (const area of AREAS.filter(a => a.id !== 1)) {
+    expect(areaConfig(3).plans?.every(p => p.pieces !== undefined)).toBe(true);
+    for (const area of AREAS.filter(a => a.id !== 1 && a.id !== 3)) {
       expect(area.plans?.every(p => p.pieces === undefined)).toBe(true);
     }
+    // Different grammars, not the same one twice: no AREA 1 piece appears in AREA 3's mix.
+    const area1 = new Set(areaConfig(1).plans!.flatMap(p => p.pieces!.pieces.map(x => x.id)));
+    const area3 = new Set(areaConfig(3).plans!.flatMap(p => p.pieces!.pieces.map(x => x.id)));
+    expect([...area3].filter(id => area1.has(id) && id !== 'normal' && id !== 'breakableDrop')).toEqual([]);
+    // Each states its own widest step, so the air-gap lookahead is never checked against AREA 1's.
+    expect(areaConfig(1).plans!.every(p => p.pieces!.maxStep > 0)).toBe(true);
+    expect(areaConfig(3).plans!.every(p => p.pieces!.maxStep > 0)).toBe(true);
   });
 
   it('never generates a band that cannot be landed on from the one above it', () => {
