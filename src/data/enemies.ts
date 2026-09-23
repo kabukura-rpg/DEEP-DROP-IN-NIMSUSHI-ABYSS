@@ -62,6 +62,51 @@ export interface EnemyType {
    * elemental or barely there does not. Set per kind rather than inferred, so it stays a decision.
    */
   leavesCorpse?: boolean;
+  /**
+   * How the body moves, when it is not the shared sideways sway. Absent means exactly that sway --
+   * `originX + sin(t * swaySpeed + phase) * range`, with y never touched -- so every AREA whose
+   * roster sets none of these moves bit for bit as it always has. Only SUNKEN RUINS sets it.
+   */
+  motion?: EnemyMotion;
+}
+
+/**
+ * A water enemy's movement, as a pure function of world time.
+ *
+ * SUNKEN RUINS had four enemies and one motion. Every one slid sideways on the same sine and none
+ * moved vertically at all -- in the AREA whose premise is that everything is suspended in water --
+ * so they were told apart by colour and outline alone. Measured, the enemy the player is meant to
+ * chase was the FASTEST of the four at the median (bubble fish 33.6px/s against fish 27.5), because
+ * open-water slots get the widest patrol and it only ever spawns in open water.
+ *
+ * Each now moves the way it is:
+ *
+ *   FISH         the ordinary swimmer. Sideways, with a rise and fall woven through each sweep.
+ *   BUBBLE FISH  the one worth chasing. Slow, short and floaty, so it can be lined up and shot.
+ *   JELLYFISH    hardly drifts. It pulses up and down and lingers at each end.
+ *   URCHIN       does not swim. It is a spine stuck to a shelf.
+ *
+ * Nothing here decides anything. There is no tracking, no fleeing, no reaction to the player:
+ * every position is `origin + f(worldElapsed)`, which makes it deterministic, independent of the
+ * frame rate, and means its whole reach -- `motionEnvelope` -- is known the moment it is placed.
+ */
+export interface EnemyMotion {
+  /** Share of the generator's `range` the body actually swims. 0 anchors it where it was placed. */
+  swim: number;
+  /** Horizontal angular speed, radians per second of world time. */
+  swimSpeed: number;
+  /** Vertical travel from the origin, in pixels. 0 keeps it on its line. */
+  bob: number;
+  /** Vertical angular speed, radians per second of world time. */
+  bobSpeed: number;
+  /**
+   * The vertical curve for an enemy loose in open water:
+   *   wave   a plain sine about the origin
+   *   pulse  about the origin too, but it lingers at the top and bottom and moves through the middle
+   * An enemy GUARDING a ledge ignores this and only ever rises from its origin. Its origin is the
+   * ledge, and a bob that went below it would put the body inside the slab.
+   */
+  bobShape: 'wave' | 'pulse';
 }
 
 /**
@@ -73,11 +118,23 @@ export const ENEMY_TYPES: Record<EnemyKind, EnemyType> = {
   bat: { id: 'bat', name: 'BAT', shootable: true, stompable: true, flying: true, threat: 'basic', spawnSlot: 'open', spawnWeight: 1, hp: 1, silhouette: 'wing', bodyWidth: 26, swaySpeed: 1.5, damageCause: 'enemy', contactHint: '接触', leavesCorpse: true },
   armoredSlime: { id: 'armoredSlime', name: 'ARMORED SLIME', shootable: true, stompable: false, flying: false, threat: 'armored', spawnSlot: 'guard', spawnWeight: 1, hp: 1, silhouette: 'shell', bodyWidth: 26, swaySpeed: 0.95, damageCause: 'spike', contactHint: '甲羅は踏めない' },
   tank: { id: 'tank', name: 'ARMORED BRUTE', shootable: true, stompable: false, flying: false, threat: 'heavy', spawnSlot: 'guard', spawnWeight: 1, hp: 3, silhouette: 'brute', bodyWidth: 34, swaySpeed: 0.95, damageCause: 'tank', contactHint: '装甲に注意', minPlatformWidth: 118 },
-  // AREA 2. Fish swim in open water like bats; urchins hold a ledge.
-  fish: { id: 'fish', name: 'FISH', shootable: true, stompable: true, flying: true, threat: 'basic', spawnSlot: 'any', spawnWeight: 1, hp: 1, silhouette: 'fin', bodyWidth: 26, swaySpeed: 1.25, damageCause: 'enemy', contactHint: '接触', leavesCorpse: true },
-  bubbleFish: { id: 'bubbleFish', name: 'BUBBLE FISH', shootable: true, stompable: true, flying: true, threat: 'basic', spawnSlot: 'open', spawnWeight: 0.45, hp: 1, silhouette: 'orb', bodyWidth: 24, swaySpeed: 1.05, damageCause: 'enemy', contactHint: '接触', leavesCorpse: true, drop: { pickup: 'oxygenBubble' } },
-  jellyfish: { id: 'jellyfish', name: 'JELLYFISH', shootable: true, stompable: false, flying: true, threat: 'armored', spawnSlot: 'open', spawnWeight: 1, hp: 1, silhouette: 'bell', bodyWidth: 24, swaySpeed: 0.6, damageCause: 'spike', contactHint: '触手は踏めない' },
-  urchin: { id: 'urchin', name: 'URCHIN', shootable: true, stompable: false, flying: false, threat: 'armored', spawnSlot: 'guard', spawnWeight: 1, hp: 1, silhouette: 'spiked', bodyWidth: 24, swaySpeed: 0.35, damageCause: 'spike', contactHint: 'トゲは踏めない' },
+  // SUNKEN RUINS (AREA 3). Fish swim, bubble fish float, jellyfish pulse, urchins hold a shelf.
+  // `swaySpeed` is left as it was: `motion` supersedes it for these four, and nothing else reads it.
+  fish: { id: 'fish', name: 'FISH', shootable: true, stompable: true, flying: true, threat: 'basic', spawnSlot: 'any', spawnWeight: 1, hp: 1, silhouette: 'fin', bodyWidth: 26, swaySpeed: 1.25, damageCause: 'enemy', contactHint: '接触', leavesCorpse: true,
+    // The sweep it always had, with a rise and fall at twice its rate: one crest and one trough per
+    // pass, so the path reads as swimming rather than sliding.
+    motion: { swim: 1, swimSpeed: 1.25, bob: 10, bobSpeed: 2.5, bobShape: 'wave' } },
+  bubbleFish: { id: 'bubbleFish', name: 'BUBBLE FISH', shootable: true, stompable: true, flying: true, threat: 'basic', spawnSlot: 'open', spawnWeight: 0.45, hp: 1, silhouette: 'orb', bodyWidth: 24, swaySpeed: 1.05, damageCause: 'enemy', contactHint: '接触', leavesCorpse: true, drop: { pickup: 'oxygenBubble' },
+    // Half the patrol at little more than half the rate: it drifts rather than darts, so seeing it
+    // and lining up a shot on it is the same few seconds.
+    motion: { swim: 0.5, swimSpeed: 0.7, bob: 6, bobSpeed: 1.4, bobShape: 'wave' } },
+  jellyfish: { id: 'jellyfish', name: 'JELLYFISH', shootable: true, stompable: false, flying: true, threat: 'armored', spawnSlot: 'open', spawnWeight: 1, hp: 1, silhouette: 'bell', bodyWidth: 24, swaySpeed: 0.6, damageCause: 'spike', contactHint: '触手は踏めない',
+    // Up and down is the whole motion. The sideways share is small enough to read as current, not
+    // as patrol.
+    motion: { swim: 0.12, swimSpeed: 0.45, bob: 16, bobSpeed: 1.2, bobShape: 'pulse' } },
+  urchin: { id: 'urchin', name: 'URCHIN', shootable: true, stompable: false, flying: false, threat: 'armored', spawnSlot: 'guard', spawnWeight: 1, hp: 1, silhouette: 'spiked', bodyWidth: 24, swaySpeed: 0.35, damageCause: 'spike', contactHint: 'トゲは踏めない',
+    // Anchored. A hazard fixed to the shelf it was placed on, exactly where it was placed.
+    motion: { swim: 0, swimSpeed: 0, bob: 0, bobSpeed: 0, bobShape: 'wave' } },
   // AREA 3. Two soft targets to bounce from, two hard ones to shoot, one that carries ice.
   fireLizard: { id: 'fireLizard', name: 'FIRE LIZARD', shootable: true, stompable: true, flying: false, threat: 'basic', spawnSlot: 'guard', spawnWeight: 1, hp: 1, silhouette: 'lizard', bodyWidth: 28, swaySpeed: 1.1, damageCause: 'enemy', contactHint: '接触', leavesCorpse: true },
   fireBat: { id: 'fireBat', name: 'FIRE BAT', shootable: true, stompable: true, flying: true, threat: 'basic', spawnSlot: 'open', spawnWeight: 1, hp: 1, silhouette: 'ember', bodyWidth: 26, swaySpeed: 1.75, damageCause: 'enemy', contactHint: '接触', leavesCorpse: true },
@@ -126,8 +183,76 @@ export interface Enemy {
   shootable: boolean; stompable: boolean; flying: boolean;
   /** Which generator slot placed it: a ledge guard or loose in open water. */
   slot: 'guard' | 'open';
+  /**
+   * The height it was placed at. Only an enemy with a `motion` moves vertically, and it does so
+   * about this line; every other enemy leaves `y` exactly where it was put. Optional so a fixture
+   * built by hand without it still works -- GameModel adopts the current `y` on first use.
+   */
+  originY?: number;
 }
 export function spawnEnemy(kind: EnemyKind, id: number, x: number, y: number, range = 0, phase = 0, slot: 'guard' | 'open' = 'guard'): Enemy {
   const type = ENEMY_TYPES[kind];
-  return { id, kind, x, y, originX: x, range, phase, hp: type.hp, alive: true, flash: 0, hurtFlash: 0, shootable: type.shootable, stompable: type.stompable, flying: type.flying, slot };
+  return { id, kind, x, y, originX: x, originY: y, range, phase, hp: type.hp, alive: true, flash: 0, hurtFlash: 0, shootable: type.shootable, stompable: type.stompable, flying: type.flying, slot };
+}
+
+/** Half the collision box's height. The contact tests in GameModel all use `e.y +- 15`. */
+export const ENEMY_HALF_HEIGHT = 15;
+
+/**
+ * The PULSE curve: `sin(a) + sin(3a) / 6`, scaled so its peak is exactly 1.
+ *
+ * The third harmonic flattens both ends, so the body slows into the top of its rise, lingers, and
+ * moves through the middle -- the "rise, hang, sink" of something drifting on its own buoyancy --
+ * while staying a smooth periodic function with a finite speed everywhere. Its peak is worked out
+ * once here rather than written down, so the envelope below is exact rather than approximately so.
+ */
+const pulseRaw = (a: number) => Math.sin(a) + Math.sin(3 * a) / 6;
+const PULSE_PEAK = (() => {
+  let peak = 0;
+  for (let i = 0; i <= 20000; i++) peak = Math.max(peak, Math.abs(pulseRaw(i / 20000 * Math.PI * 2)));
+  return peak;
+})();
+export const pulse = (a: number) => pulseRaw(a) / PULSE_PEAK;
+
+/**
+ * Where an enemy is at world time `t`. Pure: the same enemy at the same `t` is always in the same
+ * place, whatever the frame rate that got there and however many steps it took.
+ *
+ * Without a `motion` this is the shared sway every enemy has always used, and `y` is returned
+ * untouched. That branch is the whole of AREA 1, 2 and 4 and the FINAL BOSS.
+ */
+export function enemyPosition(e: Enemy, t: number): { x: number; y: number } {
+  const motion = ENEMY_TYPES[e.kind].motion;
+  if (!motion) return { x: e.originX + Math.sin(t * ENEMY_TYPES[e.kind].swaySpeed + e.phase) * e.range, y: e.y };
+  const originY = e.originY ?? e.y;
+  const x = e.originX + Math.sin(t * motion.swimSpeed + e.phase) * e.range * motion.swim;
+  // Twice the phase, so a fish's crest and trough stay locked to its own sweep when bobSpeed is
+  // twice swimSpeed, and two neighbours placed with different phases never bob in step.
+  const a = t * motion.bobSpeed + e.phase * 2;
+  if (motion.bob === 0) return { x, y: originY };
+  if (e.slot === 'guard') return { x, y: originY - motion.bob * (1 - Math.cos(a)) / 2 };
+  return { x, y: originY + (motion.bobShape === 'pulse' ? pulse(a) : Math.sin(a)) * motion.bob };
+}
+
+/**
+ * EVERYWHERE THIS ENEMY'S BODY CAN EVER BE, as a box.
+ *
+ * Placement used to be judged against where an enemy stood when it was placed plus its sideways
+ * range, which was the whole truth while nothing moved vertically. It is not any more, so anything
+ * that must stay clear of an enemy -- a doodad's bounce, an air container, a chamber mouth -- asks
+ * this instead. It is exact rather than sampled: every motion is a bounded periodic function about
+ * a known origin, so the extremes are the origin plus the amplitude plus half the body.
+ */
+export function motionEnvelope(e: Enemy): { minX: number; maxX: number; minY: number; maxY: number } {
+  const type = ENEMY_TYPES[e.kind];
+  const motion = type.motion;
+  const half = type.bodyWidth / 2;
+  const originY = e.originY ?? e.y;
+  const reach = motion ? e.range * motion.swim : e.range;
+  const bob = motion?.bob ?? 0;
+  const up = bob, down = motion && e.slot !== 'guard' ? bob : 0;
+  return {
+    minX: e.originX - reach - half, maxX: e.originX + reach + half,
+    minY: originY - up - ENEMY_HALF_HEIGHT, maxY: originY + down + ENEMY_HALF_HEIGHT,
+  };
 }

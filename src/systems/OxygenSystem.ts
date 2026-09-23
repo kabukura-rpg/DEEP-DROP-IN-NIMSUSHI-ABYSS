@@ -13,7 +13,7 @@ export const OXYGEN_RULES: OxygenRules = { max: 12, bubbleRecovery: 5, damageInt
 export type OxygenWarning = 'none' | 'low' | 'critical';
 
 /**
- * The sole owner of the AREA 2 air supply. It runs on simulation time handed to `tick` -- never on a
+ * The sole owner of SUNKEN RUINS' (AREA 3) air supply. It runs on simulation time handed to `tick` -- never on a
  * real-time timer -- and it never touches HP: it only reports that a drowning hit is due, and
  * GameModel routes that through the ordinary HealthSystem damage path.
  */

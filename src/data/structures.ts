@@ -1,7 +1,7 @@
 import { WORLD } from './balance';
 
 /**
- * Fixed structures the generator places into the shaft: the way out of a SECTION and AREA 2's air
+ * Fixed structures the generator places into the shaft: the way out of a SECTION and SUNKEN RUINS' (AREA 3) air
  * containers. Both are world objects the player walks into or breaks, never things that happen to
  * them automatically.
  */
@@ -26,7 +26,7 @@ export const EXIT_RULES = {
 export const SHOP_DOOR = { width: 66, height: 66 } as const;
 
 /**
- * AREA 2's air supply. The container holds nothing by itself: breaking it releases bubbles, and
+ * SUNKEN RUINS' (AREA 3) air supply. The container holds nothing by itself: breaking it releases bubbles, and
  * only touching a bubble restores air. Bubbles rise, so they have to be chased.
  */
 export interface AirContainer {

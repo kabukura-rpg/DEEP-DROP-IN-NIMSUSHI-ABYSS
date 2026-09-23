@@ -2,7 +2,8 @@ import { describe, expect, it } from 'vitest';
 import { GameModel } from '../src/systems/GameModel';
 import { OxygenSystem, OXYGEN_RULES } from '../src/systems/OxygenSystem';
 import { StageGenerator, START_PLATFORM, type RoutePlatform } from '../src/systems/StageGenerator';
-import { ENEMY_TYPES, enemyType, spawnEnemy, type Enemy, type EnemyKind } from '../src/data/enemies';
+import { ENEMY_HALF_HEIGHT, ENEMY_TYPES, enemyPosition, enemyType, motionEnvelope, pulse, spawnEnemy, type Enemy, type EnemyKind } from '../src/data/enemies';
+import { doodadBounceZone } from '../src/data/doodads';
 import { PICKUP_TYPES, type Pickup } from '../src/data/pickups';
 import { areaConfig, type SectionId } from '../src/data/areas';
 import { horizontalReach } from '../src/data/difficulty';
@@ -861,6 +862,170 @@ describe('AREA 3 terrain reads as water before anything moves', () => {
     for (let i = 0; i < 3; i++) {
       expect(area3.plans![i].platformWidth).not.toEqual(area2.plans![i].platformWidth);
       expect(area3.plans![i].gap).not.toBe(area2.plans![i].gap);
+    }
+  });
+});
+
+/**
+ * M-3. FOUR WATER ENEMIES, FOUR MOVEMENTS.
+ *
+ * They used to share one sideways sine and never move vertically, so they were told apart by colour
+ * alone -- and the one worth chasing, the bubble fish, was the fastest of the four at the median.
+ * Each now moves as what it is, as a pure function of world time.
+ */
+describe('AREA 3 water enemies move as what they are', () => {
+  const at = (kind: EnemyKind, slot: 'guard' | 'open', t: number, range = 22, phase = 0.7) =>
+    enemyPosition(spawnEnemy(kind, 1, 200, 400, range, phase, slot), t);
+  /** Sample one enemy across `seconds` and return how far it travels each way, and how fast. */
+  const sweep = (kind: EnemyKind, slot: 'guard' | 'open', range = 32, seconds = 30) => {
+    let minX = Infinity, maxX = -Infinity, minY = Infinity, maxY = -Infinity, vx = 0, vy = 0;
+    let prev = at(kind, slot, 0, range);
+    for (let i = 1; i <= seconds * 240; i++) {
+      const p = at(kind, slot, i / 240, range);
+      minX = Math.min(minX, p.x); maxX = Math.max(maxX, p.x); minY = Math.min(minY, p.y); maxY = Math.max(maxY, p.y);
+      vx = Math.max(vx, Math.abs(p.x - prev.x) * 240); vy = Math.max(vy, Math.abs(p.y - prev.y) * 240);
+      prev = p;
+    }
+    return { h: (maxX - minX) / 2, v: (maxY - minY) / 2, vx, vy, minY, maxY };
+  };
+
+  it('keeps every stat the pass was not allowed to touch', () => {
+    // Only `motion` is new. Everything a hit, a stomp or a spawn roll reads is what it was.
+    expect(ENEMY_TYPES.fish).toMatchObject({ hp: 1, stompable: true, shootable: true, spawnSlot: 'any', spawnWeight: 1, bodyWidth: 26, damageCause: 'enemy', threat: 'basic' });
+    expect(ENEMY_TYPES.bubbleFish).toMatchObject({ hp: 1, stompable: true, shootable: true, spawnSlot: 'open', spawnWeight: 0.45, bodyWidth: 24, damageCause: 'enemy', threat: 'basic', drop: { pickup: 'oxygenBubble' } });
+    expect(ENEMY_TYPES.jellyfish).toMatchObject({ hp: 1, stompable: false, shootable: true, spawnSlot: 'open', spawnWeight: 1, bodyWidth: 24, damageCause: 'spike', threat: 'armored' });
+    expect(ENEMY_TYPES.urchin).toMatchObject({ hp: 1, stompable: false, shootable: true, spawnSlot: 'guard', spawnWeight: 1, bodyWidth: 24, damageCause: 'spike', threat: 'armored' });
+  });
+
+  it('gives a motion to the four water enemies and to no other enemy in the game', () => {
+    const water = new Set(['fish', 'bubbleFish', 'jellyfish', 'urchin']);
+    for (const [kind, type] of Object.entries(ENEMY_TYPES)) expect({ kind, moves: type.motion !== undefined }).toEqual({ kind, moves: water.has(kind) });
+  });
+
+  it('leaves every other enemy on the old sideways sway, with y untouched', () => {
+    const bat = spawnEnemy('bat', 1, 200, 400, 30, 0.4, 'open');
+    for (const t of [0, 1.3, 7.9]) {
+      expect(enemyPosition(bat, t)).toEqual({ x: 200 + Math.sin(t * ENEMY_TYPES.bat.swaySpeed + 0.4) * 30, y: 400 });
+    }
+  });
+
+  it('swims a fish sideways with a rise and fall woven through it', () => {
+    const open = sweep('fish', 'open');
+    expect(open.h).toBeCloseTo(32, 0);
+    expect(open.v).toBeCloseTo(ENEMY_TYPES.fish.motion!.bob, 0);
+    expect(open.h).toBeGreaterThan(open.v * 2);
+  });
+
+  it('never lets a fish guarding a ledge sink into it', () => {
+    const guard = sweep('fish', 'guard', 22);
+    expect(guard.maxY).toBeLessThanOrEqual(400 + 1e-9);
+    expect(guard.minY).toBeCloseTo(400 - ENEMY_TYPES.fish.motion!.bob, 3);
+  });
+
+  it('makes the bubble fish slower and shorter than the fish, so it can be lined up and shot', () => {
+    const fish = sweep('fish', 'open'), bubble = sweep('bubbleFish', 'open');
+    expect(bubble.h).toBeLessThan(fish.h * 0.6);
+    expect(bubble.vx).toBeLessThan(fish.vx * 0.4);
+    // Slow enough to cross under: a fraction of the player's own sideways speed.
+    expect(Math.max(bubble.vx, bubble.vy)).toBeLessThan(BALANCE.moveSpeed * 0.05);
+  });
+
+  it('makes the jellyfish mostly vertical, and pulse rather than swing', () => {
+    const jelly = sweep('jellyfish', 'open');
+    expect(jelly.v).toBeGreaterThan(jelly.h * 3);
+    // The pulse curve lingers at its ends: more time is spent in the outer quarter than a sine
+    // spends there.
+    const outer = (f: (a: number) => number) => { let n = 0; for (let i = 0; i < 10000; i++) if (Math.abs(f(i / 10000 * Math.PI * 2)) > 0.75) n++; return n / 10000; };
+    expect(outer(pulse)).toBeGreaterThan(outer(Math.sin));
+    expect(Math.max(...Array.from({ length: 10000 }, (_, i) => Math.abs(pulse(i / 10000 * Math.PI * 2))))).toBeCloseTo(1, 6);
+  });
+
+  it('anchors an urchin exactly where it was placed', () => {
+    for (const t of [0, 3.3, 40, 900]) expect(at('urchin', 'guard', t)).toEqual({ x: 200, y: 400 });
+  });
+
+  it('is a function of world time: the same position at 30, 60 and 120 frames per second', () => {
+    for (const kind of ['fish', 'bubbleFish', 'jellyfish', 'urchin'] as EnemyKind[]) {
+      const results = [1 / 30, 1 / 60, 1 / 120].map(dt => {
+        const game = bare(1);
+        const e = spawnEnemy(kind, 9, 220, 600, 26, 1.1, kind === 'urchin' ? 'guard' : 'open');
+        for (let i = 0; i < Math.round(6 / dt); i++) {
+          game.enemies = [e]; game.player.y = -50000; game.player.vy = 0; game.player.invincible = 99; game.platforms = [];
+          game.step(dt, 0, false);
+        }
+        return { x: e.x, y: e.y };
+      });
+      for (const r of results) { expect(r.x).toBeCloseTo(results[0].x, 6); expect(r.y).toBeCloseTo(results[0].y, 6); }
+    }
+  });
+
+  it('places a jellyfish on its own pulse from world time zero, offset by its seeded phase', () => {
+    // The phase is decided when the generator places it, from the seeded stream, never at runtime.
+    const e = spawnEnemy('jellyfish', 9, 220, 600, 26, 1.1, 'open');
+    const game = bare(1);
+    game.enemies = [e];
+    const before = enemyPosition(e, (game as unknown as { worldElapsed: number }).worldElapsed);
+    expect(before.y).toBeCloseTo(600 + pulse(2.2) * ENEMY_TYPES.jellyfish.motion!.bob, 6);
+  });
+});
+
+/**
+ * T-5 / L-1. NOTHING A WATER ENEMY CAN REACH IS SOMETHING IT MUST NOT.
+ *
+ * Checked against each enemy's WHOLE movement envelope, not where it stands -- a jellyfish that is
+ * clear of a doodad at the top of its pulse and inside the bounce at the bottom is not clear.
+ * `motionEnvelope` and `doodadBounceZone` are the same functions the generator places with, so the
+ * test and the game cannot disagree about what "clear" means.
+ */
+describe('AREA 3 water enemies stay clear of everything, across their whole movement', () => {
+  type Box = { minX: number; maxX: number; minY: number; maxY: number };
+  const meets = (a: Box, b: Box) => a.minX < b.maxX && a.maxX > b.minX && a.minY < b.maxY && a.maxY > b.minY;
+  const generate = (sectionId: SectionId, seed: number) => {
+    const generator = new StageGenerator(seeded(seed), { plan: plan(sectionId), enemyPool: area3.enemyPool, water: area3.water, oxygen: true, sectionLength: area3.sectionLength });
+    const out = { platforms: [] as RoutePlatform[], enemies: [] as Enemy[], containers: [] as AirContainer[], doodads: [] as { x: number; y: number; width: number; height: number }[], zones: [] as { x: number; y: number; width: number; height: number }[] };
+    for (let chunk = 0; chunk < CHUNKS + 8; chunk++) {
+      const k = generator.chunk(chunk);
+      out.platforms.push(...k.platforms); out.enemies.push(...k.enemies); out.containers.push(...k.containers);
+      out.doodads.push(...k.doodads); out.zones.push(...k.safeZones);
+    }
+    return out;
+  };
+
+  it('never lets any water enemy reach a doodad\'s bounce, a slab, a chamber, air, or the walls', () => {
+    const seen: Record<string, number> = {};
+    for (const sectionId of [1, 2, 3] as SectionId[]) {
+      for (let seed = 1; seed <= 80; seed++) {
+        const s = generate(sectionId, seed * 7331 + sectionId * 17);
+        for (const e of s.enemies) {
+          seen[e.kind] = (seen[e.kind] ?? 0) + 1;
+          const env = motionEnvelope(e);
+          const tag = `${e.kind} 3-${sectionId} seed ${seed}`;
+          expect(env.minX, tag).toBeGreaterThanOrEqual(WORLD.wall);
+          expect(env.maxX, tag).toBeLessThanOrEqual(WORLD.width - WORLD.wall);
+          for (const d of s.doodads) expect(meets(env, doodadBounceZone(d, area3.water!.gravity)), `${tag} doodad`).toBe(false);
+          for (const p of s.platforms) expect(meets(env, { minX: p.x, maxX: p.x + p.width, minY: p.y, maxY: p.y + 14 }), `${tag} slab`).toBe(false);
+          for (const z of s.zones) expect(meets(env, { minX: z.x, maxX: z.x + z.width, minY: z.y, maxY: z.y + z.height }), `${tag} chamber`).toBe(false);
+          for (const b of s.containers) expect(meets(env, { minX: b.x, maxX: b.x + b.width, minY: b.y, maxY: b.y + b.height }), `${tag} air`).toBe(false);
+        }
+      }
+    }
+    // All four went through the validator, jellyfish and urchin included, many times over.
+    for (const kind of ['fish', 'bubbleFish', 'jellyfish', 'urchin']) expect(seen[kind] ?? 0).toBeGreaterThan(100);
+  });
+
+  it('keeps the envelope exact: no sampled position ever leaves it', () => {
+    for (const kind of ['fish', 'bubbleFish', 'jellyfish', 'urchin'] as EnemyKind[]) {
+      for (const slot of ['guard', 'open'] as const) {
+        const e = spawnEnemy(kind, 1, 220, 500, 30, 0.9, slot);
+        const env = motionEnvelope(e), half = ENEMY_TYPES[kind].bodyWidth / 2;
+        for (let i = 0; i <= 6000; i++) {
+          const p = enemyPosition(e, i / 100);
+          expect(p.x - half).toBeGreaterThanOrEqual(env.minX - 1e-9);
+          expect(p.x + half).toBeLessThanOrEqual(env.maxX + 1e-9);
+          expect(p.y - ENEMY_HALF_HEIGHT).toBeGreaterThanOrEqual(env.minY - 1e-9);
+          expect(p.y + ENEMY_HALF_HEIGHT).toBeLessThanOrEqual(env.maxY + 1e-9);
+        }
+      }
     }
   });
 });

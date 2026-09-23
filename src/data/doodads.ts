@@ -48,3 +48,24 @@ export const DOODAD_RULES = {
 export const spawnDoodad = (id: number, x: number, y: number, variant: DoodadVariant, consumable = false): Doodad => ({
   id, x, y, width: DOODAD_RULES.width, height: DOODAD_RULES.height, variant, active: true, consumable,
 });
+
+/**
+ * THE SPACE A BOUNCE OFF THIS DOODAD USES, as a box.
+ *
+ * Built from the rules that decide a bounce rather than from the sprite. GameModel counts a touch
+ * while the player's box -- 9px either side of centre, 15px above and below -- overlaps the doodad,
+ * with 2px of grace above its top face; the rebound then lifts the body `bounce^2 / 2g`. So the
+ * player's body occupies, at some point in one bounce, everything from the rebound's apex down to
+ * the doodad's underside, across the doodad plus a body-half each side.
+ *
+ * Anything that must never be in the way of a bounce -- an enemy that cannot be stomped, above all --
+ * is checked against this, and against its whole movement envelope, not where it happens to be.
+ * `gravityScale` is the water's, where there is water: a submerged bounce climbs a little higher.
+ */
+export function doodadBounceZone(d: { x: number; y: number; width: number; height: number }, gravityScale = 1) {
+  const apex = DOODAD_RULES.bounce ** 2 / (2 * BALANCE.gravity * gravityScale);
+  return {
+    minX: d.x - 9, maxX: d.x + d.width + 9,
+    minY: d.y - 2 - 30 - apex, maxY: d.y + d.height + 15,
+  };
+}

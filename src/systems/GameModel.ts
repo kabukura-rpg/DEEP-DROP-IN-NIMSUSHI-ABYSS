@@ -28,7 +28,7 @@ import { UPGRADE_TUNING, type UpgradeId } from '../data/upgrades';
 import { UpgradeSystem } from './UpgradeSystem';
 import { StageProgressionSystem } from './StageProgressionSystem';
 import { FINAL_STAGE, type AreaId, type SectionId } from '../data/areas';
-import { enemyType } from '../data/enemies';
+import { enemyPosition, enemyType } from '../data/enemies';
 import { defaultTuning, sanitizeTuning, type PhysicsTuning } from './PhysicsTuning';
 export type GameEvent = { type: 'shot' | 'empty' | 'land' | 'kill' | 'hurt' | 'upgrade' | 'over' | 'heal' | 'boss' | 'clear' | 'oxygen' | 'section' | 'ice' | 'vent' | 'crack' | 'collapse' | 'bossHit' | 'bossTelegraph' | 'bossFire' | 'bossPhase' | 'bossDown' | 'gunModule' | 'coin' | 'shopOpen' | 'shopBuy' | 'exitReady' | 'exit' | 'containerBreak' | 'blockCrack' | 'blockBreak' | 'jump' | 'wallJump' | 'comboSettle' | 'doodad' | 'timeVoid' | 'coinVein' | 'coinHigh' | 'spikePlatform' | 'explosion' | 'corpse' | 'balloon' | 'jetpack' | 'gravityFlip' | 'bossEye' | 'bossRage' | 'bossStart' | 'tomato' | 'bossLine' | 'seal' | 'abyss'; x: number; y: number; value?: number; stomp?: boolean; lifeUps?: number; overflow?: number; combo?: number; stage?: string; areaCleared?: string | null; bonus?: 'heart' | 'charge'; source?: { id: number; kind: Enemy['kind']; x: number; y: number } };
 /**
@@ -173,7 +173,7 @@ export class GameModel {
   /** Which wall the next arena row hangs from. Alternated, so the fall lane swaps sides. */
   private abyssSide: -1 | 1 = -1;
   private shopReturn: 'playing' | 'boss' = 'playing';
-  /** AREA 2's sealed air containers, and the bubbles a broken one released. */
+  /** SUNKEN RUINS' (AREA 3) sealed air containers, and the bubbles a broken one released. */
   containers: AirContainer[] = [];
   bubbles: AirBubble[] = [];
   /** The way out of this SECTION, once the shaft has bottomed out. Null until then. */
@@ -876,7 +876,12 @@ export class GameModel {
     if (!frozen) for (const e of this.enemies) {
       e.flash = Math.max(0, e.flash - dt);
       e.hurtFlash = Math.max(0, (e.hurtFlash || 0) - dt);
-      e.x = e.originX + Math.sin(this.worldElapsed * enemyType(e.kind).swaySpeed + e.phase) * e.range;
+      // Position is a function of world time, never an accumulation of steps: `enemyPosition` is the
+      // shared sway for every enemy without a `motion`, and the water enemies' own movement for the
+      // four that have one. An enemy fixture built without `originY` adopts where it stands.
+      e.originY ??= e.y;
+      const at = enemyPosition(e, this.worldElapsed);
+      e.x = at.x; e.y = at.y;
     }
     // Swept bullet collisions prevent fast projectiles tunneling through enemies.
     //

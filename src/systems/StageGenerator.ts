@@ -1,10 +1,10 @@
 import { WORLD, BALANCE } from '../data/balance';
 import { difficultyAt, fallTime, horizontalReach } from '../data/difficulty';
-import { ENEMY_TYPES, enemyType, spawnEnemy, type Enemy, type EnemyKind } from '../data/enemies';
+import { ENEMY_TYPES, enemyType, motionEnvelope, spawnEnemy, type Enemy, type EnemyKind } from '../data/enemies';
 import { spawnPickup, type Pickup, type PickupKind } from '../data/pickups';
 import { AIR_CONTAINER_RULES, BREAK_BLOCK_RULES, breakBlockWidth, EXIT_RULES, spikePlatform, type AirContainer, type SpikePlatform, type StageExit } from '../data/structures';
 import { spawnHazard, type Hazard, type SpikeKind } from '../data/hazards';
-import { spawnDoodad, DOODAD_RULES, type Doodad } from '../data/doodads';
+import { spawnDoodad, doodadBounceZone, DOODAD_RULES, type Doodad } from '../data/doodads';
 import { getSideRoomMode, rollSafeZoneContent, safeZoneDepths, safeZoneRowClearance, sideRoomCount, SAFE_ZONE_RULES, type SafeZone } from '../data/safeZone';
 import { CAVE_RULES, caveShape, placeCave, type CaveArchetype, type SideCave } from '../data/sideCave';
 import { rollGunModule as rollModuleForZone } from '../data/gunModules';
@@ -651,7 +651,36 @@ export class StageGenerator {
     // Never inside anything lethal, and never buried in a patrol.
     if (hazards.some(h => x < h.x + h.width + 10 && x + w > h.x - 10 && bandY < h.y + h.height + 14 && bandY + DOODAD_RULES.height > h.y - 14)) return;
     if (enemies.some(e => Math.abs(e.y - bandY) < 40 && e.originX + e.range > x - 20 && e.originX - e.range < x + w + 20)) return;
-    if (y >= start) doodads.push(spawnDoodad(this.id++, x, bandY, this.random() < 0.5 ? 'lamp' : 'bracket'));
+    if (y < start) return;
+    // The id and the variant are drawn exactly where they always were -- see below for why.
+    const id = this.id++;
+    const variant = this.random() < 0.5 ? 'lamp' : 'bracket';
+    /**
+     * NEVER WHERE A BOUNCE WOULD MEET AN ENEMY, anywhere in that enemy's movement.
+     *
+     * The check above only knows where an enemy stood plus how far it slides sideways; it ignores the
+     * body's own width and the room a bounce takes. That left 3 of every 15,000 enemies able to reach
+     * a doodad's bounce (L-1) -- and once SUNKEN RUINS' enemies started to rise and fall, 242 of
+     * 19,478 could. This asks the two real questions, `motionEnvelope` against `doodadBounceZone`,
+     * and drops the doodad when they meet.
+     *
+     * It runs AFTER the id and the variant are spent, on purpose. Everything the SECTION lays after
+     * this doodad -- ledges, shelves, air, the next doodad -- comes from the same seeded stream, so a
+     * doodad dropped before its draw would move every one of them. Dropped here, the only thing that
+     * changes is that this one doodad is not there.
+     *
+     * ONLY ENEMIES WITH A `motion` ARE ASKED. The same overlap exists elsewhere -- measured, the
+     * shared sideways sway reaches 6 doodads' bounces in AREA 1's 240 sample SECTIONs, 25 in AREA 2's
+     * and 91 in AREA 4's -- but those AREAs are frozen, and an enemy that has only ever slid sideways
+     * is not what this pass changed. Their doodads generate exactly as they did.
+     */
+    const zone = doodadBounceZone({ x, y: bandY, width: w, height: DOODAD_RULES.height }, this.context.water?.gravity);
+    const inTheWay = enemies.some(e => {
+      if (!ENEMY_TYPES[e.kind].motion) return false;
+      const env = motionEnvelope(e);
+      return env.minX < zone.maxX && env.maxX > zone.minX && env.minY < zone.maxY && env.maxY > zone.minY;
+    });
+    if (!inTheWay) doodads.push(spawnDoodad(id, x, bandY, variant));
   }
 
   /**
@@ -855,7 +884,7 @@ export class StageGenerator {
    *     around reserved on top of that. Landing safely is therefore always possible;
    *   - nothing is ever laid in the fall corridor itself, because a patch lives on a ledge surface
    *     and the corridor is open water;
-   *   - in AREA 2 a patch is dropped outright when it would sit in the column an AIR CONTAINER is
+   *   - where air is generated, a patch is dropped outright when it would sit in the column an AIR CONTAINER is
    *     reached through, so reaching air never requires touching SPIKE. With the sheltering alcove
    *     gone, containers are the whole air supply, which makes this the rule the AREA rests on.
    */
@@ -874,7 +903,7 @@ export class StageGenerator {
     const height = kind === 'ancientStake' || kind === 'urchinSpike' ? 18 : 12;
     // Never under an enemy's patrol: a guard standing in the teeth reads as a bug, not a threat.
     if (enemies.some(e => e.y > y - 40 && e.y <= y + 4 && e.originX + e.range > x - 14 && e.originX - e.range < x + patch + 14)) return;
-    // AREA 2's guarantee. An air source anywhere near this column means no SPIKE here at all,
+    // The air AREA's guarantee (SUNKEN RUINS, AREA 3). An air source anywhere near this column means no SPIKE here at all,
     // so the route to a container or an alcove is never a route through instant death.
     const overlapsAir = (ax: number, awidth: number, ay: number, aheight: number) =>
       ax < x + patch + 26 && ax + awidth > x - 26 && ay < y + 24 && ay + aheight > y - 300;
@@ -976,7 +1005,7 @@ export class StageGenerator {
    * build a stretch the player cannot survive.
    */
   /**
-   * AREA 2 air, and all of it. There is one kind of source now: a sealed container that has to be
+   * SUNKEN RUINS (AREA 3) air, and all of it. There is one kind of source now: a sealed container that has to be
    * broken, releasing bubbles that climb away and have to be chased. The wide sheltering alcove is
    * gone -- nowhere in the shaft refills a tank simply by being stood in -- so the ceiling below is
    * the whole safety net, and it is what stops a seed building a stretch nobody could survive.
