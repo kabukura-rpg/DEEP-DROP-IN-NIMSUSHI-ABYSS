@@ -221,6 +221,53 @@ export class GameScene extends Phaser.Scene {
   private burst(x: number, y: number, color: number, count: number) {
     for (let i = 0; i < count && this.particles.length < 140; i++) this.particles.push({ x, y, vx: (Math.random() - 0.5) * 190, vy: (Math.random() - 0.5) * 180, life: 0.18 + Math.random() * 0.22, color, size: 2 + Math.random() * 3 });
   }
+  /**
+   * GHOST. A sheet with a ragged hem and two hollow eyes, drawn see-through: the one enemy that goes
+   * through stone should look like it could. Waiting in the wall it is only a faint face in the
+   * brickwork -- visible if you look, easy to miss if you are falling -- and it only takes its full
+   * shape once it has woken and left the wall.
+   */
+  private ghost(e: Enemy, x: number, y: number, hurt: boolean) {
+    const t = this.model.elapsed;
+    if (e.ai?.state === 'dormant') {
+      const glow = 0.18 + Math.sin(t * 2 + e.phase) * 0.06;
+      this.rect(x - 6, y - 5, 4, 4, 0xdfe8ff, glow); this.rect(x + 2, y - 5, 4, 4, 0xdfe8ff, glow);
+      this.rect(x - 3, y + 2, 6, 2, 0xdfe8ff, glow * 0.7);
+      return;
+    }
+    const colour = hurt ? 0xffffff : 0xdfe8ff, alpha = hurt ? 0.9 : 0.62;
+    const sway = Math.sin(t * 3 + e.phase) * 2;
+    this.rect(x - 9 + sway, y - 16, 18, 4, colour, alpha);
+    this.rect(x - 12 + sway, y - 12, 24, 18, colour, alpha);
+    // A ragged hem that ripples, so it reads as cloth drifting rather than a body standing.
+    for (let i = 0; i < 4; i++) this.rect(x - 12 + i * 6 + sway, y + 6, 5, 4 + Math.round((Math.sin(t * 8 + i * 1.7) + 1) * 2), colour, alpha * 0.85);
+    this.rect(x - 7 + sway, y - 7, 5, 7, 0x1a1624, 0.95); this.rect(x + 2 + sway, y - 7, 5, 7, 0x1a1624, 0.95);
+    this.rect(x - 2 + sway, y + 1, 4, 3, 0x1a1624, 0.8);
+    // A trail it leaves behind while it hunts.
+    for (let i = 1; i <= 3; i++) this.rect(x - 3 + sway, y - 16 - i * 7, 6, 4, colour, alpha * (0.3 - i * 0.07));
+  }
+  /**
+   * FLYING SKULL. Bone white, jaw and sockets. At rest it bobs; when it notices the player the sockets
+   * light red and it shakes -- the warning -- and while it lunges it leaves streaks, so a charge is
+   * obvious even at the edge of the screen.
+   */
+  private skull(e: Enemy, x: number, y: number, hurt: boolean) {
+    const state = e.ai?.kind === 'skull' ? e.ai.state : 'idle';
+    const shake = state === 'warn' ? Math.round(Math.sin(this.model.elapsed * 60) * 2) : 0;
+    const bone = hurt ? 0xffffff : state === 'cool' || state === 'return' ? 0xbdb3a2 : 0xefe6d2;
+    const cx = x + shake;
+    if (state === 'charge' && e.ai?.kind === 'skull') {
+      const len = Math.hypot(e.ai.vx, e.ai.vy) || 1, ux = e.ai.vx / len, uy = e.ai.vy / len;
+      for (let i = 1; i <= 3; i++) this.rect(cx - ux * i * 9 - 5, y - uy * i * 9 - 5, 10, 10, 0xefe6d2, 0.35 - i * 0.09);
+    }
+    this.rect(cx - 11, y - 12, 22, 16, bone);
+    this.rect(cx - 9, y - 15, 18, 4, bone);
+    this.rect(cx - 7, y + 4, 14, 6, bone);
+    const eye = state === 'warn' || state === 'charge' ? 0xff4a4a : 0x241c24;
+    this.rect(cx - 8, y - 7, 6, 6, eye); this.rect(cx + 2, y - 7, 6, 6, eye);
+    this.rect(cx - 1, y + 1, 2, 3, 0x241c24);
+    for (let i = 0; i < 3; i++) this.rect(cx - 5 + i * 4, y + 6, 2, 4, 0x241c24);
+  }
   private rect(x: number, y: number, w: number, h: number, color: number, alpha = 1) { this.graphics.fillStyle(color, alpha).fillRect(Math.round(x), Math.round(y), w, h); }
   private draw() {
     const g = this.graphics, m = this.model, cam = m.cameraY;
@@ -1015,7 +1062,10 @@ export class GameScene extends Phaser.Scene {
     // Stompable enemies are soft and round; armoured ones carry a shell you can see from above.
     const color = hurt ? 0xffffff : type.stompable ? 0xf497ab : type.silhouette === 'brute' ? 0xc0a7ed : 0xd8b48c;
     const width = type.bodyWidth;
+    if (type.silhouette === 'ghost') { this.ghost(e, x, y, !!hurt); return; }
+    if (type.silhouette === 'skull') { this.skull(e, x, y, !!hurt); return; }
     if (type.silhouette === 'wing' && type.id === 'bat') {
+
       const flap = Math.sin(this.model.elapsed * 15) * 5;
       this.rect(x - 26, y - 4 + flap, 13, 5, color); this.rect(x + 13, y - 4 + flap, 13, 5, color);
       this.rect(x - 18, y - 8 + flap, 6, 10, color); this.rect(x + 12, y - 8 + flap, 6, 10, color);

@@ -29,8 +29,10 @@ import { UpgradeSystem } from './UpgradeSystem';
 import { StageProgressionSystem } from './StageProgressionSystem';
 import { FINAL_STAGE, type AreaId, type SectionId } from '../data/areas';
 import { enemyPosition, enemyType } from '../data/enemies';
+import { CHASE_STEP, stepChaser, type ChaseState } from '../data/chasers';
 import { defaultTuning, sanitizeTuning, type PhysicsTuning } from './PhysicsTuning';
-export type GameEvent = { type: 'shot' | 'empty' | 'land' | 'kill' | 'hurt' | 'upgrade' | 'over' | 'heal' | 'boss' | 'clear' | 'oxygen' | 'section' | 'ice' | 'vent' | 'crack' | 'collapse' | 'bossHit' | 'bossTelegraph' | 'bossFire' | 'bossPhase' | 'bossDown' | 'gunModule' | 'coin' | 'shopOpen' | 'shopBuy' | 'exitReady' | 'exit' | 'containerBreak' | 'blockCrack' | 'blockBreak' | 'jump' | 'wallJump' | 'comboSettle' | 'doodad' | 'timeVoid' | 'coinVein' | 'coinHigh' | 'spikePlatform' | 'explosion' | 'corpse' | 'balloon' | 'jetpack' | 'gravityFlip' | 'bossEye' | 'bossRage' | 'bossStart' | 'tomato' | 'bossLine' | 'seal' | 'abyss'; x: number; y: number; value?: number; stomp?: boolean; lifeUps?: number; overflow?: number; combo?: number; stage?: string; areaCleared?: string | null; bonus?: 'heart' | 'charge'; source?: { id: number; kind: Enemy['kind']; x: number; y: number } };
+export type GameEvent = { type: 'shot' | 'empty' | 'land' | 'kill' | 'hurt' | 'upgrade' | 'over' | 'heal' | 'boss' | 'clear' | 'oxygen' | 'section' | 'ice' | 'vent' | 'crack' | 'collapse' | 'bossHit' | 'bossTelegraph' | 'bossFire' | 'bossPhase' | 'bossDown' | 'gunModule' | 'coin' | 'shopOpen' | 'shopBuy' | 'exitReady' | 'exit' | 'containerBreak' | 'blockCrack' | 'blockBreak' | 'jump' | 'wallJump' | 'comboSettle' | 'doodad' | 'timeVoid' | 'coinVein' | 'coinHigh' | 'spikePlatform' | 'explosion' | 'corpse' | 'balloon' | 'jetpack' | 'gravityFlip' | 'bossEye' | 'bossRage' | 'bossStart' | 'tomato' | 'bossLine' | 'seal' | 'abyss'
+  | 'ghostWake' | 'ghostFade' | 'skullWarn' | 'skullCharge'; x: number; y: number; value?: number; stomp?: boolean; lifeUps?: number; overflow?: number; combo?: number; stage?: string; areaCleared?: string | null; bonus?: 'heart' | 'charge'; source?: { id: number; kind: Enemy['kind']; x: number; y: number } };
 /**
  * Who fired a round.
  *
@@ -424,6 +426,11 @@ export class GameModel {
    * not advance. Freezing by skipping updates alone would make the world JUMP on resume.
    */
   private worldElapsed = 0;
+  /**
+   * Unspent time for the CATACOMB chasers. They advance on fixed CHASE_STEP sub-steps, never on the
+   * frame's own dt, so a chase plays out identically at 30, 60 or 120 frames per second.
+   */
+  private chaseClock = 0;
   /** The doodad currently underfoot, so one contact cannot reload every frame. */
   private doodadContact: number | null = null;
   maxCombo = 0;
@@ -884,9 +891,30 @@ export class GameModel {
       // shared sway for every enemy without a `motion`, and the water enemies' own movement for the
       // four that have one. An enemy fixture built without `originY` adopts where it stands.
       e.originY ??= e.y;
+      if (e.ai) continue;
       const at = enemyPosition(e, this.worldElapsed);
       if (at.y !== e.y) yBeforeMove.set(e, e.y);
       e.x = at.x; e.y = at.y;
+    }
+    // CATACOMB CHASERS. Their own state, their own fixed step, and the same TIMEVOID rule as every
+    // enemy: while the world is stopped, so are they. The stomp test reads where each one stood
+    // before it moved, exactly as it does for a bobbing fish.
+    if (!frozen && this.enemies.some(e => e.ai)) {
+      this.chaseClock += dt;
+      const chasers = this.enemies.filter(e => e.alive && e.ai) as (Enemy & { ai: ChaseState })[];
+      for (const e of chasers) if (!yBeforeMove.has(e)) yBeforeMove.set(e, e.y);
+      while (this.chaseClock >= CHASE_STEP - 1e-9) {
+        this.chaseClock -= CHASE_STEP;
+        // Each sub-step runs at its OWN moment: the frame's world time less what is still unspent. A long
+        // frame is then the same sequence of instants as several short ones, which is what keeps a
+        // skull's hover -- and so the aim it locks when it notices the player -- identical at any rate.
+        const at = this.worldElapsed - this.chaseClock;
+        for (const e of chasers) {
+          const signal = stepChaser(e, p, CHASE_STEP, at, { top: this.cameraY, height: WORLD.height });
+          if (signal) this.events.push({ type: signal, x: e.x, y: e.y });
+        }
+      }
+      for (const e of chasers) if (yBeforeMove.get(e) === e.y) yBeforeMove.delete(e);
     }
     // Swept bullet collisions prevent fast projectiles tunneling through enemies.
     //
@@ -1032,7 +1060,7 @@ export class GameModel {
       if (!b.alive) continue;
       // `shootable: false` is a real answer, not a miss: the round passes over such an enemy and
       // carries on to whatever is behind it. Landing on one is then the only way through.
-      const targets = this.enemies.filter(e => e.alive && e.shootable !== false && !b.hits.has(e.id) && Math.abs(b.x - e.x) < 15 + b.size && sweeps(b.previousY, b.y, e.y - 15, e.y + 15)).sort((a, z) => this.along(a.y - z.y));
+      const targets = this.enemies.filter(e => e.alive && e.shootable !== false && e.ai?.state !== 'dormant' && !b.hits.has(e.id) && Math.abs(b.x - e.x) < 15 + b.size && sweeps(b.previousY, b.y, e.y - 15, e.y + 15)).sort((a, z) => this.along(a.y - z.y));
       for (const e of targets) {
         b.hits.add(e.id); e.hp -= b.damage; e.flash = 0.1;
         if (e.hp <= 0) this.kill(e, false);
@@ -1042,7 +1070,7 @@ export class GameModel {
     // Contact with the shaft's inhabitants is part of the shaft: inside a chamber they cannot
     // reach the player, which is what makes it safe.
     if (!frozen) for (const e of this.enemies) {
-      if (!e.alive || Math.abs(p.x - e.x) > 24) continue;
+      if (!e.alive || e.ai?.state === 'dormant' || Math.abs(p.x - e.x) > 24) continue;
       // The face gravity brings the player down onto: an enemy's head in the shaft, its underside
       // in the ABYSS. The same crossing, the same stomp, mirrored -- nothing here knows which.
       const crown = e.y - 10 * this.gravity;
@@ -1083,7 +1111,12 @@ export class GameModel {
           const tuning = UPGRADE_TUNING.blastModule;
           this.spawnExplosion({ x: p.x, y: p.y - this.up * tuning.offsetY, radius: tuning.radius, damage: tuning.damage, exclude: e });
         }
-      } else if ((topCrossing || Math.abs(p.y - e.y) < 25) && p.invincible <= 0) this.hurt(e);
+      } else if ((topCrossing || Math.abs(p.y - e.y) < 25) && p.invincible <= 0 && this.hurt(e) && e.ai?.kind === 'ghost') {
+        // A GHOST is spent by the hit it lands: it fades rather than dying, pays nothing, and can never
+        // land a second. One ghost is one heart at most -- the pressure is being caught, not being held.
+        e.alive = false;
+        this.events.push({ type: 'ghostFade', x: e.x, y: e.y });
+      }
     }
     if (this.along(p.vy) >= 0 && p.grounded === -1) {
       // The first slab met ALONG the pull, which is the shallowest one in the shaft and the
@@ -1201,7 +1234,8 @@ export class GameModel {
     this.bullets = this.bullets.filter(b => b.alive && (frozen || !this.aheadOfCamera(b.y, 150)));
     if (frozen) return;
     this.platforms = this.platforms.filter(f => !this.behindCamera(f.y, 180));
-    this.enemies = this.enemies.filter(e => e.alive && !this.behindCamera(e.y, 180));
+    // A hunting GHOST comes from behind the view on purpose, so being behind it does not retire one.
+    this.enemies = this.enemies.filter(e => e.alive && (e.ai?.state === 'hunt' || !this.behindCamera(e.y, 180)));
     this.pickups = this.pickups.filter(item => !item.taken && !this.behindCamera(item.y, 180));
     this.hazards = this.hazards.filter(h => !this.behindCamera(this.trailingEdge(h.y, h.height), 180));
     this.doodads = this.doodads.filter(d => !this.behindCamera(this.trailingEdge(d.y, d.height), 180));
@@ -2176,7 +2210,7 @@ export class GameModel {
       ? { x: p.x, y: p.y + UPGRADE_TUNING.heartBalloon.offsetY * this.gravity, alive: true }
       : null;
     this.jetpackFuel = UPGRADE_TUNING.safetyJetpack.fuelSeconds;
-    this.doodadContact = null; this.worldElapsed = 0;
+    this.doodadContact = null; this.worldElapsed = 0; this.chaseClock = 0;
     this.containers = []; this.bubbles = []; this.exit = null;
     // Coins already banked stay banked; only the ones still lying on the floor are swept up.
     this.coins.clearLoose();
@@ -2232,7 +2266,7 @@ export class GameModel {
     return true;
   }
   killInstantly(cause: DamageCause) { return this.health.killInstantly(cause); }
-  hurt(source?: Enemy) { this.damage(1, source ? enemyType(source.kind).damageCause : 'enemy', source); }
+  hurt(source?: Enemy) { return this.damage(1, source ? enemyType(source.kind).damageCause : 'enemy', source); }
   /**
    * One blast, wherever it came from.
    *

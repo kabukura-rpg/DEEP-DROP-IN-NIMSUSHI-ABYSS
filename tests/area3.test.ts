@@ -782,19 +782,25 @@ describe('AREA 3 terrain reads as water before anything moves', () => {
     }
   });
 
-  it('lays fewer and wider ledges than the catacombs, in every SECTION', () => {
+  /**
+   * What tells water from catacomb is SPACING. This used to compare ledge width too, while AREA 2 was
+   * a ladder of narrow ledges; AREA 2 has since been rebuilt around wide shelves meant to be walked
+   * (catacombTerrain.ts), so width no longer separates the two. What still does, and by far more, is
+   * how many rows there are and how far apart: open water against a shaft you cannot fall down.
+   */
+  it('lays fewer ledges than the catacombs, much further apart, in every SECTION', () => {
     for (const sectionId of [1, 2, 3] as SectionId[]) {
-      let water = { count: 0, width: 0 }, stone = { count: 0, width: 0 };
+      let water = { count: 0, gap: 0, gaps: 0 }, stone = { count: 0, gap: 0, gaps: 0 };
       for (let seed = 1; seed <= 60; seed++) {
         const a3 = shaftOf(3, sectionId, seed * 811), a2 = shaftOf(2, sectionId, seed * 811);
         water.count += a3.ledges.length; stone.count += a2.ledges.length;
-        for (const p of a3.ledges) water.width += p.width;
-        for (const p of a2.ledges) stone.width += p.width;
+        for (let i = 1; i < a3.heights.length; i++) { water.gap += a3.heights[i] - a3.heights[i - 1]; water.gaps++; }
+        for (let i = 1; i < a2.heights.length; i++) { stone.gap += a2.heights[i] - a2.heights[i - 1]; stone.gaps++; }
       }
       // Fewer: AREA 3 covers a LONGER section with well under three quarters of the rows.
       expect(water.count / 60, `3-${sectionId} ledges`).toBeLessThan(stone.count / 60 * 0.75);
-      // Wider: a shelf is arrived on from a long fall with drift still in the controls.
-      expect(water.width / water.count, `3-${sectionId} width`).toBeGreaterThan(stone.width / stone.count);
+      // Further apart: the mean band in open water is at least half again the catacombs'.
+      expect(water.gap / water.gaps, `3-${sectionId} spacing`).toBeGreaterThan(stone.gap / stone.gaps * 1.5);
     }
   });
 
@@ -848,15 +854,21 @@ describe('AREA 3 terrain reads as water before anything moves', () => {
     }
   });
 
-  it('keeps the catacombs on their own plan, unchanged', () => {
-    // The two AREAs were the same plan. Whatever else moved, AREA 2 did not.
+  /**
+   * The two AREAs were once the same plan. This pinned AREA 2's old numbers so the AREA 3 work could
+   * not move them; AREA 2 has since been rebuilt on purpose (catacombTerrain.ts), so what is kept is
+   * the point the pin was there for: the two are different places, and neither carries the other's
+   * machinery.
+   */
+  it('keeps the catacombs and the water on separate plans', () => {
     for (const [index, plan] of area2.plans!.entries()) {
-      expect(plan.pieces, `2-${index + 1}`).toBeUndefined();
       expect(plan.rhythm, `2-${index + 1}`).toBeUndefined();
       expect(plan.containerChance, `2-${index + 1}`).toBeUndefined();
-      expect(plan.gap).toBe([236, 242, 248][index]);
-      expect(plan.platformWidth).toEqual([[150, 174], [138, 162], [126, 150]][index]);
-      expect(plan.doodadChance).toBe([0.24, 0.26, 0.28][index]);
+      expect(plan.maxOxygenGap, `2-${index + 1}`).toBeUndefined();
+      // Each AREA's grammar is its own: no shape of the water's appears in the catacombs' mix.
+      const water = new Set(area3.plans![index].pieces!.pieces.map(p => p.id));
+      const stone = plan.pieces!.pieces.map(p => p.id).filter(id => id !== 'normal' && id !== 'breakableDrop');
+      expect(stone.filter(id => water.has(id)), `2-${index + 1}`).toEqual([]);
     }
     // And no two SECTIONs of the two AREAs share a terrain envelope any more.
     for (let i = 0; i < 3; i++) {

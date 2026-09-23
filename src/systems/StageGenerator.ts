@@ -11,6 +11,7 @@ import { rollGunModule as rollModuleForZone } from '../data/gunModules';
 import type { SectionPlan, WaterPhysics } from '../data/areas';
 import { RhythmWalker, getTerrainMode, laneOf, type RhythmBand } from '../data/rhythm';
 import { PiecePlanner, type RowIntent } from '../data/pieces';
+import { dormantGhost, GHOST_RULES } from '../data/chasers';
 
 export type { Enemy, EnemyKind } from '../data/enemies';
 export type { Pickup } from '../data/pickups';
@@ -163,6 +164,12 @@ export class StageGenerator {
   private maxRowStep = 0;
   /** The horizontal answer the previous row asked for, folded so left and right are one question. */
   private lastLane: 'wall' | 'near' | 'mid' | null = null;
+  /** Which wall the next CATACOMB BAFFLE is held against; 0 until a baffle run starts. */
+  private baffleSide: -1 | 1 | 0 = 0;
+  /** Section-local metres at which a GHOST is laid in the wall, shallowest first. */
+  private ghostDepths: number[] = [];
+  /** Which wall the next GHOST waits in. Alternates, starting left; never drawn. */
+  private ghostSide: -1 | 1 = -1;
   private previous: RoutePlatform;
   private wallToCover: -1 | 1 = -1;
   private rowsSinceWall = 0;
@@ -256,7 +263,14 @@ export class StageGenerator {
       this.forcedShopChambers = 1;
     }
     this.chambers.sort((a, b) => a - b);
+    // GHOSTS, spread evenly through the SECTION after its quiet opening and clear of the exit.
+    const ghosts = context.sectionLength ? context.plan?.ghosts : undefined;
+    if (ghosts && ghosts.count > 0) {
+      const from = (context.plan?.graceDepth ?? 0) + 20, to = context.sectionLength! - 30;
+      for (let i = 0; i < ghosts.count; i++) this.ghostDepths.push(from + (to - from) * (i + 0.5) / ghosts.count);
+    }
   }
+
 
   /**
    * One row of BREAK BLOCK, edge to edge across the shaft. Together they stop the fall; separately
@@ -380,6 +394,78 @@ export class StageGenerator {
     return out;
   }
 
+  /**
+   * A CATACOMB row whose SHAPE is the point: a BAFFLE or a SLOT. Built directly, not searched for.
+   *
+   * Both are defined by where the band above lets the player off -- its exits, `lo`..`hi` -- because
+   * that is where a fall arrives:
+   *
+   *   BAFFLE  one shelf from a wall, wide enough to COVER every exit above it with a body and a margin
+   *           to spare. The landing (`safeX`) is directly under the exits and the way off is the far
+   *           end, so reaching the landing needs no steering at all -- a stronger guarantee than
+   *           reach -- and leaving it means walking across. Consecutive baffles alternate walls, and
+   *           two shelves of the grammar's widths always overlap, so every straight line down meets
+   *           one of any two in a row.
+   *   SLOT    two shelves from both walls with a gap between. The gap is put on the far side of the
+   *           exits, so the fall lands on a shelf (the route) and the gap is somewhere to walk to --
+   *           or to steer for. Both shelves' exits open onto the gap, so the band below is reached
+   *           from either.
+   *
+   * Returns null when the shape cannot be laid here safely -- a baffle that would not cover the
+   * exits, a slot with no room -- and the row falls back to the ordinary candidate search. A shape is
+   * never forced; the route is.
+   */
+  private shapeRow(intent: RowIntent, y: number, width: number): { route: RoutePlatform; others: RoutePlatform[] } | null {
+    const exits = this.previousBand.map(p => p.exitX);
+    const lo = Math.min(...exits), hi = Math.max(...exits), mid = Math.round((lo + hi) / 2);
+    const right = WORLD.width - WORLD.wall;
+    const reachable = (p: RoutePlatform) => this.previousBand.every(from => canReachPlatform(from, p, this.context.water));
+    // A body is 9px either side of centre; 12 more is room for the fall to wander.
+    const MARGIN = 21;
+    if (intent.baffle) {
+      const preferred: -1 | 1 = this.baffleSide !== 0 ? this.baffleSide : mid < WORLD.width / 2 ? -1 : 1;
+      for (const side of [preferred, -preferred as -1 | 1]) {
+        const x = side === -1 ? WORLD.wall : right - width;
+        if (x + MARGIN > lo || hi > x + width - MARGIN) continue;
+        const p: RoutePlatform = {
+          id: this.id, x, y, width, safeSide: side === -1 ? 1 : -1, safeX: mid,
+          exitX: side === -1 ? x + width + 12 : x - 12, breakable: false, state: 'stable',
+        };
+        if (p.exitX < WORLD.wall + 12 || p.exitX > right - 12 || !reachable(p)) continue;
+        this.baffleSide = side === -1 ? 1 : -1;
+        this.id++;
+        return { route: p, others: [] };
+      }
+      this.baffleSide = 0;
+      return null;
+    }
+    if (intent.slot) {
+      this.baffleSide = 0;
+      const [g0, g1] = intent.slot;
+      const gap = Math.round(g0 + this.random() * (g1 - g0));
+      const total = right - WORLD.wall - gap;
+      const SHELF = 70;
+      const leftCovers = mid < WORLD.width / 2;
+      // The left shelf's width decides where the gap is. Keep the covering shelf over the exits.
+      const [wMin, wMax] = leftCovers
+        ? [Math.max(SHELF, hi + MARGIN - WORLD.wall), total - SHELF]
+        : [SHELF, Math.min(total - SHELF, lo - MARGIN - gap - WORLD.wall)];
+      if (wMax < wMin) return null;
+      const wl = Math.round(wMin + this.random() * (wMax - wMin)), wr = total - wl;
+      const gapLeft = WORLD.wall + wl, gapRight = gapLeft + gap;
+      const left: RoutePlatform = { id: 0, x: WORLD.wall, y, width: wl, safeSide: 1, safeX: 0, exitX: gapLeft + 12, breakable: false, state: 'stable' };
+      const rightShelf: RoutePlatform = { id: 0, x: gapRight, y, width: wr, safeSide: -1, safeX: 0, exitX: gapRight - 12, breakable: false, state: 'stable' };
+      const [route, other] = leftCovers ? [left, rightShelf] : [rightShelf, left];
+      route.safeX = mid;
+      // The other shelf's landing is its near end, by the gap: somewhere a player could steer to.
+      other.safeX = other === left ? gapLeft - 26 : gapRight + 26;
+      if (!reachable(route)) return null;
+      route.id = this.id++; other.id = this.id++;
+      return { route, others: [other] };
+    }
+    return null;
+  }
+
   private pick<T>(items: readonly T[]) { return items[Math.min(items.length - 1, Math.floor(this.random() * items.length))]; }
   /** Draw inside a tier by spawnWeight, so a rewarding enemy can stay uncommon without a special case. */
   private weighted(kinds: readonly EnemyKind[]): EnemyKind {
@@ -497,6 +583,14 @@ export class StageGenerator {
       const width = intent?.ledgeWidth
         ? Math.round(intent.ledgeWidth[0] + this.random() * (intent.ledgeWidth[1] - intent.ledgeWidth[0]))
         : Math.round(tuning.minWidth + (widthLow + this.random() * (widthHigh - widthLow)) * (tuning.maxWidth - tuning.minWidth));
+      // A CATACOMB BAFFLE or SLOT is built directly rather than searched for: see `shapeRow`. Every
+      // other row, in every AREA, goes through the candidate search below exactly as it always has.
+      const shaped = intent && (intent.baffle || intent.slot) ? this.shapeRow(intent, y, width) : null;
+      let platform!: RoutePlatform;
+      if (shaped) {
+        platform = shaped.route;
+        this.lastLane = laneOf(platform, WORLD.wall, WORLD.width - WORLD.wall * 2);
+      } else {
       const candidates: RoutePlatform[] = [];
       // A finite set always includes both extremes. Random ordering cannot defeat safety.
       for (let x = WORLD.wall; x <= WORLD.width - WORLD.wall - width; x += 2) {
@@ -537,12 +631,14 @@ export class StageGenerator {
         const fresh = choices.filter(p => laneOf(p, WORLD.wall, WORLD.width - WORLD.wall * 2) !== this.lastLane);
         if (fresh.length) choices = fresh;
       }
-      const platform = choices[Math.min(choices.length - 1, Math.floor(this.random() * choices.length))];
+      platform = choices[Math.min(choices.length - 1, Math.floor(this.random() * choices.length))];
+      this.baffleSide = 0;
       this.lastLane = laneOf(platform, WORLD.wall, WORLD.width - WORLD.wall * 2);
       this.rowsSinceWall++;
       const wallGap = this.wallToCover === -1 ? platform.x - WORLD.wall : WORLD.width - WORLD.wall - platform.x - platform.width;
       if (this.rowsSinceWall >= 3 && wallGap <= 8) { this.rowsSinceWall = 0; this.wallToCover = this.wallToCover === -1 ? 1 : -1; }
       this.id++;
+      }
       if (this.context.breakable) {
         // The run cap is the safety net: however unlucky the rolls, a stable ledge always arrives.
         const forced = this.breakableRun >= tuning.maxBreakableRun;
@@ -556,18 +652,29 @@ export class StageGenerator {
       // a trap, and the route's own maths are untouched either way. A gate row carries neither -- a
       // BREAK BLOCK is already its own problem.
       if (this.random() < tuning.limboHazardChance) platform.limboHazard = true;
-      else if (this.random() < tuning.spikePlatformChance) platform.spikePlatform = spikePlatform();
+      // A SLOT's route shelf is the one the fall is headed for, so it never carries spikes; the row's
+      // own `spikeChance` belongs to the other shelf. Rows that state no override use the SECTION's.
+      else if (this.random() < (shaped && intent?.slot ? 0 : intent?.spikeChance ?? tuning.spikePlatformChance)) platform.spikePlatform = spikePlatform();
       if (y >= start) platforms.push(platform);
       // More than one ledge in this band, when the piece asked for it. Laid before the chamber and
       // the doodad are placed, so both see them and keep clear the way they keep clear of any ledge.
-      const extras = intent ? this.layExtras(intent, platform, y, tuning) : [];
+      const extras = shaped ? shaped.others : intent ? this.layExtras(intent, platform, y, tuning) : [];
+      if (shaped && intent?.slot) for (const other of extras) if (this.random() < (intent.spikeChance ?? 0)) other.spikePlatform = spikePlatform();
       if (y >= start) platforms.push(...extras);
 
       let guard: Enemy | undefined;
       if (this.random() < tuning.enemyChance) {
         // Reserve 60px at the landing/exit side for the player's body and movement.
-        const min = platform.safeSide === -1 ? platform.x + 78 : platform.x + 20;
-        const max = platform.safeSide === -1 ? platform.x + width - 20 : platform.x + width - 78;
+        //
+        // A shaped row is walked from where the fall lands to its far end, so that whole stretch is
+        // the route: a guard may only stand in the dead end on the other side of the landing, 40px
+        // clear of it, where the player walks AWAY from it. Nothing is ever between a landing and
+        // the way on.
+        const deadEnd = shaped
+          ? (platform.safeSide === -1 ? [platform.safeX + 40, platform.x + platform.width - 20] : [platform.x + 20, platform.safeX - 40])
+          : null;
+        const min = deadEnd ? deadEnd[0] : platform.safeSide === -1 ? platform.x + 78 : platform.x + 20;
+        const max = deadEnd ? deadEnd[1] : platform.safeSide === -1 ? platform.x + width - 20 : platform.x + width - 78;
         const kind = max >= min ? this.kindFor('guard', tuning, width) : undefined;
         if (kind) {
           guard = this.enemy(kind, (min + max) / 2, y - 15, Math.min(22, (max - min) / 2), 'guard');
@@ -593,6 +700,17 @@ export class StageGenerator {
           }
         }
       }
+      // A GHOST due at this depth waits inside a wall just above this row. It is in the brickwork, so
+      // it can never sit on a ledge, block a landing or share a band with anything; it only becomes
+      // part of the shaft when the player has gone 200px past it.
+      if (this.ghostDepths.length && localDepth >= this.ghostDepths[0]) {
+        this.ghostDepths.shift();
+        const ghost = spawnEnemy('ghost', this.id++, this.ghostSide === -1 ? GHOST_RULES.wallDepth : WORLD.width - GHOST_RULES.wallDepth, y - 90, 0, 0, 'open');
+        ghost.ai = dormantGhost(this.context.plan!.ghosts!.speed);
+        this.ghostSide = this.ghostSide === -1 ? 1 : -1;
+        if (y >= start) enemies.push(ghost);
+      }
+
       if (this.context.oxygen) this.placeAir(tuning, platform, y, start, containers, enemies, plannedStep!);
       if (this.context.heat) this.placeHeat(tuning, platform, y, width, start, pickups, hazards, enemies);
       this.placeSpikes(tuning, platform, y, width, start, hazards, enemies, containers);

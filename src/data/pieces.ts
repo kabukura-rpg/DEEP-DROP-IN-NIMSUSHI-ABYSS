@@ -38,7 +38,8 @@
  * each, built at its own AREA's scale.
  */
 export type PieceId = 'normal' | 'openDrop' | 'ledgeCluster' | 'wallChannel' | 'breakableDrop'
-  | 'openLane' | 'crossShelf' | 'shelfPair';
+  | 'openLane' | 'crossShelf' | 'shelfPair'
+  | 'baffle' | 'slot';
 
 /** What one row of a piece asks the generator for. Everything here is a request, not a placement. */
 export interface RowIntent {
@@ -66,6 +67,25 @@ export interface RowIntent {
   ledgeWidth?: readonly [number, number];
   /** True when this row's step is meant to read as a fall rather than as a gap. */
   openSpan: boolean;
+  /**
+   * CATACOMBS: a shelf held against one wall that COVERS where the band above lets the player off.
+   * A fall from above therefore always lands on it, and the only way off is its far end -- so it is
+   * walked across, not fallen past. The generator picks the wall (the one under the previous exit,
+   * then alternating) and puts the landing where the fall actually arrives. Absent everywhere else.
+   */
+  baffle?: boolean;
+  /**
+   * CATACOMBS: two shelves reaching in from both walls, leaving a gap of this many pixels between
+   * them to drop through. Both shelves are in the band; the one under the previous exit is the route.
+   */
+  slot?: readonly [number, number];
+  /**
+   * Override the SECTION's `spikePlatformChance` for this row. On a SLOT it applies only to the
+   * shelf NOT under the previous exit, so a spike is somewhere the player chose to go, never where a
+   * fall had to land. Absent means the SECTION's own chance, exactly as before.
+   */
+  spikeChance?: number;
+
 }
 
 export interface PieceSpec {

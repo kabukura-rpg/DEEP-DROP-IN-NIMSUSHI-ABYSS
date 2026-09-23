@@ -43,6 +43,11 @@ export const EVENT_SOUNDS: Record<GameEvent['type'], SoundId | null> = {
   seal: null, tomato: 'upgrade',
   // Arriving at the bottom of the well: the same weight as reaching the fight itself.
   abyss: 'upgrade',
+  // CATACOMB CHASERS. Deliberately silent in v1, and declared so rather than left out: the seven
+  // sounds above each already mean something, and borrowing one to say "a ghost woke" would teach the
+  // player the wrong thing. The warnings are carried on screen -- the ghost leaving the wall, the
+  // skull rattling -- until they have sounds of their own.
+  ghostWake: null, ghostFade: null, skullWarn: null, skullCharge: null,
 };
 /** The sound an event should make, or null when it is silent. Never throws on an unknown type. */
 export const eventSound = (type: GameEvent['type']): SoundId | null => EVENT_SOUNDS[type] ?? null;

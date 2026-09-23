@@ -3,6 +3,7 @@ import type { SpikeKind } from './hazards';
 import { AREA1_RHYTHM, type RhythmGrammar } from './rhythm';
 import { AREA1_GRAMMAR, type PieceGrammar } from './pieces';
 import { AREA3_CROSS_CURRENT, AREA3_DROWNED_RUINS, AREA3_OPEN_WATER } from './waterTerrain';
+import { AREA2_INTRO, AREA2_OSSUARY, AREA2_PURSUIT } from './catacombTerrain';
 
 export type AreaId = 1 | 2 | 3 | 4;
 export type SectionId = 1 | 2 | 3;
@@ -163,6 +164,12 @@ export interface SectionPlan {
   breakDelay?: number;
   /** Hard cap on consecutive collapsing rows, so a seed always offers a foothold to regroup on. */
   maxBreakableRun?: number;
+  /**
+   * CATACOMB GHOSTS: how many wait in the walls of this SECTION, and how fast they drift once woken.
+   * Laid on the SECTION's own depth schedule, not rolled, so the count is exact and no other draw in
+   * the SECTION moves because of them. Only AREA 2 sets it.
+   */
+  ghosts?: { count: number; speed: number };
   /** Enemies the area owns but this SECTION holds back, so a roster can be introduced gradually. */
   enemyExclude?: readonly EnemyKind[];
 }
@@ -240,23 +247,28 @@ export const AREAS: readonly AreaConfig[] = [
     ],
   },
   {
-    // CATACOMBS ROLE. The ground is the threat. A ledge is safe to arrive on and stops being safe a
-    // moment later, so the AREA is about not staying still -- and every one of those hits is
-    // ordinary damage, so it costs a heart rather than the run. Candles on the walls are the way to
-    // keep a chain alive without touching the floor at all.
+    // CATACOMBS ROLE, REWORKED. The AREA used to be a ladder a player could fall straight down --
+    // 2,500px and more of uninterrupted drop in its best column -- with the danger in the floor alone.
+    // Now the shaft is built to be WALKED (catacombTerrain.ts: shelves that cover the exit above and
+    // gaps to find), and something follows the player down it (chasers.ts: ghosts from the walls,
+    // skulls that rattle and lunge). Spike platforms stay the AREA's ground rule, but only where a
+    // player chose to stand: never on a shelf they are forced to cross.
     id: 2, name: 'CATACOMB RUINS', sections: 3, sectionLength: 300,
-    enemyPool: ['slime', 'bat', 'armoredSlime', 'tank'],
+    enemyPool: ['slime', 'bat', 'armoredSlime', 'tank', 'flyingSkull'],
     theme: { wall: 0x2a2620, wallEdge: 0x463f33, brick: 0x1a1713, pillar: 0x3b3428, accent: 0xe8c98a, dust: 0xb6a888 },
     plans: [
-      { platformWidth: [150, 174], gap: 236, enemyChance: 0.34, flyChance: 0.26, toughChance: 0.22, heavyChance: 0, comboBias: 0.18, graceDepth: 12,
-        spikePlatformChance: 0.30, breakBlockRows: 2, breakBlockDurability: 2,
-        doodadChance: 0.24, safeZoneCount: 1 },
-      { platformWidth: [138, 162], gap: 242, enemyChance: 0.46, flyChance: 0.32, toughChance: 0.30, heavyChance: 0.08, comboBias: 0.24,
+      // 2-1 LEARN THE SHELVES. Two ghosts, no skulls, spikes only off the forced path.
+      { platformWidth: [168, 198], gap: 220, pieces: AREA2_INTRO, enemyChance: 0.23, flyChance: 0.18, toughChance: 0.22, heavyChance: 0, comboBias: 0.18, graceDepth: 12,
+        spikePlatformChance: 0.22, breakBlockRows: 2, breakBlockDurability: 2,
+        doodadChance: 0.24, safeZoneCount: 1, enemyExclude: ['flyingSkull'], ghosts: { count: 2, speed: 70 } },
+      // 2-2 PURSUIT. Skulls join; slots narrow; more spikes where a player might choose to land.
+      { platformWidth: [160, 190], gap: 220, pieces: AREA2_PURSUIT, enemyChance: 0.31, flyChance: 0.22, toughChance: 0.30, heavyChance: 0.08, comboBias: 0.24,
+        spikePlatformChance: 0.32, breakBlockRows: 2, breakBlockDurability: 2,
+        doodadChance: 0.26, safeZoneCount: 1, ghosts: { count: 3, speed: 80 } },
+      // 2-3 OSSUARY. Everything at once -- carried by the shape of the shaft, not by a longer roster.
+      { platformWidth: [148, 178], gap: 220, pieces: AREA2_OSSUARY, enemyChance: 0.38, flyChance: 0.26, toughChance: 0.38, heavyChance: 0.14, comboBias: 0.28,
         spikePlatformChance: 0.42, breakBlockRows: 2, breakBlockDurability: 2,
-        doodadChance: 0.26, safeZoneCount: 1 },
-      { platformWidth: [126, 150], gap: 248, enemyChance: 0.56, flyChance: 0.38, toughChance: 0.38, heavyChance: 0.14, comboBias: 0.28,
-        spikePlatformChance: 0.55, breakBlockRows: 2, breakBlockDurability: 2,
-        doodadChance: 0.28, safeZoneCount: 1 },
+        doodadChance: 0.28, safeZoneCount: 1, ghosts: { count: 4, speed: 88 } },
     ],
   },
   {

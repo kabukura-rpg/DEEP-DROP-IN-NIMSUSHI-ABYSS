@@ -412,10 +412,24 @@ describe('AREA 2 generation carries the CATACOMBS role', () => {
         const shaft = section(sectionId, seed * 613);
         expect({ sectionId, seed, zones: shaft.zones.length >= 1 }).toEqual({ sectionId, seed, zones: true });
         // A chamber floor is its own slab against a wall, never a step on the fall route.
-        let previous: RoutePlatform = { ...START_PLATFORM };
-        for (const p of shaft.platforms.filter(f => f.safeZone === undefined)) {
-          expect(Math.abs(p.safeX - previous.exitX)).toBeLessThanOrEqual(horizontalReach(p.y - previous.y));
-          previous = p;
+        //
+        // The route is a chain of BANDS, not a list of platforms: a CATACOMB SLOT lays two shelves at
+        // one height, and measuring the "fall" between them asks what zero pixels of drop can steer.
+        // The generator's own guarantee is per band and is what is checked: each band's route ledge
+        // (the first laid at that height) is reachable from EVERY ledge of the band above, and no
+        // ledge above is a dead end. A gate row is edge-to-edge stone and is opened, not steered to.
+        const rows = shaft.platforms.filter(f => f.safeZone === undefined);
+        const heights = [...new Set(rows.map(f => Math.round(f.y)))].sort((a, b) => a - b);
+        let above: RoutePlatform[] = [{ ...START_PLATFORM }];
+        for (const y of heights) {
+          const here = rows.filter(f => Math.round(f.y) === y);
+          if (here.length > 1 && here.every(f => f.breakBlock)) { above = [here[0]]; continue; }
+          const route = here[0];
+          for (const from of above) {
+            expect({ sectionId, seed, y, reach: Math.abs(route.safeX - from.exitX) <= horizontalReach(route.y - from.y) }).toEqual({ sectionId, seed, y, reach: true });
+            expect({ sectionId, seed, y, deadEnd: !here.some(p => p.y > from.y && Math.abs(p.safeX - from.exitX) <= horizontalReach(p.y - from.y)) }).toEqual({ sectionId, seed, y, deadEnd: false });
+          }
+          above = here;
         }
         // Nothing sits on the way out.
         if (shaft.exit) {

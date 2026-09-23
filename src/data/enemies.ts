@@ -1,15 +1,18 @@
 import type { DamageCause } from '../systems/HealthSystem';
 import type { PickupKind } from './pickups';
+import { idleSkull, type ChaseState } from './chasers';
 
 export type EnemyKind = 'slime' | 'bat' | 'armoredSlime' | 'tank' | 'fish' | 'bubbleFish' | 'jellyfish' | 'urchin'
   | 'fireLizard' | 'fireBat' | 'magmaSlime' | 'fireArmor' | 'frostBeetle'
   | 'demon' | 'wraith' | 'armorGuard' | 'spikeDemon' | 'ruinBreaker'
   | 'voidWisp' | 'hollowShade'
-  | 'nimushiClone' | 'nimushiShade' | 'bounceTapioca';
+  | 'nimushiClone' | 'nimushiShade' | 'bounceTapioca'
+  | 'ghost' | 'flyingSkull';
 /** Shape family GameScene draws. Silhouette, never colour alone, tells the player what is stompable. */
 export type EnemySilhouette = 'blob' | 'wing' | 'shell' | 'brute' | 'fin' | 'orb' | 'bell' | 'spiked'
   | 'lizard' | 'ember' | 'flame' | 'plated' | 'crystal'
-  | 'horned' | 'shade' | 'bulwark' | 'barb' | 'breaker' | 'wisp' | 'hollow' | 'nimushi' | 'nimushiBarbed' | 'bouncePearl';
+  | 'horned' | 'shade' | 'bulwark' | 'barb' | 'breaker' | 'wisp' | 'hollow' | 'nimushi' | 'nimushiBarbed' | 'bouncePearl'
+  | 'ghost' | 'skull';
 /** Spawn weight class. Independent of `stompable`: it only decides how often a row rolls this tier. */
 export type EnemyThreat = 'basic' | 'armored' | 'heavy';
 /** Where the generator may place it: guarding a ledge, loose in open water/air, or either. */
@@ -172,6 +175,15 @@ export const ENEMY_TYPES: Record<EnemyKind, EnemyType> = {
   bounceTapioca: { id: 'bounceTapioca', name: 'BOUNCE TAPIOCA', shootable: true, stompable: true, flying: true, threat: 'basic', spawnSlot: 'open', spawnWeight: 1, hp: 1, silhouette: 'bouncePearl', bodyWidth: 30, swaySpeed: 0.5, damageCause: 'enemy', contactHint: '踏める', leavesCorpse: false },
   nimushiClone: { id: 'nimushiClone', name: 'NIMUSHI CLONE', shootable: true, stompable: true, flying: true, threat: 'basic', spawnSlot: 'open', spawnWeight: 1, hp: 1, silhouette: 'nimushi', bodyWidth: 26, swaySpeed: 1.35, damageCause: 'enemy', contactHint: '接触', leavesCorpse: true },
   nimushiShade: { id: 'nimushiShade', name: 'NIMUSHI SHADE', shootable: true, stompable: false, flying: true, threat: 'armored', spawnSlot: 'open', spawnWeight: 1, hp: 1, silhouette: 'nimushiBarbed', bodyWidth: 26, swaySpeed: 0.9, damageCause: 'spike', contactHint: '踏めない・撃て', leavesCorpse: true },
+  // CATACOMB CHASERS (AREA 2). Neither is in a roll's `enemyPool` by accident: ghosts are laid on a
+  // schedule of their own, and the skull is listed in the AREA's pool from 2-2 on. What they DO is in
+  // chasers.ts; this is only what they ARE, on the same terms as every other row here.
+  //
+  // GHOST: shootable and stompable like any ordinary soft enemy -- it is simply almost never below
+  // you, because it comes from behind. It leaves no body; there is nothing there to leave.
+  ghost: { id: 'ghost', name: 'GHOST', shootable: true, stompable: true, flying: true, threat: 'basic', spawnSlot: 'open', spawnWeight: 0, hp: 2, silhouette: 'ghost', bodyWidth: 26, swaySpeed: 0, damageCause: 'enemy', contactHint: '止まるな' },
+  // FLYING SKULL: rattles, then lunges. One round or one stomp; a lunge into the player is one heart.
+  flyingSkull: { id: 'flyingSkull', name: 'FLYING SKULL', shootable: true, stompable: true, flying: true, threat: 'basic', spawnSlot: 'open', spawnWeight: 0.8, hp: 1, silhouette: 'skull', bodyWidth: 24, swaySpeed: 0, damageCause: 'enemy', contactHint: '突進に注意' },
   ruinBreaker: { id: 'ruinBreaker', name: 'RUIN BREAKER', shootable: true, stompable: true, flying: false, threat: 'basic', spawnSlot: 'guard', spawnWeight: 0.45, hp: 1, silhouette: 'breaker', bodyWidth: 30, swaySpeed: 0.8, damageCause: 'enemy', contactHint: '接触', leavesCorpse: true, onDefeat: 'shatterNearby' },
 };
 export const enemyType = (kind: EnemyKind) => ENEMY_TYPES[kind];
@@ -189,10 +201,18 @@ export interface Enemy {
    * built by hand without it still works -- GameModel adopts the current `y` on first use.
    */
   originY?: number;
+  /**
+   * A chaser's own state (GHOST, FLYING SKULL). Present only on those two; every other enemy moves by
+   * `enemyPosition` and never has one.
+   */
+  ai?: ChaseState;
 }
 export function spawnEnemy(kind: EnemyKind, id: number, x: number, y: number, range = 0, phase = 0, slot: 'guard' | 'open' = 'guard'): Enemy {
   const type = ENEMY_TYPES[kind];
-  return { id, kind, x, y, originX: x, originY: y, range, phase, hp: type.hp, alive: true, flash: 0, hurtFlash: 0, shootable: type.shootable, stompable: type.stompable, flying: type.flying, slot };
+  return { id, kind, x, y, originX: x, originY: y, range, phase, hp: type.hp, alive: true, flash: 0, hurtFlash: 0, shootable: type.shootable, stompable: type.stompable, flying: type.flying, slot,
+    // A FLYING SKULL starts hovering. A GHOST's state is the generator's to give (it needs the
+    // SECTION's speed), so it is set where ghosts are laid. No other enemy carries one.
+    ...(kind === 'flyingSkull' ? { ai: idleSkull() } : {}) };
 }
 
 /** Half the collision box's height. The contact tests in GameModel all use `e.y +- 15`. */
