@@ -25,5 +25,7 @@
   "productCodeChanged": false,
   "tests": "not rerun: artifacts only",
   "tscBuild": "not rerun: artifacts only",
-  "state": "BOSS_CONTACT_REBOUND"
+  "state": "BOSS_CONTACT_REBOUND",
+  "humanReview": "PLAYER BOSS CONTACT REBOUND v1 — ART LOCKED",
+  "rendererConnected": false
 }

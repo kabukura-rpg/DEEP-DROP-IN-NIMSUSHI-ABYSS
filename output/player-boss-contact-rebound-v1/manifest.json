@@ -1,6 +1,6 @@
 {
   "state": "BOSS_CONTACT_REBOUND",
-  "status": "ONE FRAME ART CANDIDATE / NOT CONNECTED",
+  "status": "PLAYER BOSS CONTACT REBOUND v1 — HUMAN REVIEWED / ART LOCKED; RENDERER NOT CONNECTED",
   "cell": [
     48,
     48
@@ -39,5 +39,15 @@
   ],
   "palette": "Existing PLAYER v1 exact RGB palette; nearest mapping, no dithering",
   "semantics": "Existing bossContact: damage(1) + rebound + full CHARGE reload. This candidate depicts the contact instant with feet toward the overhead boss; it is not a harmless successful stomp.",
-  "sha256": "45e2a622be807c718ff37883bb586fecfcf888dde709e9b543afa525e3822a9b"
+  "sha256": "45e2a622be807c718ff37883bb586fecfcf888dde709e9b543afa525e3822a9b",
+  "review": {
+    "actualSize": "PASS: upward boots, compressed body, recoiling arms",
+    "fallLandDistinct": "PASS: diagonal curl and feet-up orientation",
+    "attackMisread": "PASS: no weapon, muzzle flash or attack FX; visual intent is hurt rebound",
+    "impact": "PASS: curled body and spread arms; clearest at actual Boss contact",
+    "pixelSilhouette": "PASS: nearest enlarged has hard edges",
+    "desktopMobile": "PASS: Boss contact previews readable at both sizes",
+    "paletteAlignment": "PASS: existing PLAYER palette and NIMUSHI HIGH+B",
+    "limit": "One still frame; in-motion timing requires renderer integration later"
+  }
 }
