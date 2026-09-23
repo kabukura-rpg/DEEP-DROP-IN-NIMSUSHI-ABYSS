@@ -10,7 +10,7 @@ for(const resolution of ['128','256']){
  s.textures.addImage(`nimushi-review-${resolution}`,im).setFilter(1);
  images[resolution]=im;
 }
-let resolution='256',alignment='A',legacy=false,showOverlay=false;
+let resolution='256',alignment='B',legacy=false,showOverlay=false;
 const sprite=s.add.image(0,0,'nimushi-review-256').setOrigin(0).setVisible(false);
 s.children.moveBelow(sprite,s.playerArt.image);
 // Subsequent enemies/bullets must remain above the body, as in the original draw order.

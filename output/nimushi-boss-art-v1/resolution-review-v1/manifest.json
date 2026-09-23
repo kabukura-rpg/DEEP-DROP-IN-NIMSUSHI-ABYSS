@@ -1,5 +1,5 @@
 {
-  "status": "RESOLUTION AND ALIGNMENT HUMAN REVIEW PENDING",
+  "status": "HIGH 256x224 + ALIGNMENT B / HUMAN APPROVED / LOCKED",
   "sourceCell": [
     256,
     224
@@ -56,5 +56,9 @@
   },
   "masterFile": "../master-alignment-v1/MASTER_NIMUSHI.png",
   "masterSha256": "ab3ef30577fafd6fe8cc84e852bcf97ec652c8a10c34bdfa9f37f341079f5160",
-  "spriteSha256": "15bdc45865b165691e9d7d256d22fb628f011b2fbd4b7fecec5c155458701305"
+  "spriteSha256": "15bdc45865b165691e9d7d256d22fb628f011b2fbd4b7fecec5c155458701305",
+  "productionSource": "nimushi_idle_256.png",
+  "selectedAlignment": "B",
+  "renderOffsetY": -16,
+  "lowStatus": "DEPRECATED / ARCHIVAL COMPARISON ONLY"
 }

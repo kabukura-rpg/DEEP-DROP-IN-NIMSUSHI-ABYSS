@@ -1,5 +1,9 @@
 # NIMUSHI CHARACTER DESIGN — HUMAN APPROVED / LOCKED
 
+## Latest decision: HIGH 256×224 + ALIGNMENT B — HUMAN APPROVED / LOCKED
+
+Humanの最新明示指示により、正式source256×224 / display256×224、renderOffsetY=-16 logical pxを固定。128版はdeprecated / archival comparison onlyで正式用途にfallbackしない。c6c39fcの128再出力だけをgit revertで取り消し、HIGH+Bのdevレビューを復旧した。MASTER、geometry、physics、cameraは変更しない。以下の解像度未承認という記述は過去の履歴。FULL SHEETは未着手。
+
 ## Latest decision: GAMEPLAY ALIGNMENT B — HUMAN APPROVED / LOCKED
 
 2026-09-22：Humanは「Aだと物理的に近すぎるのでB」を選択し、その後「見えている目を撃ったのに当たらない」違和感も特に感じないと確認した。配置B（renderOffsetY = −16 logical px、上方向16px）を採用する。以下のalignment未承認という記述は、この確認前の履歴。

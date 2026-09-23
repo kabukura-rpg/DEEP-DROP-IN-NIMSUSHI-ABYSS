@@ -1,0 +1,175 @@
+{
+  "results": {
+    "desktop-contact": {
+      "method": "Actual bossContact event snapshot; visual override only; not a success-stomp attack",
+      "player": {
+        "x": 225,
+        "y": 402.2601786680665,
+        "vy": 210
+      },
+      "hp": 3,
+      "ammo": 8,
+      "damage": {
+        "cause": "bossContact",
+        "instant": false,
+        "amount": 1
+      },
+      "contact": {
+        "x": 141,
+        "y": 306.3333333333365,
+        "width": 168,
+        "height": 82
+      },
+      "weak": {
+        "x": 195,
+        "width": 60,
+        "y": 418.3333333333365,
+        "height": 72
+      },
+      "cameraY": 146.3333333333365,
+      "boss": {
+        "resolution": "256",
+        "alignment": "B",
+        "legacy": false,
+        "showOverlay": false,
+        "sourceSize": [
+          256,
+          224
+        ],
+        "displaySize": [
+          256,
+          224
+        ],
+        "body": {
+          "x": 141,
+          "y": 306.3333333333365,
+          "width": 168,
+          "height": 112
+        },
+        "contact": {
+          "x": 141,
+          "y": 306.3333333333365,
+          "width": 168,
+          "height": 82
+        },
+        "eye": {
+          "x": 195,
+          "width": 60,
+          "y": 418.3333333333365,
+          "height": 72
+        },
+        "cameraY": 146.3333333333365,
+        "player": {
+          "x": 225,
+          "y": 402.2601786680665
+        },
+        "state": "boss",
+        "bossState": "eyeOpen",
+        "pose": "idle",
+        "eyeOpen": true,
+        "bossHp": 120,
+        "hp": 3,
+        "elapsed": 3.491666666666657,
+        "ammo": 8,
+        "deathCause": null,
+        "paused": false,
+        "renderer": 2,
+        "textureSize": [
+          256,
+          224
+        ]
+      },
+      "sprite": [
+        48,
+        48
+      ],
+      "modelUnchanged": true
+    },
+    "mobile-contact": {
+      "method": "Actual bossContact event snapshot; visual override only; not a success-stomp attack",
+      "player": {
+        "x": 225,
+        "y": 404.68749999999915,
+        "vy": 210
+      },
+      "hp": 3,
+      "ammo": 8,
+      "damage": {
+        "cause": "bossContact",
+        "instant": false,
+        "amount": 1
+      },
+      "contact": {
+        "x": 141,
+        "y": 308.6666666666698,
+        "width": 168,
+        "height": 82
+      },
+      "weak": {
+        "x": 195,
+        "width": 60,
+        "y": 420.6666666666698,
+        "height": 72
+      },
+      "cameraY": 148.6666666666698,
+      "boss": {
+        "resolution": "256",
+        "alignment": "B",
+        "legacy": false,
+        "showOverlay": false,
+        "sourceSize": [
+          256,
+          224
+        ],
+        "displaySize": [
+          256,
+          224
+        ],
+        "body": {
+          "x": 141,
+          "y": 308.6666666666698,
+          "width": 168,
+          "height": 112
+        },
+        "contact": {
+          "x": 141,
+          "y": 308.6666666666698,
+          "width": 168,
+          "height": 82
+        },
+        "eye": {
+          "x": 195,
+          "width": 60,
+          "y": 420.6666666666698,
+          "height": 72
+        },
+        "cameraY": 148.6666666666698,
+        "player": {
+          "x": 225,
+          "y": 404.68749999999915
+        },
+        "state": "boss",
+        "bossState": "eyeOpen",
+        "pose": "idle",
+        "eyeOpen": true,
+        "bossHp": 120,
+        "hp": 3,
+        "elapsed": 3.4833333333333236,
+        "ammo": 8,
+        "deathCause": null,
+        "paused": false,
+        "renderer": 2,
+        "textureSize": [
+          256,
+          224
+        ]
+      },
+      "sprite": [
+        48,
+        48
+      ],
+      "modelUnchanged": true
+    }
+  },
+  "errors": []
+}

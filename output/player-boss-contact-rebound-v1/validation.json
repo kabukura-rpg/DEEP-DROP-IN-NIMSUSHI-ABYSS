@@ -1,0 +1,29 @@
+{
+  "dimensions": [
+    48,
+    48
+  ],
+  "alpha": [
+    0,
+    255
+  ],
+  "paletteMatchesExisting": true,
+  "existing35FrameHashesUnchanged": true,
+  "existing15StatesUnchanged": true,
+  "masterHashUnchanged": true,
+  "nimushiSource": [
+    256,
+    224
+  ],
+  "nimushiDisplay": [
+    256,
+    224
+  ],
+  "nimushiOffsetY": -16,
+  "browserCases": 2,
+  "browserErrors": [],
+  "productCodeChanged": false,
+  "tests": "not rerun: artifacts only",
+  "tscBuild": "not rerun: artifacts only",
+  "state": "BOSS_CONTACT_REBOUND"
+}
