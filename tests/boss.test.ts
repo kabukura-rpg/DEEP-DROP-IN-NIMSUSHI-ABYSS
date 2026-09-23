@@ -11,6 +11,7 @@ import { atNimushi, clearSummoned, defeatNimushi, fighting, inWindow, intoTheAby
 import { BOSS_PHYSICS } from '../src/data/bossPhysics';
 import { BALANCE } from '../src/data/balance';
 import { WORLD } from '../src/data/balance';
+import { AIR_CONTAINER_RULES } from '../src/data/structures';
 
 describe('THE ABYSS opens after 4-3, and is not a thirteenth SECTION', () => {
   it('lands in a staging room rather than straight into a fight', () => {
@@ -855,8 +856,20 @@ describe('the four ABYSS environments', () => {
     game.step(STEP, 0, false);
     expect(box!.broken).toBe(true);
     // The container restores nothing by itself: what it does is release bubbles, and only touching
-    // one is worth air. The player is standing in the burst, so the air arrives that way.
-    expect(game.oxygen.remaining).toBeGreaterThan(drowning);
+    // one is worth air. Nothing arrives on the frame of the break -- a released bubble has to exist
+    // before it can be caught -- so the air shows up a moment later, with the player in the burst.
+    expect(game.oxygen.remaining).toBeLessThanOrEqual(drowning);
+    expect(game.bubbles.length).toBeGreaterThan(0);
+    // A player who stays with the burst catches it once it arms. Held on the nearest live bubble
+    // because the arena's pull is carrying the player away from it, and being carried off is not
+    // what this test is about -- that the air comes from a bubble, and never from the box, is.
+    const caught = game.oxygen.remaining;
+    for (let i = 0; i < Math.round(AIR_CONTAINER_RULES.collectArm / STEP) + 8; i++) {
+      const bubble = game.bubbles.find(b => !b.taken);
+      if (bubble) { game.player.x = bubble.x; game.player.y = bubble.y; }
+      game.step(STEP, 0, false);
+    }
+    expect(game.oxygen.remaining).toBeGreaterThan(caught);
   });
 
   /**

@@ -245,22 +245,39 @@ describe('TIMEVOID: the world outside a chamber stops', () => {
     expect(game.oxygen.remaining).toBeLessThan(before.oxygen);
     expect(floor.id).toBeGreaterThan(0);
   });
-  it('stops enemies, rounds, the tank and the descent while the player is inside', () => {
+  it('stops enemies, rounds and the descent while the player is inside', () => {
     const { game } = shaft();
     expect(game.timeFrozen).toBe(true);
     const enemy = game.enemies[0];
     game.bullets.push({ source: 'player' as const, x: 300, y: 250, previousX: 300, previousY: 250, vx: 0, vy: 400, damage: 1, size: 4, pierce: 0, pierceBlocks: false, blocks: new Set(), range: 900, travelled: 0, beam: false, hits: new Set(), alive: true });
     const bullet = game.bullets[0];
-    const before = { ex: enemy.x, by: bullet.y, oxygen: game.oxygen.remaining, depth: game.sectionDepth, camera: game.cameraY };
+    const before = { ex: enemy.x, by: bullet.y, depth: game.sectionDepth, camera: game.cameraY };
     tick(game, 2);
     expect(enemy.x).toBe(before.ex);
     expect(bullet.y).toBe(before.by);
-    expect(game.oxygen.remaining).toBe(before.oxygen);
     expect(game.sectionDepth).toBe(before.depth);
     expect(game.cameraY).toBe(before.camera);
     // And it is a freeze, not a pause: the run is still live.
     expect(game.running).toBe(true);
     expect(game.paused).toBe(false);
+  });
+  /**
+   * T-1. The one clock TIMEVOID does NOT stop.
+   *
+   * A chamber stops the WORLD. Breathing is the player's own metabolism, so it keeps running in
+   * there: a chamber is shelter from the shaft and never shelter from drowning. It used to stop
+   * both, because a single `frozen` boolean was answering both questions -- 30s inside cost 0.000s
+   * of tank and 0 HP, which turned every SECTION's guaranteed chamber into an unlimited breath-hold
+   * the AREA was never designed around.
+   */
+  it('does not stop the player breathing: the tank drains at full rate inside', () => {
+    const { game } = shaft();
+    expect(game.oxygen.enabled).toBe(true);
+    expect(game.timeFrozen).toBe(true);
+    const before = game.oxygen.remaining;
+    tick(game, 2);
+    expect(game.timeFrozen).toBe(true);
+    expect(game.oxygen.remaining).toBeCloseTo(before - 2, 4);
   });
   it('lets the player move, jump and shoot inside', () => {
     const { game, zone, floor } = shaft();
@@ -344,15 +361,67 @@ describe('TIMEVOID: the world outside a chamber stops', () => {
     tick(heat, 3);
     expect(heat.heat.value).toBe(40);
   });
-  it('does not turn a chamber into an air pocket: the tank neither drains nor refills', () => {
+  /**
+   * T-1. A chamber is not an air pocket, in either direction: it does not refill the tank, and --
+   * the part that used to be wrong -- it does not hold it either. The drain is continuous across
+   * the mouth, so walking in and out costs exactly the time it took.
+   */
+  it('does not turn a chamber into an air pocket: the tank drains inside and across the mouth', () => {
     const { game } = shaft();
     game.oxygen.remaining = OXYGEN_RULES.max - 5;
     const held = game.oxygen.remaining;
     tick(game, 3);
-    expect(game.oxygen.remaining).toBe(held);
+    expect(game.timeFrozen).toBe(true);
+    // Never refilled by standing in one...
+    expect(game.oxygen.remaining).toBeLessThan(held);
+    // ...and never held: three seconds inside cost three seconds of air.
+    expect(game.oxygen.remaining).toBeCloseTo(held - 3, 4);
+    const atMouth = game.oxygen.remaining;
     for (let i = 0; i < 600 && game.timeFrozen; i++) game.step(1 / 120, 1, false);
     tick(game, 0.5);
-    expect(game.oxygen.remaining).toBeLessThan(held);
+    expect(game.oxygen.remaining).toBeLessThan(atMouth);
+  });
+  /**
+   * T-1. And the drowning hit that follows from it: at 0 air a chamber protects the player from
+   * the shaft, not from the water. The interval is the ordinary one, paced by invulnerability.
+   */
+  it('drowns on the ordinary interval while the player stands in a chamber', () => {
+    const { game } = shaft();
+    game.oxygen.remaining = 0;
+    game.player.invincible = 0;
+    const hp = game.hp;
+    expect(game.timeFrozen).toBe(true);
+    tick(game, OXYGEN_RULES.damageInterval * 0.5);
+    expect(game.hp).toBe(hp);
+    tick(game, OXYGEN_RULES.damageInterval * 0.6);
+    expect(game.hp).toBe(hp - 1);
+    expect(game.health.lastDamage?.cause).toBe('oxygen');
+    expect(game.timeFrozen).toBe(true);
+    // Still one heart per interval in there, never a burst.
+    tick(game, OXYGEN_RULES.damageInterval * 3);
+    expect(hp - game.hp).toBeLessThanOrEqual(4);
+    expect(hp - game.hp).toBeGreaterThanOrEqual(3);
+  });
+  /**
+   * T-1 / PAUSE vs TIMEVOID. The two are different things and only one of them stops the lungs.
+   * A huge delta while paused must not be banked and released as a burst on resume.
+   */
+  it('stops the tank for a PAUSE inside a chamber, and resumes at ordinary speed', () => {
+    const { game } = shaft();
+    game.oxygen.remaining = 0;
+    game.player.invincible = 0;
+    const hp = game.hp;
+    const held = game.oxygen.remaining;
+    game.paused = true;
+    tick(game, 3);
+    game.step(30, 0, false);
+    expect(game.oxygen.remaining).toBe(held);
+    expect(game.hp).toBe(hp);
+    game.paused = false;
+    game.step(1 / 120, 0, false);
+    expect(game.hp).toBe(hp);
+    tick(game, OXYGEN_RULES.damageInterval * 1.1);
+    expect(hp - game.hp).toBe(1);
   });
 });
 
@@ -563,7 +632,12 @@ describe('TIMEVOID holds each AREA gimmick, and the chain, in every AREA', () =>
     return !game.timeFrozen;
   }
 
-  it('AREA 3: the oxygen tank neither drains nor refills inside, and drains again outside', () => {
+  /**
+   * AREA 3 is the one AREA whose gimmick TIMEVOID deliberately does NOT hold. Heat, spike-platform
+   * warnings and collapsing ledges all belong to the shaft and stop with it; the breath gauge
+   * belongs to the player, so it runs straight through a chamber at the same rate as outside.
+   */
+  it('AREA 3: the oxygen tank keeps draining inside a chamber, at the same rate as outside', () => {
     const { game, zone, floor } = chamberIn(3, 2, 21);
     expect(game.oxygen.enabled).toBe(true);
     game.oxygen.remaining = OXYGEN_RULES.max - 4;
@@ -574,13 +648,17 @@ describe('TIMEVOID holds each AREA gimmick, and the chain, in every AREA', () =>
     expect(game.combo).toBe(12);
     const held = game.oxygen.remaining;
     tick(game, 5);
-    expect(game.oxygen.remaining).toBe(held);
+    expect(game.timeFrozen).toBe(true);
+    expect(game.oxygen.remaining).toBeCloseTo(held - 5, 4);
+    // Nothing else about the chamber changed: the chain is still held, not banked.
     expect(game.combo).toBe(12);
+    const atMouth = game.oxygen.remaining;
     expect(leave(game)).toBe(true);
     tick(game, 0.6);
-    expect(game.oxygen.remaining).toBeLessThan(held);
-    // Resumed from where it stood, not caught up for the time spent inside.
-    expect(game.oxygen.remaining).toBeGreaterThan(held - 2);
+    // Crossing the mouth is not an event for the tank; it never was stopped, so there is nothing
+    // to resume and nothing to catch up on.
+    expect(game.oxygen.remaining).toBeLessThan(atMouth);
+    expect(game.oxygen.remaining).toBeGreaterThan(atMouth - 2);
     expect(game.combo).toBe(12);
   });
 

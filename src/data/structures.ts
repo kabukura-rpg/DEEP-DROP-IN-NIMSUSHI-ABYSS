@@ -56,6 +56,32 @@ export const AIR_CONTAINER_RULES = {
   riseAccel: 260,
   /** Seconds a released bubble survives before it pops on its own. */
   bubbleLife: 4.2,
+  /**
+   * Seconds a released bubble has to exist before it can be caught.
+   *
+   * Without it, breaking a container by swimming into one was worth a whole tank on the frame of
+   * the break: every bubble is released at the container's centre, and a player who broke it by
+   * contact IS at that centre, so all three to five sat inside the catch box on the same step and
+   * the AREA's one real decision -- chase the air, or carry on down -- never happened. Shooting one
+   * open from above ended the same way, because the fall arrives through the burst.
+   *
+   * A time, not a frame count, so it means the same thing at any refresh rate. Deliberately short:
+   * long enough for the burst to clear the box the player is standing in, nowhere near long enough
+   * to put the air out of reach. A contact break is still worth air -- it just has to be followed.
+   *
+   * 0.08 is measured, not guessed. Swept over 0 to 0.30 on 60 isolated contact breaks per value and
+   * on 100-seed playthroughs:
+   *
+   *   0.00  the whole burst on the frame of the break -- the bug this exists to remove
+   *   0.05  no same-step catch, but a player who does NOTHING still keeps 3.85 of 4 bubbles
+   *   0.08  a player who reacts keeps 4.83 of 4.08 up to 300px/s; one who ignores it keeps 0.00
+   *   0.10+ a player who reacts recovers nothing in ~50 of 60 runs once they are moving at all
+   *
+   * So this is the largest value that leaves a contact break recoverable and the smallest that makes
+   * recovering it an action. Above it the air stops being reachable; below it, following the burst
+   * stops being necessary.
+   */
+  collectArm: 0.08,
   /** Seconds the shatter effect lingers. */
   debrisTime: 0.35,
 } as const;
@@ -63,6 +89,8 @@ export const AIR_CONTAINER_RULES = {
 /** A released bubble. It climbs away, so reaching it is the actual gameplay. */
 export interface AirBubble {
   id: number; x: number; y: number; vx: number; vy: number; life: number; taken: boolean;
+  /** Seconds left before it can be caught. Counts down on simulation time, never on frames. */
+  arm: number;
 }
 
 /**

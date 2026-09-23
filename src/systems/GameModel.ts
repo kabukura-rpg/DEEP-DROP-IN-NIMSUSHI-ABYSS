@@ -1108,9 +1108,24 @@ export class GameModel {
     if (!frozen) this.tickLimboHazards();
     if (!frozen) this.tickCorpses(dt);
     this.tickBalloon(dt, frozen);
+    // WORLD TIME AND BREATH TIME ARE TWO DIFFERENT CLOCKS.
+    //
+    // `frozen` above is TIMEVOID -- a SAFE ZONE chamber or a TIMEOUT bubble -- and it stops the
+    // WORLD: enemies, hazards, collapsing ledges, containers, released bubbles. It is not a pause,
+    // and it never was meant to reach the player's own lungs. It did, because one boolean was
+    // answering both questions, and the result was that standing in a chamber at 0 air was safe
+    // forever: 30s inside cost 0.000s of tank and 0 HP. A chamber is shelter from the shaft; it is
+    // not, and must not be, shelter from drowning.
+    //
+    // What DOES stop the tank is the run not being in play: ESC, the mobile PAUSE button, a hidden
+    // tab, a backgrounded window, the REST screen, any non-playing state, and every AREA that is
+    // not submerged. The first six are all `running`, which makes `step` return long before this
+    // line, and the last is `oxygen.enabled`. So there is deliberately no gate written here -- the
+    // absence of one is the statement that TIMEVOID is not a pause.
+    //
     // Invulnerability delays a drowning hit but can never cancel it: the debt is only cleared once
     // HealthSystem actually accepts the damage.
-    if (!frozen && this.oxygen.tick(dt) && this.damage(1, 'oxygen')) this.oxygen.consumeDamage();
+    if (this.oxygen.tick(dt) && this.damage(1, 'oxygen')) this.oxygen.consumeDamage();
     if (this.practice) {
       if (p.y > 840) { p.x = 225; p.y = 120; p.vy = 0; p.grounded = -1; this.ammo = this.stats.maxAmmo; this.lastAirShot = -Infinity; }
     } else {
@@ -1626,6 +1641,9 @@ export class GameModel {
         vx: (this.random() * 2 - 1) * AIR_CONTAINER_RULES.riseSpread,
         vy: -AIR_CONTAINER_RULES.riseSpeed * (0.35 + this.random() * 0.35),
         life: AIR_CONTAINER_RULES.bubbleLife, taken: false,
+        // Not catchable yet. A container broken by contact releases its burst around the player,
+        // so without this the whole thing was collected on the frame that broke it.
+        arm: AIR_CONTAINER_RULES.collectArm,
       });
     }
     this.events.push({ type: 'containerBreak', x: box.x + box.width / 2, y: box.y + box.height / 2, value: count });
@@ -1636,13 +1654,21 @@ export class GameModel {
     for (const bubble of this.bubbles) {
       if (bubble.taken) continue;
       bubble.life -= dt;
+      bubble.arm = Math.max(0, bubble.arm - dt);
       bubble.vy = Math.max(-AIR_CONTAINER_RULES.riseSpeed, bubble.vy - AIR_CONTAINER_RULES.riseAccel * dt);
       bubble.vx *= 0.985;
       bubble.x = Math.max(WORLD.wall, Math.min(WORLD.width - WORLD.wall, bubble.x + bubble.vx * dt));
       bubble.y += bubble.vy * dt;
+      if (bubble.arm > 0) continue;
       if (this.oxygen.enabled && Math.abs(bubble.x - p.x) < 24 && Math.abs(bubble.y - p.y) < 28) {
-        bubble.taken = true;
+        // A FULL TANK TAKES NOTHING. Air is only spent when it is actually breathed, so swimming
+        // through a burst at 12/12 leaves every bubble hanging exactly where it was, to be caught
+        // on the way back down or left to pop. A container is one-shot and the whole AREA is built
+        // on where the air is -- destroying a supply by brushing past it while full was a cost the
+        // player could not see coming and could not undo.
         const restored = this.oxygen.add(AIR_CONTAINER_RULES.recovery);
+        if (restored <= 0) continue;
+        bubble.taken = true;
         this.events.push({ type: 'oxygen', x: bubble.x, y: bubble.y, value: restored });
       }
     }
@@ -1752,6 +1778,17 @@ export class GameModel {
       // An AREA's own pickup only exists while that gimmick is on. Gun modules are run-wide, so
       // they are never gated by which AREA the player happens to be in.
       if (type.category === 'environment' && (type.effect === 'oxygen' ? !this.oxygen.enabled : !this.heat.enabled)) continue;
+      // AIR IS ONLY SPENT WHEN IT IS BREATHED. The same rule as a released bubble, applied to the
+      // one a BUBBLE FISH leaves behind, so the two air sources cannot disagree about what walking
+      // over air at 12/12 costs: nothing. Deliberately scoped to oxygen -- ICE, hearts, the TOMATO
+      // and weapon crates keep the semantics they have, where touching one is taking one.
+      if (type.effect === 'oxygen') {
+        const gained = this.oxygen.add(type.value);
+        if (gained <= 0) continue;
+        item.taken = true;
+        this.events.push({ type: 'oxygen', x: item.x, y: item.y, value: gained });
+        continue;
+      }
       item.taken = true;
       if (type.effect === 'gunModule') {
         const id = item.module ?? STARTING_GUN_MODULE;
@@ -1762,8 +1799,8 @@ export class GameModel {
       }
       if (type.effect === 'heal') { this.heal(type.value); continue; }
       if (type.effect === 'tomato') { this.takeTomato(item.x, item.y); continue; }
-      const restored = type.effect === 'oxygen' ? this.oxygen.add(type.value) : this.heat.relieve(type.value);
-      this.events.push({ type: type.effect === 'oxygen' ? 'oxygen' : 'ice', x: item.x, y: item.y, value: restored });
+      // Everything else the table can carry. Oxygen has already returned above, so this is ICE.
+      this.events.push({ type: 'ice', x: item.x, y: item.y, value: this.heat.relieve(type.value) });
     }
   }
   /** SECTION CLEAR: opens the rest point. No healing, no reload, no stage advance until NEXT. */

@@ -7,7 +7,7 @@ import { PICKUP_TYPES, type Pickup } from '../src/data/pickups';
 import { areaConfig, type SectionId } from '../src/data/areas';
 import { horizontalReach } from '../src/data/difficulty';
 import { WORLD, BALANCE } from '../src/data/balance';
-import type { AirContainer } from '../src/data/structures';
+import { AIR_CONTAINER_RULES, type AirContainer } from '../src/data/structures';
 
 const seeded = (seed: number) => () => { seed = (Math.imul(seed, 1664525) + 1013904223) >>> 0; return seed / 4294967296; };
 const area3 = areaConfig(3);
@@ -457,5 +457,224 @@ describe('AREA 3 submerged physics', () => {
     game.player.x = 225; game.player.y = 200; game.player.vy = 0; game.ammo = 1;
     tick(game, 1.2);
     expect([game.player.grounded, game.ammo]).toEqual([4, game.stats.maxAmmo]);
+  });
+});
+
+/**
+ * T-2 / T-3. WHAT A BROKEN AIR CONTAINER IS ACTUALLY WORTH.
+ *
+ * A container used to be worth a whole tank on the frame it broke. Every bubble is released at the
+ * container's centre, so a player who broke it by swimming into it WAS in the middle of the burst
+ * and collected all three to five on the same simulation step -- 11.99s of a 12s tank, with nothing
+ * left to chase. The AREA's one real decision, air or depth, never happened.
+ *
+ * The fix is one number: a released bubble has to exist for AIR_CONTAINER_RULES.collectArm seconds
+ * before it can be caught. A time, so it means the same at any refresh rate; short, so following
+ * the burst is an action rather than a chase across the shaft.
+ */
+describe('AREA 3 air containers: the burst has to be followed', () => {
+  const ARM_STEPS = Math.round(AIR_CONTAINER_RULES.collectArm * 120);
+  /** A container sitting exactly where the player is, so touching it is the break. */
+  const onThePlayer = (game: GameModel): AirContainer => ({
+    id: 1, x: game.player.x - AIR_CONTAINER_RULES.size / 2, y: game.player.y - AIR_CONTAINER_RULES.size / 2,
+    width: AIR_CONTAINER_RULES.size, height: AIR_CONTAINER_RULES.size, broken: false, debris: 0,
+  });
+
+  it('is time-based, not frame-based, and always longer than one step', () => {
+    expect(AIR_CONTAINER_RULES.collectArm).toBeGreaterThan(1 / 120);
+    expect(AIR_CONTAINER_RULES.collectArm).toBeLessThan(AIR_CONTAINER_RULES.bubbleLife);
+  });
+
+  it('gives nothing at all on the step a contact break happens', () => {
+    const game = bare(1);
+    game.oxygen.remaining = 0;
+    game.containers = [onThePlayer(game)];
+    game.step(1 / 120, 0, false);
+    // The box is open and the burst is out in the world...
+    expect(game.containers[0]?.broken ?? true).toBe(true);
+    expect(game.bubbles.length).toBeGreaterThanOrEqual(AIR_CONTAINER_RULES.bubblesMin);
+    // ...and not one drop of it has been breathed.
+    expect(game.oxygen.remaining).toBe(0);
+    expect(game.events.filter(e => e.type === 'oxygen')).toHaveLength(0);
+  });
+
+  it('counts the arm down on simulation time, so a coarse step cannot skip it', () => {
+    const game = bare(1);
+    game.oxygen.remaining = 0;
+    game.containers = [onThePlayer(game)];
+    game.step(1 / 120, 0, false);
+    const armed = game.bubbles.map(b => b.arm);
+    expect(armed.every(a => a > 0)).toBe(true);
+    // Half the arm at a quarter of the rate is still half the arm.
+    for (let i = 0; i < ARM_STEPS / 2; i++) game.step(1 / 120, 0, false);
+    expect(game.bubbles.every(b => b.arm > 0)).toBe(true);
+    expect(game.oxygen.remaining).toBe(0);
+  });
+
+  it('is worth air once the burst has armed, to a player still in it', () => {
+    const game = bare(1);
+    game.oxygen.remaining = 0;
+    game.containers = [onThePlayer(game)];
+    game.step(1 / 120, 0, false);
+    const released = game.bubbles.length;
+    expect(released).toBeGreaterThan(0);
+    // Held on the burst: a player who follows it. The fall is what makes this a decision, and the
+    // fall is measured elsewhere -- what this asks is that the air is still there to be taken.
+    for (let i = 0; i < ARM_STEPS + 4; i++) {
+      const bubble = game.bubbles.find(b => !b.taken);
+      if (bubble) { game.player.x = bubble.x; game.player.y = bubble.y; game.player.vy = 0; }
+      game.step(1 / 120, 0, false);
+    }
+    expect(game.oxygen.remaining).toBeGreaterThan(0);
+    expect(game.events.filter(e => e.type === 'oxygen').length).toBeGreaterThan(0);
+  });
+
+  it('is lost by a player who breaks it and keeps falling', () => {
+    const game = bare(1);
+    game.oxygen.remaining = 0;
+    game.player.vy = 400;
+    game.containers = [onThePlayer(game)];
+    game.step(1 / 120, 0, false);
+    expect(game.bubbles.length).toBeGreaterThan(0);
+    for (let i = 0; i < 120 * 2; i++) { game.platforms = []; game.enemies = []; game.step(1 / 120, 0, false); }
+    expect(game.oxygen.remaining).toBe(0);
+  });
+
+  it('never restores air from the box itself, only from a bubble', () => {
+    const game = bare(1);
+    game.oxygen.remaining = 0;
+    game.containers = [onThePlayer(game)];
+    game.step(1 / 120, 0, false);
+    // Take the burst away and the break is worth exactly nothing.
+    game.bubbles = [];
+    for (let i = 0; i < 120; i++) { game.platforms = []; game.enemies = []; game.step(1 / 120, 0, false); }
+    expect(game.oxygen.remaining).toBe(0);
+  });
+
+  /**
+   * T-3. A FULL TANK TAKES NOTHING.
+   *
+   * Air is spent only when it is breathed. Swimming through a burst at 12/12 used to consume every
+   * bubble for 0s each, and a container is one-shot -- so brushing past one while full destroyed
+   * the only supply in that stretch, invisibly and with no way back.
+   */
+  it('leaves every bubble where it is when the tank is already full', () => {
+    const game = bare(1);
+    expect(game.oxygen.remaining).toBe(OXYGEN_RULES.max);
+    game.containers = [onThePlayer(game)];
+    game.step(1 / 120, 0, false);
+    const released = game.bubbles.length;
+    expect(released).toBeGreaterThanOrEqual(AIR_CONTAINER_RULES.bubblesMin);
+    for (let i = 0; i < ARM_STEPS + 4; i++) {
+      const bubble = game.bubbles.find(b => !b.taken);
+      if (bubble) { game.player.x = bubble.x; game.player.y = bubble.y; game.player.vy = 0; }
+      game.oxygen.remaining = OXYGEN_RULES.max;
+      game.step(1 / 120, 0, false);
+    }
+    expect(game.bubbles.every(b => !b.taken)).toBe(true);
+    expect(game.bubbles.length).toBe(released);
+    expect(game.events.filter(e => e.type === 'oxygen')).toHaveLength(0);
+  });
+
+  it('spends a bubble the moment there is room for some of it, and only then', () => {
+    const game = bare(1);
+    // Half a second of room: the first bubble is worth 0.5s and IS taken; the tank is then full,
+    // so the next one is left alone.
+    game.oxygen.remaining = OXYGEN_RULES.max - 0.5;
+    const near = (id: number) => ({ id, kind: 'oxygenBubble' as const, x: game.player.x, y: game.player.y, phase: 0, taken: false, drifting: false });
+    const first = near(1), second = near(2);
+    game.pickups = [first, second];
+    game.step(1 / 120, 0, false);
+    expect(first.taken).toBe(true);
+    expect(second.taken).toBe(false);
+    expect(game.oxygen.remaining).toBeCloseTo(OXYGEN_RULES.max - 1 / 120, 4);
+    const restored = game.events.filter(e => e.type === 'oxygen').map(e => e.value);
+    expect(restored).toHaveLength(1);
+    expect(restored[0]).toBeCloseTo(0.5, 4);
+  });
+
+  it('applies the full-tank rule to a BUBBLE FISH drop as well, and to nothing else', () => {
+    const game = bare(1);
+    const drop: Pickup = { id: 9, kind: 'oxygenBubble', x: game.player.x, y: game.player.y, phase: 0, taken: false, drifting: false };
+    game.pickups = [drop];
+    game.step(1 / 120, 0, false);
+    expect(drop.taken).toBe(false);
+    // ICE, hearts and weapon crates are untouched by this: touching one is still taking one.
+    const heart: Pickup = { id: 10, kind: 'heart', x: game.player.x, y: game.player.y, phase: 0, taken: false, drifting: false };
+    game.pickups = [heart];
+    game.step(1 / 120, 0, false);
+    expect(heart.taken).toBe(true);
+  });
+});
+
+/**
+ * T-4. THE 3-3 -> 4-1 BOUNDARY, INCLUDING THE FRAME A DROWNING HIT WAS DUE ON.
+ *
+ * Everything SUNKEN RUINS switches on has to be off the moment LIMBO starts -- and the awkward case
+ * is not the tidy one. `starved` is a debt: a hit refused by invulnerability stays owed until
+ * HealthSystem accepts it, which is what stops a drowning hit being lost to an i-frame. That debt
+ * must not survive a SECTION boundary and land on a player who is no longer underwater.
+ */
+describe('AREA 3 -> AREA 4: the supply is released, debt and all', () => {
+  const nextSection = (game: GameModel) => {
+    expect(game.completeSection(game.stage.id)).toBe(true);
+    expect(game.state).toBe('upgrade');
+    const choice = game.upgrades.choices[0];
+    if (choice) game.selectUpgrade(choice.id);
+    expect(game.confirmUpgrade()).toBe(true);
+  };
+
+  // Every point in the damage interval, including the two frames either side of a hit being due.
+  it.each([0, 0.5, 0.999, 1 - 1 / 120, OXYGEN_RULES.damageInterval])(
+    'crosses clean with the tank empty and the drowning timer %ss into its interval', parked => {
+      const game = new GameModel(false, seeded(31));
+      game.jumpToStage(3, 3);
+      expect(game.oxygen.enabled).toBe(true);
+      expect(game.water).toBeDefined();
+      game.oxygen.remaining = 0;
+      game.oxygen.tick(parked);
+      const hp = game.hp;
+
+      nextSection(game);
+
+      expect(game.stage.label).toBe('4-1');
+      // The supply itself.
+      expect(game.oxygen.enabled).toBe(false);
+      expect(game.oxygen.empty).toBe(false);
+      // The gauge, which is what the player reads: full and silent, never a stuck warning.
+      expect(game.oxygen.remaining).toBe(OXYGEN_RULES.max);
+      expect(game.oxygen.ratio).toBe(1);
+      expect(game.oxygen.warning).toBe('none');
+      // The water, and everything the water put in the shaft.
+      expect(game.water).toBeUndefined();
+      expect(game.containers).toHaveLength(0);
+      expect(game.bubbles).toHaveLength(0);
+      expect(game.pickups.filter(p => p.kind === 'oxygenBubble')).toHaveLength(0);
+      expect(game.enemies.filter(e => (['fish', 'bubbleFish', 'jellyfish', 'urchin'] as EnemyKind[]).includes(e.kind))).toHaveLength(0);
+
+      // And the debt: eight seconds of LIMBO with no drowning hit and no drowning damage.
+      game.events.length = 0;
+      for (let i = 0; i < 120 * 8; i++) { game.player.invincible = 99; game.step(1 / 120, 0, false); }
+      expect(game.hp).toBe(hp);
+      expect(game.health.lastDamage?.cause).not.toBe('oxygen');
+      expect(game.events.filter(e => e.type === 'oxygen')).toHaveLength(0);
+      expect(game.oxygen.enabled).toBe(false);
+      expect(game.oxygen.remaining).toBe(OXYGEN_RULES.max);
+    });
+
+  it('carries no drowning debt out of OxygenSystem itself when the supply is switched off', () => {
+    const oxygen = new OxygenSystem(true);
+    oxygen.remaining = 0;
+    // A full interval owed, and refused.
+    expect(oxygen.tick(OXYGEN_RULES.damageInterval)).toBe(true);
+    oxygen.reset(false);
+    expect(oxygen.enabled).toBe(false);
+    expect(oxygen.remaining).toBe(OXYGEN_RULES.max);
+    expect(oxygen.empty).toBe(false);
+    expect(oxygen.tick(1 / 120)).toBe(false);
+    // And switching it back on later starts from a clean interval, not from the old debt.
+    oxygen.reset(true);
+    oxygen.remaining = 0;
+    expect(oxygen.tick(1 / 120)).toBe(false);
   });
 });
