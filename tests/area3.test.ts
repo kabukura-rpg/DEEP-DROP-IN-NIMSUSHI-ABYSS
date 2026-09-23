@@ -1029,3 +1029,93 @@ describe('AREA 3 water enemies stay clear of everything, across their whole move
     }
   });
 });
+
+/**
+ * A STOMP IS THE FEET MEETING THE HEAD, WHICHEVER OF THE TWO WAS MOVING.
+ *
+ * Once water enemies rose and fell, the stomp test -- which asked whether the feet crossed the
+ * crown's position AFTER the enemy had moved -- could miss a head rising into feet that had been
+ * above it a moment earlier, and the player took contact damage for a clean stomp (2 in 400 runs).
+ * These pin the geometry at the edge where it failed, at three frame rates, and pin the two things
+ * the fix must not do: reward a side contact, or change an enemy that is not moving.
+ */
+describe('stomping an enemy that is moving vertically', () => {
+  const RATES = [1 / 30, 1 / 60, 1 / 120];
+  /**
+   * A guard fish at the fastest point of its rise, and a player hanging `feetAboveCrown` pixels above
+   * its head, drifting down at `vy`. Guard bob: y = origin - bob(1 - cos a)/2, a = t*bobSpeed + 2*phase,
+   * rising fastest at a = pi/2 -- so phase pi/4 with world time held at 0 puts it there.
+   */
+  const setUp = (kind: EnemyKind, feetAboveCrown: number, vy: number) => {
+    const game = bare(1);
+    (game as unknown as { worldElapsed: number }).worldElapsed = 0;
+    const e = spawnEnemy(kind, 42, 225, 500, 0, Math.PI / 4, kind === 'jellyfish' || kind === 'bubbleFish' ? 'open' : 'guard');
+    const at = enemyPosition(e, 0); e.x = at.x; e.y = at.y;
+    game.enemies = [e]; game.platforms = []; game.bullets = [];
+    game.player.x = 225; game.player.grounded = -1; game.player.invincible = 0; game.player.vy = vy;
+    // Feet are the body's centre plus 15; the crown is the enemy's centre minus 10.
+    game.player.y = (e.y - 10) - feetAboveCrown - 15;
+    return { game, e };
+  };
+
+  it('stomps a rising fish the feet were a hair above, at 30, 60 and 120 fps', () => {
+    for (const dt of RATES) {
+      const { game, e } = setUp('fish', 0.05, 5);
+      const hp = game.hp;
+      game.step(dt, 0, false);
+      expect({ dt, alive: e.alive, hp: game.hp, bounced: game.player.vy < 0 }).toEqual({ dt, alive: false, hp, bounced: true });
+    }
+  });
+
+  it('still hurts a player brushing the flank of a rising fish, at every rate', () => {
+    // Feet already 6px below the crown before the step: this is a side contact, not a landing.
+    for (const dt of RATES) {
+      const { game, e } = setUp('fish', -6, 60);
+      const hp = game.hp;
+      game.step(dt, 0, false);
+      expect({ dt, alive: e.alive, lost: hp - game.hp }).toEqual({ dt, alive: true, lost: 1 });
+    }
+  });
+
+  it('never lets a rising enemy that cannot be stomped be stomped', () => {
+    for (const dt of RATES) {
+      const { game, e } = setUp('jellyfish', 0.05, 5);
+      const hp = game.hp;
+      game.step(dt, 0, false);
+      expect({ dt, alive: e.alive, lost: hp - game.hp }).toEqual({ dt, alive: true, lost: 1 });
+    }
+  });
+
+  it('keeps an enemy that holds its height on exactly the old rule', () => {
+    // An urchin never moves, and a slime has no motion at all; for both, one crown, the old test.
+    for (const dt of RATES) {
+      const above = setUp('urchin', 2, 300);
+      const hpA = above.game.hp;
+      above.game.step(dt, 0, false);
+      // Landed on from above, but an urchin cannot be stomped: it hurts, exactly as it always did.
+      expect({ dt, alive: above.e.alive, lost: hpA - above.game.hp }).toEqual({ dt, alive: true, lost: 1 });
+
+      const game = bare(1);
+      const slime = spawnEnemy('slime', 7, 225, 500, 0, 0, 'guard');
+      game.enemies = [slime]; game.platforms = []; game.bullets = [];
+      game.player.x = 225; game.player.grounded = -1; game.player.invincible = 0; game.player.vy = 300;
+      game.player.y = (slime.y - 10) - 2 - 15;
+      const hp = game.hp;
+      game.step(dt, 0, false);
+      expect({ dt, alive: slime.alive, hp: game.hp }).toEqual({ dt, alive: false, hp });
+    }
+  });
+
+  it('keeps the stomp itself what it was: the same kill, the same bounce, no damage', () => {
+    const { game, e } = setUp('fish', 0.05, 5);
+    const hp = game.hp;
+    game.events.length = 0;
+    game.step(1 / 120, 0, false);
+    expect(e.alive).toBe(false);
+    expect(game.hp).toBe(hp);
+    expect(game.player.vy).toBeCloseTo(-game.stats.bounce, 6);
+    expect(game.player.y).toBeCloseTo(e.y - 28, 6);
+    expect(game.events.some(ev => ev.type === 'kill' && ev.stomp === true)).toBe(true);
+    expect(game.events.some(ev => ev.type === 'hurt')).toBe(false);
+  });
+});

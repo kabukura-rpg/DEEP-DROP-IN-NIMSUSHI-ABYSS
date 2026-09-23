@@ -873,6 +873,10 @@ export class GameModel {
     // `frozen` is sampled before the vertical move, which is exactly the question the roof asks:
     // someone already in the chamber is held under it, someone still falling toward it is not.
     this.holdInsideSafeZone(frozen);
+    // Where each enemy that MOVED this step stood before it moved, for the stomp test below. Only
+    // movers are recorded: an enemy whose y did not change is not in here, and the stomp test then
+    // reads the same single crown it always has -- the same numbers, the same comparisons.
+    const yBeforeMove = new Map<Enemy, number>();
     if (!frozen) for (const e of this.enemies) {
       e.flash = Math.max(0, e.flash - dt);
       e.hurtFlash = Math.max(0, (e.hurtFlash || 0) - dt);
@@ -881,6 +885,7 @@ export class GameModel {
       // four that have one. An enemy fixture built without `originY` adopts where it stands.
       e.originY ??= e.y;
       const at = enemyPosition(e, this.worldElapsed);
+      if (at.y !== e.y) yBeforeMove.set(e, e.y);
       e.x = at.x; e.y = at.y;
     }
     // Swept bullet collisions prevent fast projectiles tunneling through enemies.
@@ -1041,7 +1046,34 @@ export class GameModel {
       // The face gravity brings the player down onto: an enemy's head in the shaft, its underside
       // in the ABYSS. The same crossing, the same stomp, mirrored -- nothing here knows which.
       const crown = e.y - 10 * this.gravity;
-      const topCrossing = this.along(p.vy) > 0 && this.crossedWithGravity(oldY + this.lead, p.y + this.lead, crown);
+      /**
+       * A STOMP IS THE FEET MEETING THE HEAD, WHICHEVER OF THE TWO WAS MOVING.
+       *
+       * The test used to ask whether the feet crossed the crown's CURRENT position during the step.
+       * That is the whole question while an enemy holds its height. It is not once one bobs: the
+       * enemy has already moved by the time this runs, so a head rising into feet that were above
+       * it a moment ago could pass them from below and never be "crossed" -- and a player who came
+       * down squarely on a fish took contact damage instead. Measured, 2 in 400 runs.
+       *
+       * So the question is asked of the RELATIVE motion across the step: at its start the feet were
+       * level with or above where the head WAS, and at its end they are level with or past where the
+       * head IS. Both halves matter:
+       *
+       *   - "above where the head WAS" is what keeps a side contact a side contact. Feet already
+       *     below the head before the step can never qualify, however the two moved, so brushing
+       *     the flank of a rising fish still costs a heart.
+       *   - "past where the head IS" is the crossing itself, with the head's own movement included.
+       *
+       * An enemy that did not move this step has one crown, and this is then exactly the old test --
+       * `crossedWithGravity` against that crown, number for number. That is every enemy outside
+       * SUNKEN RUINS, every urchin, and a water enemy on any step its height happens not to change.
+       * The side-contact band below is untouched, as are the bounce, the kill and the damage.
+       */
+      const before = yBeforeMove.get(e);
+      const topCrossing = this.along(p.vy) > 0 && (before === undefined
+        ? this.crossedWithGravity(oldY + this.lead, p.y + this.lead, crown)
+        : this.along(p.y + this.lead - crown) >= 0 && this.along(oldY + this.lead - (before - 10 * this.gravity)) <= 0);
+
       if (topCrossing && e.stompable) {
         this.kill(e, true); p.y = e.y - 28 * this.gravity; p.vy = this.up * this.stats.bounce; p.grounded = -1;
         // BLAST MODULE rides a STOMP and nothing else: not a doodad bounce, not a chamber floor.
