@@ -155,6 +155,12 @@ export interface SpikePlatform {
   state: SpikePlatformState;
   /** Seconds left in the current state. */
   timer: number;
+  /**
+   * This platform's own warning, in seconds, when it has one. Absent means SPIKE_PLATFORM_RULES.warning,
+   * which is every spike platform outside the CATACOMBS -- the ABYSS arena's included. See the
+   * CATACOMB plan's `spikeReaction` for how a platform's own is worked out.
+   */
+  warning?: number;
 }
 
 export const SPIKE_PLATFORM_RULES = {
@@ -209,7 +215,8 @@ export const SPIKE_PLATFORM_RULES = {
 } as const;
 
 /** A fresh, unarmed spike platform. */
-export const spikePlatform = (): SpikePlatform => ({ state: 'safe', timer: 0 });
+export const spikePlatform = (warning?: number): SpikePlatform =>
+  warning === undefined ? { state: 'safe', timer: 0 } : { state: 'safe', timer: 0, warning };
 
 /**
  * LIMBO's dangerous ground.

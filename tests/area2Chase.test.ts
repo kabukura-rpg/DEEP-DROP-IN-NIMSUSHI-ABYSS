@@ -4,7 +4,8 @@ import { StageGenerator, canReachPlatform, START_PLATFORM, type RoutePlatform, t
 import { areaConfig, type SectionId } from '../src/data/areas';
 import { WORLD } from '../src/data/balance';
 import { ENEMY_TYPES, motionEnvelope, spawnEnemy } from '../src/data/enemies';
-import { CHASE_STEP, GHOST_RULES, SKULL_RULES, dormantGhost, idleSkull } from '../src/data/chasers';
+import { CHASE_STEP, GHOST_RULES, SKULL_RULES, dormantGhost, idleSkull, inSight } from '../src/data/chasers';
+import { SPIKE_PLATFORM_RULES, spikePlatform } from '../src/data/structures';
 import { CATACOMB_MAX_STEP } from '../src/data/catacombTerrain';
 import { generationSignature, replaySignature } from './regressionSignature';
 
@@ -98,7 +99,8 @@ describe('CATACOMB terrain is walked, not fallen through', () => {
             // And the way on is the far end, so the shelf is crossed, never simply fallen off: at the
             // least the 21px the landing sits inside the shelf's end plus the 12px step off it.
             expect(Math.abs(route.exitX - route.safeX)).toBeGreaterThanOrEqual(33);
-            expect(route.spikePlatform).toBeUndefined();
+            // Spiked since v2 -- with a warning that always outlasts the walk off it.
+            expect(route.spikePlatform?.warning).toBeGreaterThanOrEqual(Math.abs(route.exitX - route.safeX) / 350 + 0.35 - 1e-9);
           }
           above = here;
         }
@@ -109,26 +111,28 @@ describe('CATACOMB terrain is walked, not fallen through', () => {
 
   it('gets harder by SECTION through its shape and its chasers, not its roster', () => {
     const plans = area2.plans!;
-    expect(plans.map(p => p.ghosts!.count)).toEqual([2, 3, 4]);
+    expect(plans.map(p => p.ghosts!.count)).toEqual([4, 6, 8]);
     expect(plans[0].ghosts!.speed).toBeLessThan(plans[1].ghosts!.speed);
     expect(plans[1].ghosts!.speed).toBeLessThan(plans[2].ghosts!.speed);
     // Skulls are held back for 2-1 and arrive in 2-2.
     expect(plans[0].enemyExclude).toContain('flyingSkull');
     expect(plans[1].enemyExclude ?? []).not.toContain('flyingSkull');
-    // Gaps narrow and the shelf a player need not take grows more dangerous.
+    // Gaps narrow. (Every ledge is spiked in every SECTION since v2, so spikes no longer grade them.)
     const slot = (i: number) => plans[i].pieces!.pieces.find(p => p.id === 'slot')!.rows(seeded(1), 1)[0];
     expect(slot(0).slot![0]).toBeGreaterThan(slot(1).slot![0]);
     expect(slot(1).slot![0]).toBeGreaterThan(slot(2).slot![0]);
-    expect(slot(0).spikeChance!).toBeLessThan(slot(2).spikeChance!);
-    // And no SECTION needs more enemies than the catacombs had before the rework (16.7/23.0/27.6).
-    const perSection = [1, 2, 3].map(n => { let e = 0; for (let seed = 1; seed <= 40; seed++) e += shaft(n as SectionId, seed * 53).enemies.length; return e / 40; });
+    for (const i of [0, 1, 2]) expect(slot(i).spikeChance).toBe(1);
+    // And the rolled roster is no denser than the catacombs had before the rework (16.7/23.0/27.6).
+    // Ghosts are left out of this count: they are laid on a schedule of their own, raised on purpose
+    // by Human Review v2, and checked against that schedule above and in the safety pass.
+    const perSection = [1, 2, 3].map(n => { let e = 0; for (let seed = 1; seed <= 40; seed++) e += shaft(n as SectionId, seed * 53).enemies.filter(x => x.ai?.kind !== 'ghost').length; return e / 40; });
     [17.5, 24, 29].forEach((cap, i) => expect(perSection[i], `2-${i + 1}`).toBeLessThan(cap));
   });
 });
 
 describe('CATACOMB generation safety across 1,500 SECTIONs', () => {
   for (const sectionId of [1, 2, 3] as SectionId[]) {
-    it(`2-${sectionId}: 500 seeds with no dead end, no forced spike, no blocked landing and no chaser misplaced`, () => {
+    it(`2-${sectionId}: 500 seeds with no dead end, no forced spike hit, no blocked landing and no chaser misplaced`, () => {
       for (let seed = 1; seed <= 500; seed++) {
         const s = shaft(sectionId, seed * 4099 + sectionId * 13);
         const tag = `2-${sectionId} seed ${seed}`;
@@ -146,7 +150,16 @@ describe('CATACOMB generation safety across 1,500 SECTIONs', () => {
           if (here.length === 2 && here.every(p => p.x <= WORLD.wall + 1 || p.x + p.width >= WORLD.width - WORLD.wall - 1)) {
             const [a, b] = [...here].sort((p, q) => p.x - q.x);
             if (b.x - (a.x + a.width) < 54) expect.fail(`${tag}: slot narrower than three bodies`);
-            if (route.spikePlatform) expect.fail(`${tag}: forced landing on spikes`);
+          }
+          // NO FORCED SPIKE HIT. Every ledge here is spiked (v2), so the promise is about time: from ANY
+          // landing point on it, walking to its exit end clears the body before the teeth come up, with
+          // the reaction reserve still to spare.
+          const grace = WORLD.startY + (area2.plans![sectionId - 1].graceDepth ?? 0) * WORLD.pixelsPerMeter;
+          for (const p of here) {
+            if (p.y < grace) continue;   // the quiet opening holds every hazard back, spikes included
+            if (!p.spikePlatform) expect.fail(`${tag}: an ordinary ledge without spikes at y${y}`);
+            const farthest = p.width + 18;   // the far end of the ledge to the body clear of the near one
+            if ((p.spikePlatform!.warning ?? 0) < farthest / 350 + 0.35 - 1e-9) expect.fail(`${tag}: spikes faster than the walk off at y${y}`);
           }
           // No enemy can ever stand on or pass through the route's landing spot.
           const landing: Box = { minX: route.safeX - 9, maxX: route.safeX + 9, minY: route.y - 30, maxY: route.y };
@@ -222,30 +235,38 @@ describe('GHOST', () => {
     expect(Math.max(...area2.plans!.map(p => p.ghosts!.speed))).toBeLessThan(350 / 3);
   });
 
-  it('waits just out of sight while the player moves, and arrives within seconds when they stop', () => {
+  it('swoops down to just under the HUD, then comes on at its own pace and arrives within seconds', () => {
     for (const speed of area2.plans!.map(p => p.ghosts!.speed)) {
       const g = bare();
       const e = ghostAt(g, 225, 900, 'hunt', speed);             // 1,100px behind: far off the view
-      let t = 0, onScreenMax = 0, prev = Math.hypot(225 - e.x, 2000 - e.y);
+      g.cameraY = 2000 - WORLD.height * 0.37;
+      let t = 0, inSightMax = 0, prev = Math.hypot(225 - e.x, 2000 - e.y), line = -1;
       while (g.hp === 4 && t < 20) {
         standStill(g, 225, 2000); g.step(1 / 120, 0, false); t += 1 / 120;
         const d = Math.hypot(225 - e.x, 2000 - e.y);
-        // Inside the tether -- where it can be seen -- it never closes faster than its own speed.
-        if (prev <= GHOST_RULES.tether) onScreenMax = Math.max(onScreenMax, (prev - d) * 120);
+        // Where it can be seen, it never closes faster than its own speed -- and never walks-speed.
+        if (inSight(e.y, { top: g.cameraY, height: WORLD.height }) && line < 0) line = t;
+        if (line >= 0 && t > line + 1 / 120) inSightMax = Math.max(inSightMax, (prev - d) * 120);
         prev = d;
       }
       expect(g.hp).toBe(3);
-      expect(onScreenMax).toBeLessThanOrEqual(speed + 1e-6);
-      // 780px off screen at the catch-up speed, then the last 296px at its own.
-      const expected = (1100 - GHOST_RULES.tether) / GHOST_RULES.catchUp + (GHOST_RULES.tether - 24) / speed;
-      expect(t).toBeGreaterThan(expected - 0.4);
-      expect(t).toBeLessThan(expected + 0.4);
+      expect(inSightMax).toBeLessThanOrEqual(speed + 1e-6);
+      expect(speed).toBeLessThan(350 / 3);
+      // The swoop: 1,010px at the catch-up speed to the sight line, 90px above the player.
+      const swoop = (1100 - 90) / GHOST_RULES.catchUp;
+      expect(line).toBeCloseTo(swoop, 1);
+      // Then it must be SEEN for a full second before it may touch, however close it already is.
+      const rest = Math.max(GHOST_RULES.seenBeforeHit, (90 - 25) / speed);
+      expect(t).toBeGreaterThan(swoop + rest - 0.05);
+      expect(t).toBeLessThan(swoop + rest + 0.1);
     }
   });
 
   it('lands one hit at most, then is gone', () => {
     const g = bare();
     const e = ghostAt(g, 225, 1990);
+    (e.ai as { seen: number }).seen = GHOST_RULES.seenBeforeHit;   // it has been in view long enough
+    g.cameraY = 2000 - WORLD.height * 0.37;
     holdStill(g); g.step(1 / 120, 0, false);
     expect(g.hp).toBe(3);
     expect(e.alive).toBe(false);
@@ -257,7 +278,7 @@ describe('GHOST', () => {
   it('follows the same path at 30, 60 and 120 frames per second, and on every replay', () => {
     // The player STANDS on a floor, so the target is the same whatever size the frames are -- a
     // hovering player falls a different distance per frame, which would be testing gravity.
-    const run = (dt: number) => { const g = bare(); const e = ghostAt(g, 60, 1400); for (let i = 0; i < Math.round(3 / dt); i++) { standStill(g, 380, 2400); g.step(dt, 0, false); } return [e.x, e.y]; };
+    const run = (dt: number) => { const g = bare(); const e = ghostAt(g, 60, 1400); g.cameraY = 2400 - WORLD.height * 0.37; for (let i = 0; i < Math.round(3 / dt); i++) { standStill(g, 380, 2400); g.step(dt, 0, false); } return [e.x, e.y]; };
     const [a, b, c, again] = [run(1 / 30), run(1 / 60), run(1 / 120), run(1 / 120)];
     for (const p of [a, b]) { expect(p[0]).toBeCloseTo(c[0], 6); expect(p[1]).toBeCloseTo(c[1], 6); }
     expect(again).toEqual(c);
@@ -338,6 +359,155 @@ describe('FLYING SKULL', () => {
  * c8a9262, the commit this rework is built on: AREA 1, 3 and 4 generate the same shaft, and scripted
  * runs through them and through the FINAL BOSS play the same, hit for hit.
  */
+describe('Human Review v2: every ledge turns, and none of them is a trap', () => {
+  /** The widest spike ledge each SECTION lays over 40 seeds, with the warning the generator gave it. */
+  const widest = (sectionId: SectionId) => {
+    let best: RoutePlatform | undefined;
+    for (let seed = 1; seed <= 40; seed++) for (const p of shaft(sectionId, seed * 97).rows) if (p.spikePlatform && (!best || p.width > best.width)) best = p;
+    return best!;
+  };
+  /** Drops the player onto a copy of `ledge` at its very left edge -- the worst place to land. */
+  const landOn = (ledge: RoutePlatform) => {
+    const g = bare();
+    const copy = { id: 950, x: WORLD.wall, y: 2015, width: ledge.width, breakable: false, state: 'stable' as const, spikePlatform: spikePlatform(ledge.spikePlatform!.warning) };
+    g.platforms = [copy];
+    g.player.x = copy.x - 8; g.player.y = copy.y - 16; g.player.vy = 60; g.player.grounded = -1;
+    for (let i = 0; i < 60 && g.player.grounded !== copy.id; i++) { g.platforms = [copy]; g.step(1 / 120, 0, false); }
+    expect(g.player.grounded).toBe(copy.id);
+    return { g, copy };
+  };
+
+  it('never puts spikes on a BREAK BLOCK: a gate is broken, not stood on', () => {
+    let blocks = 0;
+    for (const sectionId of [1, 2, 3] as SectionId[]) for (let seed = 1; seed <= 60; seed++) {
+      for (const p of shaft(sectionId, seed * 131).rows.filter(p => p.breakBlock)) { blocks++; expect(p.spikePlatform).toBeUndefined(); }
+    }
+    expect(blocks).toBeGreaterThan(300);
+  });
+
+  it('lets a player who lands on the worst spot of the widest ledge walk off it untouched', () => {
+    for (const sectionId of [1, 2, 3] as SectionId[]) {
+      const { g, copy } = landOn(widest(sectionId));
+      expect(copy.spikePlatform.state).toBe('warning');
+      expect(copy.x + copy.width, `2-${sectionId} leaves room to walk off`).toBeLessThan(WORLD.width - WORLD.wall - 20);
+      // Walking the whole ledge, and on down past it.
+      for (let i = 0; i < 240; i++) { g.platforms = [copy]; g.enemies = []; g.step(1 / 120, 1, false); }
+      expect(g.player.y, `2-${sectionId}`).toBeGreaterThan(copy.y + 40);
+      expect(g.hp, `2-${sectionId}`).toBe(4);
+    }
+  });
+
+  it('always catches a player who stays on it', () => {
+    for (const sectionId of [1, 2, 3] as SectionId[]) {
+      const { g, copy } = landOn(widest(sectionId));
+      const warning = copy.spikePlatform.warning!;
+      let t = 0;
+      while (g.hp === 4 && t < 5) { g.platforms = [copy]; g.enemies = []; g.step(1 / 120, 0, false); t += 1 / 120; }
+      expect(g.hp, `2-${sectionId}`).toBe(3);
+      // Not before the spikes are up, and as soon as they are.
+      expect(t).toBeGreaterThan(warning - 0.02);
+      expect(t).toBeLessThan(warning + 0.05);
+      expect(warning).toBeLessThan(SPIKE_PLATFORM_RULES.warning + 1);
+    }
+  });
+});
+
+describe('Human Review v2: ghosts are seen before they are felt', () => {
+  const dormantAt = (id: number, x: number, y: number, speed = 80) => { const e = spawnEnemy('ghost', id, x, y, 0, 0, 'open'); e.ai = dormantGhost(speed); return e; };
+
+  it('has at most two ghosts out at once, and wakes the next when one is spent', () => {
+    const g = bare();
+    g.enemies = [0, 1, 2, 3].map(i => dormantAt(800 + i, GHOST_RULES.wallDepth, 1000 + i * 60));
+    let most = 0, woke = 0;
+    for (let i = 0; i < 120 * 20; i++) {
+      holdStill(g); g.player.invincible = 99; g.step(1 / 120, 0, false);
+      woke += g.events.filter(ev => ev.type === 'ghostWake').length; g.events.length = 0;
+      most = Math.max(most, g.enemies.filter(e => e.alive && e.ai?.kind === 'ghost' && e.ai.state === 'hunt').length);
+    }
+    expect(most).toBe(GHOST_RULES.activeCap);
+    expect(woke).toBeGreaterThan(GHOST_RULES.activeCap);
+  });
+
+  it('comes into view and stays there before it can land a hit', () => {
+    for (const speed of area2.plans!.map(p => p.ghosts!.speed)) {
+      const g = bare();
+      const e = spawnEnemy('ghost', 900, 225, 900, 0, 0, 'open'); e.ai = dormantGhost(speed); (e.ai as { state: string }).state = 'hunt';
+      g.enemies = [e];
+      let visible = 0, t = 0, last = false;
+      while (g.hp === 4 && t < 20) {
+        standStill(g, 225, 2000);
+        last = inSight(e.y, { top: g.cameraY, height: WORLD.height });
+        if (last) visible += 1 / 120;
+        g.step(1 / 120, 0, false); t += 1 / 120;
+      }
+      expect(g.hp).toBe(3);
+      // In sight -- below the HUD, not merely inside the canvas -- for the full second, and at the hit.
+      expect(visible).toBeGreaterThanOrEqual(GHOST_RULES.seenBeforeHit - 1e-9);
+      expect(last).toBe(true);
+    }
+  });
+
+  it('counts the HUD band as out of sight: the walls there are under the hearts and the ammo', () => {
+    const view = { top: 1000, height: WORLD.height };
+    expect(inSight(1000 + 100, view)).toBe(false);
+    expect(inSight(1000 + GHOST_RULES.hudClear + 15, view)).toBe(false);
+    expect(inSight(1000 + GHOST_RULES.hudClear + 16, view)).toBe(true);
+    // The measured HUD reaches 183px; the sight line is clear of it, and still above the player (296px).
+    expect(GHOST_RULES.hudClear).toBeGreaterThanOrEqual(183);
+    expect(GHOST_RULES.hudClear + 16).toBeLessThan(WORLD.height * 0.37 - 24);
+    // A waking ghost is already below the line.
+    expect(WORLD.height * 0.37 - GHOST_RULES.wakeLead).toBeGreaterThanOrEqual(GHOST_RULES.hudClear + 16);
+  });
+
+  it('cannot touch anyone from off the screen, or before it has been seen', () => {
+    const overlapping = (seen: number) => {
+      const g = bare();
+      const e = spawnEnemy('ghost', 900, 225, 2000, 0, 0, 'open'); e.ai = dormantGhost(80); (e.ai as { state: string }).state = 'hunt';
+      (e.ai as { seen: number }).seen = seen;
+      g.enemies = [e];
+      return { g, e };
+    };
+    // Seen long enough, right on top of the player -- but the view is somewhere else.
+    const off = overlapping(10);
+    off.g.cameraY = 2000 + 40; holdStill(off.g); off.g.step(1 / 120, 0, false);
+    expect(off.g.hp).toBe(4);
+    // In view, right on top of the player, but only just come into it.
+    const fresh = overlapping(0);
+    for (let i = 0; i < Math.floor(GHOST_RULES.seenBeforeHit * 120) - 2; i++) {
+      fresh.g.cameraY = 2000 - WORLD.height * 0.37; fresh.e.x = 225; fresh.e.y = 2000;
+      holdStill(fresh.g); fresh.g.step(1 / 120, 0, false);
+    }
+    expect(fresh.g.hp).toBe(4);
+  });
+
+  it('gives up after its hunt, so a ghost that never caught anyone frees its place', () => {
+    const g = bare();
+    const e = spawnEnemy('ghost', 900, 225, 1000, 0, 0, 'open'); e.ai = dormantGhost(70); (e.ai as { state: string }).state = 'hunt';
+    g.enemies = [e];
+    let t = 0, faded = -1;
+    while (t < GHOST_RULES.huntTime + 1) {
+      holdStill(g, 225, 2000); g.player.invincible = 99; g.step(1 / 120, 0, false); t += 1 / 120;
+      if (faded < 0 && g.events.some(ev => ev.type === 'ghostFade')) faded = t;
+      g.events.length = 0;
+    }
+    expect(e.alive).toBe(false);
+    expect(faded).toBeCloseTo(GHOST_RULES.huntTime, 1);
+  });
+
+  it('lays the same four, six and eight ghosts on every seed', () => {
+    for (const [i, count] of [4, 6, 8].entries()) for (let seed = 1; seed <= 40; seed++) {
+      expect(shaft((i + 1) as SectionId, seed * 59).enemies.filter(e => e.ai?.kind === 'ghost').length).toBe(count);
+    }
+  });
+
+  it('leaves the FLYING SKULL exactly as it was reviewed', () => {
+    expect(SKULL_RULES).toEqual({ range: 230, warn: 0.55, chargeSpeed: 360, chargeTime: 0.6, cool: 1.0, returnSpeed: 50, bob: 4 });
+    expect(area2.plans![0].enemyExclude).toContain('flyingSkull');
+    expect(area2.plans![1].enemyExclude ?? []).not.toContain('flyingSkull');
+    expect(area2.plans![2].enemyExclude ?? []).not.toContain('flyingSkull');
+  });
+});
+
 describe('AREA 2 rework leaves every other AREA exactly as it was', () => {
   const golden = {
     gen1: '707f0b6eee8d535d9ef25833', gen3: 'af813a1562e0a964cd619371', gen4: '61ec760733be4c4e52523a49',

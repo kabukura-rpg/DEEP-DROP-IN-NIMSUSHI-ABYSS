@@ -466,6 +466,12 @@ export class StageGenerator {
     return null;
   }
 
+  /** A spike platform for this ledge, with its own warning when the SECTION asks for one. */
+  private spikeFor(p: RoutePlatform) {
+    const reaction = this.context.plan?.spikeReaction;
+    return spikePlatform(reaction === undefined ? undefined : (p.width + 18) / BALANCE.moveSpeed + reaction);
+  }
+
   private pick<T>(items: readonly T[]) { return items[Math.min(items.length - 1, Math.floor(this.random() * items.length))]; }
   /** Draw inside a tier by spawnWeight, so a rewarding enemy can stay uncommon without a special case. */
   private weighted(kinds: readonly EnemyKind[]): EnemyKind {
@@ -652,14 +658,14 @@ export class StageGenerator {
       // a trap, and the route's own maths are untouched either way. A gate row carries neither -- a
       // BREAK BLOCK is already its own problem.
       if (this.random() < tuning.limboHazardChance) platform.limboHazard = true;
-      // A SLOT's route shelf is the one the fall is headed for, so it never carries spikes; the row's
-      // own `spikeChance` belongs to the other shelf. Rows that state no override use the SECTION's.
-      else if (this.random() < (shaped && intent?.slot ? 0 : intent?.spikeChance ?? tuning.spikePlatformChance)) platform.spikePlatform = spikePlatform();
+      // A row's own `spikeChance` overrides the SECTION's; rows that state none use the SECTION's. On a
+      // SLOT it applies to both shelves -- the other one is rolled just below.
+      else if (this.random() < (intent?.spikeChance ?? tuning.spikePlatformChance)) platform.spikePlatform = this.spikeFor(platform);
       if (y >= start) platforms.push(platform);
       // More than one ledge in this band, when the piece asked for it. Laid before the chamber and
       // the doodad are placed, so both see them and keep clear the way they keep clear of any ledge.
       const extras = shaped ? shaped.others : intent ? this.layExtras(intent, platform, y, tuning) : [];
-      if (shaped && intent?.slot) for (const other of extras) if (this.random() < (intent.spikeChance ?? 0)) other.spikePlatform = spikePlatform();
+      if (shaped && intent?.slot) for (const other of extras) if (this.random() < (intent.spikeChance ?? 0)) other.spikePlatform = this.spikeFor(other);
       if (y >= start) platforms.push(...extras);
 
       let guard: Enemy | undefined;

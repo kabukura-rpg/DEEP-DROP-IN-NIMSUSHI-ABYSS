@@ -29,7 +29,7 @@ import { UpgradeSystem } from './UpgradeSystem';
 import { StageProgressionSystem } from './StageProgressionSystem';
 import { FINAL_STAGE, type AreaId, type SectionId } from '../data/areas';
 import { enemyPosition, enemyType } from '../data/enemies';
-import { CHASE_STEP, stepChaser, type ChaseState } from '../data/chasers';
+import { CHASE_STEP, GHOST_RULES, inSight, stepChaser, type ChaseState } from '../data/chasers';
 import { defaultTuning, sanitizeTuning, type PhysicsTuning } from './PhysicsTuning';
 export type GameEvent = { type: 'shot' | 'empty' | 'land' | 'kill' | 'hurt' | 'upgrade' | 'over' | 'heal' | 'boss' | 'clear' | 'oxygen' | 'section' | 'ice' | 'vent' | 'crack' | 'collapse' | 'bossHit' | 'bossTelegraph' | 'bossFire' | 'bossPhase' | 'bossDown' | 'gunModule' | 'coin' | 'shopOpen' | 'shopBuy' | 'exitReady' | 'exit' | 'containerBreak' | 'blockCrack' | 'blockBreak' | 'jump' | 'wallJump' | 'comboSettle' | 'doodad' | 'timeVoid' | 'coinVein' | 'coinHigh' | 'spikePlatform' | 'explosion' | 'corpse' | 'balloon' | 'jetpack' | 'gravityFlip' | 'bossEye' | 'bossRage' | 'bossStart' | 'tomato' | 'bossLine' | 'seal' | 'abyss'
   | 'ghostWake' | 'ghostFade' | 'skullWarn' | 'skullCharge'; x: number; y: number; value?: number; stomp?: boolean; lifeUps?: number; overflow?: number; combo?: number; stage?: string; areaCleared?: string | null; bonus?: 'heart' | 'charge'; source?: { id: number; kind: Enemy['kind']; x: number; y: number } };
@@ -905,12 +905,18 @@ export class GameModel {
       for (const e of chasers) if (!yBeforeMove.has(e)) yBeforeMove.set(e, e.y);
       while (this.chaseClock >= CHASE_STEP - 1e-9) {
         this.chaseClock -= CHASE_STEP;
+        // The active cap, counted afresh every sub-step so a ghost that fades frees its turn at once.
+        let hunting = chasers.filter(e => e.alive && e.ai.kind === 'ghost' && e.ai.state === 'hunt').length;
         // Each sub-step runs at its OWN moment: the frame's world time less what is still unspent. A long
         // frame is then the same sequence of instants as several short ones, which is what keeps a
         // skull's hover -- and so the aim it locks when it notices the player -- identical at any rate.
         const at = this.worldElapsed - this.chaseClock;
         for (const e of chasers) {
-          const signal = stepChaser(e, p, CHASE_STEP, at, { top: this.cameraY, height: WORLD.height });
+          if (!e.alive) continue;
+          const signal = stepChaser(e, p, CHASE_STEP, at, { top: this.cameraY, height: WORLD.height }, hunting < GHOST_RULES.activeCap);
+          if (signal === 'ghostWake') hunting++;
+          // A ghost that has hunted its time fades and frees its turn; it pays nothing.
+          if (signal === 'ghostFade') { e.alive = false; hunting--; }
           if (signal) this.events.push({ type: signal, x: e.x, y: e.y });
         }
       }
@@ -1071,6 +1077,9 @@ export class GameModel {
     // reach the player, which is what makes it safe.
     if (!frozen) for (const e of this.enemies) {
       if (!e.alive || e.ai?.state === 'dormant' || Math.abs(p.x - e.x) > 24) continue;
+      // NO CHEAP HIT: a ghost touches no one it has not been seen by -- it must be on screen now, and
+      // have been on screen long enough since it woke. Checked here, where contact is decided.
+      if (e.ai?.kind === 'ghost' && (e.ai.seen < GHOST_RULES.seenBeforeHit || !inSight(e.y, { top: this.cameraY, height: WORLD.height }))) continue;
       // The face gravity brings the player down onto: an enemy's head in the shaft, its underside
       // in the ABYSS. The same crossing, the same stomp, mirrored -- nothing here knows which.
       const crown = e.y - 10 * this.gravity;
@@ -1234,8 +1243,9 @@ export class GameModel {
     this.bullets = this.bullets.filter(b => b.alive && (frozen || !this.aheadOfCamera(b.y, 150)));
     if (frozen) return;
     this.platforms = this.platforms.filter(f => !this.behindCamera(f.y, 180));
-    // A hunting GHOST comes from behind the view on purpose, so being behind it does not retire one.
-    this.enemies = this.enemies.filter(e => e.alive && (e.ai?.state === 'hunt' || !this.behindCamera(e.y, 180)));
+    // A GHOST comes from behind the view on purpose, and one still waiting in the wall may be waiting
+    // for a turn, so neither is retired for being behind the camera.
+    this.enemies = this.enemies.filter(e => e.alive && (e.ai?.kind === 'ghost' || !this.behindCamera(e.y, 180)));
     this.pickups = this.pickups.filter(item => !item.taken && !this.behindCamera(item.y, 180));
     this.hazards = this.hazards.filter(h => !this.behindCamera(this.trailingEdge(h.y, h.height), 180));
     this.doodads = this.doodads.filter(d => !this.behindCamera(this.trailingEdge(d.y, d.height), 180));
@@ -1287,7 +1297,7 @@ export class GameModel {
       // falling past the edge of one never sets it off.
       if (spikes.state === 'safe' && p.grounded === platform.id) {
         spikes.state = 'warning';
-        spikes.timer = SPIKE_PLATFORM_RULES.warning;
+        spikes.timer = spikes.warning ?? SPIKE_PLATFORM_RULES.warning;
         this.events.push({ type: 'spikePlatform', x: platform.x + platform.width / 2, y: platform.y, value: 0 });
         continue;
       }

@@ -313,22 +313,27 @@ describe('SPIKE PLATFORM: ground that turns, and never kills', () => {
 });
 
 describe('AREA 2 generation carries the CATACOMBS role', () => {
-  it('lays spike platforms in every SECTION, more of them as the AREA goes on', () => {
-    const share = SECTIONS.map(sectionId => {
-      let turning = 0, rows = 0;
+  /**
+   * Since Human Review v2, EVERY ordinary CATACOMB ledge is a spike platform -- in every SECTION, so
+   * the old "more of them as the AREA goes on" is simply all of them. What still separates CATACOMBS
+   * from LIMBO is what a spike platform IS: a floor that is safe to land on and turns later, never a
+   * barb that is not a floor at all. Gate blocks and chamber floors stay as they are.
+   */
+  it('makes every ordinary ledge a spike platform, and nothing else', () => {
+    for (const sectionId of SECTIONS) {
       for (let seed = 1; seed <= SEEDS; seed++) {
         const shaft = section(sectionId, seed * 613);
-        const ledges = shaft.platforms.filter(p => !p.breakBlock && p.safeZone === undefined);
-        rows += ledges.length;
-        turning += ledges.filter(p => p.spikePlatform).length;
+        // The one exception is the SECTION's quiet opening (`graceDepth`), which holds back every hazard
+        // in its first metres -- 2-1's first row -- so a player arrives before the floor turns on them.
+        const grace = WORLD.startY + (area2.plans![sectionId - 1].graceDepth ?? 0) * WORLD.pixelsPerMeter;
+        for (const p of shaft.platforms) {
+          if (p.y < grace) continue;   // the quiet opening decides these for itself
+          const ordinary = !p.breakBlock && p.safeZone === undefined;
+          expect({ sectionId, seed, ordinary, spiked: !!p.spikePlatform }).toEqual({ sectionId, seed, ordinary, spiked: ordinary });
+          expect(p.limboHazard ?? false).toBe(false);
+        }
       }
-      expect({ sectionId, any: turning > 0 }).toEqual({ sectionId, any: true });
-      return turning / rows;
-    });
-    expect(share[0]).toBeLessThan(share[1]);
-    expect(share[1]).toBeLessThan(share[2]);
-    // Never the whole SECTION: CATACOMBS still has somewhere to stand, unlike LIMBO.
-    for (const s of share) expect(s).toBeLessThan(0.75);
+    }
   });
 
   it('starts every spike platform unarmed and safe', () => {

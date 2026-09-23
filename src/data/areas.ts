@@ -87,6 +87,19 @@ export interface SectionPlan {
    */
   spikePlatformChance?: number;
   /**
+   * CATACOMBS: give each spike platform its OWN warning, long enough to walk off it from anywhere.
+   *
+   *     warning = (platform width + 18px) / moveSpeed + spikeReaction
+   *
+   * The first term is the walk from the far end of the ledge to the body being clear of the near one
+   * (9px of body each side) -- the longest walk any landing on it can ask for, not just the route's.
+   * `spikeReaction` is on top of that: the time to see the warning and start moving. So no landing
+   * anywhere can be forced into the teeth, and a player who stays put is always caught. Measured over
+   * 600 seeds x 3 SECTIONs, the longest walk a route actually required was 260px (0.743s), which the
+   * old fixed 0.65s would not have covered. Absent, every spike platform uses the global warning.
+   */
+  spikeReaction?: number;
+  /**
    * Per-row chance that the row is LIMBO's dangerous ground: barbs that are not a floor at all.
    * Nothing lands on one, so it neither reloads nor settles -- it is fallen through for a heart.
    *
@@ -251,24 +264,25 @@ export const AREAS: readonly AreaConfig[] = [
     // 2,500px and more of uninterrupted drop in its best column -- with the danger in the floor alone.
     // Now the shaft is built to be WALKED (catacombTerrain.ts: shelves that cover the exit above and
     // gaps to find), and something follows the player down it (chasers.ts: ghosts from the walls,
-    // skulls that rattle and lunge). Spike platforms stay the AREA's ground rule, but only where a
-    // player chose to stand: never on a shelf they are forced to cross.
+    // skulls that rattle and lunge). And the ground itself is the AREA's rule: EVERY ordinary ledge is
+    // a spike platform (Human Review, v2), each with a warning long enough to walk off it from
+    // anywhere -- so moving is always safe, and standing still never is.
     id: 2, name: 'CATACOMB RUINS', sections: 3, sectionLength: 300,
     enemyPool: ['slime', 'bat', 'armoredSlime', 'tank', 'flyingSkull'],
     theme: { wall: 0x2a2620, wallEdge: 0x463f33, brick: 0x1a1713, pillar: 0x3b3428, accent: 0xe8c98a, dust: 0xb6a888 },
     plans: [
-      // 2-1 LEARN THE SHELVES. Two ghosts, no skulls, spikes only off the forced path.
+      // 2-1 LEARN THE SHELVES. Four ghosts (two out at most), no skulls, spikes on every ledge.
       { platformWidth: [168, 198], gap: 220, pieces: AREA2_INTRO, enemyChance: 0.23, flyChance: 0.18, toughChance: 0.22, heavyChance: 0, comboBias: 0.18, graceDepth: 12,
-        spikePlatformChance: 0.22, breakBlockRows: 2, breakBlockDurability: 2,
-        doodadChance: 0.24, safeZoneCount: 1, enemyExclude: ['flyingSkull'], ghosts: { count: 2, speed: 70 } },
-      // 2-2 PURSUIT. Skulls join; slots narrow; more spikes where a player might choose to land.
+        spikePlatformChance: 1, spikeReaction: 0.35, breakBlockRows: 2, breakBlockDurability: 2,
+        doodadChance: 0.24, safeZoneCount: 1, enemyExclude: ['flyingSkull'], ghosts: { count: 4, speed: 70 } },
+      // 2-2 PURSUIT. Six ghosts, skulls join, slots narrow.
       { platformWidth: [160, 190], gap: 220, pieces: AREA2_PURSUIT, enemyChance: 0.31, flyChance: 0.22, toughChance: 0.30, heavyChance: 0.08, comboBias: 0.24,
-        spikePlatformChance: 0.32, breakBlockRows: 2, breakBlockDurability: 2,
-        doodadChance: 0.26, safeZoneCount: 1, ghosts: { count: 3, speed: 80 } },
+        spikePlatformChance: 1, spikeReaction: 0.35, breakBlockRows: 2, breakBlockDurability: 2,
+        doodadChance: 0.26, safeZoneCount: 1, ghosts: { count: 6, speed: 80 } },
       // 2-3 OSSUARY. Everything at once -- carried by the shape of the shaft, not by a longer roster.
       { platformWidth: [148, 178], gap: 220, pieces: AREA2_OSSUARY, enemyChance: 0.38, flyChance: 0.26, toughChance: 0.38, heavyChance: 0.14, comboBias: 0.28,
-        spikePlatformChance: 0.42, breakBlockRows: 2, breakBlockDurability: 2,
-        doodadChance: 0.28, safeZoneCount: 1, ghosts: { count: 4, speed: 88 } },
+        spikePlatformChance: 1, spikeReaction: 0.35, breakBlockRows: 2, breakBlockDurability: 2,
+        doodadChance: 0.28, safeZoneCount: 1, ghosts: { count: 8, speed: 88 } },
     ],
   },
   {

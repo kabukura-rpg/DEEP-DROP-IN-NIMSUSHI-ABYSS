@@ -25,29 +25,43 @@ export const CHASE_STEP = 1 / 120;
 
 export const GHOST_RULES = {
   /**
-   * How far the player must be BELOW a dormant ghost before it wakes. It is the ghost's head start
-   * given to the player: at the fastest ghost (88px/s) that is 2.3s before it could possibly touch
-   * anyone, which is what "no instant hit on appearance" is measured against.
+   * WHAT THE PLAYER CAN ACTUALLY SEE. The HUD (depth, hearts, coins, ammo) is drawn over the top of
+   * the shaft, and measured in a real browser its text reaches 164-183px of world below the view's
+   * top edge (1280x800, 1440x900, 390x844, 375x667). Anything above this line is behind the HUD or
+   * off the screen -- and the walls a ghost comes out of are exactly where the hearts and the ammo
+   * sit. v2 counted that band as "on screen"; Human Review still saw no ghost. Now nothing about a
+   * ghost counts as seen until it is below this line.
    */
-  wakeLead: 200,
+  hudClear: 190,
+  /**
+   * How far the player must be BELOW a dormant ghost before it wakes. The player stands 296px below
+   * the view's top, so 90px puts the waking ghost just under the HUD: it comes out of the wall where
+   * it can be seen, never behind the hearts.
+   */
+  wakeLead: 90,
   /** Where a dormant ghost waits: this far into the wall, so it emerges FROM the brickwork. */
   wallDepth: 14,
   /**
-   * THE TETHER. Beyond this distance a hunting ghost is off the top of the view, and there it closes
-   * at `catchUp` instead of its own speed until it is back at the edge.
-   *
-   * Measured without it, a ghost was felt by nobody: the player descends at ~260px/s, a ghost drifts
-   * at 70-88, and on the median landing the nearest hunting ghost was 10.7 seconds away -- standing
-   * still for three seconds got caught on 1% of landings, and a whole run took 0.00 ghost hits. The
-   * AREA's premise, that you cannot stay put, was not there.
-   *
-   * With it, a ghost waits just out of sight while you keep moving and arrives in 3.4-4.2s if you
-   * stop. It never speeds up where it can be seen, so on screen it is always slower than walking,
-   * and it cannot reach anyone sooner than its wake head start allows: the tether only ever acts
-   * beyond 320px, and the head start is 200.
+   * THE SIGHT LINE. A hunting ghost left above it -- behind the HUD or off the top after a fall --
+   * comes straight down to it at `catchUp`: a visible swoop back into the picture, never a teleport.
+   * Below the line it moves only at its own speed, which is always slower than walking. So a player
+   * who keeps moving has it hanging just under the HUD, following; one who stops is reached from
+   * there in a few seconds.
    */
-  tether: 320,
-  catchUp: 260,
+  catchUp: 420,
+  /**
+   * NO CHEAP HIT. A ghost can only touch the player while it is in sight, and only once it has been
+   * in sight this long in total since it woke. Being hit by something never seen is ruled out by
+   * construction, not by tuning.
+   */
+  seenBeforeHit: 1.0,
+  /** At most this many ghosts hunt at once; the rest wait in the walls for a turn. */
+  activeCap: 2,
+  /**
+   * Seconds a ghost hunts before it gives up and fades. Without it the first two woken would hold
+   * both turns for the whole SECTION and the rest would never come out.
+   */
+  huntTime: 7,
 } as const;
 
 
@@ -67,14 +81,17 @@ export const SKULL_RULES = {
 } as const;
 
 export type ChaseState =
-  | { kind: 'ghost'; state: 'dormant' | 'hunt'; speed: number }
+  | { kind: 'ghost'; state: 'dormant' | 'hunt'; speed: number; t: number; seen: number }
   | { kind: 'skull'; state: 'idle' | 'warn' | 'charge' | 'cool' | 'return'; t: number; dx: number; dy: number; vx: number; vy: number };
 
 /** A dormant ghost, placed by the generator. `speed` is the SECTION's, fixed at placement. */
-export const dormantGhost = (speed: number): ChaseState => ({ kind: 'ghost', state: 'dormant', speed });
+export const dormantGhost = (speed: number): ChaseState => ({ kind: 'ghost', state: 'dormant', speed, t: 0, seen: 0 });
 export const idleSkull = (): ChaseState => ({ kind: 'skull', state: 'idle', t: 0, dx: 0, dy: 0, vx: 0, vy: 0 });
 
-export type ChaseSignal = 'ghostWake' | 'skullWarn' | 'skullCharge';
+export type ChaseSignal = 'ghostWake' | 'ghostFade' | 'skullWarn' | 'skullCharge';
+
+/** Is this body where the player can see it: its whole sprite inside the view, and clear of the HUD. */
+export const inSight = (y: number, view: { top: number; height: number }) => y - 16 >= view.top + GHOST_RULES.hudClear - 1e-6 && y + 10 < view.top + view.height;
 
 /**
  * Advance one chaser by exactly one fixed step. Returns a signal when the step changed what the
@@ -82,21 +99,31 @@ export type ChaseSignal = 'ghostWake' | 'skullWarn' | 'skullCharge';
  *
  * `view` is the camera's top edge and height, so a skull only notices a player it is on screen with.
  */
-export function stepChaser(e: Enemy & { ai: ChaseState }, player: { x: number; y: number }, h: number, worldTime: number, view: { top: number; height: number }): ChaseSignal | null {
+export function stepChaser(e: Enemy & { ai: ChaseState }, player: { x: number; y: number }, h: number, worldTime: number, view: { top: number; height: number }, mayWake = true): ChaseSignal | null {
   const ai = e.ai;
   const originY = e.originY ?? e.y;
   if (ai.kind === 'ghost') {
     if (ai.state === 'dormant') {
-      if (player.y - e.y < GHOST_RULES.wakeLead) return null;
-      ai.state = 'hunt';
+      // Waits its turn when enough ghosts are already out.
+      if (!mayWake || player.y - e.y < GHOST_RULES.wakeLead) return null;
+      ai.state = 'hunt'; ai.t = 0; ai.seen = 0;
       return 'ghostWake';
+    }
+    ai.t += h;
+    if (inSight(e.y, view)) ai.seen += h;
+    if (ai.t >= GHOST_RULES.huntTime) return 'ghostFade';
+    // Out of sight above: straight down to the sight line (or the player, if they are above it), fast,
+    // while drifting across at its own speed. Never further than the line, so the rest is seen.
+    const line = Math.min(view.top + GHOST_RULES.hudClear + 16, player.y);
+    if (e.y < line) {
+      e.y = Math.min(line, e.y + GHOST_RULES.catchUp * h);
+      const dx = player.x - e.x;
+      e.x += Math.sign(dx) * Math.min(Math.abs(dx), ai.speed * h);
+      return null;
     }
     const dx = player.x - e.x, dy = player.y - e.y, d = Math.hypot(dx, dy);
     if (d > 1e-6) {
-      // Off the top of the view it closes fast, but never past the tether line: the last stretch is
-      // always covered at its own, visible, walking-beaten speed.
-      const speed = d > GHOST_RULES.tether ? GHOST_RULES.catchUp : ai.speed;
-      const move = Math.min(d, speed * h, d > GHOST_RULES.tether ? d - GHOST_RULES.tether + ai.speed * h : Infinity);
+      const move = Math.min(d, ai.speed * h);
       e.x += dx / d * move; e.y += dy / d * move;
     }
     return null;

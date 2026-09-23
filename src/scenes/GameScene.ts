@@ -230,10 +230,20 @@ export class GameScene extends Phaser.Scene {
   private ghost(e: Enemy, x: number, y: number, hurt: boolean) {
     const t = this.model.elapsed;
     if (e.ai?.state === 'dormant') {
-      const glow = 0.18 + Math.sin(t * 2 + e.phase) * 0.06;
-      this.rect(x - 6, y - 5, 4, 4, 0xdfe8ff, glow); this.rect(x + 2, y - 5, 4, 4, 0xdfe8ff, glow);
-      this.rect(x - 3, y + 2, 6, 2, 0xdfe8ff, glow * 0.7);
+      // Brighter than v1, where it was all but invisible: a face pressed into the stone, pulsing.
+      const glow = 0.45 + Math.sin(t * 2 + e.phase) * 0.15;
+      this.rect(x - 7, y - 6, 5, 5, 0xdfe8ff, glow); this.rect(x + 2, y - 6, 5, 5, 0xdfe8ff, glow);
+      this.rect(x - 4, y + 2, 8, 3, 0xdfe8ff, glow * 0.7);
       return;
+    }
+    // WAKING: for its first half second it tears out of the wall in a burst, so the moment it comes
+    // for the player is the moment the player sees it.
+    if (e.ai?.kind === 'ghost' && e.ai.t < 0.5) {
+      const k = e.ai.t / 0.5;
+      for (let i = 0; i < 8; i++) {
+        const a = i * Math.PI / 4, r = 10 + k * 26;
+        this.rect(x + Math.cos(a) * r - 2, y + Math.sin(a) * r - 2, 4, 4, 0xdfe8ff, 0.8 * (1 - k));
+      }
     }
     const colour = hurt ? 0xffffff : 0xdfe8ff, alpha = hurt ? 0.9 : 0.62;
     const sway = Math.sin(t * 3 + e.phase) * 2;
@@ -756,16 +766,35 @@ export class GameScene extends Phaser.Scene {
    */
   private spikePlatform(x: number, y: number, width: number, spikes: NonNullable<Platform['spikePlatform']>) {
     const { state, timer } = spikes;
-    // Sockets: always visible, so a platform announces what it is before it is ever landed on.
-    for (let i = x + 9; i < x + width - 8; i += 17) this.rect(i, y + 1, 7, 3, 0x1b1420);
+    // A platform's own warning, where it has one (the CATACOMBS'); otherwise the global one.
+    const warningTime = spikes.warning ?? SPIKE_PLATFORM_RULES.warning;
+    /**
+     * CATACOMB spike ground reads as a MACHINE before it is ever touched (Human Review, v2): a
+     * recessed channel along the face, deep sockets with the bone tips of the teeth showing, and
+     * hazard marks at both ends. It is all paint -- nothing here is a hitbox; the teeth only hurt once
+     * they are up, exactly as before. Platforms without their own warning (the ABYSS arena's) keep
+     * the look they have always had.
+     */
+    if (spikes.warning !== undefined) {
+      this.rect(x, y + 3, width, 4, 0x24181f, 0.95);
+      for (let i = x + 9; i < x + width - 8; i += 17) {
+        this.rect(i - 1, y, 9, 5, 0x0f090e);
+        this.rect(i + 2, y + 1, 3, 2, 0xcbb293, state === 'safe' ? 0.75 : 0.95);
+      }
+      for (const end of [x, x + width - 6]) for (let k = 0; k < 2; k++) this.rect(end, y + 3 + k * 3, 6, 1.5, 0xe8c98a, 0.75);
+    } else {
+      // Sockets: always visible, so a platform announces what it is before it is ever landed on.
+      for (let i = x + 9; i < x + width - 8; i += 17) this.rect(i, y + 1, 7, 3, 0x1b1420);
+    }
     if (state === 'safe' || state === 'cooldown') {
       // Resting: the teeth are withdrawn and only their tips show in the sockets.
-      for (let i = x + 9; i < x + width - 8; i += 17) this.rect(i + 1, y, 5, 2, 0x6e5a86, state === 'cooldown' ? 0.75 : 0.45);
+      if (spikes.warning === undefined) for (let i = x + 9; i < x + width - 8; i += 17) this.rect(i + 1, y, 5, 2, 0x6e5a86, state === 'cooldown' ? 0.75 : 0.45);
       return;
     }
+
     const warning = state === 'warning';
     // Through the warning the teeth grow out of the sockets; live, they stand at full reach.
-    const grown = warning ? 1 - Math.max(0, Math.min(1, timer / SPIKE_PLATFORM_RULES.warning)) : 1;
+    const grown = warning ? 1 - Math.max(0, Math.min(1, timer / warningTime)) : 1;
     const reach = Math.max(2, SPIKE_PLATFORM_RULES.reach * grown);
     const body = warning ? 0xf4c46a : 0xff8f9f, tip = warning ? 0xffe6ae : 0xffd9e0;
     for (let i = x + 9; i < x + width - 8; i += 17) {
@@ -775,7 +804,7 @@ export class GameScene extends Phaser.Scene {
     }
     if (warning) {
       // A bar that drains across the ledge: how long is left, not just that something is coming.
-      const left = Math.max(0, Math.min(1, timer / SPIKE_PLATFORM_RULES.warning));
+      const left = Math.max(0, Math.min(1, timer / warningTime));
       this.rect(x, y - 2, width, 2, 0x4a3a20, 0.9);
       this.rect(x, y - 2, width * left, 2, 0xffe6ae);
     }
