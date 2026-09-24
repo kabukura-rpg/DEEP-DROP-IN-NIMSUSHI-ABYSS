@@ -27,7 +27,7 @@ app.innerHTML = `
       <div id="game" aria-label="縦落下アクションのプレイ画面"></div>
       <div id="hud" class="hud"><div id="boss-bar" class="boss-bar" hidden><span class="boss-name">NIMUSHI <b id="boss-phase"></b></span><div class="boss-track"><i id="boss-fill"></i></div><small id="boss-percent">100%</small></div><div class="hud-top"><div><span class="hud-label"><b id="stage-label">1-1</b>DEPTH</span><div class="depth-number"><span id="depth">000</span><small id="depth-goal">/ 200m</small></div></div><div class="purse"><span id="coin-wallet">COIN 0</span><small id="coin-score">SCORE 0</small><div id="coin-high" class="coin-high"><div class="coin-high-bar"><i id="coin-high-fill"></i></div><b id="coin-high-state">HIGH</b></div></div><button id="pause" class="pause-button" aria-label="ポーズ" disabled>Ⅱ</button></div><div class="hud-status"><div><div id="hearts" aria-label="HP 4">♥ ♥ ♥ ♥</div><small id="life-gauge"></small></div><div class="ammo-group"><span id="ammo-label">AMMO</span><div id="ammo"></div><b id="gun-module" class="gun-module">MG</b></div></div><div id="oxygen" class="oxygen" hidden><span class="oxygen-label">OXYGEN <b id="oxygen-state"></b></span><div class="oxygen-bar"><i id="oxygen-fill"></i></div><small id="oxygen-seconds">12.0s</small></div><div id="heat" class="heat" hidden><span class="heat-label">HEAT <b id="heat-state"></b></span><div class="heat-bar"><i id="heat-fill"></i></div><small id="heat-percent">0%</small></div><div id="stage-intro" class="stage-intro" hidden aria-live="polite"></div><div id="combo" class="combo" hidden></div><div id="gun-toast" class="gun-toast" hidden aria-live="polite"></div><div id="boss-line" class="boss-line" hidden aria-live="polite"></div><div id="practice-label" hidden>CONTROL LAB <span>落下 → 射撃 → 着地</span></div><div class="depth-progress"><div id="progress"></div></div></div>
       <div id="overlay" class="overlay"></div>
-      <div id="touch-controls"><div id="move-pad"><button id="left-control" aria-label="左移動">←</button><button id="right-control" aria-label="右移動">→</button></div><div id="fire-pad"><button id="fire-control" aria-label="射撃">FIRE<span>↓</span></button></div></div>
+      <div id="touch-controls"><div id="move-pad"><button id="left-control" aria-label="左移動">←</button><button id="right-control" aria-label="右移動">→</button></div><div id="fire-pad"><button id="fire-control" aria-label="射撃">FIRE<span>◎</span></button></div></div>
     </div>
     <div class="cabinet-bottom"><span><span class="live-dot"></span> <span id="run-status">READY TO DESCEND</span></span><span>↓ 4 AREAS · 12 SECTIONS</span></div>
     <section id="physics-tuning" class="physics-tuning" aria-label="練習用の物理調整" hidden></section>
@@ -219,6 +219,8 @@ function setOverlay(content: string) {
   $('game-frame').classList.toggle('in-play', inPlay());
   $('pause').toggleAttribute('disabled', !inPlay());
   $('touch-controls').hidden = !!content;
+  // A press cannot survive the controls going away: nothing will ever deliver its release.
+  if (content) { movementPointers.clear(); firePointers.clear(); syncPointers(); }
   // A menu's buttons answer to SPACE themselves, and they never see it while the run is capturing
   // it. The run has no use for the key while a menu is up, so it lets go of it for the duration.
   scene.captureKeys(!content);
@@ -244,7 +246,7 @@ function showStageIntro(model: GameModel) {
   introAnimation = intro.animate([{ opacity: 0, transform: 'translateY(8px)' }, { opacity: 1, transform: 'none', offset: 0.14 }, { opacity: 1, offset: 0.7 }, { opacity: 0 }], { duration, easing: 'ease-out' });
   introAnimation.onfinish = () => { intro.hidden = true; };
 }
-function clearInput() { bridge.firing = false; bridge.direction = 0; movementPointers.clear(); firePointers.clear(); scene.resetKeys(); }
+function clearInput() { movementPointers.clear(); firePointers.clear(); syncPointers(); bridge.firing = false; bridge.direction = 0; scene.resetKeys(); }
 /**
  * How long the run ignores the keyboard after a menu closes, in ms.
  *
@@ -622,7 +624,16 @@ const firePointers = new Set<number>();
  * and `left ? -1 : 0`, so A+D is a standstill. Touch sums the same way rather than inventing a
  * last-press-wins rule -- one semantics, whichever hand is playing.
  */
-function syncPointers() { bridge.direction = Math.sign([...movementPointers.values()].reduce((sum, value) => sum + value, 0)); bridge.firing = firePointers.size > 0; }
+function syncPointers() {
+  bridge.direction = Math.sign([...movementPointers.values()].reduce((sum, value) => sum + value, 0)); bridge.firing = firePointers.size > 0;
+  // PRESSED is drawn from this held state, never from CSS :active. A touch browser keeps :active (and
+  // sticky :hover) on a button that was hidden mid-press -- an AREA change, a REST, a shop -- so the
+  // button stayed lit after the overlay went. Held state is what the run reads; the look follows it.
+  const held = [...movementPointers.values()];
+  $('left-control').classList.toggle('pressed', held.includes(-1));
+  $('right-control').classList.toggle('pressed', held.includes(1));
+  $('fire-control').classList.toggle('pressed', firePointers.size > 0);
+}
 /** A touch belongs to the run only once the run has the input, exactly as a key press does. */
 const touchAccepted = () => inPlay() && performance.now() >= bridge.suppressUntil;
 /**
