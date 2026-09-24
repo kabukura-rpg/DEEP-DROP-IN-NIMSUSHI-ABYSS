@@ -188,14 +188,17 @@ describe('AREA 1 side rooms', () => {
     expect(v1.withShop).toBeLessThan(0.8);
   });
 
-  it('leaves AREA 2, 3 and 4 on the single chamber they already had', () => {
+  // AREA 2-4 keep the rectangular chamber but cut TWO a SECTION: across three Downwell normal runs
+  // players entered 1.0-2.33 rooms a level in AREA 2, 1.0-1.67 in AREA 3 and 1.3-3.7 in AREA 4, with
+  // levels of two entered in each, so one chamber could not hold what was observed.
+  it('cuts two chambers in every AREA 2, 3 and 4 SECTION, in either mode', () => {
     for (const area of AREAS.filter(a => a.id !== 1)) {
       expect(area.plans?.every(p => p.sideRooms === undefined)).toBe(true);
       for (const mode of ['v1', 'legacy'] as const) {
         setSideRoomMode(mode);
-        for (const plan of area.plans!) expect(sideRoomCount(plan)).toBe(1);
+        for (const plan of area.plans!) expect(sideRoomCount(plan)).toBe(2);
         for (const seed of SEEDS.slice(0, 10)) for (let section = 1; section <= area.sections; section++) {
-          expect(build(area.id, section, seed).zones.length).toBe(1);
+          expect(build(area.id, section, seed).zones.length).toBe(2);
         }
       }
     }

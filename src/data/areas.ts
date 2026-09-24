@@ -139,9 +139,10 @@ export interface SectionPlan {
    * SAFE ZONE chambers cut into the shaft wall in this SECTION, as a GUARANTEED MINIMUM: the
    * generator retries rows until this many have been cut, rather than rolling for them.
    *
-   * Every SECTION sets 1. PROVISIONAL / MEASUREMENT REQUIRED -- the original scatters chambers down
-   * the well and its real rate and count are NOT measured, so this must not be read as "the original
-   * always has exactly one". One is the floor that makes the supply loop work: weapons, shops and
+   * AREA 2-4 set 2. Measured on three Downwell normal-mode runs as rooms ENTERED a level (a floor on
+   * rooms offered): AREA 2 1.0-2.33, AREA 3 1.0-1.67, AREA 4 1.3-3.7, with levels of two entered in
+   * every AREA -- one chamber could not have held that. AREA 1's floor stays 1 under its caves.
+   * A floor of at least one is what makes the supply loop work: weapons, shops and
    * veins live only in chambers, so a SECTION with none is a SECTION a run cannot be supplied in.
    * Optional extra chambers on top of the minimum are a later change to `safeZoneDepths` alone.
    */
@@ -316,15 +317,15 @@ export const AREAS: readonly AreaConfig[] = [
       // and the flow profile puts them across the fall and beside the shelves.
       { platformWidth: [168, 198], gap: 220, pieces: AREA2_INTRO, enemyChance: 0.72, flyChance: 0.3, swarm: 0.05, flow: { pathFlyers: 0.5, landingGuards: 0.35 }, toughChance: 0.3, heavyChance: 0, comboBias: 0.18, graceDepth: 12,
         spikePlatformChance: 0.3, spikeWarning: 0.5, breakBlockRows: 2, breakBlockDurability: 2,
-        doodadChance: 0.24, safeZoneCount: 1, enemyExclude: ['flyingSkull'], ghosts: { count: 4, speed: 70 } },
+        doodadChance: 0.24, safeZoneCount: 2, enemyExclude: ['flyingSkull'], ghosts: { count: 4, speed: 70 } },
       // 2-2 PURSUIT. Six ghosts, skulls join, slots narrow.
       { platformWidth: [160, 190], gap: 220, pieces: AREA2_PURSUIT, enemyChance: 0.72, flyChance: 0.3, swarm: 0.1, flow: { pathFlyers: 0.6, landingGuards: 0.4 }, toughChance: 0.35, heavyChance: 0, comboBias: 0.24,
         spikePlatformChance: 0.35, spikeWarning: 0.5, breakBlockRows: 2, breakBlockDurability: 2,
-        doodadChance: 0.26, safeZoneCount: 1, ghosts: { count: 6, speed: 80 } },
+        doodadChance: 0.26, safeZoneCount: 2, ghosts: { count: 6, speed: 80 } },
       // 2-3 OSSUARY. Everything at once -- carried by the shape of the shaft, not by a longer roster.
       { platformWidth: [148, 178], gap: 220, pieces: AREA2_OSSUARY, enemyChance: 0.8, flyChance: 0.35, swarm: 0.15, flow: { pathFlyers: 0.7, landingGuards: 0.45 }, toughChance: 0.4, heavyChance: 0, comboBias: 0.28,
         spikePlatformChance: 0.4, spikeWarning: 0.5, breakBlockRows: 2, breakBlockDurability: 2,
-        doodadChance: 0.28, safeZoneCount: 1, ghosts: { count: 8, speed: 88 } },
+        doodadChance: 0.28, safeZoneCount: 2, ghosts: { count: 8, speed: 88 } },
     ],
   },
   {
@@ -370,13 +371,13 @@ export const AREAS: readonly AreaConfig[] = [
       // what changes is where the enemies are -- across the fall and beside the shelves -- which is
       // what turns air into a route choice: the straight line has something in it, the air is off it.
       { platformWidth: [182, 214], gap: 330, pieces: AREA3_OPEN_WATER, enemyChance: 0.34, flyChance: 0.55, swarm: 0.45, flow: { pathFlyers: 0.5, landingGuards: 0.35 }, toughChance: 0.4, enemyExclude: ['biter'], heavyChance: 0, comboBias: 0.18, graceDepth: 12, containerChance: 0.44, maxOxygenGap: 30, bubbleOffside: 0.35,
-        breakBlockRows: 1, breakBlockDurability: 2, doodadChance: 0.34, safeZoneCount: 1 },
+        breakBlockRows: 1, breakBlockDurability: 2, doodadChance: 0.34, safeZoneCount: 2 },
       // 3-2 CROSS CURRENT. Alternating shelves take over; the lateral decision arrives earlier.
       { platformWidth: [168, 198], gap: 336, pieces: AREA3_CROSS_CURRENT, enemyChance: 0.46, flyChance: 0.65, swarm: 0.7, flow: { pathFlyers: 0.6, landingGuards: 0.4 }, toughChance: 0.45, heavyChance: 0, comboBias: 0.24, containerChance: 0.29, maxOxygenGap: 40, bubbleOffside: 0.62,
-        breakBlockRows: 2, breakBlockDurability: 2, doodadChance: 0.40, safeZoneCount: 1 },
+        breakBlockRows: 2, breakBlockDurability: 2, doodadChance: 0.40, safeZoneCount: 2 },
       // 3-3 DROWNED RUINS. Lanes, shelves, branches, gates and scenery at the AREA's widest spacing.
       { platformWidth: [152, 182], gap: 342, pieces: AREA3_DROWNED_RUINS, enemyChance: 0.56, flyChance: 0.75, swarm: 0.95, flow: { pathFlyers: 0.7, landingGuards: 0.45 }, toughChance: 0.5, heavyChance: 0, comboBias: 0.28, containerChance: 0.21, maxOxygenGap: 50, bubbleOffside: 0.85,
-        breakBlockRows: 2, breakBlockDurability: 2, doodadChance: 0.46, safeZoneCount: 1 },
+        breakBlockRows: 2, breakBlockDurability: 2, doodadChance: 0.46, safeZoneCount: 2 },
     ],
   },
   {
@@ -402,13 +403,13 @@ export const AREAS: readonly AreaConfig[] = [
     plans: [
       // 4-1 THE WAY IN. Rubble to land on, barbed debris beside it, the first void drops and swarms.
       { platformWidth: [92, 112], gap: 232, pieces: AREA4_RUBBLE, enemyChance: 0, flyChance: 0.55, swarm: 0.3, toughChance: 0.3, heavyChance: 0, comboBias: 0, graceDepth: 20,
-        flow: { pathFlyers: 0.4, landingGuards: 0 }, doodadChance: 0.95, laneDoodadBand: 420, safeZoneCount: 1 },
+        flow: { pathFlyers: 0.4, landingGuards: 0 }, doodadChance: 0.95, laneDoodadBand: 420, safeZoneCount: 2 },
       // 4-2 THE FALLING CITY. More barbed rubble, longer and more frequent void drops.
       { platformWidth: [84, 102], gap: 238, pieces: AREA4_RUINFALL, enemyChance: 0, flyChance: 0.6, swarm: 0.45, toughChance: 0.35, heavyChance: 0, comboBias: 0,
-        flow: { pathFlyers: 0.5, landingGuards: 0 }, doodadChance: 0.95, laneDoodadBand: 400, safeZoneCount: 1 },
+        flow: { pathFlyers: 0.5, landingGuards: 0 }, doodadChance: 0.95, laneDoodadBand: 400, safeZoneCount: 2 },
       // 4-3 THE VOID. The longest drops, the most barbs, the thickest swarms; the route still lands.
       { platformWidth: [76, 94], gap: 244, pieces: AREA4_VOID, enemyChance: 0, flyChance: 0.65, swarm: 0.6, toughChance: 0.4, heavyChance: 0, comboBias: 0,
-        flow: { pathFlyers: 0.6, landingGuards: 0 }, doodadChance: 0.95, laneDoodadBand: 380, safeZoneCount: 1 },
+        flow: { pathFlyers: 0.6, landingGuards: 0 }, doodadChance: 0.95, laneDoodadBand: 380, safeZoneCount: 2 },
     ],
   },
 ];

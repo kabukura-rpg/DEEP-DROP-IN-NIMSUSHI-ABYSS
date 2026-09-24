@@ -1078,10 +1078,10 @@ describe('SAFE ZONE supply reaches all twelve SECTIONs', () => {
   const clash = (b: ReturnType<typeof box>, ox: number, ow: number, oy: number, oh: number) =>
     ox < b.x + b.w && ox + ow > b.x && oy < b.y + b.h && oy + oh > b.y;
 
-  it('sets a guaranteed minimum of one in every SECTION', () => {
+  it('sets a guaranteed minimum in every SECTION: one under AREA 1\'s caves, two chambers in AREA 2-4', () => {
     for (const [area, section] of ALL) {
       const want = areaConfig(area).plans![section - 1].safeZoneCount ?? 0;
-      expect({ area, section, want }).toEqual({ area, section, want: 1 });
+      expect({ area, section, want }).toEqual({ area, section, want: area === 1 ? 1 : 2 });
     }
   });
 

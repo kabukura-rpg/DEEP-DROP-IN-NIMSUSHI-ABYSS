@@ -104,11 +104,12 @@ export const getSideRoomMode = () => sideRoomMode;
  */
 export type CaveFrequency = 'low' | 'variable' | 'high';
 /**
- * VARIABLE is what AREA 1 ships with. Human review compared all three on one seed -- the shaft is
- * identical in each, so only the number of caves differed -- and chose it: a cave in every SECTION
- * so the detour is always on offer, but not the two that made finding one routine.
+ * HIGH is what AREA 1 ships with: two caves a SECTION. Measured on three Downwell normal-mode runs
+ * (per level 1-1..1-3, rooms ENTERED, which is a floor on rooms offered): 2/2/2, 2/3/2 and 2/3/1 --
+ * 2.0-2.33 a level, never fewer than one and usually two or more. VARIABLE's 1.5 mean (an earlier
+ * Human review pick, made before this was measured) sits under every one of those runs.
  */
-let caveFrequency: CaveFrequency = 'variable';
+let caveFrequency: CaveFrequency = 'high';
 export const setCaveFrequency = (mode: CaveFrequency) => { caveFrequency = mode; };
 export const getCaveFrequency = () => caveFrequency;
 
@@ -138,10 +139,10 @@ export const sideRoomCount = (plan?: { safeZoneCount?: number; sideRooms?: numbe
  * fits, so a SECTION cannot end up with none. They are spread evenly through the SECTION and kept
  * clear of both the opening and the exit.
  *
- * PROVISIONAL / MEASUREMENT REQUIRED: the original places chambers randomly down the well and its
- * real rate is not measured. One per SECTION is a floor that makes the supply loop work, and must
- * NOT be read as "the original always has exactly one". Optional extra chambers are a matter of
- * pushing further depths in here and changing nothing else.
+ * The count is measured (see `safeZoneCount`): the original places rooms down the well, and its
+ * players enter two a level as often as one. The count is a floor that keeps the supply loop
+ * working, and must NOT be read as "the original always has exactly one". Optional extra chambers
+ * are a matter of pushing further depths in here and changing nothing else.
  */
 export function safeZoneDepths(count: number, sectionLength?: number): number[] {
   if (!sectionLength || count <= 0) return [];
