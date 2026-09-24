@@ -329,13 +329,16 @@ export const AREAS: readonly AreaConfig[] = [
       // enemy number, the water physics, and safeZoneCount. The air ceilings in particular are load
       // bearing here -- they are what caps how long an open lane may be.
       // 3-1 OPEN WATER. The widest shelves and the fewest of them.
-      { platformWidth: [182, 214], gap: 330, pieces: AREA3_OPEN_WATER, enemyChance: 0.34, flyChance: 0.26, toughChance: 0.22, heavyChance: 0, comboBias: 0.18, graceDepth: 12, containerChance: 0.44, maxOxygenGap: 30, bubbleOffside: 0.35,
+      // STAGE GENERATION v2: open water already lands 1-1.6 times a screen, so the terrain is kept;
+      // what changes is where the enemies are -- across the fall and beside the shelves -- which is
+      // what turns air into a route choice: the straight line has something in it, the air is off it.
+      { platformWidth: [182, 214], gap: 330, pieces: AREA3_OPEN_WATER, enemyChance: 0.34, flyChance: 0.26, flow: { pathFlyers: 0.5, landingGuards: 0.35 }, toughChance: 0.22, heavyChance: 0, comboBias: 0.18, graceDepth: 12, containerChance: 0.44, maxOxygenGap: 30, bubbleOffside: 0.35,
         breakBlockRows: 1, breakBlockDurability: 2, doodadChance: 0.34, safeZoneCount: 1 },
       // 3-2 CROSS CURRENT. Alternating shelves take over; the lateral decision arrives earlier.
-      { platformWidth: [168, 198], gap: 336, pieces: AREA3_CROSS_CURRENT, enemyChance: 0.46, flyChance: 0.32, toughChance: 0.30, heavyChance: 0, comboBias: 0.24, containerChance: 0.29, maxOxygenGap: 40, bubbleOffside: 0.62,
+      { platformWidth: [168, 198], gap: 336, pieces: AREA3_CROSS_CURRENT, enemyChance: 0.46, flyChance: 0.32, flow: { pathFlyers: 0.6, landingGuards: 0.4 }, toughChance: 0.30, heavyChance: 0, comboBias: 0.24, containerChance: 0.29, maxOxygenGap: 40, bubbleOffside: 0.62,
         breakBlockRows: 2, breakBlockDurability: 2, doodadChance: 0.40, safeZoneCount: 1 },
       // 3-3 DROWNED RUINS. Lanes, shelves, branches, gates and scenery at the AREA's widest spacing.
-      { platformWidth: [152, 182], gap: 342, pieces: AREA3_DROWNED_RUINS, enemyChance: 0.56, flyChance: 0.38, toughChance: 0.38, heavyChance: 0, comboBias: 0.28, containerChance: 0.21, maxOxygenGap: 50, bubbleOffside: 0.85,
+      { platformWidth: [152, 182], gap: 342, pieces: AREA3_DROWNED_RUINS, enemyChance: 0.56, flyChance: 0.38, flow: { pathFlyers: 0.7, landingGuards: 0.45 }, toughChance: 0.38, heavyChance: 0, comboBias: 0.28, containerChance: 0.21, maxOxygenGap: 50, bubbleOffside: 0.85,
         breakBlockRows: 2, breakBlockDurability: 2, doodadChance: 0.46, safeZoneCount: 1 },
     ],
   },

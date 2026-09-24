@@ -1265,8 +1265,14 @@ export class StageGenerator {
     const top = this.previous.y, band = y - top, exit = this.previous.exitX;
     if (band < 170) return undefined;
     const water = this.context.water;
-    for (const t of [0.5, 0.42, 0.58, 0.36, 0.64]) {
+    // Where the air goes, when the AREA has any: the middle of this same band (see `placeAir`). A
+    // flyer across the fall keeps well clear of that height, so taking the air is never also meeting
+    // the flyer -- the two are different answers to the same band.
+    const airMiddle = this.context.oxygen ? top + 46 + ((y - 54) - (top + 46)) / 2 : null;
+    const heights = airMiddle === null ? [0.5, 0.42, 0.58, 0.36, 0.64] : [0.3, 0.7, 0.25, 0.75];
+    for (const t of heights) {
       const ey = Math.round(top + band * t), ex = Math.round(exit + (platform.safeX - exit) * t);
+      if (airMiddle !== null && Math.abs(ey - airMiddle) < 56) continue;
       const probe = spawnEnemy(kind, -1, ex, ey, 14, 0, 'open');
       const env = motionEnvelope(probe);
       if (env.minX < WORLD.wall + 4 || env.maxX > WORLD.width - WORLD.wall - 4) continue;
