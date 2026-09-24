@@ -5,6 +5,7 @@ import { AREA1_RHYTHM, type RhythmGrammar } from './rhythm';
 import { AREA1_GRAMMAR, type PieceGrammar } from './pieces';
 import { AREA3_CROSS_CURRENT, AREA3_DROWNED_RUINS, AREA3_OPEN_WATER } from './waterTerrain';
 import { AREA2_INTRO, AREA2_OSSUARY, AREA2_PURSUIT } from './catacombTerrain';
+import { AREA4_RUBBLE, AREA4_RUINFALL, AREA4_VOID } from './limboTerrain';
 
 export type AreaId = 1 | 2 | 3 | 4;
 export type SectionId = 1 | 2 | 3;
@@ -231,8 +232,9 @@ const LATER_AREA_POOL: readonly EnemyKind[] = ['slime', 'bat', 'armoredSlime', '
  *                             warning, for ordinary damage. Wall candles to bounce from. No water.
  *   AREA 3  Aquifer role   -- submerged. The breath gauge is the clock, air containers are the only
  *                             supply, and everything moves through water.
- *   AREA 4  Limbo role     -- nowhere safe to stand. Every ledge is a spike platform, nothing can be
- *                             stomped, and floating scenery is what reloads the gunboots.
+ *   AREA 4  Limbo role     -- a collapsed space. Broken rubble to land on, much of it giving way or
+ *                             turning; nothing can be stomped, so the gunboots clear the way, and
+ *                             floating scenery reloads them between landings.
  *
  * Magma -- heat, lava, ice -- is no longer part of a normal run. The systems stay because the FINAL
  * BOSS replays them, and they are available for later bonus content.
@@ -343,20 +345,29 @@ export const AREAS: readonly AreaConfig[] = [
     ],
   },
   {
-    // LIMBO ROLE. There is no resting here. Every ledge is a SPIKE PLATFORM, so touching down buys a
-    // reload and a settled chain at the cost of having to leave immediately; nothing in the enemy
-    // pool can be stomped, so the gunboots are the only way through them; and floating scenery is
-    // what refills CHARGE, which makes the AREA a loop of shoot, bounce, shoot.
+    // LIMBO ROLE, REBUILT (STAGE GENERATION v2, limboTerrain.ts). Rows are ~30% further apart than the barb
+    // column was, so the per-row enemy chances are raised to keep enemies per 100m where they were. This was a column of barb blocks on
+    // the fall line with nowhere to land past 4-1's opening: the AREA's whole difficulty was one
+    // mechanic and its introduction was its hardest SECTION. Now it is broken rubble to land on and
+    // reload from, some of it collapsing under the feet (BREAK: 0.65s after landing) and, from 4-2,
+    // some of it turning (SPIKE PLATFORMS whose warning outlasts the walk off them). Barbs survive as
+    // debris beside the route, never on it. Nothing in the pool can be stomped, so the gunboots clear
+    // the way; floating scenery still reloads them between landings.
     id: 4, name: 'COLLAPSED REALM', sections: 3, sectionLength: 380,
     enemyPool: ['voidWisp', 'hollowShade', 'spikeDemon'],
     theme: { wall: 0x241f2e, wallEdge: 0x3c3350, pillar: 0x2d2740, brick: 0x171422, accent: 0xc0a7ed, dust: 0x8c82a5, rift: { glow: 0x9d7bd8, void: 0x0b0710, debris: 0x4a3f63 } },
+    gimmicks: { breakablePlatforms: true },
     plans: [
-      { platformWidth: [92, 112], gap: 232, enemyChance: 0.30, flyChance: 0.26, toughChance: 0.16, heavyChance: 0, comboBias: 0.24, graceDepth: 26,
-        limboHazardChance: 1, doodadChance: 0.95, safeZoneCount: 1 },
-      { platformWidth: [84, 102], gap: 238, enemyChance: 0.46, flyChance: 0.40, toughChance: 0.28, heavyChance: 0, comboBias: 0.34,
-        limboHazardChance: 1, doodadChance: 0.95, safeZoneCount: 1 },
-      { platformWidth: [76, 94], gap: 244, enemyChance: 0.58, flyChance: 0.50, toughChance: 0.34, heavyChance: 0, comboBias: 0.40,
-        limboHazardChance: 1, doodadChance: 0.95, safeZoneCount: 1 },
+      // 4-1 THE WAY IN. Rubble to land on, a few ledges giving way, barbs only now and then.
+      { platformWidth: [92, 112], gap: 232, pieces: AREA4_RUBBLE, enemyChance: 0.43, flyChance: 0.37, toughChance: 0.16, heavyChance: 0, comboBias: 0.24, graceDepth: 26,
+        flow: { pathFlyers: 0.3, landingGuards: 0.2 }, breakableChance: 0.12, maxBreakableRun: 2, doodadChance: 0.95, safeZoneCount: 1 },
+      // 4-2 THE FALLING CITY. More collapse, barbed debris, longer drops; the first turning ledges.
+      { platformWidth: [84, 102], gap: 238, pieces: AREA4_RUINFALL, enemyChance: 0.65, flyChance: 0.57, toughChance: 0.28, heavyChance: 0, comboBias: 0.34,
+        flow: { pathFlyers: 0.45, landingGuards: 0.3 }, breakableChance: 0.25, maxBreakableRun: 2, spikePlatformChance: 0.12, spikeReaction: 0.35, doodadChance: 0.95, safeZoneCount: 1 },
+      // 4-3 THE VOID. Every tool at once. Never more than two collapsing ledges in a row, so a stable
+      // one always arrives; no ledge ever hurts on the landing itself.
+      { platformWidth: [76, 94], gap: 244, pieces: AREA4_VOID, enemyChance: 0.85, flyChance: 0.73, toughChance: 0.34, heavyChance: 0, comboBias: 0.40,
+        flow: { pathFlyers: 0.6, landingGuards: 0.4 }, breakableChance: 0.35, maxBreakableRun: 2, spikePlatformChance: 0.22, spikeReaction: 0.35, doodadChance: 0.95, safeZoneCount: 1 },
     ],
   },
 ];

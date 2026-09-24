@@ -39,7 +39,8 @@
  */
 export type PieceId = 'normal' | 'openDrop' | 'ledgeCluster' | 'wallChannel' | 'breakableDrop'
   | 'openLane' | 'crossShelf' | 'shelfPair'
-  | 'baffle' | 'slot';
+  | 'baffle' | 'slot'
+  | 'rubbleField' | 'rubbleStair' | 'voidDrop';
 
 /** What one row of a piece asks the generator for. Everything here is a request, not a placement. */
 export interface RowIntent {
@@ -85,6 +86,17 @@ export interface RowIntent {
    * fall had to land. Absent means the SECTION's own chance, exactly as before.
    */
   spikeChance?: number;
+  /**
+   * COLLAPSED REALM: chance that each EXTRA ledge of this band is a LIMBO barb block rather than a
+   * landing. Never the route ledge, and never one crowding the route's way off -- a barb here is an
+   * obstacle beside the route, seen and steered around. Absent everywhere else.
+   */
+  barbChance?: number;
+  /**
+   * Width of this band's EXTRA ledges only; the route ledge keeps the SECTION's own envelope, so a
+   * guard can still stand on it. Absent means `ledgeWidth`, then the old default.
+   */
+  extraWidth?: readonly [number, number];
 
 }
 

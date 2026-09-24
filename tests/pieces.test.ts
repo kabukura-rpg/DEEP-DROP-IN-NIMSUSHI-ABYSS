@@ -74,14 +74,16 @@ describe('AREA 1 terrain pieces', () => {
    * waterTerrain.ts); AREA 4 still runs the single-gap step. The three share this generator and the
    * two names the planner forces -- `normal` and `breakableDrop` -- and no shape besides.
    */
-  it('runs its own grammar in every AREA 1, 2 and 3 SECTION, and none in AREA 4', () => {
-    for (const id of [1, 2, 3] as const) expect(areaConfig(id).plans?.every(p => p.pieces !== undefined)).toBe(true);
-    for (const area of AREAS.filter(a => a.id === 4)) expect(area.plans?.every(p => p.pieces === undefined)).toBe(true);
-    const shapes = (id: 1 | 2 | 3) => new Set(areaConfig(id).plans!.flatMap(p => p.pieces!.pieces.map(x => x.id)).filter(x => x !== 'normal' && x !== 'breakableDrop'));
-    const [one, two, three] = [shapes(1), shapes(2), shapes(3)];
-    for (const [a, b] of [[one, two], [one, three], [two, three]]) expect([...a].filter(x => b.has(x))).toEqual([]);
+  // STAGE GENERATION v2 gave AREA 4 a grammar of its own (limboTerrain.ts): every AREA now runs one,
+  // and still no two share a shape beyond the two names the planner forces.
+  it('runs its own grammar in every SECTION of every AREA, and no two AREAs share a shape', () => {
+    for (const id of [1, 2, 3, 4] as const) expect(areaConfig(id).plans?.every(p => p.pieces !== undefined)).toBe(true);
+    const shapes = (id: 1 | 2 | 3 | 4) => new Set(areaConfig(id).plans!.flatMap(p => p.pieces!.pieces.map(x => x.id)).filter(x => x !== 'normal' && x !== 'breakableDrop'));
+    const all = [shapes(1), shapes(2), shapes(3), shapes(4)];
+    for (let i = 0; i < all.length; i++) for (let j = i + 1; j < all.length; j++) expect([...all[i]].filter(x => all[j].has(x))).toEqual([]);
     // Each states its own widest step, so the air-gap lookahead is never checked against another's.
-    for (const id of [1, 2, 3] as const) expect(areaConfig(id).plans!.every(p => p.pieces!.maxStep > 0)).toBe(true);
+    for (const id of [1, 2, 3, 4] as const) expect(areaConfig(id).plans!.every(p => p.pieces!.maxStep > 0)).toBe(true);
+    expect(AREAS.length).toBe(4);
   });
 
   it('never generates a band that cannot be landed on from the one above it', () => {

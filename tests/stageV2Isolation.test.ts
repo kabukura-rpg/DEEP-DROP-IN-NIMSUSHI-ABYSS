@@ -31,7 +31,7 @@ const C9A0A63: Record<string, string> = {
   "boss": "3b6bd54d9a118f15a17a5a58"
 };
 
-const UNCHANGED_AREAS = [4] as const;
+const UNCHANGED_AREAS = [] as const;
 
 describe('STAGE GENERATION v2 leaves every AREA it has not rebuilt, and the boss, exactly as c9a0a63', () => {
   it('generates the untouched AREAs identically', () => {

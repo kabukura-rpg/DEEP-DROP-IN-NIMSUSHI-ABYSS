@@ -126,6 +126,12 @@ export interface GenerationContext {
  */
 const LIMBO_FALL_LANE = 124;
 /**
+ * How far a COLLAPSED REALM barb block must stay from the route ledge's way off. The body is 9px
+ * either side of centre and leaves 12px past the edge; 30px keeps a clean fall beside the block even
+ * for a player who walks off without steering away from it.
+ */
+const LIMBO_BARB_CLEARANCE = 30;
+/**
  * How far below the player the camera shows, in pixels. GameModel frames the player at 0.37 of the
  * viewport, so this is the rest of it -- and therefore how much of a fall a mouth is visible for.
  */
@@ -385,7 +391,7 @@ export class StageGenerator {
     if (!intent.extras) return out;
     const window = horizontalReach(intent.step, this.context.water) * 1.5;
     for (let n = 0; n < intent.extras; n++) {
-      const [lo, hi] = intent.ledgeWidth ?? [tuning.minWidth * 0.45, tuning.minWidth * 0.75];
+      const [lo, hi] = intent.extraWidth ?? intent.ledgeWidth ?? [tuning.minWidth * 0.45, tuning.minWidth * 0.75];
       const width = Math.round(lo + this.random() * (hi - lo));
       const taken = [route, ...out];
       const options: RoutePlatform[] = [];
@@ -687,6 +693,20 @@ export class StageGenerator {
       // the doodad are placed, so both see them and keep clear the way they keep clear of any ledge.
       const extras = shaped ? shaped.others : intent ? this.layExtras(intent, platform, y, tuning) : [];
       if (shaped && intent?.slot) for (const other of extras) if (this.random() < (intent.spikeChance ?? 0)) other.spikePlatform = this.spikeFor(other);
+      // COLLAPSED REALM: some of a band's extra ledges are barbs. Only debris clear of BOTH ends of the
+      // route may be: the way in -- every line from the band above's exits to this landing, which a
+      // fall at full speed finishes only as it arrives -- and the way off, which starts beside it.
+      if (intent?.barbChance) {
+        const exits = this.previousBand.map(p => p.exitX);
+        const inLeft = Math.min(...exits, platform.safeX) - LIMBO_BARB_CLEARANCE, inRight = Math.max(...exits, platform.safeX) + LIMBO_BARB_CLEARANCE;
+        for (const other of extras) {
+          if (this.random() >= intent.barbChance) continue;
+          const near = Math.min(Math.abs(other.x - platform.exitX), Math.abs(other.x + other.width - platform.exitX));
+          const covers = platform.exitX > other.x && platform.exitX < other.x + other.width;
+          const onTheWayIn = other.x < inRight && other.x + other.width > inLeft;
+          if (!covers && !onTheWayIn && near >= LIMBO_BARB_CLEARANCE) other.limboHazard = true;
+        }
+      }
       if (y >= start) platforms.push(...extras);
 
       let guard: Enemy | undefined;
@@ -761,7 +781,8 @@ export class StageGenerator {
       // nothing else, so a run is re-armed and re-supplied by finding a chamber -- which is what
       // makes stepping off the fall line to reach one worth doing.
       this.previous = platform;
-      this.previousBand = [platform, ...extras];
+      // A barb block is not somewhere a fall can leave from, so the next row answers only to landings.
+      this.previousBand = [platform, ...extras.filter(p => !p.limboHazard)];
       this.nextY += plannedStep ?? this.rowStep(tuning, band, intent);
     }
     return { platforms, enemies, pickups, hazards, containers, doodads, safeZones, caves, exit };

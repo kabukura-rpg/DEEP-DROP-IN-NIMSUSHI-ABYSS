@@ -149,12 +149,13 @@ describe('AREA 1 vertical rhythm', () => {
    * grammar of its own, so it is excluded here for the same reason AREA 1 is -- it has been measured
    * on its own terms and given its own shapes, rather than left on the number it inherited.
    */
-  // AREA 2 has since been given a grammar of its own too (catacombTerrain.ts); only AREA 4 is left.
-  it('leaves AREA 4 on the single-gap step it already had', () => {
+  // AREA 2 has since been given a grammar of its own too (catacombTerrain.ts), and STAGE GENERATION v2
+  // gave AREA 4 one (limboTerrain.ts). What is held now: AREA 4 never runs AREA 1's RHYTHM, and on the
+  // dev A/B's non-grammar modes it falls back to exactly the single-gap step it always had.
+  it('never puts AREA 4 on the rhythm, and falls back to its single-gap step off the grammar', () => {
     for (const area of AREAS.filter(a => a.id === 4)) {
-      // Neither grammar reaches them: no rhythm and no pieces, in any terrain mode.
-      expect(area.plans?.every(p => p.rhythm === undefined && p.pieces === undefined)).toBe(true);
-      for (const mode of ['legacy', 'rhythm-v1', 'grammar-v2'] as const) {
+      expect(area.plans?.every(p => p.rhythm === undefined && p.pieces !== undefined)).toBe(true);
+      for (const mode of ['legacy', 'rhythm-v1'] as const) {
       setTerrainMode(mode);
       for (const seed of SEEDS.slice(0, 8)) for (let section = 1; section <= area.sections; section++) {
         const plan = area.plans![section - 1];
