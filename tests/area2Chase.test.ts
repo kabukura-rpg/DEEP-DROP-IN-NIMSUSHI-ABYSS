@@ -27,6 +27,9 @@ const meets = (a: Box, b: Box) => a.minX < b.maxX && a.maxX > b.minX && a.minY <
 /** A bare CATACOMB run with the world cleared, for chaser fixtures. */
 function bare(sectionId: SectionId = 2) {
   const g = new GameModel(false, seeded(4401));
+  // Re-seeded at the AREA's entry (as regressionSignature's `entered` does), so what AREA 1 draws
+  // before the jump can never decide what this fixture finds in AREA 2.
+  (g as unknown as { random: () => number }).random = seeded(4401);
   g.jumpToStage(2, sectionId);
   g.platforms = []; g.enemies = []; g.pickups = []; g.hazards = []; g.doodads = []; g.safeZones = [];
   g.player.invincible = 0;
@@ -343,7 +346,7 @@ describe('FLYING SKULL', () => {
     const states = new Set<string>();
     // The player stays close enough that the camera keeps the skull on screen (off screen it would be
     // retired like any enemy), but far outside its reach, so it has nothing to notice again.
-    for (let i = 0; i < 120 * 8; i++) { standStill(g, 60, 2000 + SKULL_RULES.range + 60); g.step(1 / 120, 0, false); states.add(e.ai!.state); }
+    for (let i = 0; i < 120 * 8; i++) { standStill(g, 60, 2000 + SKULL_RULES.range + 60); g.step(1 / 120, 0, false); states.add(e.ai!.state!); }
     expect([...states]).toEqual(expect.arrayContaining(['warn', 'charge', 'cool', 'return', 'idle']));
     expect(e.ai!.state).toBe('idle');
     expect(e.x).toBeCloseTo(225, 6);

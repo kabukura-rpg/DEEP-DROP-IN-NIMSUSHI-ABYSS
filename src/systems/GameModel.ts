@@ -30,6 +30,7 @@ import { StageProgressionSystem } from './StageProgressionSystem';
 import { FINAL_STAGE, type AreaId, type SectionId } from '../data/areas';
 import { enemyPosition, enemyType } from '../data/enemies';
 import { CHASE_STEP, GHOST_RULES, inSight, stepChaser, type ChaseState } from '../data/chasers';
+import { BONE, dwellerMayHit, dwellerShot, stepDweller, type DwellerState } from '../data/dwellers';
 import { defaultTuning, sanitizeTuning, type PhysicsTuning } from './PhysicsTuning';
 export type GameEvent = { type: 'shot' | 'empty' | 'land' | 'kill' | 'hurt' | 'upgrade' | 'over' | 'heal' | 'boss' | 'clear' | 'oxygen' | 'section' | 'ice' | 'vent' | 'crack' | 'collapse' | 'bossHit' | 'bossTelegraph' | 'bossFire' | 'bossPhase' | 'bossDown' | 'gunModule' | 'coin' | 'shopOpen' | 'shopBuy' | 'exitReady' | 'exit' | 'containerBreak' | 'blockCrack' | 'blockBreak' | 'jump' | 'wallJump' | 'comboSettle' | 'doodad' | 'timeVoid' | 'coinVein' | 'coinHigh' | 'spikePlatform' | 'explosion' | 'corpse' | 'balloon' | 'jetpack' | 'gravityFlip' | 'bossEye' | 'bossRage' | 'bossStart' | 'tomato' | 'bossLine' | 'seal' | 'abyss'
   | 'ghostWake' | 'ghostFade' | 'skullWarn' | 'skullCharge'; x: number; y: number; value?: number; stomp?: boolean; lifeUps?: number; overflow?: number; combo?: number; stage?: string; areaCleared?: string | null; bonus?: 'heart' | 'charge'; source?: { id: number; kind: Enemy['kind']; x: number; y: number } };
@@ -132,6 +133,12 @@ export class GameModel {
   /** The COIN HIGH meter. Fed by every path that earns money; see `earnCoins`. */
   coinHigh = new CoinHighSystem();
   bullets: Bullet[] = [];
+  /**
+   * BONES in flight: the only thing an enemy throws. A BONE THROWER lobs one in a fixed arc; it hurts
+   * like a body, falls like a coin, and a round breaks it. See dwellers.ts.
+   */
+  bones: { id: number; x: number; y: number; vx: number; vy: number; life: number; alive: boolean }[] = [];
+  private nextBoneId = 1;
   events: GameEvent[] = [];
   ammo = this.stats.maxAmmo;
   readonly health = new HealthSystem(this.stats.maxHp, () => this.running && !this.victorySealed, () => this.finish());
@@ -916,6 +923,11 @@ export class GameModel {
         const at = this.worldElapsed - this.chaseClock;
         for (const e of chasers) {
           if (!e.alive) continue;
+          if (e.ai.kind !== 'ghost' && e.ai.kind !== 'skull') {
+            const out = stepDweller(e, e.ai as DwellerState, p, CHASE_STEP, { top: this.cameraY, height: WORLD.height });
+            if (out?.type === 'bone') this.bones.push({ id: this.nextBoneId++, x: out.x, y: out.y, vx: out.vx, vy: out.vy, life: BONE.life, alive: true });
+            continue;
+          }
           const signal = stepChaser(e, p, CHASE_STEP, at, { top: this.cameraY, height: WORLD.height }, hunting < GHOST_RULES.activeCap);
           if (signal === 'ghostWake') hunting++;
           // A ghost that has hunted its time fades and frees its turn; it pays nothing.
@@ -1073,8 +1085,22 @@ export class GameModel {
       for (const e of targets) {
         b.hits.add(e.id); e.hp -= b.damage; e.flash = 0.1;
         if (e.hp <= 0) this.kill(e, false);
+        else if (e.ai && e.ai.kind !== 'ghost' && e.ai.kind !== 'skull') dwellerShot(e, e.ai as DwellerState);
         if (b.hits.size > b.pierce) { b.alive = false; break; }
       }
+    }
+    // BONES. They fly while the world runs and stop with it, a round breaks one, and one that reaches
+    // the player is a hit like any body's.
+    if (!frozen && this.bones.length) {
+      for (const bone of this.bones) {
+        if (!bone.alive) continue;
+        bone.vy += BONE.gravity * dt; bone.x += bone.vx * dt; bone.y += bone.vy * dt; bone.life -= dt;
+        if (bone.life <= 0 || bone.x < WORLD.wall || bone.x > WORLD.width - WORLD.wall) { bone.alive = false; continue; }
+        const shot = this.bullets.find(b => b.alive && Math.abs(b.x - bone.x) < BONE.radius + b.size && sweeps(b.previousY, b.y, bone.y - BONE.radius, bone.y + BONE.radius));
+        if (shot) { shot.alive = false; bone.alive = false; continue; }
+        if (Math.abs(p.x - bone.x) < BONE.radius + 9 && Math.abs(p.y - bone.y) < BONE.radius + 15 && p.invincible <= 0 && this.damage(1, 'enemy')) bone.alive = false;
+      }
+      this.bones = this.bones.filter(bone => bone.alive);
     }
     // Contact with the shaft's inhabitants is part of the shaft: inside a chamber they cannot
     // reach the player, which is what makes it safe.
@@ -1083,6 +1109,7 @@ export class GameModel {
       // NO CHEAP HIT: a ghost touches no one it has not been seen by -- it must be on screen now, and
       // have been on screen long enough since it woke. Checked here, where contact is decided.
       if (e.ai?.kind === 'ghost' && (e.ai.seen < GHOST_RULES.seenBeforeHit || !inSight(e.y, { top: this.cameraY, height: WORLD.height }))) continue;
+      if (e.ai && e.ai.kind !== 'ghost' && e.ai.kind !== 'skull' && !dwellerMayHit(e.ai as DwellerState)) continue;
       // The face gravity brings the player down onto: an enemy's head in the shaft, its underside
       // in the ABYSS. The same crossing, the same stomp, mirrored -- nothing here knows which.
       const crown = e.y - 10 * this.gravity;
@@ -2223,7 +2250,7 @@ export class GameModel {
       ? { x: p.x, y: p.y + UPGRADE_TUNING.heartBalloon.offsetY * this.gravity, alive: true }
       : null;
     this.jetpackFuel = UPGRADE_TUNING.safetyJetpack.fuelSeconds;
-    this.doodadContact = null; this.worldElapsed = 0; this.chaseClock = 0;
+    this.doodadContact = null; this.worldElapsed = 0; this.chaseClock = 0; this.bones = [];
     this.containers = []; this.bubbles = []; this.exit = null;
     // Coins already banked stay banked; only the ones still lying on the floor are swept up.
     this.coins.clearLoose();
@@ -2370,8 +2397,16 @@ export class GameModel {
     if (drop && this.random() < (drop.chance ?? 1)) this.pickups.push(spawnPickup(drop.pickup, 900000 + enemy.id, enemy.x, enemy.y, this.random() * Math.PI * 2, true));
     // Every defeated enemy leaves money. The boss is not an Enemy and never reaches this path,
     // so the CLEAR sequence is untouched.
-    const money = coinsFor(type.threat);
-    this.coins.burst(enemy.x, enemy.y, money.count, this.random, money.denomination);
+    // A kind that names the original's gem drop pays exactly that, as LARGE and SMALL coins; any
+    // other pays the old per-threat handful.
+    if (type.gems !== undefined) {
+      const large = Math.floor(type.gems / 10), small = Math.round((type.gems % 10) / 2);
+      if (large) this.coins.burst(enemy.x, enemy.y, large, this.random, 'large');
+      if (small) this.coins.burst(enemy.x, enemy.y, small, this.random, 'small');
+    } else {
+      const money = coinsFor(type.threat);
+      this.coins.burst(enemy.x, enemy.y, money.count, this.random, money.denomination);
+    }
     // A body, for the two upgrades that care. Laid whether or not the run holds either: whether it
     // is worth anything is their question, not the kill's.
     if (type.leavesCorpse) this.corpses.push(spawnCorpse(this.nextCorpseId++, enemy.x, enemy.y, this.gravity));

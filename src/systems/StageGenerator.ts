@@ -85,6 +85,11 @@ export function canPassEnemy(box: { minX: number; maxX: number; minY: number; ma
   const viaRight = right <= outer && (from.exitX >= right || right - from.exitX <= reachIn) && (to.safeX >= right || right - to.safeX <= reachOut);
   return viaLeft || viaRight;
 }
+/** Kinds whose behaviour takes them anywhere (dwellers.ts): chasers, risers, darters, bouncers. */
+export const roams = (kind: EnemyKind) => {
+  const b = ENEMY_TYPES[kind].behaviour;
+  return b !== undefined && b !== 'frog' && b !== 'groundSkull' && b !== 'throw' && b !== 'phantom' && b !== 'orbit' && b !== 'crawl';
+};
 export const canReachPlatform = 
 (from: RoutePlatform, to: RoutePlatform, water?: WaterPhysics) => to.y > from.y && Math.abs(to.safeX - from.exitX) <= horizontalReach(to.y - from.y, water);
 
@@ -730,7 +735,10 @@ export class StageGenerator {
         } else {
           const kind = max >= min ? this.kindFor('guard', tuning, width) : undefined;
           if (kind) {
-            guard = this.enemy(kind, (min + max) / 2, y - 15, Math.min(22, (max - min) / 2), 'guard');
+            // A hopper (TOAD, BONE HOPPER) may use the whole stretch a guard is allowed; anything else
+            // patrols the short sway it always has.
+            const hops = ENEMY_TYPES[kind].behaviour === 'frog' || ENEMY_TYPES[kind].behaviour === 'groundSkull';
+            guard = this.enemy(kind, (min + max) / 2, y - 15, hops ? (max - min) / 2 : Math.min(22, (max - min) / 2), 'guard');
             if (y >= start) enemies.push(guard);
           }
         }
@@ -756,9 +764,25 @@ export class StageGenerator {
           const range = Math.min(32, (right - left) / 2);
           const kind = this.kindFor('open', tuning);
           if (kind) {
-            const e = this.enemy(kind, (left + right) / 2, y - 115, range, 'open');
-            if (y >= start) enemies.push(e);
+            const e = ENEMY_TYPES[kind].behaviour === 'bat' ? this.hangingBat(kind, y) : this.enemy(kind, (left + right) / 2, y - 115, range, 'open');
+            if (e && y >= start) enemies.push(e);
           }
+        }
+      }
+      // DOWNWELL NORMAL GAMEPLAY CLONE: more of the shaft's inhabitants, loose in the band above this
+      // row. The original's wells are full of things that come for you; one guard and one flyer per
+      // row was never that. Each is a roaming kind -- it will not stay where it was put -- so where it
+      // starts matters only for being seen: it is kept off the line the fall takes into this landing.
+      const swarm = this.context.plan?.swarm ?? 0;
+      // Quiet rows (a SECTION's opening grace) have their flyer chance zeroed, and lay no swarm either.
+      if (swarm > 0 && tuning.flyChance > 0 && this.openKinds && y - this.previous.y >= 170) {
+        const extra = Math.floor(swarm) + (this.random() < swarm % 1 ? 1 : 0);
+        for (let i = 0; i < extra; i++) {
+          const kind = this.kindFor('open', tuning);
+          if (!kind) break;
+          const band = enemies.filter(o => o.y > this.previous.y - 40 && o.y < y + 10);
+          const e = ENEMY_TYPES[kind].behaviour === 'bat' ? this.hangingBat(kind, y) : this.looseEnemy(kind, platform, y, band);
+          if (e && !band.some(o => Math.hypot(o.x - e.x, o.y - e.y) < 40) && y >= start) enemies.push(e);
         }
       }
       // A GHOST due at this depth waits inside a wall just above this row. It is in the brickwork, so
@@ -1283,6 +1307,10 @@ export class StageGenerator {
   private pathFlyer(platform: RoutePlatform, y: number, tuning: RowTuning): Enemy | undefined {
     const kind = this.kindFor('open', tuning);
     if (!kind) return undefined;
+    // A bat hangs under a ledge, never across a fall. Every other kind -- roamers included -- STARTS on
+    // the line with the same way round it, checked at the spot it is laid: a roamer that then comes
+    // for the player is an answer to shoot or stomp, and it starts where a straight fall meets it.
+    if (ENEMY_TYPES[kind].behaviour === 'bat') return undefined;
     const top = this.previous.y, band = y - top, exit = this.previous.exitX;
     if (band < 170) return undefined;
     const water = this.context.water;
@@ -1305,6 +1333,32 @@ export class StageGenerator {
     return undefined;
   }
 
+  /**
+   * A CAVE BAT hangs under the ledge above this band, at the end away from where the fall leaves it,
+   * so it drops on a player who passes rather than one standing on top of it.
+   */
+  private hangingBat(kind: EnemyKind, y: number): Enemy | null {
+    const from = this.previous;
+    if (y - from.y < 150 || from.width < 40) return null;
+    let x = from.x + 16 + this.random() * (from.width - 32);
+    if (Math.abs(x - from.exitX) < 44) x = from.safeSide === 1 ? from.x + 18 : from.x + from.width - 18;
+    return this.enemy(kind, Math.max(WORLD.wall + 14, Math.min(WORLD.width - WORLD.wall - 14, x)), from.y + 24, 0, 'open');
+  }
+  /** A roaming enemy loose in the band above this row, started clear of the fall into its landing. */
+  private looseEnemy(kind: EnemyKind, platform: RoutePlatform, y: number, taken: readonly Enemy[]): Enemy | null {
+    const top = this.previous.y, band = y - top;
+    // A few tries for a start clear of everything already in the band; a crowded band simply gets none.
+    for (let attempt = 0; attempt < 4; attempt++) {
+      const ey = Math.round(top + 70 + this.random() * (band - 140));
+      const t = (ey - top) / band, lineX = this.previous.exitX + (platform.safeX - this.previous.exitX) * t;
+      let ex = WORLD.wall + 30 + this.random() * (WORLD.width - WORLD.wall * 2 - 60);
+      if (Math.abs(ex - lineX) < 48) ex = lineX + (ex < lineX ? -48 : 48);
+      ex = Math.round(Math.max(WORLD.wall + 26, Math.min(WORLD.width - WORLD.wall - 26, ex)));
+      if (taken.some(o => Math.hypot(o.x - ex, o.y - ey) < 40)) continue;
+      return this.enemy(kind, ex, ey, 24, 'open');
+    }
+    return null;
+  }
   private enemy(kind: EnemyKind, x: number, y: number, range: number, slot: 'guard' | 'open'): Enemy {
 
     return spawnEnemy(kind, this.id++, x, y, range, this.random() * Math.PI * 2, slot);

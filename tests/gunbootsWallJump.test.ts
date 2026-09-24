@@ -367,14 +367,19 @@ describe('shootable and stompable are two separate questions', () => {
   it('states both for every enemy in the catalogue', () => {
     const kinds = Object.keys(ENEMY_TYPES) as EnemyKind[];
     // Twenty from the shaft, NIMUSHI's two (the clone and its LIMBO variant), its BOUNCE TAPIOCA,
-    // and AREA 2's two chasers (GHOST, FLYING SKULL).
-    expect(kinds.length).toBe(25);
+    // AREA 2's two chasers (GHOST, FLYING SKULL), and the fifteen Downwell roles the clone added
+    // (dwellers.ts): SPORE, CAVE BAT, TOAD, SHELLBACK, CREEPER, WATCHER, BONE HOPPER, BONE THROWER,
+    // SHADE ORB, ANGRY ORB, SHELL SWIMMER, RISER JELLY, SQUID, BITER, VOID SHARD.
+    expect(kinds.length).toBe(40);
     for (const kind of kinds) {
       expect({ kind, shootable: typeof ENEMY_TYPES[kind].shootable }).toEqual({ kind, shootable: 'boolean' });
       expect({ kind, stompable: typeof ENEMY_TYPES[kind].stompable }).toEqual({ kind, stompable: 'boolean' });
     }
-    // This phase deliberately turtles nobody: every existing enemy still answers to a round.
-    expect(kinds.every(kind => ENEMY_TYPES[kind].shootable)).toBe(true);
+    // The original's turtle role is now in the roster (DOWNWELL NORMAL GAMEPLAY CLONE): exactly the two
+    // turtles shrug off rounds, and a thing that cannot be shot can always be landed on -- no kind is
+    // both, so there is always an answer.
+    expect(kinds.filter(kind => !ENEMY_TYPES[kind].shootable).sort()).toEqual(['shellSwimmer', 'shellback']);
+    expect(kinds.every(kind => ENEMY_TYPES[kind].shootable || ENEMY_TYPES[kind].stompable)).toBe(true);
     // And they are genuinely independent: the roster already varies one without the other.
     expect(new Set(kinds.map(kind => ENEMY_TYPES[kind].stompable)).size).toBe(2);
   });

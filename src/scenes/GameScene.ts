@@ -262,10 +262,13 @@ export class GameScene extends Phaser.Scene {
    * obvious even at the edge of the screen.
    */
   private skull(e: Enemy, x: number, y: number, hurt: boolean) {
-    const state = e.ai?.kind === 'skull' ? e.ai.state : 'idle';
+    // A FLYING SKULL now runs the original's rule (dwellers.ts): calm until shot, then red and hunting.
+    const angry = e.ai?.kind === 'wander' && e.ai.state === 'angry';
+    const state = e.ai?.kind === 'skull' ? e.ai.state : angry ? 'charge' : 'idle';
     const shake = state === 'warn' ? Math.round(Math.sin(this.model.elapsed * 60) * 2) : 0;
     const bone = hurt ? 0xffffff : state === 'cool' || state === 'return' ? 0xbdb3a2 : 0xefe6d2;
     const cx = x + shake;
+    if (angry) this.rect(cx - 13, y - 17, 26, 29, 0xff4a4a, 0.35);
     if (state === 'charge' && e.ai?.kind === 'skull') {
       const len = Math.hypot(e.ai.vx, e.ai.vy) || 1, ux = e.ai.vx / len, uy = e.ai.vy / len;
       for (let i = 1; i <= 3; i++) this.rect(cx - ux * i * 9 - 5, y - uy * i * 9 - 5, 10, 10, 0xefe6d2, 0.35 - i * 0.09);
@@ -544,6 +547,12 @@ export class GameScene extends Phaser.Scene {
     }
     this.boss(cam);
     for (const enemy of m.enemies) if (enemy.alive) this.enemy(enemy, cam);
+    // BONES: a short spinning shaft with a knob at each end.
+    for (const bone of m.bones) {
+      const a = m.elapsed * 14 + bone.id, bx = bone.x, by = bone.y - cam, dx = Math.cos(a) * 8, dy = Math.sin(a) * 8;
+      this.graphics.lineStyle(4, 0xefe6d2, 1).lineBetween(bx - dx, by - dy, bx + dx, by + dy);
+      this.rect(bx - dx - 3, by - dy - 3, 6, 6, 0xefe6d2); this.rect(bx + dx - 3, by + dy - 3, 6, 6, 0xefe6d2);
+    }
     const p0 = m.player;
     // Under a COIN HIGH the rounds themselves change: hotter, wider and with a longer tail, which
     // is the same thing the numbers did. The shape of each weapon is untouched -- a PUNCHER still
@@ -1093,7 +1102,13 @@ export class GameScene extends Phaser.Scene {
     const width = type.bodyWidth;
     if (type.silhouette === 'ghost') { this.ghost(e, x, y, !!hurt); return; }
     if (type.silhouette === 'skull') { this.skull(e, x, y, !!hurt); return; }
-    if (type.silhouette === 'wing' && type.id === 'bat') {
+    if (type.silhouette === 'wing' && type.id === 'caveBat' && e.ai?.kind === 'bat' && e.ai.state !== 'chase') {
+      // Hanging: wings folded, upside down under the ledge. Nothing about it moves until you pass.
+      this.rect(x - 9, y - 12, 18, 22, color); this.rect(x - 5, y - 16, 3, 5, color); this.rect(x + 2, y - 16, 3, 5, color);
+      this.rect(x - 6, y + 2, 4, 4, 0x29252e); this.rect(x + 2, y + 2, 4, 4, 0x29252e);
+      return;
+    }
+    if (type.silhouette === 'wing' && (type.id === 'bat' || type.id === 'caveBat')) {
 
       const flap = Math.sin(this.model.elapsed * 15) * 5;
       this.rect(x - 26, y - 4 + flap, 13, 5, color); this.rect(x + 13, y - 4 + flap, 13, 5, color);
@@ -1234,6 +1249,98 @@ export class GameScene extends Phaser.Scene {
       this.rect(x - 14, y - 26 + swing, 28, 9, 0x8f7ac4);
       this.rect(x - 3, y - 17 + swing, 6, 7, 0x6a5a92);
       for (let i = 0; i < 3; i++) this.rect(x - 10 + i * 9, y - 30 + swing, 5, 4, 0xc2acf0);
+    }
+    if (type.silhouette === 'spore') {
+      // A soft translucent bulb: big, slow, obviously something to land on.
+      const wob = Math.sin(this.model.elapsed * 3 + e.phase) * 2;
+      this.graphics.fillStyle(hurt ? 0xffffff : 0xb7e4a8, 0.55).fillCircle(x, y + wob, 16);
+      this.graphics.lineStyle(2, 0xe4ffd8, 0.9).strokeCircle(x, y + wob, 16);
+      this.rect(x - 6, y - 4 + wob, 4, 4, 0x29252e); this.rect(x + 3, y - 4 + wob, 4, 4, 0x29252e);
+      return;
+    }
+    if (type.silhouette === 'toad') {
+      // Squat, wide-mouthed; swells red while it winds up to leap.
+      const winding = e.ai?.kind === 'hop' && e.ai.state === 'windup';
+      const body = hurt ? 0xffffff : winding ? 0xff7a6a : 0x9fd07a;
+      this.rect(x - 15, y - 8, 30, 18, body); this.rect(x - 11, y - 14, 8, 7, body); this.rect(x + 3, y - 14, 8, 7, body);
+      this.rect(x - 9, y - 12, 4, 4, 0x29252e); this.rect(x + 5, y - 12, 4, 4, 0x29252e);
+      this.rect(x - 10, y + 2, 20, 2, 0x4a6b3a); this.rect(x - 18, y + 8, 7, 4, body); this.rect(x + 11, y + 8, 7, 4, body);
+      return;
+    }
+    if (type.silhouette === 'turtle') {
+      // A domed shell with a flat top: rounds glance off it, feet do not.
+      const body = hurt ? 0xffffff : 0x8fbf8a;
+      this.rect(x - 16, y - 6, 32, 14, 0x5f7f5a); this.rect(x - 12, y - 12, 24, 7, body); this.rect(x - 14, y - 14, 28, 3, 0xd8f0c8);
+      this.rect(x + 14, y - 2, 7, 6, body); this.rect(x + 17, y - 3, 2, 2, 0x29252e);
+      this.rect(x - 13, y + 8, 6, 4, body); this.rect(x + 7, y + 8, 6, 4, body);
+      return;
+    }
+    if (type.silhouette === 'creeper') {
+      // A spiral shell stuck to the wall, spines outward.
+      const body = hurt ? 0xffffff : 0xd8b48c;
+      this.graphics.fillStyle(body).fillCircle(x, y, 12);
+      this.graphics.lineStyle(2, 0x6b4e36).strokeCircle(x, y, 7);
+      for (let i = -1; i <= 1; i++) this.graphics.fillStyle(0xf0dcc8).fillTriangle(x - 12, y + i * 8 - 3, x - 20, y + i * 8, x - 12, y + i * 8 + 3);
+      for (let i = -1; i <= 1; i++) this.graphics.fillStyle(0xf0dcc8).fillTriangle(x + 12, y + i * 8 - 3, x + 20, y + i * 8, x + 12, y + i * 8 + 3);
+      return;
+    }
+    if (type.silhouette === 'watcher') {
+      // One big eye in a spiked lid: it looks at you, and it cannot be stood on.
+      const body = hurt ? 0xffffff : 0xe7d6c8;
+      this.graphics.fillStyle(body).fillCircle(x, y, 13);
+      for (let i = 0; i < 6; i++) { const a = i * Math.PI / 3 + this.model.elapsed; this.graphics.fillStyle(0xf0dcc8).fillTriangle(x + Math.cos(a) * 12, y + Math.sin(a) * 12, x + Math.cos(a + 0.25) * 19, y + Math.sin(a + 0.25) * 19, x + Math.cos(a + 0.5) * 12, y + Math.sin(a + 0.5) * 12); }
+      const p = this.model.player, d = Math.hypot(p.x - x, p.y - e.y) || 1;
+      this.graphics.fillStyle(0xd23b3b).fillCircle(x + (p.x - x) / d * 5, y + (p.y - e.y) / d * 5, 5);
+      return;
+    }
+    if (type.silhouette === 'bones') {
+      // A standing skeleton; the arm goes up while it winds up a throw.
+      const body = hurt ? 0xffffff : 0xefe6d2;
+      const winding = e.ai?.kind === 'throw' && e.ai.windup > 0;
+      this.rect(x - 8, y - 22, 16, 12, body); this.rect(x - 5, y - 18, 4, 4, 0x241c24); this.rect(x + 1, y - 18, 4, 4, 0x241c24);
+      this.rect(x - 2, y - 10, 4, 16, body); for (let i = 0; i < 3; i++) this.rect(x - 7, y - 8 + i * 4, 14, 2, body);
+      this.rect(x - 6, y + 6, 3, 9, body); this.rect(x + 3, y + 6, 3, 9, body);
+      if (winding) this.rect(x + 6, y - 30, 3, 14, body); else this.rect(x + 7, y - 8, 3, 12, body);
+      return;
+    }
+    if (type.silhouette === 'boneSkull') {
+      const body = hurt ? 0xffffff : 0xefe6d2;
+      this.rect(x - 10, y - 10, 20, 14, body); this.rect(x - 7, y + 4, 14, 5, body);
+      this.rect(x - 7, y - 6, 5, 5, 0x241c24); this.rect(x + 2, y - 6, 5, 5, 0x241c24);
+      return;
+    }
+    if (type.silhouette === 'orbShade') {
+      // A dark orb with a pale rim; the angry kind glares red.
+      const angry = type.id === 'angryOrb';
+      this.graphics.fillStyle(0x1b1426, 0.85).fillCircle(x, y, 12);
+      this.graphics.lineStyle(2, hurt ? 0xffffff : angry ? 0xff6a6a : 0xc0a7ed, 0.9).strokeCircle(x, y, 12);
+      this.rect(x - 6, y - 3, 4, 3, angry ? 0xff4a4a : 0xe6d8ff); this.rect(x + 2, y - 3, 4, 3, angry ? 0xff4a4a : 0xe6d8ff);
+      return;
+    }
+    if (type.silhouette === 'biter') {
+      // Jaws first: a wedge of teeth that cannot be stood on.
+      const body = hurt ? 0xffffff : 0xe89a7a;
+      const face = e.ai?.kind === 'eye' && e.ai.vx < 0 ? -1 : 1;
+      this.rect(x - 12, y - 7, 24, 14, body); this.rect(x - 12 * face - (face < 0 ? 0 : 6), y - 4, 6, 8, body);
+      for (let i = 0; i < 3; i++) this.graphics.fillStyle(0xfbe3da).fillTriangle(x + face * 12, y - 6 + i * 4, x + face * 17, y - 4 + i * 4, x + face * 12, y - 2 + i * 4);
+      this.rect(x + face * 5 - 2, y - 4, 3, 3, 0x29252e);
+      return;
+    }
+    if (type.silhouette === 'squid') {
+      // A mantle and trailing arms; the arms flare red while it darts down, when it cannot be stood on.
+      const diving = e.ai?.kind === 'squid' && e.ai.state === 'dive';
+      const body = hurt ? 0xffffff : diving ? 0xff8a7a : 0xf497ab;
+      this.graphics.fillStyle(body).fillTriangle(x - 10, y + 2, x, y - 16, x + 10, y + 2);
+      for (let i = -2; i <= 2; i++) this.rect(x + i * 4 - 1, y + 2, 2, diving ? 6 : 12, body);
+      this.rect(x - 5, y - 4, 3, 3, 0x29252e); this.rect(x + 2, y - 4, 3, 3, 0x29252e);
+      return;
+    }
+    if (type.silhouette === 'shard') {
+      // Two barbed nuclei joined on a bond: the diagonal bouncer.
+      const c = hurt ? 0xffffff : 0xc0a7ed;
+      this.graphics.lineStyle(3, c, 0.9).lineBetween(x - 9, y - 9, x + 9, y + 9);
+      for (const k of [-1, 1]) { this.graphics.fillStyle(c).fillCircle(x + k * 9, y + k * 9, 7); this.graphics.lineStyle(2, 0xf0dcc8).strokeCircle(x + k * 9, y + k * 9, 9); }
+      return;
     }
     if (type.silhouette === 'spiked') {
       // Spikes on every side: the clearest "do not land here" in the game.

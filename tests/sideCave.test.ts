@@ -478,7 +478,7 @@ describe('SIDE CAVE frequency', () => {
     const limit = WORLD.startY + area.sectionLength * WORLD.pixelsPerMeter;
     const caves: SideCave[] = [], rows: string[] = [];
     let enemies = 0;
-    for (let c = 0; c < 8; c++) {
+    for (let c = 0; c <= Math.ceil(limit / WORLD.chunkHeight); c++) {
       const k = g.chunk(c);
       caves.push(...k.caves.filter(v => v.bounds.y <= limit));
       for (const p of k.platforms) if (p.y <= limit && p.safeZone === undefined) rows.push(`${Math.round(p.x)},${Math.round(p.y)},${p.width}`);
@@ -599,7 +599,7 @@ describe('SIDE CAVE entry contract', () => {
     const g = new StageGenerator(seeded3(seed), { plan: area.plans![n - 1], enemyPool: area.enemyPool, sectionLength: area.sectionLength });
     const limit = WORLD.startY + area.sectionLength * WORLD.pixelsPerMeter;
     const caves: SideCave[] = []; const bands = new Map<number, { y: number; exitX: number }>();
-    for (let c = 0; c < 8; c++) {
+    for (let c = 0; c <= Math.ceil(limit / WORLD.chunkHeight); c++) {
       const k = g.chunk(c);
       caves.push(...k.caves.filter(v => v.bounds.y <= limit));
       for (const p of k.platforms) if (p.y <= limit && p.safeZone === undefined && !bands.has(Math.round(p.y))) {

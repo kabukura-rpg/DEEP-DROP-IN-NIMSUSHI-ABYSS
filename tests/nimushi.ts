@@ -40,6 +40,9 @@ export function shootBody(game: GameModel, damage = 1, source: Bullet['source'] 
 /** In the arena, dormant, at full HP, with nothing underfoot -- the clean slate for a fight test. */
 export function atNimushi(seed = 5) {
   const game = new GameModel(false, seeded(seed));
+  // Re-seeded at the fight's entry (as regressionSignature's `entered` does): what 1-1's setup draws
+  // before the jump must never decide a boss fixture. Every AREA 1 change used to re-flip these.
+  (game as unknown as { random: () => number }).random = seeded(seed);
   game.jumpToNimushi();
   game.platforms = []; game.doodads = []; game.containers = []; game.enemies = [];
   return game;

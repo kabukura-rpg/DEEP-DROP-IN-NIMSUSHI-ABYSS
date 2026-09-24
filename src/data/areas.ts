@@ -187,6 +187,11 @@ export interface SectionPlan {
    * the SECTION moves because of them. Only AREA 2 sets it.
    */
   ghosts?: { count: number; speed: number };
+  /**
+   * DOWNWELL NORMAL GAMEPLAY CLONE: extra roaming enemies per row, loose in the band above it (a
+   * fraction is a chance of one more). See StageGenerator's swarm.
+   */
+  swarm?: number;
   /** Enemies the area owns but this SECTION holds back, so a roster can be introduced gradually. */
   enemyExclude?: readonly EnemyKind[];
 }
@@ -244,8 +249,11 @@ export const AREAS: readonly AreaConfig[] = [
     // CAVERNS ROLE. Fall, shoot, land, stomp, chain, open a block. No gauge, no timer on the ground,
     // and deliberately nothing lethal on touch: AREA 1 is where the controls are learned, so a run
     // ends here because the player ran out of hearts, never because they brushed a wall.
-    id: 1, name: 'SURFACE RUINS', sections: 3, sectionLength: 360,
-    enemyPool: ['slime', 'bat', 'armoredSlime'],
+    id: 1, name: 'SURFACE RUINS', sections: 3, sectionLength: 450,
+    // DOWNWELL NORMAL GAMEPLAY CLONE: the Caverns roster, role for role (enemies.ts): worm SLIME, bat
+    // CAVE BAT, bad bubble SPORE, frog TOAD, turtle SHELLBACK, crawler ARMORED SLIME, snail CREEPER,
+    // eye WATCHER. As in the original, the eye is held back until the second level.
+    enemyPool: ['slime', 'caveBat', 'spore', 'toad', 'armoredSlime', 'shellback', 'creeper', 'watcher'],
     theme: { wall: 0x2b3228, wallEdge: 0x44523a, brick: 0x222a20, pillar: 0x33402c, accent: 0xb9ef70, dust: 0x9db98a, sky: 0x2d4a52, horizon: 0x47707a, grass: 0x6d9c4a },
     plans: [
       // The most breakable-rich AREA of the four: gate rows every SECTION, opened with one round.
@@ -256,16 +264,16 @@ export const AREAS: readonly AreaConfig[] = [
       // STAGE GENERATION v2: fewer, further-apart rows (pieces.ts), so the per-row enemy chances are
       // raised by the rows lost -- enemies per 100m are what they were -- and the flow profile puts
       // them into the fall the player makes. 1-1 keeps the most breathing space of the three.
-      { platformWidth: [176, 196], gap: 232, rhythm: AREA1_RHYTHM, pieces: AREA1_GRAMMAR, enemyChance: 0.43, flyChance: 0.12, toughChance: 0.17, heavyChance: 0, comboBias: 0.20, graceDepth: 25,
-        flow: { pathFlyers: 0.3, landingGuards: 0.15 },
+      { platformWidth: [176, 196], gap: 232, rhythm: AREA1_RHYTHM, pieces: AREA1_GRAMMAR, enemyChance: 0.55, flyChance: 0.35, swarm: 0.15, toughChance: 0.2, heavyChance: 0, comboBias: 0.20, graceDepth: 12, enemyExclude: ['watcher'],
+        flow: { pathFlyers: 0.5, landingGuards: 0.3 },
         breakBlockRows: 2, breakBlockDurability: 1,
         doodadChance: 0.12, safeZoneCount: 1, sideRooms: 2 },
-      { platformWidth: [152, 178], gap: 238, rhythm: AREA1_RHYTHM, pieces: AREA1_GRAMMAR, enemyChance: 0.50, flyChance: 0.27, toughChance: 0.22, heavyChance: 0, comboBias: 0.22,
-        flow: { pathFlyers: 0.4, landingGuards: 0.2 },
+      { platformWidth: [152, 178], gap: 238, rhythm: AREA1_RHYTHM, pieces: AREA1_GRAMMAR, enemyChance: 0.60, flyChance: 0.45, swarm: 0.3, toughChance: 0.28, heavyChance: 0, comboBias: 0.22,
+        flow: { pathFlyers: 0.6, landingGuards: 0.35 },
         breakBlockRows: 3, breakBlockDurability: 2,
         doodadChance: 0.12, safeZoneCount: 1, sideRooms: 2 },
-      { platformWidth: [132, 158], gap: 244, rhythm: AREA1_RHYTHM, pieces: AREA1_GRAMMAR, enemyChance: 0.73, flyChance: 0.42, toughChance: 0.30, heavyChance: 0, comboBias: 0.30,
-        flow: { pathFlyers: 0.5, landingGuards: 0.25 },
+      { platformWidth: [132, 158], gap: 244, rhythm: AREA1_RHYTHM, pieces: AREA1_GRAMMAR, enemyChance: 0.70, flyChance: 0.50, swarm: 0.45, toughChance: 0.34, heavyChance: 0, comboBias: 0.30,
+        flow: { pathFlyers: 0.7, landingGuards: 0.4 },
         breakBlockRows: 3, breakBlockDurability: 2,
         doodadChance: 0.12, safeZoneCount: 1, sideRooms: 2 },
     ],

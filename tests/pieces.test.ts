@@ -212,21 +212,23 @@ describe('AREA 1 terrain pieces', () => {
   });
 
   /**
-   * STAGE GENERATION v2 spaces AREA 1's rows further apart and raises the per-row enemy chances by
-   * the rows it lost. What this used to hold -- the pieces never change how many enemies the player
-   * meets -- is now held against the density itself: enemies per 100m, section by section, against
-   * what c9a0a63 laid (measured over 200 seeds: 3.15 / 4.83 / 7.08). The legacy/grammar A/B cannot
-   * express that any more: the two modes share one set of per-row chances written for the v2 rows.
+   * WAS: enemies per 100m held to what c9a0a63 laid (3.15 / 4.83 / 7.08) within 15%, so the terrain
+   * could never be propped up with extra enemies. The clone lifts the count on purpose -- the
+   * original's Caverns show ~1.8 enemies a screen early and ~3.3 by the third level (reference spec,
+   * D's frame counts) -- so the guarantee is now that density is the ORIGINAL's, not the terrain's:
+   * per original-sized screen (28.6m of shaft), inside the measured band, and rising through the AREA.
    */
-  it('does not prop the terrain up with enemies', () => {
+  it("lays the original's enemy density, rising through the AREA, whatever the terrain", () => {
     setTerrainMode('grammar-v2');
-    const v1 = [3.15, 4.83, 7.08];
+    const perScreen: number[] = [];
     for (const section of [1, 2, 3]) {
       let total = 0;
       for (const seed of SEEDS) total += build(1, section, seed).enemies;
-      const per100 = total / SEEDS.length * 100 / areaConfig(1).sectionLength;
-      expect(Math.abs(per100 - v1[section - 1]) / v1[section - 1], `1-${section}`).toBeLessThan(0.15);
+      perScreen.push(total / SEEDS.length * 28.6 / areaConfig(1).sectionLength);
     }
+    expect(perScreen[0]).toBeLessThan(perScreen[1]);
+    expect(perScreen[1]).toBeLessThan(perScreen[2]);
+    for (const d of perScreen) { expect(d).toBeGreaterThan(1.5); expect(d).toBeLessThan(3.6); }
   });
 
   it('generates the same SECTION twice from the same seed', () => {

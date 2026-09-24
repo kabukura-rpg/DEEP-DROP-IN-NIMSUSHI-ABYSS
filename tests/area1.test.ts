@@ -84,30 +84,32 @@ function build(section: SectionId, seed: number) {
 }
 
 describe('AREA 1 enemy roster', () => {
-  it('pools only the three AREA 1 enemies and never the later heavy one', () => {
-    expect([...area1.enemyPool]).toEqual(['slime', 'bat', 'armoredSlime']);
+  // DOWNWELL NORMAL GAMEPLAY CLONE: the three-kind V1 roster is replaced by the Caverns roster, role
+  // for role (reference spec): worm SLIME, bat CAVE BAT, bad bubble SPORE, frog TOAD, crawler ARMORED
+  // SLIME, turtle SHELLBACK, snail CREEPER, eye WATCHER -- with the eye held back until 1-2.
+  it('pools the Caverns roster, and nothing heavier, with the eye held back from 1-1', () => {
+    expect([...area1.enemyPool]).toEqual(['slime', 'caveBat', 'spore', 'toad', 'armoredSlime', 'shellback', 'creeper', 'watcher']);
     for (let section = 1 as SectionId; section <= 3; section++) {
       const { kinds } = sample(section as SectionId, 30, 3);
       for (const kind of kinds) expect(area1.enemyPool).toContain(kind);
       expect(kinds.has('tank')).toBe(false);
+      expect(kinds.has('watcher')).toBe(section > 1);
     }
   });
-  it('sees every AREA 1 enemy across the three sections', () => {
+  it('sees every Caverns role across the three sections', () => {
     const kinds = new Set<EnemyKind>();
-    for (let section = 1; section <= 3; section++) for (const kind of sample(section as SectionId, 30, 3).kinds) kinds.add(kind);
-    expect([...kinds].sort()).toEqual(['armoredSlime', 'bat', 'slime']);
+    for (let section = 1; section <= 3; section++) for (const kind of sample(section as SectionId, 60, 3).kinds) kinds.add(kind);
+    expect([...kinds].sort()).toEqual(['armoredSlime', 'caveBat', 'creeper', 'shellback', 'slime', 'spore', 'toad', 'watcher']);
   });
   it('marks exactly the soft enemies as stompable and gives the armoured ones their own silhouette', () => {
     expect(ENEMY_TYPES.slime.stompable).toBe(true);
     expect(ENEMY_TYPES.bat.stompable).toBe(true);
     expect(ENEMY_TYPES.armoredSlime.stompable).toBe(false);
     expect(ENEMY_TYPES.tank.stompable).toBe(false);
-    // Shape, not colour, separates the two groups: every type has its own, and no silhouette is
-    // ever reused across the stompable boundary.
-    const silhouettes = Object.values(ENEMY_TYPES).map(t => t.silhouette);
-    // 25: the 23 there were, plus AREA 2's two chasers (GHOST, FLYING SKULL), each with its own shape.
-    expect(silhouettes.length).toBe(25);
-    expect(new Set(silhouettes).size).toBe(silhouettes.length);
+    // Shape, not colour, separates the two groups: no silhouette is ever used on both sides of the
+    // stompable boundary. The clone's new roles share a shape only with their own family on the same
+    // side of it -- CAVE BAT with BAT, the two turtles, the two jellies, the two orbs -- so the old
+    // "every type its own shape" count (25) no longer holds, and the boundary rule is what is kept.
     const soft = new Set(Object.values(ENEMY_TYPES).filter(t => t.stompable).map(t => t.silhouette));
     for (const type of Object.values(ENEMY_TYPES)) expect(soft.has(type.silhouette)).toBe(type.stompable);
   });
@@ -170,11 +172,12 @@ describe('AREA 1 section pacing', () => {
     const density = [1, 2, 3].map(s => sample(s as SectionId).density);
     expect(density[0]).toBeLessThan(density[1]);
     expect(density[1]).toBeLessThan(density[2]);
-    // Per ROW. STAGE GENERATION v2 spaced the rows out and raised the per-row chances by the rows lost
-    // (x1.43 in 1-1, x1.40 in 1-3) so enemies per 100m stay where they were; the old 0.55 and 0.6
-    // bounds move by the same factors.
-    expect(density[0]).toBeLessThan(0.55 * 1.43);
-    expect(density[2]).toBeGreaterThan(0.6 * 1.4);
+    // Per ROW. The V1 bounds (0.55 and 0.6, x1.43 / x1.40 for the v2 spacing) held the AREA to its old
+    // enemy count, which the clone deliberately lifts to the original's (reference spec: ~1.8-3.3
+    // enemies a screen in D's Caverns). Measured now: ~0.94 / 1.23 / 1.55 a row.
+    expect(density[0]).toBeGreaterThan(0.75);
+    expect(density[2]).toBeGreaterThan(1.3);
+    expect(density[2]).toBeLessThan(2);
   });
   it('keeps 1-1 gentle: mostly stompable enemies and a quiet opening', () => {
     const { enemies } = sample(1, 40, 3);
@@ -204,7 +207,11 @@ describe('AREA 1 section pacing', () => {
       // The v1 pairing rule, which STAGE GENERATION v2 keeps as the fallback for any flyer its flow
       // profile does not place across the fall. Held here on the plan without a profile, so the rule
       // is asserted in full; what the profile does instead is tests/stageFlow.test.ts's subject.
-      const generator = new StageGenerator(seeded(seed * 613), { plan: { ...plan(3), flow: undefined }, enemyPool: area1.enemyPool });
+      // The clone's SWARM (extra roaming enemies in a band) is off here too: it is a separate layer,
+      // and this is the one-guard-one-flyer rule it sits on top of. Hanging CAVE BATs are not
+      // flyers of the row either; they hang under the ledge above (StageGenerator.hangingBat), and a
+      // CREEPER is moved onto the shaft wall it crawls.
+      const generator = new StageGenerator(seeded(seed * 613), { plan: { ...plan(3), flow: undefined, swarm: 0 }, enemyPool: area1.enemyPool.filter(k => k !== 'caveBat' && k !== 'creeper') });
       let previous: RoutePlatform = { ...START_PLATFORM };
       for (let chunk = 0; chunk < 3; chunk++) {
         const result = generator.chunk(chunk);
@@ -290,8 +297,14 @@ describe('AREA 1 generation safety across seeds', () => {
             }
             previous = p;
           }
-          for (const e of [...result.enemies].sort((a, b) => a.y - b.y)) {
-            if (previousEnemy) expect(e.y - previousEnemy.y).toBeGreaterThanOrEqual(66);
+          // WAS: every two enemies at least 66px apart in height -- one guard and one flyer per row. The
+          // clone lays the original's density (hanging bats under ledges, roaming enemies loose in a
+          // band), so what is held now is that no two ever START on top of each other, and that each
+          // stays inside the shaft; a creeper is the one thing that lives ON a wall.
+          const spawned = [...result.enemies].sort((a, b) => a.y - b.y);
+          for (const e of spawned) {
+            for (const o of spawned) if (o !== e) expect(Math.hypot(o.originX - e.originX, (o.originY ?? o.y) - (e.originY ?? e.y))).toBeGreaterThanOrEqual(20);
+            if (e.kind === 'creeper') { expect(e.range).toBe(0); continue; }
             expect(e.originX - e.range).toBeGreaterThan(WORLD.wall);
             expect(e.originX + e.range).toBeLessThan(WORLD.width - WORLD.wall);
             previousEnemy = e;

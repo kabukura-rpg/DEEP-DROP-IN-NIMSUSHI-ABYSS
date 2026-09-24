@@ -829,7 +829,9 @@ describe('the four ABYSS environments', () => {
   });
 
   it('drowns in the AQUIFER, and only a shot opens an air container', () => {
-    const game = driveToPhase(3, 53);
+    // Seed 54 (was 53): the fixtures are now re-seeded at the fight's entry (tests/nimushi.ts), which
+    // re-rolled where the phase's containers stand; this one has one clear of NIMUSHI's column.
+    const game = driveToPhase(3, 54);
     expect(game.boss.phaseId).toBe(3);
     expect(game.oxygen.enabled).toBe(true);
     const air = game.oxygen.remaining;
@@ -924,7 +926,15 @@ describe('the four ABYSS environments', () => {
    * THREE, so switching `__roadTerrain` cannot redden the suite.
    */
   it('lays one bounce target per shower, inside the corridor it opened', () => {
-    const game = fighting(16);
+    // DOWNWELL NORMAL GAMEPLAY CLONE: the random stream is now reset at the fight's entry, as the
+    // regression goldens do (regressionSignature.ts `entered`). This coin used to be tossed by
+    // whatever 1-1's setup had drawn before the jump, so every AREA 1 change re-flipped it; from the
+    // entry on, only the fight decides it. Same seed, same assertions.
+    const game = new GameModel(false, seeded(16));
+    (game as unknown as { random: () => number }).random = seeded(16);
+    game.jumpToNimushi();
+    game.platforms = []; game.doodads = []; game.containers = []; game.enemies = [];
+    shootEye(game, 1);
     for (let i = 0; i < 60 / STEP && game.boss.state !== 'tapiocaShower'; i++) {
       game.player.invincible = 9;
       game.step(STEP, 0, false);

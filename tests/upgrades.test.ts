@@ -350,7 +350,8 @@ describe('HEART BALLOON', () => {
     // the very velocity being measured.
     const freefall = (seconds: number) => {
       for (let i = 0; i < Math.round(seconds * 120); i++) {
-        game.platforms = []; game.player.grounded = -1;
+        // Enemies too: the denser AREA 1 lays one into this fall often enough to bounce the reading.
+        game.platforms = []; game.enemies = []; game.player.grounded = -1;
         game.step(1 / 120, 0, false);
       }
     };

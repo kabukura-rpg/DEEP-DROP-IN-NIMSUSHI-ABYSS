@@ -80,7 +80,10 @@ export const SKULL_RULES = {
   bob: 4,
 } as const;
 
+import type { DwellerState } from './dwellers';
+
 export type ChaseState =
+  | DwellerState
   | { kind: 'ghost'; state: 'dormant' | 'hunt'; speed: number; t: number; seen: number }
   | { kind: 'skull'; state: 'idle' | 'warn' | 'charge' | 'cool' | 'return'; t: number; dx: number; dy: number; vx: number; vy: number };
 
@@ -101,6 +104,7 @@ export const inSight = (y: number, view: { top: number; height: number }) => y -
  */
 export function stepChaser(e: Enemy & { ai: ChaseState }, player: { x: number; y: number }, h: number, worldTime: number, view: { top: number; height: number }, mayWake = true): ChaseSignal | null {
   const ai = e.ai;
+  if (ai.kind !== 'ghost' && ai.kind !== 'skull') return null;
   const originY = e.originY ?? e.y;
   if (ai.kind === 'ghost') {
     if (ai.state === 'dormant') {

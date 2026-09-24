@@ -1,18 +1,24 @@
 import type { DamageCause } from '../systems/HealthSystem';
 import type { PickupKind } from './pickups';
 import { idleSkull, type ChaseState } from './chasers';
+import { attachDweller } from './dwellers';
 
 export type EnemyKind = 'slime' | 'bat' | 'armoredSlime' | 'tank' | 'fish' | 'bubbleFish' | 'jellyfish' | 'urchin'
   | 'fireLizard' | 'fireBat' | 'magmaSlime' | 'fireArmor' | 'frostBeetle'
   | 'demon' | 'wraith' | 'armorGuard' | 'spikeDemon' | 'ruinBreaker'
   | 'voidWisp' | 'hollowShade'
   | 'nimushiClone' | 'nimushiShade' | 'bounceTapioca'
-  | 'ghost' | 'flyingSkull';
+  | 'ghost' | 'flyingSkull'
+  // DOWNWELL NORMAL GAMEPLAY CLONE: the roles the original's roster has and DEEP DROP's did not.
+  | 'spore' | 'toad' | 'shellback' | 'creeper' | 'watcher'
+  | 'boneHopper' | 'boneThrower' | 'shadeOrb' | 'angryOrb'
+  | 'shellSwimmer' | 'biter' | 'caveBat' | 'riserJelly' | 'squid' | 'voidShard';
 /** Shape family GameScene draws. Silhouette, never colour alone, tells the player what is stompable. */
 export type EnemySilhouette = 'blob' | 'wing' | 'shell' | 'brute' | 'fin' | 'orb' | 'bell' | 'spiked'
   | 'lizard' | 'ember' | 'flame' | 'plated' | 'crystal'
   | 'horned' | 'shade' | 'bulwark' | 'barb' | 'breaker' | 'wisp' | 'hollow' | 'nimushi' | 'nimushiBarbed' | 'bouncePearl'
-  | 'ghost' | 'skull';
+  | 'ghost' | 'skull'
+  | 'spore' | 'toad' | 'turtle' | 'creeper' | 'watcher' | 'bones' | 'boneSkull' | 'orbShade' | 'biter' | 'squid' | 'shard';
 /** Spawn weight class. Independent of `stompable`: it only decides how often a row rolls this tier. */
 export type EnemyThreat = 'basic' | 'armored' | 'heavy';
 /** Where the generator may place it: guarding a ledge, loose in open water/air, or either. */
@@ -71,7 +77,20 @@ export interface EnemyType {
    * roster sets none of these moves bit for bit as it always has. Only SUNKEN RUINS sets it.
    */
   motion?: EnemyMotion;
+  /**
+   * DOWNWELL NORMAL GAMEPLAY CLONE: the behaviour this body runs (dwellers.ts). Absent means it moves
+   * by `motion` / the shared sway exactly as before.
+   */
+  behaviour?: DwellerRole;
+  /**
+   * Gems the original's counterpart drops (Downwell Wikia), paid as LARGE (10) and SMALL (2) coins.
+   * Absent means the old per-threat drop in coins.ts.
+   */
+  gems?: number;
 }
+
+/** Which dweller behaviour an enemy kind runs, including the variants that share one state machine. */
+export type DwellerRole = 'bat' | 'drift' | 'eye' | 'piranha' | 'phantomChase' | 'frog' | 'groundSkull' | 'wander' | 'throw' | 'phantom' | 'rise' | 'squid' | 'column' | 'orbit' | 'bounce' | 'swim' | 'crawl';
 
 /**
  * A water enemy's movement, as a pure function of world time.
@@ -181,9 +200,39 @@ export const ENEMY_TYPES: Record<EnemyKind, EnemyType> = {
   //
   // GHOST: shootable and stompable like any ordinary soft enemy -- it is simply almost never below
   // you, because it comes from behind. It leaves no body; there is nothing there to leave.
-  ghost: { id: 'ghost', name: 'GHOST', shootable: true, stompable: true, flying: true, threat: 'basic', spawnSlot: 'open', spawnWeight: 0, hp: 2, silhouette: 'ghost', bodyWidth: 26, swaySpeed: 0, damageCause: 'enemy', contactHint: '止まるな' },
+  ghost: { id: 'ghost', name: 'GHOST', shootable: true, stompable: true, flying: true, threat: 'basic', spawnSlot: 'open', spawnWeight: 0, hp: 2, silhouette: 'ghost', bodyWidth: 26, swaySpeed: 0, damageCause: 'enemy', contactHint: '止まるな', gems: 20 },
   // FLYING SKULL: rattles, then lunges. One round or one stomp; a lunge into the player is one heart.
   flyingSkull: { id: 'flyingSkull', name: 'FLYING SKULL', shootable: true, stompable: true, flying: true, threat: 'basic', spawnSlot: 'open', spawnWeight: 0.8, hp: 1, silhouette: 'skull', bodyWidth: 24, swaySpeed: 0, damageCause: 'enemy', contactHint: '突進に注意' },
+  // ---------------------------------------------------------------------------------------------
+  // DOWNWELL NORMAL GAMEPLAY CLONE. One row per ROLE in the original's Normal Mode roster that DEEP
+  // DROP did not have. The body, the name and the look are DEEP DROP's; `hp` (in machine-gun rounds),
+  // the stomp / shoot answers and `gems` are the original counterpart's, from its Downwell Wikia page.
+  // The boss's roster (slime, bat, fish, jellyfish, demon, spikeDemon ...) is deliberately left alone:
+  // where a role needed a new behaviour, it got a new kind rather than changing one the fight uses.
+  //
+  // CAVERNS: bad bubble -> SPORE, bat -> CAVE BAT, frog -> TOAD, turtle -> SHELLBACK,
+  //          snail -> CREEPER, eye -> WATCHER. (worm -> SLIME and crawler -> ARMORED SLIME as before.)
+  spore: { id: 'spore', name: 'SPORE', shootable: true, stompable: true, flying: true, threat: 'basic', spawnSlot: 'open', spawnWeight: 1, hp: 3, silhouette: 'spore', bodyWidth: 28, swaySpeed: 0, damageCause: 'enemy', contactHint: '踏める', behaviour: 'drift', gems: 6 },
+  caveBat: { id: 'caveBat', name: 'CAVE BAT', shootable: true, stompable: true, flying: true, threat: 'basic', spawnSlot: 'open', spawnWeight: 1, hp: 2, silhouette: 'wing', bodyWidth: 24, swaySpeed: 0, damageCause: 'enemy', contactHint: '向かってくる', leavesCorpse: true, behaviour: 'bat', gems: 12 },
+  toad: { id: 'toad', name: 'TOAD', shootable: true, stompable: true, flying: false, threat: 'basic', spawnSlot: 'guard', spawnWeight: 0.8, hp: 4, silhouette: 'toad', bodyWidth: 28, swaySpeed: 0, damageCause: 'enemy', contactHint: '跳ねる', leavesCorpse: true, behaviour: 'frog', gems: 20 },
+  shellback: { id: 'shellback', name: 'SHELLBACK', shootable: false, stompable: true, flying: false, threat: 'armored', spawnSlot: 'guard', spawnWeight: 0.6, hp: 1, silhouette: 'turtle', bodyWidth: 30, swaySpeed: 0.8, damageCause: 'enemy', contactHint: '弾が効かない・踏め', leavesCorpse: true, gems: 14 },
+  creeper: { id: 'creeper', name: 'CREEPER', shootable: true, stompable: false, flying: true, threat: 'armored', spawnSlot: 'open', spawnWeight: 0.5, hp: 3, silhouette: 'creeper', bodyWidth: 26, swaySpeed: 0, damageCause: 'spike', contactHint: '踏めない', leavesCorpse: true, behaviour: 'crawl', gems: 24 },
+  watcher: { id: 'watcher', name: 'WATCHER', shootable: true, stompable: false, flying: true, threat: 'armored', spawnSlot: 'open', spawnWeight: 0.25, hp: 4, silhouette: 'watcher', bodyWidth: 26, swaySpeed: 0, damageCause: 'spike', contactHint: '踏めない・撃て', behaviour: 'eye', gems: 20 },
+  // CATACOMBS: ground skull -> BONE HOPPER, skeleton -> BONE THROWER, phantom -> SHADE ORB. (GHOST and
+  // FLYING SKULL are the existing kinds; the skull now behaves as the original's does.)
+  boneHopper: { id: 'boneHopper', name: 'BONE HOPPER', shootable: true, stompable: true, flying: false, threat: 'basic', spawnSlot: 'guard', spawnWeight: 1, hp: 2, silhouette: 'boneSkull', bodyWidth: 22, swaySpeed: 0, damageCause: 'enemy', contactHint: '接触', behaviour: 'groundSkull', gems: 4 },
+  boneThrower: { id: 'boneThrower', name: 'BONE THROWER', shootable: true, stompable: true, flying: false, threat: 'armored', spawnSlot: 'guard', spawnWeight: 0.8, hp: 5, silhouette: 'bones', bodyWidth: 26, swaySpeed: 0, damageCause: 'enemy', contactHint: '骨を投げる', leavesCorpse: true, behaviour: 'throw', gems: 10 },
+  shadeOrb: { id: 'shadeOrb', name: 'SHADE ORB', shootable: true, stompable: false, flying: true, threat: 'armored', spawnSlot: 'open', spawnWeight: 1, hp: 2, silhouette: 'orbShade', bodyWidth: 24, swaySpeed: 0, damageCause: 'spike', contactHint: '踏めない・撃て', behaviour: 'phantom', gems: 8 },
+  angryOrb: { id: 'angryOrb', name: 'ANGRY ORB', shootable: true, stompable: false, flying: true, threat: 'armored', spawnSlot: 'open', spawnWeight: 0.5, hp: 2, silhouette: 'orbShade', bodyWidth: 24, swaySpeed: 0, damageCause: 'spike', contactHint: '追ってくる・撃て', behaviour: 'phantomChase', gems: 8 },
+  // AQUIFER: swimming turtle -> SHELL SWIMMER, jellyfish -> RISER JELLY, squid -> SQUID, piranha -> BITER.
+  shellSwimmer: { id: 'shellSwimmer', name: 'SHELL SWIMMER', shootable: false, stompable: true, flying: true, threat: 'armored', spawnSlot: 'open', spawnWeight: 0.7, hp: 1, silhouette: 'turtle', bodyWidth: 30, swaySpeed: 0, damageCause: 'enemy', contactHint: '弾が効かない・踏め', leavesCorpse: true, behaviour: 'swim', gems: 14 },
+  riserJelly: { id: 'riserJelly', name: 'RISER JELLY', shootable: true, stompable: false, flying: true, threat: 'armored', spawnSlot: 'open', spawnWeight: 1, hp: 3, silhouette: 'bell', bodyWidth: 24, swaySpeed: 0, damageCause: 'spike', contactHint: '昇ってくる・踏めない', behaviour: 'rise', gems: 6 },
+  squid: { id: 'squid', name: 'SQUID', shootable: true, stompable: true, flying: true, threat: 'basic', spawnSlot: 'open', spawnWeight: 1, hp: 1, silhouette: 'squid', bodyWidth: 22, swaySpeed: 0, damageCause: 'enemy', contactHint: '突っ込んでくる', leavesCorpse: true, behaviour: 'squid', gems: 10 },
+  biter: { id: 'biter', name: 'BITER', shootable: true, stompable: false, flying: true, threat: 'armored', spawnSlot: 'open', spawnWeight: 0.8, hp: 2, silhouette: 'biter', bodyWidth: 24, swaySpeed: 0, damageCause: 'spike', contactHint: '踏めない・撃て', behaviour: 'piranha', gems: 14 },
+  // LIMBO: phantoms (SHADE ORB / ANGRY ORB above) and the three kinds of "stuff". VOID WISP and HOLLOW
+  // SHADE are LIMBO's own existing bodies and now carry the tapered and spherical roles; the diatomic
+  // role is a new VOID SHARD rather than SPIKE DEMON, which the boss still uses as it always has.
+  voidShard: { id: 'voidShard', name: 'VOID SHARD', shootable: true, stompable: false, flying: true, threat: 'armored', spawnSlot: 'open', spawnWeight: 0.5, hp: 3, silhouette: 'shard', bodyWidth: 24, swaySpeed: 0, damageCause: 'spike', contactHint: '跳ね回る・撃て', behaviour: 'bounce', gems: 8 },
   ruinBreaker: { id: 'ruinBreaker', name: 'RUIN BREAKER', shootable: true, stompable: true, flying: false, threat: 'basic', spawnSlot: 'guard', spawnWeight: 0.45, hp: 1, silhouette: 'breaker', bodyWidth: 30, swaySpeed: 0.8, damageCause: 'enemy', contactHint: '接触', leavesCorpse: true, onDefeat: 'shatterNearby' },
 };
 export const enemyType = (kind: EnemyKind) => ENEMY_TYPES[kind];
@@ -215,10 +264,12 @@ export interface Enemy {
 }
 export function spawnEnemy(kind: EnemyKind, id: number, x: number, y: number, range = 0, phase = 0, slot: 'guard' | 'open' = 'guard'): Enemy {
   const type = ENEMY_TYPES[kind];
-  return { id, kind, x, y, originX: x, originY: y, range, phase, hp: type.hp, alive: true, flash: 0, hurtFlash: 0, shootable: type.shootable, stompable: type.stompable, flying: type.flying, slot,
-    // A FLYING SKULL starts hovering. A GHOST's state is the generator's to give (it needs the
-    // SECTION's speed), so it is set where ghosts are laid. No other enemy carries one.
-    ...(kind === 'flyingSkull' ? { ai: idleSkull() } : {}) };
+  const e: Enemy = { id, kind, x, y, originX: x, originY: y, range, phase, hp: type.hp, alive: true, flash: 0, hurtFlash: 0, shootable: type.shootable, stompable: type.stompable, flying: type.flying, slot };
+  // A kind with a BEHAVIOUR (dwellers.ts) gets its state machine here, from where it was laid. A GHOST's
+  // state is the generator's to give (it needs the SECTION's speed), so it is set where ghosts are laid.
+  if (type.behaviour) e.ai = attachDweller(e, type.behaviour);
+  else if (kind === 'flyingSkull') e.ai = idleSkull();
+  return e;
 }
 
 /** Half the collision box's height. The contact tests in GameModel all use `e.y +- 15`. */
@@ -276,7 +327,10 @@ export function motionEnvelope(e: Enemy): { minX: number; maxX: number; minY: nu
   const originY = e.originY ?? e.y;
   const reach = motion ? e.range * motion.swim : e.range;
   const bob = motion?.bob ?? 0;
-  const up = bob, down = motion && e.slot !== 'guard' ? bob : 0;
+  // A hopper's leap is part of where its body can be: the original's frog clears several of its own
+  // heights (dwellers.ts: 560px/s up at gravity 1680 is 93px; a bone hopper's 300 is 27px).
+  const leap = type.behaviour === 'frog' ? 94 : type.behaviour === 'groundSkull' ? 28 : 0;
+  const up = bob + leap, down = motion && e.slot !== 'guard' ? bob : 0;
   return {
     minX: e.originX - reach - half, maxX: e.originX + reach + half,
     minY: originY - up - ENEMY_HALF_HEIGHT, maxY: originY + down + ENEMY_HALF_HEIGHT,
