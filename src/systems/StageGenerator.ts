@@ -64,7 +64,14 @@ export interface Platform {
    */
   safeZone?: number;
 }
-export interface RoutePlatform extends Platform { safeX: number; exitX: number; safeSide: -1 | 1 }
+export interface RoutePlatform extends Platform {
+  safeX: number; exitX: number; safeSide: -1 | 1;
+  /**
+   * Which CATACOMB shape built this row, when one did. Read only by tests: a baffle's geometry can
+   * coincide exactly with an ordinary row's, so only the generator can say which one it laid.
+   */
+  shaped?: 'baffle' | 'slot';
+}
 export const START_PLATFORM: RoutePlatform = { id: -2, x: 155, y: 250, width: 140, safeX: 225, exitX: 307, safeSide: 1, breakable: false, state: 'stable' };
 /**
  * Can a fall from `from`'s way off reach `to`'s landing without ever touching this movement box?
@@ -461,7 +468,7 @@ export class StageGenerator {
         if (x + MARGIN > lo || hi > x + width - MARGIN) continue;
         const p: RoutePlatform = {
           id: this.id, x, y, width, safeSide: side === -1 ? 1 : -1, safeX: mid,
-          exitX: side === -1 ? x + width + 12 : x - 12, breakable: false, state: 'stable',
+          exitX: side === -1 ? x + width + 12 : x - 12, breakable: false, state: 'stable', shaped: 'baffle',
         };
         if (p.exitX < WORLD.wall + 12 || p.exitX > right - 12 || !reachable(p)) continue;
         this.baffleSide = side === -1 ? 1 : -1;
@@ -500,6 +507,16 @@ export class StageGenerator {
 
   /** A spike platform for this ledge, with its own warning when the SECTION asks for one. */
   private spikeFor(p: RoutePlatform) {
+    const fixed = this.context.plan?.spikeWarning;
+    if (fixed !== undefined) {
+      // The fixed warning, unless this ledge needs longer to leave: from the worst place a fall can land
+      // on it, the walk to the nearest edge that is not against a wall, plus a tenth of a second to
+      // react. A free-standing ledge up to ~220px is left in the fixed time; one held against a wall
+      // must be walked its whole width. Nobody is ever caught who moves at once.
+      const leftOpen = p.x > WORLD.wall + 4, rightOpen = p.x + p.width < WORLD.width - WORLD.wall - 4;
+      const walk = leftOpen && rightOpen ? p.width / 2 + 9 : p.width + 9;
+      return spikePlatform(Math.max(fixed, walk / BALANCE.moveSpeed + 0.1));
+    }
     const reaction = this.context.plan?.spikeReaction;
     return spikePlatform(reaction === undefined ? undefined : (p.width + 18) / BALANCE.moveSpeed + reaction);
   }
@@ -697,7 +714,7 @@ export class StageGenerator {
       // More than one ledge in this band, when the piece asked for it. Laid before the chamber and
       // the doodad are placed, so both see them and keep clear the way they keep clear of any ledge.
       const extras = shaped ? shaped.others : intent ? this.layExtras(intent, platform, y, tuning) : [];
-      if (shaped && intent?.slot) for (const other of extras) if (this.random() < (intent.spikeChance ?? 0)) other.spikePlatform = this.spikeFor(other);
+      if (shaped && intent?.slot) for (const other of extras) if (this.random() < (intent.spikeChance ?? tuning.spikePlatformChance)) other.spikePlatform = this.spikeFor(other);
       // COLLAPSED REALM: some of a band's extra ledges are barbs. Only debris clear of BOTH ends of the
       // route may be: the way in -- every line from the band above's exits to this landing, which a
       // fall at full speed finishes only as it arrives -- and the way off, which starts beside it.
@@ -740,6 +757,17 @@ export class StageGenerator {
             const hops = ENEMY_TYPES[kind].behaviour === 'frog' || ENEMY_TYPES[kind].behaviour === 'groundSkull';
             guard = this.enemy(kind, (min + max) / 2, y - 15, hops ? (max - min) / 2 : Math.min(22, (max - min) / 2), 'guard');
             if (y >= start) enemies.push(guard);
+            // The original's ground skulls come in twos and threes: the rest of the group shares the
+            // guard's stretch of ledge, spread across it, and never the landing side of it.
+            if (kind === 'boneHopper' && max - min >= 60) {
+              const more = 1 + (this.random() < 0.4 ? 1 : 0);
+              for (let k = 1; k <= more; k++) {
+                const x = min + (max - min) * (k / (more + 1));
+                if (Math.abs(x - guard.originX) < 22) continue;
+                const mate: Enemy = { ...this.enemy(kind, x, y - 15, Math.min(x - min, max - x), 'guard'), placed: 'group' };
+                if (y >= start) enemies.push(mate);
+              }
+            }
           }
         }
       }
@@ -751,9 +779,13 @@ export class StageGenerator {
       // change, and when no line across the fall passes the checks it goes where it always went.
       const onPath = this.openKinds && this.flow ? this.random() < this.flow.pathFlyers : false;
       const flies = this.openKinds && this.random() < tuning.flyChance + (guard ? tuning.comboBias : 0);
-      const pathFlyer = flies && onPath ? this.pathFlyer(platform, y, tuning) : undefined;
+      // The kind is rolled ONCE per flyer and then placed. It used to be rolled inside the path rule and
+      // again by the fallback, so a row whose path placement came up empty got a second chance at a
+      // flyer -- invisible while every AREA had a basic flyer, +70% flyers in a roster without one.
+      const flyKind = flies ? this.kindFor('open', tuning) : undefined;
+      const pathFlyer = flyKind && onPath ? this.pathFlyer(flyKind, platform, y) : undefined;
       if (pathFlyer) { if (y >= start) enemies.push(pathFlyer); }
-      else if (flies) {
+      else if (flyKind) {
         // Patrol outside the entire envelope of this safe transfer, including the wing span.
         const corridorLeft = Math.min(this.previous.exitX, platform.safeX) - 48;
         const corridorRight = Math.max(this.previous.exitX, platform.safeX) + 48;
@@ -762,11 +794,9 @@ export class StageGenerator {
           const nearGuard = guard ? regions.reduce((best, region) => Math.abs((region[0] + region[1]) / 2 - guard!.originX) < Math.abs((best[0] + best[1]) / 2 - guard!.originX) ? region : best) : undefined;
           const [left, right] = nearGuard ?? regions[Math.floor(this.random() * regions.length)];
           const range = Math.min(32, (right - left) / 2);
-          const kind = this.kindFor('open', tuning);
-          if (kind) {
-            const e = ENEMY_TYPES[kind].behaviour === 'bat' ? this.hangingBat(kind, y) : this.enemy(kind, (left + right) / 2, y - 115, range, 'open');
-            if (e && y >= start) enemies.push(e);
-          }
+          const kind = flyKind;
+          const e = ENEMY_TYPES[kind].behaviour === 'bat' ? this.hangingBat(kind, y) : this.enemy(kind, (left + right) / 2, y - 115, range, 'open');
+          if (e && y >= start) enemies.push(e);
         }
       }
       // DOWNWELL NORMAL GAMEPLAY CLONE: more of the shaft's inhabitants, loose in the band above this
@@ -1304,9 +1334,7 @@ export class StageGenerator {
    * landing afterwards -- checked against `horizontalReach`, the real steering envelope -- so it is a
    * question with three answers (shoot, stomp, go round), never a wall.
    */
-  private pathFlyer(platform: RoutePlatform, y: number, tuning: RowTuning): Enemy | undefined {
-    const kind = this.kindFor('open', tuning);
-    if (!kind) return undefined;
+  private pathFlyer(kind: EnemyKind, platform: RoutePlatform, y: number): Enemy | undefined {
     // A bat hangs under a ledge, never across a fall. Every other kind -- roamers included -- STARTS on
     // the line with the same way round it, checked at the spot it is laid: a roamer that then comes
     // for the player is an answer to shoot or stomp, and it starts where a straight fall meets it.
@@ -1353,7 +1381,8 @@ export class StageGenerator {
       const t = (ey - top) / band, lineX = this.previous.exitX + (platform.safeX - this.previous.exitX) * t;
       let ex = WORLD.wall + 30 + this.random() * (WORLD.width - WORLD.wall * 2 - 60);
       if (Math.abs(ex - lineX) < 48) ex = lineX + (ex < lineX ? -48 : 48);
-      ex = Math.round(Math.max(WORLD.wall + 26, Math.min(WORLD.width - WORLD.wall - 26, ex)));
+      // Its whole patrol and body inside the shaft: 24px of range and half the widest body.
+      ex = Math.round(Math.max(WORLD.wall + 40, Math.min(WORLD.width - WORLD.wall - 40, ex)));
       if (taken.some(o => Math.hypot(o.x - ex, o.y - ey) < 40)) continue;
       return this.enemy(kind, ex, ey, 24, 'open');
     }

@@ -35,12 +35,15 @@ function clearSection(game: GameModel) {
 
 describe('stage data and progression bookkeeping', () => {
   it('describes four areas of three sections plus the final boss', () => {
-    // SECTION length is a tuning value now; what must hold is the shape and that the run gets
-    // longer as it goes on, so the opening stays cheap to retry and the end is a commitment.
+    // SECTION length is a tuning value now; what must hold is the shape. WAS: every AREA at least as
+    // long as the one before. The clone sets each AREA to the original's measured depth, and the
+    // original's Aquifer is SHORTER than its Catacombs (medians 15.8 / 18.5 / 15.1 / 18.8 screens), so
+    // what is kept is that the run ends on its longest stretch and never on one shorter than it began.
     expect(AREAS.map(a => [a.id, a.sections])).toEqual([[1, 3], [2, 3], [3, 3], [4, 3]]);
     const lengths = AREAS.map(a => a.sectionLength);
     expect(lengths.every(n => n > 0)).toBe(true);
-    for (let i = 1; i < lengths.length; i++) expect(lengths[i]).toBeGreaterThanOrEqual(lengths[i - 1]);
+    expect(lengths[lengths.length - 1]).toBe(Math.max(...lengths));
+    expect(lengths[lengths.length - 1]).toBeGreaterThanOrEqual(lengths[0]);
     expect(PLANNED_TOTAL_DEPTH).toBe(lengths.reduce((sum, n, i) => sum + n * AREAS[i].sections, 0));
     expect(AREAS.map(a => a.name)).toEqual(['SURFACE RUINS', 'CATACOMB RUINS', 'SUNKEN RUINS', 'COLLAPSED REALM']);
     expect(TOTAL_SECTIONS).toBe(12);

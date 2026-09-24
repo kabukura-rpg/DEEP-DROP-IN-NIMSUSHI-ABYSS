@@ -319,8 +319,12 @@ describe('AREA 2 generation carries the CATACOMBS role', () => {
    * from LIMBO is what a spike platform IS: a floor that is safe to land on and turns later, never a
    * barb that is not a floor at all. Gate blocks and chamber floors stay as they are.
    */
-  it('makes every ordinary ledge a spike platform, and nothing else', () => {
+  // WAS: every ordinary ledge a spike platform (Human Review v2). The clone follows the original: its
+  // catacomb traps are differently coloured ledges among plain ones, so a SECTION spikes its own share
+  // -- 30 / 35 / 40% -- and still nothing that is not an ordinary ledge.
+  it('makes a share of the ordinary ledges spike platforms, and nothing else', () => {
     for (const sectionId of SECTIONS) {
+      let ordinaryCount = 0, spikedCount = 0;
       for (let seed = 1; seed <= SEEDS; seed++) {
         const shaft = section(sectionId, seed * 613);
         // The one exception is the SECTION's quiet opening (`graceDepth`), which holds back every hazard
@@ -329,10 +333,13 @@ describe('AREA 2 generation carries the CATACOMBS role', () => {
         for (const p of shaft.platforms) {
           if (p.y < grace) continue;   // the quiet opening decides these for itself
           const ordinary = !p.breakBlock && p.safeZone === undefined;
-          expect({ sectionId, seed, ordinary, spiked: !!p.spikePlatform }).toEqual({ sectionId, seed, ordinary, spiked: ordinary });
+          if (!ordinary) expect({ sectionId, seed, spiked: !!p.spikePlatform }).toEqual({ sectionId, seed, spiked: false });
+          else { ordinaryCount++; if (p.spikePlatform) spikedCount++; }
           expect(p.limboHazard ?? false).toBe(false);
         }
       }
+      const want = area2.plans![sectionId - 1].spikePlatformChance!;
+      expect(Math.abs(spikedCount / ordinaryCount - want), `2-${sectionId}`).toBeLessThan(0.08);
     }
   });
 

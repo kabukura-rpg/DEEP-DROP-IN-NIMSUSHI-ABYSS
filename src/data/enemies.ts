@@ -1,6 +1,6 @@
 import type { DamageCause } from '../systems/HealthSystem';
 import type { PickupKind } from './pickups';
-import { idleSkull, type ChaseState } from './chasers';
+import type { ChaseState } from './chasers';
 import { attachDweller } from './dwellers';
 
 export type EnemyKind = 'slime' | 'bat' | 'armoredSlime' | 'tank' | 'fish' | 'bubbleFish' | 'jellyfish' | 'urchin'
@@ -202,7 +202,7 @@ export const ENEMY_TYPES: Record<EnemyKind, EnemyType> = {
   // you, because it comes from behind. It leaves no body; there is nothing there to leave.
   ghost: { id: 'ghost', name: 'GHOST', shootable: true, stompable: true, flying: true, threat: 'basic', spawnSlot: 'open', spawnWeight: 0, hp: 2, silhouette: 'ghost', bodyWidth: 26, swaySpeed: 0, damageCause: 'enemy', contactHint: '止まるな', gems: 20 },
   // FLYING SKULL: rattles, then lunges. One round or one stomp; a lunge into the player is one heart.
-  flyingSkull: { id: 'flyingSkull', name: 'FLYING SKULL', shootable: true, stompable: true, flying: true, threat: 'basic', spawnSlot: 'open', spawnWeight: 0.8, hp: 1, silhouette: 'skull', bodyWidth: 24, swaySpeed: 0, damageCause: 'enemy', contactHint: '突進に注意' },
+  flyingSkull: { id: 'flyingSkull', name: 'FLYING SKULL', shootable: true, stompable: true, flying: true, threat: 'basic', spawnSlot: 'open', spawnWeight: 0.8, hp: 3, silhouette: 'skull', bodyWidth: 24, swaySpeed: 0, damageCause: 'enemy', contactHint: '撃つと怒る', behaviour: 'wander', gems: 20 },
   // ---------------------------------------------------------------------------------------------
   // DOWNWELL NORMAL GAMEPLAY CLONE. One row per ROLE in the original's Normal Mode roster that DEEP
   // DROP did not have. The body, the name and the look are DEEP DROP's; `hp` (in machine-gun rounds),
@@ -257,10 +257,11 @@ export interface Enemy {
   ai?: ChaseState;
   /**
    * STAGE GENERATION v2: laid by a flow rule rather than the ordinary one -- `path` across a fall,
-   * `landing` beside a landing. Absent for every enemy placed the v1 way. Read only by tests and the
+   * `landing` beside a landing, `group` the rest of a ground-skull group beside its guard (DOWNWELL
+   * NORMAL GAMEPLAY CLONE). Absent for every enemy placed the v1 way. Read only by tests and the
    * development measurements; nothing in play depends on it.
    */
-  placed?: 'path' | 'landing';
+  placed?: 'path' | 'landing' | 'group';
 }
 export function spawnEnemy(kind: EnemyKind, id: number, x: number, y: number, range = 0, phase = 0, slot: 'guard' | 'open' = 'guard'): Enemy {
   const type = ENEMY_TYPES[kind];
@@ -268,7 +269,6 @@ export function spawnEnemy(kind: EnemyKind, id: number, x: number, y: number, ra
   // A kind with a BEHAVIOUR (dwellers.ts) gets its state machine here, from where it was laid. A GHOST's
   // state is the generator's to give (it needs the SECTION's speed), so it is set where ghosts are laid.
   if (type.behaviour) e.ai = attachDweller(e, type.behaviour);
-  else if (kind === 'flyingSkull') e.ai = idleSkull();
   return e;
 }
 

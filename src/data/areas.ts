@@ -104,6 +104,13 @@ export interface SectionPlan {
    */
   spikeReaction?: number;
   /**
+   * DOWNWELL NORMAL GAMEPLAY CLONE: a FIXED warning, in seconds, for this SECTION's spike platforms --
+   * the original's traps fire "shortly after" a landing, the same for every trap, and Human Review
+   * found DEEP DROP's slower than the original's. Wins over `spikeReaction`. DESIGN VALUE: the
+   * original's delay could not be measured from the footage (see the reference spec).
+   */
+  spikeWarning?: number;
+  /**
    * Per-row chance that the row is LIMBO's dangerous ground: barbs that are not a floor at all.
    * Nothing lands on one, so it neither reloads nor settles -- it is fallen through for a heart.
    *
@@ -286,24 +293,30 @@ export const AREAS: readonly AreaConfig[] = [
     // skulls that rattle and lunge). And the ground itself is the AREA's rule: EVERY ordinary ledge is
     // a spike platform (Human Review, v2), each with a warning long enough to walk off it from
     // anywhere -- so moving is always safe, and standing still never is.
-    id: 2, name: 'CATACOMB RUINS', sections: 3, sectionLength: 450,
-    enemyPool: ['slime', 'bat', 'armoredSlime', 'tank', 'flyingSkull'],
+    id: 2, name: 'CATACOMB RUINS', sections: 3, sectionLength: 525,
+    // DOWNWELL NORMAL GAMEPLAY CLONE: the Catacombs roster -- ghost (scheduled below), ground skull
+    // BONE HOPPER (in twos and threes), flying skull (calm until shot), skeleton BONE THROWER, phantom
+    // SHADE ORB. Normal Mode's catacombs have no bats and no worms, so AREA 1's bodies are gone; as in
+    // the original the flying skull joins from the second level. Spike traps are what the original's
+    // are -- a minority of differently coloured ledges that fire shortly after a landing -- rather than
+    // every ledge on a walk-off timer.
+    enemyPool: ['boneHopper', 'boneThrower', 'flyingSkull', 'shadeOrb'],
     theme: { wall: 0x2a2620, wallEdge: 0x463f33, brick: 0x1a1713, pillar: 0x3b3428, accent: 0xe8c98a, dust: 0xb6a888 },
     plans: [
       // 2-1 LEARN THE SHELVES. Four ghosts (two out at most), no skulls, spikes on every ledge.
       // STAGE GENERATION v2: the shelves are spaced ~1.75x further apart (catacombTerrain.ts), so the
       // per-row chances are raised by the same factor -- enemies and skulls per 100m are unchanged --
       // and the flow profile puts them across the fall and beside the shelves.
-      { platformWidth: [168, 198], gap: 220, pieces: AREA2_INTRO, enemyChance: 0.40, flyChance: 0.31, flow: { pathFlyers: 0.5, landingGuards: 0.3 }, toughChance: 0.22, heavyChance: 0, comboBias: 0.18, graceDepth: 12,
-        spikePlatformChance: 1, spikeReaction: 0.35, breakBlockRows: 2, breakBlockDurability: 2,
+      { platformWidth: [168, 198], gap: 220, pieces: AREA2_INTRO, enemyChance: 0.72, flyChance: 0.3, swarm: 0.05, flow: { pathFlyers: 0.5, landingGuards: 0.35 }, toughChance: 0.3, heavyChance: 0, comboBias: 0.18, graceDepth: 12,
+        spikePlatformChance: 0.3, spikeWarning: 0.4, breakBlockRows: 2, breakBlockDurability: 2,
         doodadChance: 0.24, safeZoneCount: 1, enemyExclude: ['flyingSkull'], ghosts: { count: 4, speed: 70 } },
       // 2-2 PURSUIT. Six ghosts, skulls join, slots narrow.
-      { platformWidth: [160, 190], gap: 220, pieces: AREA2_PURSUIT, enemyChance: 0.54, flyChance: 0.38, flow: { pathFlyers: 0.6, landingGuards: 0.35 }, toughChance: 0.30, heavyChance: 0.08, comboBias: 0.24,
-        spikePlatformChance: 1, spikeReaction: 0.35, breakBlockRows: 2, breakBlockDurability: 2,
+      { platformWidth: [160, 190], gap: 220, pieces: AREA2_PURSUIT, enemyChance: 0.72, flyChance: 0.3, swarm: 0.1, flow: { pathFlyers: 0.6, landingGuards: 0.4 }, toughChance: 0.35, heavyChance: 0, comboBias: 0.24,
+        spikePlatformChance: 0.35, spikeWarning: 0.4, breakBlockRows: 2, breakBlockDurability: 2,
         doodadChance: 0.26, safeZoneCount: 1, ghosts: { count: 6, speed: 80 } },
       // 2-3 OSSUARY. Everything at once -- carried by the shape of the shaft, not by a longer roster.
-      { platformWidth: [148, 178], gap: 220, pieces: AREA2_OSSUARY, enemyChance: 0.66, flyChance: 0.45, flow: { pathFlyers: 0.7, landingGuards: 0.4 }, toughChance: 0.38, heavyChance: 0.14, comboBias: 0.28,
-        spikePlatformChance: 1, spikeReaction: 0.35, breakBlockRows: 2, breakBlockDurability: 2,
+      { platformWidth: [148, 178], gap: 220, pieces: AREA2_OSSUARY, enemyChance: 0.8, flyChance: 0.35, swarm: 0.15, flow: { pathFlyers: 0.7, landingGuards: 0.45 }, toughChance: 0.4, heavyChance: 0, comboBias: 0.28,
+        spikePlatformChance: 0.4, spikeWarning: 0.4, breakBlockRows: 2, breakBlockDurability: 2,
         doodadChance: 0.28, safeZoneCount: 1, ghosts: { count: 8, speed: 88 } },
     ],
   },

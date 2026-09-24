@@ -54,7 +54,7 @@ export const DWELLER_RULES = {
   phantomChase: { speed: 105, wobble: 0, wobbleRate: 0 },
   frog: { wait: [1.1, 1.9] as const, windup: 0.45, jump: 560, run: 150 },
   groundSkull: { wait: [0.35, 0.9] as const, windup: 0, jump: 300, run: 70 },
-  skull: { calmRadius: 34, calmRate: 0.9, speed: 150, turn: 700 },
+  skull: { calmRadius: 34, calmRate: 0.9, speed: 125, turn: 500 },
   skeleton: { range: 330, every: 1.7, windup: 0.35, boneVx: 165, boneVy: -430 },
   phantom: { sway: 1.0, bob: 16, bobRate: 1.7, near: 150, approach: 45 },
   jelly: { pause: 0.5, move: 0.7, dx: 46, dy: 64 },

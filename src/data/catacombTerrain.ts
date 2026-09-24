@@ -51,8 +51,6 @@ export interface CatacombTerrain {
   baffleWidth: readonly [number, number];
   /** The gap a SLOT leaves to drop through. Never under three bodies (54px). */
   slotGap: readonly [number, number];
-  /** Spike chance on each SLOT shelf. Every CATACOMB ledge is spiked since Human Review v2, so 1. */
-  slotSpike: number;
   weights: { baffle: number; slot: number; normal: number };
 }
 
@@ -70,15 +68,14 @@ export function catacombPieces(t: CatacombTerrain): readonly PieceSpec[] {
        * BAFFLE. Two or three shelves (STAGE GENERATION v2; it was three to five), each from the wall
        * opposite the last.
        *
-       * Every one is a spike platform (Human Review, v2). The walk across one is up to 260px, more than
-       * the old fixed 0.65s warning covered, so a CATACOMB spike platform's warning is its OWN, sized
-       * to the walk off it from anywhere plus a reaction (`spikeReaction` in areas.ts): crossing is
-       * always safe, stopping to think is not.
+       * Spiked like any other ledge -- at the SECTION's own chance (DOWNWELL NORMAL GAMEPLAY CLONE: the
+       * original's traps are a minority of ledges, not all of them). A shelf held against a wall is left
+       * by its one open end, so its warning is never shorter than that walk (StageGenerator.spikeFor).
        */
       id: 'baffle', weight: t.weights.baffle,
       rows: r => Array.from({ length: count(r, 2, 3) }, () => ({
         piece: 'baffle' as const, step: between(r, 320, 370), widthBias: [0, 1] as const,
-        ledgeWidth: t.baffleWidth, baffle: true, spikeChance: 1, extras: 0, openSpan: false,
+        ledgeWidth: t.baffleWidth, baffle: true, extras: 0, openSpan: false,
       })),
     },
     {
@@ -86,7 +83,7 @@ export function catacombPieces(t: CatacombTerrain): readonly PieceSpec[] {
       id: 'slot', weight: t.weights.slot,
       rows: r => Array.from({ length: count(r, 1, 2) }, () => ({
         piece: 'slot' as const, step: between(r, 330, 380), widthBias: [0, 1] as const,
-        slot: t.slotGap, spikeChance: t.slotSpike, extras: 0, openSpan: false,
+        slot: t.slotGap, extras: 0, openSpan: false,
       })),
     },
     {
@@ -104,16 +101,16 @@ export const catacombGrammar = (t: CatacombTerrain): PieceGrammar => ({ pieces: 
 
 /** 2-1: learn the shelves. Mostly baffles, few slots; every ledge a spike platform to keep moving on. */
 export const AREA2_INTRO = catacombGrammar({
-  baffleWidth: [228, 256], slotGap: [70, 84], slotSpike: 1,
+  baffleWidth: [228, 256], slotGap: [70, 84],
   weights: { baffle: 0.5, slot: 0.25, normal: 0.25 },
 });
 /** 2-2: more slots and narrower gaps. */
 export const AREA2_PURSUIT = catacombGrammar({
-  baffleWidth: [238, 266], slotGap: [62, 78], slotSpike: 1,
+  baffleWidth: [238, 266], slotGap: [62, 78],
   weights: { baffle: 0.45, slot: 0.35, normal: 0.2 },
 });
 /** 2-3: the finished AREA. The tightest gaps and the widest shelves, never a denser roster. */
 export const AREA2_OSSUARY = catacombGrammar({
-  baffleWidth: [246, 274], slotGap: [56, 72], slotSpike: 1,
+  baffleWidth: [246, 274], slotGap: [56, 72],
   weights: { baffle: 0.45, slot: 0.4, normal: 0.15 },
 });

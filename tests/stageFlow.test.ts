@@ -63,12 +63,16 @@ describe('STAGE GENERATION v2: enemies placed into the fall', () => {
     expect(checked).toBeGreaterThan(400);
   });
 
+  // A ground-skull group's other members (`placed: 'group'`, DOWNWELL NORMAL GAMEPLAY CLONE) come with
+  // the far-end guard spot, which a landing guard does not have; they are the group's, not the
+  // profile's, so the count here is of what the profile decides.
   it('moves enemies without adding any: the rolls for whether a row has one are untouched', () => {
+    const rows = (b: ReturnType<typeof build>) => b.enemies.filter(e => e.placed !== 'group').length;
     for (const area of AREAS) for (let n = 0; n < 3; n++) {
       let before = 0, after = 0;
       for (let seed = 1; seed <= 200; seed++) {
-        before += build(area.id, n, seed * 53).enemies.length;
-        after += build(area.id, n, seed * 53, FULL).enemies.length;
+        before += rows(build(area.id, n, seed * 53));
+        after += rows(build(area.id, n, seed * 53, FULL));
       }
       // The same rolls, a different stream after the first of them: counts agree within noise.
       expect(Math.abs(after - before) / before, `${area.id}-${n + 1}`).toBeLessThan(0.08);

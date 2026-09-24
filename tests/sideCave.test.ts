@@ -540,9 +540,10 @@ describe('SIDE CAVE frequency', () => {
     for (const mode of ['low', 'variable', 'high'] as const) {
       const kinds = new Map<string, number>();
       let caves = 0;
-      // 150 seeds x 3 SECTIONS is ~675 caves a mode, which puts the standard error on each share
-      // near 0.019 -- comfortably inside the 0.05 this asserts, and fast enough not to time out.
-      for (let seed = 1; seed <= 150; seed++) for (const n of [1, 2, 3]) {
+      // 400 seeds x 3 SECTIONS: 1,200-2,400 caves a mode, a standard error near 0.012 on each share. It
+      // was 150 seeds (SE ~0.02-0.023 on LOW), close enough to the 0.05 bound that a reshuffled stream
+      // (the clone moved AREA 1's draws) fell outside it at 2.9 SE with the split unchanged.
+      for (let seed = 1; seed <= 400; seed++) for (const n of [1, 2, 3]) {
         for (const cave of section(mode, n, seed * 131).caves) {
           caves++;
           kinds.set(cave.content?.kind ?? 'none', (kinds.get(cave.content?.kind ?? 'none') ?? 0) + 1);

@@ -103,7 +103,10 @@ describe('CATACOMB terrain is walked, not fallen through', () => {
           const route = here[0];
           const exits = above.map(p => p.exitX), lo = Math.min(...exits), hi = Math.max(...exits);
           const wallHeld = route.x <= WORLD.wall + 1 || route.x + route.width >= WORLD.width - WORLD.wall - 1;
-          if (here.length === 1 && wallHeld && route.safeX === Math.round((lo + hi) / 2) && route.width >= 228) {
+          // Identified by the generator's own tag: an ordinary row can land exactly between the exits above
+          // by coincidence, which the old geometric guess mistook for a baffle.
+          if (route.shaped === 'baffle') {
+            expect(here.length === 1 && wallHeld && route.safeX === Math.round((lo + hi) / 2) && route.width >= 228).toBe(true);
             baffles++;
             // Covers every exit above with a body and a margin to spare: the fall lands, always.
             expect(route.x + 21).toBeLessThanOrEqual(lo);
@@ -111,8 +114,10 @@ describe('CATACOMB terrain is walked, not fallen through', () => {
             // And the way on is the far end, so the shelf is crossed, never simply fallen off: at the
             // least the 21px the landing sits inside the shelf's end plus the 12px step off it.
             expect(Math.abs(route.exitX - route.safeX)).toBeGreaterThanOrEqual(33);
-            // Spiked since v2 -- with a warning that always outlasts the walk off it.
-            expect(route.spikePlatform?.warning).toBeGreaterThanOrEqual(Math.abs(route.exitX - route.safeX) / 350 + 0.35 - 1e-9);
+            // WAS "every shelf spiked, warning >= the walk to its exit + 0.35". The clone spikes a share
+            // of ledges (the original's traps are a minority) with a short fixed warning -- never shorter
+            // than walking the shelf from its wall end to its one open end, plus a reaction.
+            if (route.spikePlatform) expect(route.spikePlatform.warning).toBeGreaterThanOrEqual((route.width + 9) / 350 + 0.1 - 1e-9);
           }
           above = here;
         }
@@ -129,18 +134,19 @@ describe('CATACOMB terrain is walked, not fallen through', () => {
     // Skulls are held back for 2-1 and arrive in 2-2.
     expect(plans[0].enemyExclude).toContain('flyingSkull');
     expect(plans[1].enemyExclude ?? []).not.toContain('flyingSkull');
-    // Gaps narrow. (Every ledge is spiked in every SECTION since v2, so spikes no longer grade them.)
+    // Gaps narrow, and more of the ledges turn (the original's traps: a minority, growing).
     const slot = (i: number) => plans[i].pieces!.pieces.find(p => p.id === 'slot')!.rows(seeded(1), 1)[0];
     expect(slot(0).slot![0]).toBeGreaterThan(slot(1).slot![0]);
     expect(slot(1).slot![0]).toBeGreaterThan(slot(2).slot![0]);
-    for (const i of [0, 1, 2]) expect(slot(i).spikeChance).toBe(1);
-    // And the rolled roster is no denser than the catacombs had before the rework (16.7/23.0/27.6).
-    // Ghosts are left out of this count: they are laid on a schedule of their own, raised on purpose
-    // by Human Review v2, and checked against that schedule above and in the safety pass.
-    // Per 100m: STAGE GENERATION v2 made the SECTION longer (300 -> 450m), and a longer SECTION is
-    // not a denser roster. The caps are the old per-SECTION ones over the old 300m.
-    const per100 = [1, 2, 3].map(n => { let e = 0; for (let seed = 1; seed <= 40; seed++) e += shaft(n as SectionId, seed * 53).enemies.filter(x => x.ai?.kind !== 'ghost').length; return e / 40 * 100 / area2.sectionLength; });
-    [17.5, 24, 29].forEach((cap, i) => expect(per100[i], `2-${i + 1}`).toBeLessThan(cap / 3));
+    expect(plans[0].spikePlatformChance!).toBeLessThan(plans[1].spikePlatformChance!);
+    expect(plans[1].spikePlatformChance!).toBeLessThan(plans[2].spikePlatformChance!);
+    expect(plans[2].spikePlatformChance!).toBeLessThan(0.5);
+    // WAS: the rolled roster no denser than before the rework (caps 17.5/24/29 over 300m). The clone
+    // sets it to the ORIGINAL's instead -- ~2-2.8 enemies a screen in D's catacombs (reference spec) --
+    // rising through the AREA. Ghosts are left out: they keep their own schedule, checked above.
+    const perScreen = [1, 2, 3].map(n => { let e = 0; for (let seed = 1; seed <= 40; seed++) e += shaft(n as SectionId, seed * 53).enemies.filter(x => x.ai?.kind !== 'ghost').length; return e / 40 * 28.6 / area2.sectionLength; });
+    expect(perScreen[0]).toBeLessThan(perScreen[2]);
+    for (const d of perScreen) { expect(d).toBeGreaterThan(1.5); expect(d).toBeLessThan(3.6); }
   });
 });
 
@@ -165,15 +171,14 @@ describe('CATACOMB generation safety across 1,500 SECTIONs', () => {
             const [a, b] = [...here].sort((p, q) => p.x - q.x);
             if (b.x - (a.x + a.width) < 54) expect.fail(`${tag}: slot narrower than three bodies`);
           }
-          // NO FORCED SPIKE HIT. Every ledge here is spiked (v2), so the promise is about time: from ANY
-          // landing point on it, walking to its exit end clears the body before the teeth come up, with
-          // the reaction reserve still to spare.
-          const grace = WORLD.startY + (area2.plans![sectionId - 1].graceDepth ?? 0) * WORLD.pixelsPerMeter;
+          // NO FORCED SPIKE HIT. A spiked ledge (a share of them since the clone) promises time: from ANY
+          // landing point on it, walking to its nearest open end -- the one end, for a shelf against a
+          // wall -- clears the body before the teeth come up, with a tenth of a second to react.
           for (const p of here) {
-            if (p.y < grace) continue;   // the quiet opening holds every hazard back, spikes included
-            if (!p.spikePlatform) expect.fail(`${tag}: an ordinary ledge without spikes at y${y}`);
-            const farthest = p.width + 18;   // the far end of the ledge to the body clear of the near one
-            if ((p.spikePlatform!.warning ?? 0) < farthest / 350 + 0.35 - 1e-9) expect.fail(`${tag}: spikes faster than the walk off at y${y}`);
+            if (!p.spikePlatform) continue;
+            const leftOpen = p.x > WORLD.wall + 4, rightOpen = p.x + p.width < WORLD.width - WORLD.wall - 4;
+            const walk = leftOpen && rightOpen ? p.width / 2 + 9 : p.width + 9;
+            if ((p.spikePlatform.warning ?? 0) < walk / 350 + 0.1 - 1e-9) expect.fail(`${tag}: spikes faster than the walk off at y${y}`);
           }
           // No enemy can ever stand on or pass through the route's landing spot.
           const landing: Box = { minX: route.safeX - 9, maxX: route.safeX + 9, minY: route.y - 30, maxY: route.y };
@@ -308,48 +313,46 @@ describe('FLYING SKULL', () => {
   /** Camera on the skull, so it is on screen; the player placed relative to it. */
   const frame = (g: GameModel, e: Enemy, px: number, py: number) => { g.cameraY = e.originY! - 300; holdStill(g, px, py); };
 
-  it('hovers until the player is in range, then warns before it moves', () => {
+  // DOWNWELL NORMAL GAMEPLAY CLONE: the skull now runs the ORIGINAL's rule (dwellers.ts 'wander') --
+  // "they won't bother you unless you bother them": it idles in a lazy loop and ignores the player;
+  // shot, it turns red, can no longer be stood on, and pursues. The rattle-and-lunge tests (warn,
+  // locked aim, cool-off and return) described DEEP DROP's own skull and are replaced by these.
+  it('ignores the player until it is shot', () => {
     const g = bare();
     const e = skullAt(g, 225, 2000);
-    expect(e.ai).toEqual(idleSkull());
-    for (let i = 0; i < 120; i++) { frame(g, e, 225, 2000 + SKULL_RULES.range + 40); g.step(1 / 120, 0, false); }
-    expect(e.ai!.state).toBe('idle');
-    frame(g, e, 225, 2000 + SKULL_RULES.range - 20); g.step(1 / 120, 0, false);
-    expect(e.ai!.state).toBe('warn');
-    expect(g.events.some(ev => ev.type === 'skullWarn')).toBe(true);
-    // Through the whole warning it does not move toward anyone.
-    const x = e.x, y = e.y;
-    for (let i = 0; i < Math.round((SKULL_RULES.warn - 0.05) * 120); i++) { frame(g, e, 225, 2200); g.step(1 / 120, 0, false); }
-    expect([e.x, e.y]).toEqual([x, y]);
+    expect(e.ai).toMatchObject({ kind: 'wander', state: 'calm' });
+    let far = 0;
+    for (let i = 0; i < 120 * 4; i++) { frame(g, e, 225, 2080); g.step(1 / 120, 0, false); far = Math.max(far, Math.hypot(e.x - 225, e.y - 2000)); }
+    expect(e.ai!.state).toBe('calm');
+    // It never leaves its loop to come for anyone.
+    expect(far).toBeLessThan(40);
   });
 
-  it('charges where the player WAS when it began to warn, so moving during the warning dodges it', () => {
+  it('turns on the shooter when a round does not kill it, and can no longer be stood on', () => {
     const g = bare();
-    const e = skullAt(g, 225, 2000);
-    frame(g, e, 225, 2150); g.step(1 / 120, 0, false);        // warns, aimed straight down at 225
-    let hp = g.hp;
-    // The player steps well aside during the warning and stays there.
-    for (let i = 0; i < 120 * 1.5; i++) { frame(g, e, 360, 2150); g.step(1 / 120, 0, false); }
-    expect(g.hp).toBe(hp);
-    expect(Math.abs(e.x - 225)).toBeLessThan(3);             // it flew down its locked line, not after them
-    // Standing still on the line is where it goes.
-    const g2 = bare(); const e2 = skullAt(g2, 225, 2000);
-    hp = g2.hp;
-    for (let i = 0; i < 120 * 1.5; i++) { frame(g2, e2, 225, 2150); g2.step(1 / 120, 0, false); }
-    expect(g2.hp).toBe(hp - 1);
+    const e = skullAt(g, 225, 2150);
+    frame(g, e, e.x, 2000); g.cooldown = 0; g.shoot();
+    // The round has to fly: hold the player without clearing it.
+    for (let i = 0; i < 40 && e.ai!.state === 'calm'; i++) { g.player.y = 2000; g.player.vy = 0; g.step(1 / 120, 0, false); }
+    expect(e.ai!.state).toBe('angry');
+    expect(e.stompable).toBe(false);
+    expect(e.alive).toBe(true);
+    // It pursues -- closing on a player standing well off to the side -- and never faster than walking.
+    const d0 = Math.hypot(e.x - 360, e.y - 2150);
+    let fastest = 0, prev = { x: e.x, y: e.y };
+    for (let i = 0; i < 120; i++) { standStill(g, 360, 2150); g.step(1 / 120, 0, false); fastest = Math.max(fastest, Math.hypot(e.x - prev.x, e.y - prev.y) * 120); prev = { x: e.x, y: e.y }; }
+    expect(Math.hypot(e.x - 360, e.y - 2150)).toBeLessThan(d0);
+    expect(fastest).toBeLessThan(350);
   });
 
-  it('cools off after a charge, then drifts home and can notice the player again', () => {
+  it('dies to one stomp while it is calm', () => {
     const g = bare();
-    const e = skullAt(g, 225, 2000);
-    frame(g, e, 380, 2000); g.step(1 / 120, 0, false);        // warn, aimed sideways
-    const states = new Set<string>();
-    // The player stays close enough that the camera keeps the skull on screen (off screen it would be
-    // retired like any enemy), but far outside its reach, so it has nothing to notice again.
-    for (let i = 0; i < 120 * 8; i++) { standStill(g, 60, 2000 + SKULL_RULES.range + 60); g.step(1 / 120, 0, false); states.add(e.ai!.state!); }
-    expect([...states]).toEqual(expect.arrayContaining(['warn', 'charge', 'cool', 'return', 'idle']));
-    expect(e.ai!.state).toBe('idle');
-    expect(e.x).toBeCloseTo(225, 6);
+    const e = skullAt(g, 225, 2040);
+    (e.ai as { seen: number }).seen = 1;
+    holdStill(g, 225, 2000); g.cameraY = 2000 - WORLD.height * 0.37; g.player.vy = 500;
+    for (let i = 0; i < 12 && e.alive; i++) { g.platforms = []; e.x = 225; e.y = 2040; g.step(1 / 120, 0, false); }
+    expect(e.alive).toBe(false);
+    expect(g.hp).toBe(4);
   });
 
   it('lunges the same way at 30, 60 and 120 frames per second, and on every replay', () => {
@@ -363,7 +366,8 @@ describe('FLYING SKULL', () => {
   });
 
   it('is an ordinary soft enemy apart from how it moves', () => {
-    expect(ENEMY_TYPES.flyingSkull).toMatchObject({ hp: 1, shootable: true, stompable: true, damageCause: 'enemy' });
+    // Three rounds (so a first shot angers rather than kills), stompable while calm, as the original's.
+    expect(ENEMY_TYPES.flyingSkull).toMatchObject({ hp: 3, shootable: true, stompable: true, damageCause: 'enemy', behaviour: 'wander' });
     expect(ENEMY_TYPES.ghost).toMatchObject({ shootable: true, stompable: true, damageCause: 'enemy', spawnWeight: 0 });
   });
 });

@@ -374,7 +374,7 @@ describe('HEART BALLOON', () => {
     expect(fresh.upgrades.has('heartBalloon')).toBe(false);
     expect(fresh.balloon).toBeNull();
     fresh.player.y = 200; fresh.player.vy = 0;
-    for (let i = 0; i < 360; i++) { fresh.platforms = []; fresh.player.grounded = -1; fresh.step(1 / 120, 0, false); }
+    for (let i = 0; i < 360; i++) { fresh.platforms = []; fresh.enemies = []; fresh.player.grounded = -1; fresh.step(1 / 120, 0, false); }
     expect(fresh.player.vy).toBeCloseTo(fresh.stats.maxFallSpeed, 0);
   });
 
