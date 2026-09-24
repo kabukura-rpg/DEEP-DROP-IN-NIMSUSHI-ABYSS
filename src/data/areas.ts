@@ -259,7 +259,7 @@ export const AREAS: readonly AreaConfig[] = [
         breakBlockRows: 2, breakBlockDurability: 1,
         doodadChance: 0.12, safeZoneCount: 1, sideRooms: 2 },
       { platformWidth: [152, 178], gap: 238, rhythm: AREA1_RHYTHM, pieces: AREA1_GRAMMAR, enemyChance: 0.50, flyChance: 0.27, toughChance: 0.22, heavyChance: 0, comboBias: 0.22,
-        flow: { pathFlyers: 0.5, landingGuards: 0.3 },
+        flow: { pathFlyers: 0.55, landingGuards: 0.35 },
         breakBlockRows: 3, breakBlockDurability: 2,
         doodadChance: 0.12, safeZoneCount: 1, sideRooms: 2 },
       { platformWidth: [132, 158], gap: 244, rhythm: AREA1_RHYTHM, pieces: AREA1_GRAMMAR, enemyChance: 0.73, flyChance: 0.42, toughChance: 0.30, heavyChance: 0, comboBias: 0.30,
@@ -281,15 +281,18 @@ export const AREAS: readonly AreaConfig[] = [
     theme: { wall: 0x2a2620, wallEdge: 0x463f33, brick: 0x1a1713, pillar: 0x3b3428, accent: 0xe8c98a, dust: 0xb6a888 },
     plans: [
       // 2-1 LEARN THE SHELVES. Four ghosts (two out at most), no skulls, spikes on every ledge.
-      { platformWidth: [168, 198], gap: 220, pieces: AREA2_INTRO, enemyChance: 0.23, flyChance: 0.18, toughChance: 0.22, heavyChance: 0, comboBias: 0.18, graceDepth: 12,
+      // STAGE GENERATION v2: the shelves are spaced ~1.75x further apart (catacombTerrain.ts), so the
+      // per-row chances are raised by the same factor -- enemies and skulls per 100m are unchanged --
+      // and the flow profile puts them across the fall and beside the shelves.
+      { platformWidth: [168, 198], gap: 220, pieces: AREA2_INTRO, enemyChance: 0.40, flyChance: 0.31, flow: { pathFlyers: 0.45, landingGuards: 0.3 }, toughChance: 0.22, heavyChance: 0, comboBias: 0.18, graceDepth: 12,
         spikePlatformChance: 1, spikeReaction: 0.35, breakBlockRows: 2, breakBlockDurability: 2,
         doodadChance: 0.24, safeZoneCount: 1, enemyExclude: ['flyingSkull'], ghosts: { count: 4, speed: 70 } },
       // 2-2 PURSUIT. Six ghosts, skulls join, slots narrow.
-      { platformWidth: [160, 190], gap: 220, pieces: AREA2_PURSUIT, enemyChance: 0.31, flyChance: 0.22, toughChance: 0.30, heavyChance: 0.08, comboBias: 0.24,
+      { platformWidth: [160, 190], gap: 220, pieces: AREA2_PURSUIT, enemyChance: 0.54, flyChance: 0.38, flow: { pathFlyers: 0.55, landingGuards: 0.35 }, toughChance: 0.30, heavyChance: 0.08, comboBias: 0.24,
         spikePlatformChance: 1, spikeReaction: 0.35, breakBlockRows: 2, breakBlockDurability: 2,
         doodadChance: 0.26, safeZoneCount: 1, ghosts: { count: 6, speed: 80 } },
       // 2-3 OSSUARY. Everything at once -- carried by the shape of the shaft, not by a longer roster.
-      { platformWidth: [148, 178], gap: 220, pieces: AREA2_OSSUARY, enemyChance: 0.38, flyChance: 0.26, toughChance: 0.38, heavyChance: 0.14, comboBias: 0.28,
+      { platformWidth: [148, 178], gap: 220, pieces: AREA2_OSSUARY, enemyChance: 0.66, flyChance: 0.45, flow: { pathFlyers: 0.65, landingGuards: 0.4 }, toughChance: 0.38, heavyChance: 0.14, comboBias: 0.28,
         spikePlatformChance: 1, spikeReaction: 0.35, breakBlockRows: 2, breakBlockDurability: 2,
         doodadChance: 0.28, safeZoneCount: 1, ghosts: { count: 8, speed: 88 } },
     ],
