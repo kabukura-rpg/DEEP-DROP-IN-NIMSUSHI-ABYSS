@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { GameModel } from '../src/systems/GameModel';
 import { OxygenSystem, OXYGEN_RULES } from '../src/systems/OxygenSystem';
-import { StageGenerator, START_PLATFORM, type RoutePlatform } from '../src/systems/StageGenerator';
+import { roams, StageGenerator, START_PLATFORM, type RoutePlatform } from '../src/systems/StageGenerator';
 import { ENEMY_HALF_HEIGHT, ENEMY_TYPES, enemyPosition, enemyType, motionEnvelope, pulse, spawnEnemy, type Enemy, type EnemyKind } from '../src/data/enemies';
 import { doodadBounceZone } from '../src/data/doodads';
 import { PICKUP_TYPES, type Pickup } from '../src/data/pickups';
@@ -228,34 +228,45 @@ describe('AREA 3 bubbles', () => {
 });
 
 describe('AREA 3 enemies', () => {
-  it('pools exactly the four AREA 3 enemies with both stomp classes present', () => {
-    expect([...area3.enemyPool]).toEqual(['fish', 'bubbleFish', 'jellyfish', 'urchin']);
-    expect(area3.enemyPool.filter(k => ENEMY_TYPES[k].stompable)).toEqual(['fish', 'bubbleFish']);
-    expect(area3.enemyPool.filter(k => !ENEMY_TYPES[k].stompable)).toEqual(['jellyfish', 'urchin']);
+  // DOWNWELL NORMAL GAMEPLAY CLONE: the Aquifer roster replaces fish / bubble fish / jellyfish / urchin
+  // (reference spec): SQUID and the swimming turtle SHELL SWIMMER can be stood on, RISER JELLY and the
+  // piranha BITER cannot -- the same two stomp classes, carried by the original's roles.
+  it('pools exactly the four Aquifer roles with both stomp classes present', () => {
+    expect([...area3.enemyPool]).toEqual(['squid', 'shellSwimmer', 'riserJelly', 'biter']);
+    expect(area3.enemyPool.filter(k => ENEMY_TYPES[k].stompable)).toEqual(['squid', 'shellSwimmer']);
+    expect(area3.enemyPool.filter(k => !ENEMY_TYPES[k].stompable)).toEqual(['riserJelly', 'biter']);
     for (const kind of area3.enemyPool) expect(['blob', 'wing', 'shell', 'brute']).not.toContain(ENEMY_TYPES[kind].silhouette);
   });
   it('stomps only what the attribute allows', () => {
     for (const kind of area3.enemyPool) {
       const game = bare(1);
       game.player.y = 260; game.player.vy = 300;
-      game.enemies = [spawnEnemy(kind, 1, 225, 300)];
+      const e = spawnEnemy(kind, 1, 225, 300);
+      // Already seen: NO CHEAP HIT holds a roaming body's contact back until it has been in view.
+      if (e.ai) (e.ai as { seen: number }).seen = 1;
+      game.enemies = [e];
       game.player.x = 225;
       tick(game, 0.12);
       if (enemyType(kind).stompable) expect([kind, game.kills, game.hp]).toEqual([kind, 1, 4]);
       else expect([kind, game.kills, game.hp]).toEqual([kind, 0, 3]);
     }
   });
-  it('kills every AREA 3 enemy by shooting', () => {
-    for (const kind of area3.enemyPool) {
+  // The turtle role shrugs off rounds by design (it is stomped instead), so this is every SHOOTABLE one;
+  // enough rounds for each one's own hit points.
+  it('kills every shootable AREA 3 enemy by shooting', () => {
+    for (const kind of area3.enemyPool.filter(k => ENEMY_TYPES[k].shootable)) {
       const game = bare(1);
       game.player.x = 225; game.player.y = 180; game.player.vy = 0;
-      game.enemies = [spawnEnemy(kind, 1, 225, 300)];
-      game.shoot();
-      tick(game, 0.35);
+      const e = spawnEnemy(kind, 1, 225, 300);
+      game.enemies = [e];
+      for (let i = 0; i < ENEMY_TYPES[kind].hp; i++) { e.x = 225; e.y = 300; game.cooldown = 0; game.shoot(); tick(game, 0.12); }
+      tick(game, 0.3);
       expect([kind, game.kills]).toEqual([kind, 1]);
     }
   });
-  it('sees all four kinds across the area and keeps BUBBLE FISH uncommon', () => {
+  // WAS: all four V2 kinds, with BUBBLE FISH uncommon. The air no longer swims (the original's comes
+  // only from what is broken open), so what is held is the four roles, with the piranha kept for 3-2 on.
+  it('sees all four roles across the area, and no BITER in 3-1', () => {
     const counts: Partial<Record<EnemyKind, number>> = {};
     let total = 0;
     for (let sectionId = 1; sectionId <= 3; sectionId++) {
@@ -263,9 +274,9 @@ describe('AREA 3 enemies', () => {
         for (const e of section(sectionId as SectionId, seed * 733).enemies) { counts[e.kind] = (counts[e.kind] ?? 0) + 1; total++; }
       }
     }
-    expect(Object.keys(counts).sort()).toEqual(['bubbleFish', 'fish', 'jellyfish', 'urchin']);
-    expect(counts.bubbleFish! / total).toBeLessThan(0.16);
-    expect(counts.bubbleFish! / total).toBeGreaterThan(0.02);
+    expect(Object.keys(counts).sort()).toEqual(['biter', 'riserJelly', 'shellSwimmer', 'squid']);
+    expect(total).toBeGreaterThan(0);
+    for (let seed = 1; seed <= 40; seed++) expect(section(1, seed * 733).enemies.some(e => e.kind === 'biter')).toBe(false);
   });
 });
 
@@ -1013,7 +1024,10 @@ describe('AREA 3 water enemies stay clear of everything, across their whole move
         const s = generate(sectionId, seed * 7331 + sectionId * 17);
         for (const e of s.enemies) {
           seen[e.kind] = (seen[e.kind] ?? 0) + 1;
-          const env = motionEnvelope(e);
+          // The clone's water roles ROAM -- jellies and squid swim through stone, the turtle crosses the
+          // shaft -- so for them "across their whole movement" is the whole shaft by design; what the
+          // generator still promises is where they START: the body clear of all of it.
+          const env = roams(e.kind) ? { minX: e.originX - 12, maxX: e.originX + 12, minY: (e.originY ?? e.y) - 15, maxY: (e.originY ?? e.y) + 15 } : motionEnvelope(e);
           const tag = `${e.kind} 3-${sectionId} seed ${seed}`;
           expect(env.minX, tag).toBeGreaterThanOrEqual(WORLD.wall);
           expect(env.maxX, tag).toBeLessThanOrEqual(WORLD.width - WORLD.wall);
@@ -1024,8 +1038,8 @@ describe('AREA 3 water enemies stay clear of everything, across their whole move
         }
       }
     }
-    // All four went through the validator, jellyfish and urchin included, many times over.
-    for (const kind of ['fish', 'bubbleFish', 'jellyfish', 'urchin']) expect(seen[kind] ?? 0).toBeGreaterThan(100);
+    // All four Aquifer roles went through the validator, many times over (the piranha only from 3-2).
+    for (const kind of ['squid', 'shellSwimmer', 'riserJelly', 'biter']) expect(seen[kind] ?? 0).toBeGreaterThan(100);
   });
 
   it('keeps the envelope exact: no sampled position ever leaves it', () => {

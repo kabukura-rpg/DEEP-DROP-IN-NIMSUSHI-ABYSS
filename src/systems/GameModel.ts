@@ -1109,7 +1109,9 @@ export class GameModel {
       // NO CHEAP HIT: a ghost touches no one it has not been seen by -- it must be on screen now, and
       // have been on screen long enough since it woke. Checked here, where contact is decided.
       if (e.ai?.kind === 'ghost' && (e.ai.seen < GHOST_RULES.seenBeforeHit || !inSight(e.y, { top: this.cameraY, height: WORLD.height }))) continue;
-      if (e.ai && e.ai.kind !== 'ghost' && e.ai.kind !== 'skull' && !dwellerMayHit(e.ai as DwellerState)) continue;
+      // NO CHEAP HIT for a dweller: its BODY cannot hurt until it has been seen. Landing on one is the
+      // player's own doing and is a stomp whenever it is stompable, seen or not.
+      const unseen = !!e.ai && e.ai.kind !== 'ghost' && e.ai.kind !== 'skull' && !dwellerMayHit(e.ai as DwellerState);
       // The face gravity brings the player down onto: an enemy's head in the shaft, its underside
       // in the ABYSS. The same crossing, the same stomp, mirrored -- nothing here knows which.
       const crown = e.y - 10 * this.gravity;
@@ -1150,7 +1152,7 @@ export class GameModel {
           const tuning = UPGRADE_TUNING.blastModule;
           this.spawnExplosion({ x: p.x, y: p.y - this.up * tuning.offsetY, radius: tuning.radius, damage: tuning.damage, exclude: e });
         }
-      } else if ((topCrossing || Math.abs(p.y - e.y) < 25) && p.invincible <= 0 && this.hurt(e) && e.ai?.kind === 'ghost') {
+      } else if (!unseen && (topCrossing || Math.abs(p.y - e.y) < 25) && p.invincible <= 0 && this.hurt(e) && e.ai?.kind === 'ghost') {
         // A GHOST is spent by the hit it lands: it fades rather than dying, pays nothing, and can never
         // land a second. One ghost is one heart at most -- the pressure is being caught, not being held.
         e.alive = false;

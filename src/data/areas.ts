@@ -324,8 +324,15 @@ export const AREAS: readonly AreaConfig[] = [
     // AQUIFER ROLE. The breath gauge replaces the floor as the thing that is running out. Air comes
     // only from containers that have to be broken and then chased, so the route is decided by where
     // the air is rather than by where the ledges are. Nothing in here is lethal on touch.
-    id: 3, name: 'SUNKEN RUINS', sections: 3, sectionLength: 510,
-    enemyPool: ['fish', 'bubbleFish', 'jellyfish', 'urchin'],
+    // DOWNWELL NORMAL GAMEPLAY CLONE: the Aquifer roster, role for role -- swimming turtle SHELL SWIMMER
+    // (rounds glance off, stomp it), jellyfish RISER JELLY (climbs in zigzags through anything, cannot
+    // be stood on), SQUID (swims up, then darts down and cannot be stood on while it darts), piranha
+    // BITER (chases; from 3-2, as in Normal). Nothing guards a ledge in the original's aquifer, so no
+    // kind here takes the guard slot. Air is what the original's is: only what the player breaks open
+    // (containers), no longer also dropped by a fish. Depth 510 -> 435m (original median 15.1
+    // screens -- its aquifer is shorter than its catacombs).
+    id: 3, name: 'SUNKEN RUINS', sections: 3, sectionLength: 435,
+    enemyPool: ['squid', 'shellSwimmer', 'riserJelly', 'biter'],
     theme: { wall: 0x1c2a2c, wallEdge: 0x324245, brick: 0x111c1f, pillar: 0x24484f, accent: 0x70d8ef, dust: 0x8fd5e0, water: { tint: 0x123844, light: 0x9fe8f5, weed: 0x2f7361 } },
     gimmicks: { oxygen: true },
     water: { gravity: 0.90, responsiveness: 11 },
@@ -355,13 +362,13 @@ export const AREAS: readonly AreaConfig[] = [
       // STAGE GENERATION v2: open water already lands 1-1.6 times a screen, so the terrain is kept;
       // what changes is where the enemies are -- across the fall and beside the shelves -- which is
       // what turns air into a route choice: the straight line has something in it, the air is off it.
-      { platformWidth: [182, 214], gap: 330, pieces: AREA3_OPEN_WATER, enemyChance: 0.34, flyChance: 0.26, flow: { pathFlyers: 0.5, landingGuards: 0.35 }, toughChance: 0.22, heavyChance: 0, comboBias: 0.18, graceDepth: 12, containerChance: 0.44, maxOxygenGap: 30, bubbleOffside: 0.35,
+      { platformWidth: [182, 214], gap: 330, pieces: AREA3_OPEN_WATER, enemyChance: 0.34, flyChance: 0.55, swarm: 0.45, flow: { pathFlyers: 0.5, landingGuards: 0.35 }, toughChance: 0.4, enemyExclude: ['biter'], heavyChance: 0, comboBias: 0.18, graceDepth: 12, containerChance: 0.44, maxOxygenGap: 30, bubbleOffside: 0.35,
         breakBlockRows: 1, breakBlockDurability: 2, doodadChance: 0.34, safeZoneCount: 1 },
       // 3-2 CROSS CURRENT. Alternating shelves take over; the lateral decision arrives earlier.
-      { platformWidth: [168, 198], gap: 336, pieces: AREA3_CROSS_CURRENT, enemyChance: 0.46, flyChance: 0.32, flow: { pathFlyers: 0.6, landingGuards: 0.4 }, toughChance: 0.30, heavyChance: 0, comboBias: 0.24, containerChance: 0.29, maxOxygenGap: 40, bubbleOffside: 0.62,
+      { platformWidth: [168, 198], gap: 336, pieces: AREA3_CROSS_CURRENT, enemyChance: 0.46, flyChance: 0.65, swarm: 0.7, flow: { pathFlyers: 0.6, landingGuards: 0.4 }, toughChance: 0.45, heavyChance: 0, comboBias: 0.24, containerChance: 0.29, maxOxygenGap: 40, bubbleOffside: 0.62,
         breakBlockRows: 2, breakBlockDurability: 2, doodadChance: 0.40, safeZoneCount: 1 },
       // 3-3 DROWNED RUINS. Lanes, shelves, branches, gates and scenery at the AREA's widest spacing.
-      { platformWidth: [152, 182], gap: 342, pieces: AREA3_DROWNED_RUINS, enemyChance: 0.56, flyChance: 0.38, flow: { pathFlyers: 0.7, landingGuards: 0.45 }, toughChance: 0.38, heavyChance: 0, comboBias: 0.28, containerChance: 0.21, maxOxygenGap: 50, bubbleOffside: 0.85,
+      { platformWidth: [152, 182], gap: 342, pieces: AREA3_DROWNED_RUINS, enemyChance: 0.56, flyChance: 0.75, swarm: 0.95, flow: { pathFlyers: 0.7, landingGuards: 0.45 }, toughChance: 0.5, heavyChance: 0, comboBias: 0.28, containerChance: 0.21, maxOxygenGap: 50, bubbleOffside: 0.85,
         breakBlockRows: 2, breakBlockDurability: 2, doodadChance: 0.46, safeZoneCount: 1 },
     ],
   },

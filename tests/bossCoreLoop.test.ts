@@ -22,6 +22,8 @@ const along = (g: GameModel) => (g as unknown as { along(v: number): number }).a
 /** A real arena, with the supply the fight actually lays. */
 function arena(seed: number) {
   const g = new GameModel(false, seeded(seed));
+  // Re-seeded at the fight's entry (see tests/nimushi.ts): 1-1's setup draws no longer pick the luck.
+  (g as unknown as { random: () => number }).random = seeded(seed);
   g.jumpToNimushi();
   g.platforms = []; g.doodads = []; g.containers = [];
   g.bullets.push(round(g.boss.x, g.boss.eye.y + g.boss.eye.height / 2, 1));

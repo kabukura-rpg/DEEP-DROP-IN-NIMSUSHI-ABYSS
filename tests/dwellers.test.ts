@@ -24,7 +24,9 @@ function bare() {
 }
 const hover = (g: GameModel, x = 225, y = 2000) => { g.player.x = x; g.player.y = y; g.player.vy = 0; g.player.grounded = -1; g.cameraY = y - WORLD.height * 0.37; g.bullets = []; };
 const step = (g: GameModel, n: number, fire = false, at?: [number, number]) => {
-  for (let i = 0; i < n; i++) { if (at) hover(g, at[0], at[1]); g.platforms = []; g.step(STEP, 0, fire); }
+  // Only the enemies a test put there: the shaft keeps generating its own around the player.
+  const cast = [...g.enemies];
+  for (let i = 0; i < n; i++) { if (at) hover(g, at[0], at[1]); g.platforms = []; g.enemies = g.enemies.filter(e => cast.includes(e)); g.step(STEP, 0, fire); }
 };
 
 describe('CAVE BAT (the bat role)', () => {
@@ -167,5 +169,43 @@ describe('AREA 1 swarm', () => {
       return trail.join(',');
     };
     expect(run()).toBe(run());
+  });
+});
+
+describe('AQUIFER roles', () => {
+  it('SQUID: rises, poises visibly at the turn, then darts down and cannot be stood on while it darts', () => {
+    const g = bare();
+    const sq = spawnEnemy('squid', 1, 225, 2150, 0, 0, 'open');
+    g.enemies = [sq];
+    const ai = sq.ai as Extract<DwellerState, { kind: 'squid' }>;
+    let poised = 0;
+    for (let i = 0; i < 120 * 6 && ai.state !== 'dive'; i++) {
+      hover(g, 60, 2000); g.platforms = []; g.enemies = [sq]; g.player.invincible = 9; g.step(STEP, 0, false);
+      if (ai.state === 'poise') poised += STEP;
+      if ((ai.state as string) !== 'dive') expect(sq.stompable).toBe(true);
+    }
+    expect(ai.state).toBe('dive');
+    expect(poised).toBeGreaterThanOrEqual(DWELLER_RULES.squid.poise - 2 * STEP);
+    expect(sq.stompable).toBe(false);
+    const y = sq.y; step(g, 12, false, [60, 2000]);
+    expect(sq.y).toBeGreaterThan(y);
+  });
+  it('RISER JELLY: only ever climbs, and pauses between zigzags', () => {
+    const g = bare();
+    const j = spawnEnemy('riserJelly', 1, 225, 2150, 0, 0, 'open');
+    g.enemies = [j];
+    let lastY = j.y, still = 0;
+    for (let i = 0; i < 240; i++) { step(g, 1, false, [225, 2000]); expect(j.y).toBeLessThanOrEqual(lastY + 1e-9); if (j.y === lastY) still++; lastY = j.y; }
+    expect(still).toBeGreaterThan(40);
+    expect(j.y).toBeLessThan(2150);
+  });
+  it('lets a player land on a stompable dweller before it has been seen: a stomp is never withheld', () => {
+    const g = bare();
+    const e = spawnEnemy('squid', 1, 225, 2040, 0, 0, 'open');
+    g.enemies = [e];
+    hover(g, 225, 2000); g.player.vy = 600;
+    for (let i = 0; i < 12 && e.alive; i++) { g.platforms = []; e.x = 225; e.y = 2040; g.step(STEP, 0, false); }
+    expect(e.alive).toBe(false);
+    expect(g.hp).toBe(4);
   });
 });

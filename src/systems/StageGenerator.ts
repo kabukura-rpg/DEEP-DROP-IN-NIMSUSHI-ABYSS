@@ -799,22 +799,6 @@ export class StageGenerator {
           if (e && y >= start) enemies.push(e);
         }
       }
-      // DOWNWELL NORMAL GAMEPLAY CLONE: more of the shaft's inhabitants, loose in the band above this
-      // row. The original's wells are full of things that come for you; one guard and one flyer per
-      // row was never that. Each is a roaming kind -- it will not stay where it was put -- so where it
-      // starts matters only for being seen: it is kept off the line the fall takes into this landing.
-      const swarm = this.context.plan?.swarm ?? 0;
-      // Quiet rows (a SECTION's opening grace) have their flyer chance zeroed, and lay no swarm either.
-      if (swarm > 0 && tuning.flyChance > 0 && this.openKinds && y - this.previous.y >= 170) {
-        const extra = Math.floor(swarm) + (this.random() < swarm % 1 ? 1 : 0);
-        for (let i = 0; i < extra; i++) {
-          const kind = this.kindFor('open', tuning);
-          if (!kind) break;
-          const band = enemies.filter(o => o.y > this.previous.y - 40 && o.y < y + 10);
-          const e = ENEMY_TYPES[kind].behaviour === 'bat' ? this.hangingBat(kind, y) : this.looseEnemy(kind, platform, y, band);
-          if (e && !band.some(o => Math.hypot(o.x - e.x, o.y - e.y) < 40) && y >= start) enemies.push(e);
-        }
-      }
       // A GHOST due at this depth waits inside a wall just above this row. It is in the brickwork, so
       // it can never sit on a ledge, block a landing or share a band with anything; it only becomes
       // part of the shaft when the player has gone 200px past it.
@@ -831,6 +815,28 @@ export class StageGenerator {
       this.placeSpikes(tuning, platform, y, width, start, hazards, enemies, containers);
       this.placeDoodad(tuning, platform, y, start, doodads, hazards, enemies);
       this.placeSafeZone(platform, y, localDepth, start, safeZones, caves, platforms, hazards, enemies, containers);
+      // (Laid AFTER the row's air, doodad and chamber, so it can keep clear of them.)
+      // DOWNWELL NORMAL GAMEPLAY CLONE: more of the shaft's inhabitants, loose in the band above this
+      // row. The original's wells are full of things that come for you; one guard and one flyer per
+      // row was never that. Each is a roaming kind -- it will not stay where it was put -- so where it
+      // starts matters only for being seen: it is kept off the line the fall takes into this landing.
+      const swarm = this.context.plan?.swarm ?? 0;
+      // Quiet rows (a SECTION's opening grace) have their flyer chance zeroed, and lay no swarm either.
+      if (swarm > 0 && tuning.flyChance > 0 && this.openKinds && y - this.previous.y >= 170) {
+        const extra = Math.floor(swarm) + (this.random() < swarm % 1 ? 1 : 0);
+        for (let i = 0; i < extra; i++) {
+          const kind = this.kindFor('open', tuning);
+          if (!kind) break;
+          const band = enemies.filter(o => o.y > this.previous.y - 40 && o.y < y + 10);
+          const e = ENEMY_TYPES[kind].behaviour === 'bat' ? this.hangingBat(kind, y) : this.looseEnemy(kind, platform, y, band, [
+            ...containers.map(c => ({ x: c.x - 24, y: c.y - 24, width: c.width + 48, height: c.height + 48 })),
+            ...doodads.map(d => { const z = doodadBounceZone(d, this.context.water?.gravity ?? 1); return { x: z.minX, y: z.minY, width: z.maxX - z.minX, height: z.maxY - z.minY }; }),
+            ...safeZones.map(z => ({ x: z.x - 20, y: z.y - 20, width: z.width + 40, height: z.height + 40 })),
+            ...platforms.filter(q => Math.abs(q.y - y) < 400).map(q => ({ x: q.x - 16, y: q.y - 30, width: q.width + 32, height: 50 })),
+          ]);
+          if (e && !band.some(o => Math.hypot(o.x - e.x, o.y - e.y) < 40) && y >= start) enemies.push(e);
+        }
+      }
       // No weapon crate and no shop doorway are laid in the shaft. Both are SAFE ZONE content and
       // nothing else, so a run is re-armed and re-supplied by finding a chamber -- which is what
       // makes stepping off the fall line to reach one worth doing.
@@ -910,7 +916,9 @@ export class StageGenerator {
      */
     const zone = doodadBounceZone({ x, y: bandY, width: w, height: DOODAD_RULES.height }, this.context.water?.gravity);
     const inTheWay = enemies.some(e => {
-      if (!ENEMY_TYPES[e.kind].motion) return false;
+      // Anything that moves on its own -- a water motion, or a Downwell behaviour (dwellers.ts) -- is
+      // asked the real question; a plain side-to-side patrol keeps the old check above.
+      if (!ENEMY_TYPES[e.kind].motion && !ENEMY_TYPES[e.kind].behaviour) return false;
       const env = motionEnvelope(e);
       return env.minX < zone.maxX && env.maxX > zone.minX && env.minY < zone.maxY && env.maxY > zone.minY;
     });
@@ -1373,17 +1381,22 @@ export class StageGenerator {
     return this.enemy(kind, Math.max(WORLD.wall + 14, Math.min(WORLD.width - WORLD.wall - 14, x)), from.y + 24, 0, 'open');
   }
   /** A roaming enemy loose in the band above this row, started clear of the fall into its landing. */
-  private looseEnemy(kind: EnemyKind, platform: RoutePlatform, y: number, taken: readonly Enemy[]): Enemy | null {
+  private looseEnemy(kind: EnemyKind, platform: RoutePlatform, y: number, taken: readonly Enemy[], clear: readonly { x: number; y: number; width: number; height: number }[] = []): Enemy | null {
     const top = this.previous.y, band = y - top;
-    // A few tries for a start clear of everything already in the band; a crowded band simply gets none.
-    for (let attempt = 0; attempt < 4; attempt++) {
-      const ey = Math.round(top + 70 + this.random() * (band - 140));
+    // Four candidate starts, ALWAYS all drawn, then the first clear of everything already in the band
+    // (a crowded band simply gets none). Drawing a fixed number keeps the random stream the same
+    // whatever was rejected -- so, e.g., a different number of side caves never changes the shaft.
+    const tries = Array.from({ length: 4 }, () => [this.random(), this.random()] as const);
+    for (const [ry, rx] of tries) {
+      const ey = Math.round(top + 70 + ry * (band - 140));
       const t = (ey - top) / band, lineX = this.previous.exitX + (platform.safeX - this.previous.exitX) * t;
-      let ex = WORLD.wall + 30 + this.random() * (WORLD.width - WORLD.wall * 2 - 60);
+      let ex = WORLD.wall + 30 + rx * (WORLD.width - WORLD.wall * 2 - 60);
       if (Math.abs(ex - lineX) < 48) ex = lineX + (ex < lineX ? -48 : 48);
       // Its whole patrol and body inside the shaft: 24px of range and half the widest body.
       ex = Math.round(Math.max(WORLD.wall + 40, Math.min(WORLD.width - WORLD.wall - 40, ex)));
       if (taken.some(o => Math.hypot(o.x - ex, o.y - ey) < 40)) continue;
+      // Its starting body clear of air, doodads, chambers and ledges (what it does next is its own).
+      if (clear.some(r => ex + 16 > r.x && ex - 16 < r.x + r.width && ey + 16 > r.y && ey - 16 < r.y + r.height)) continue;
       return this.enemy(kind, ex, ey, 24, 'open');
     }
     return null;

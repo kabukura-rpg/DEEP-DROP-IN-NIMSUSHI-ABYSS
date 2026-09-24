@@ -1328,7 +1328,7 @@ export class GameScene extends Phaser.Scene {
     }
     if (type.silhouette === 'squid') {
       // A mantle and trailing arms; the arms flare red while it darts down, when it cannot be stood on.
-      const diving = e.ai?.kind === 'squid' && e.ai.state === 'dive';
+      const diving = e.ai?.kind === 'squid' && e.ai.state !== 'rise';
       const body = hurt ? 0xffffff : diving ? 0xff8a7a : 0xf497ab;
       this.graphics.fillStyle(body).fillTriangle(x - 10, y + 2, x, y - 16, x + 10, y + 2);
       for (let i = -2; i <= 2; i++) this.rect(x + i * 4 - 1, y + 2, 2, diving ? 6 : 12, body);

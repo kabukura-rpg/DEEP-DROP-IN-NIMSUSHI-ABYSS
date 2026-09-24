@@ -50,7 +50,7 @@ export const DWELLER_RULES = {
   bat: { reach: 230, unfurl: 0.3, speed: 170, turn: 600 },
   drift: { accel: 110, speed: 80 },
   eye: { speed: 85, wobble: 50, wobbleRate: 5 },
-  piranha: { speed: 165, wobble: 0, wobbleRate: 0 },
+  piranha: { speed: 130, wobble: 0, wobbleRate: 0 },
   phantomChase: { speed: 105, wobble: 0, wobbleRate: 0 },
   frog: { wait: [1.1, 1.9] as const, windup: 0.45, jump: 560, run: 150 },
   groundSkull: { wait: [0.35, 0.9] as const, windup: 0, jump: 300, run: 70 },
@@ -58,7 +58,8 @@ export const DWELLER_RULES = {
   skeleton: { range: 330, every: 1.7, windup: 0.35, boneVx: 165, boneVy: -430 },
   phantom: { sway: 1.0, bob: 16, bobRate: 1.7, near: 150, approach: 45 },
   jelly: { pause: 0.5, move: 0.7, dx: 46, dy: 64 },
-  squid: { rise: 55, dive: 390, turnLine: 250 },
+  /** Rises, POISES for `poise` seconds at the turn (the tell), then darts straight down. */
+  squid: { rise: 55, dive: 390, turnLine: 250, poise: 0.3 },
   column: { speed: 72 },
   orbit: { rate: 1.6 },
   bounce: { speed: 92 },
@@ -79,7 +80,7 @@ export type DwellerState = Seen & (
   | { kind: 'throw'; t: number; windup: number }
   | { kind: 'phantom'; t: number; dx: number; dy: number }
   | { kind: 'rise'; t: number; step: number }
-  | { kind: 'squid'; state: 'rise' | 'dive' }
+  | { kind: 'squid'; state: 'rise' | 'poise' | 'dive'; t: number }
   | { kind: 'column'; vy: number }
   | { kind: 'orbit'; t: number; radius: number }
   | { kind: 'bounce'; vx: number; vy: number; top: number; bottom: number }
@@ -104,7 +105,7 @@ export const dwellerFor = {
   throw: (phase: number): DwellerState => ({ kind: 'throw', t: (phase % 1) * DWELLER_RULES.skeleton.every, windup: 0, seen: 0 }),
   phantom: (phase: number): DwellerState => ({ kind: 'phantom', t: phase, dx: 0, dy: 0, seen: 0 }),
   rise: (phase: number): DwellerState => ({ kind: 'rise', t: (phase % 1) * DWELLER_RULES.jelly.pause, step: Math.floor(phase * 7), seen: 0 }),
-  squid: (): DwellerState => ({ kind: 'squid', state: 'rise', seen: 0 }),
+  squid: (): DwellerState => ({ kind: 'squid', state: 'rise', t: 0, seen: 0 }),
   column: (down: boolean): DwellerState => ({ kind: 'column', vy: down ? DWELLER_RULES.column.speed : -DWELLER_RULES.column.speed, seen: 0 }),
   orbit: (phase: number, radius: number): DwellerState => ({ kind: 'orbit', t: phase, radius, seen: 0 }),
   bounce: (vx: number, vy: number, top: number, bottom: number): DwellerState => ({ kind: 'bounce', vx, vy, top, bottom, seen: 0 }),
@@ -270,7 +271,12 @@ export function stepDweller(e: Enemy, ai: DwellerState, player: { x: number; y: 
       if (ai.state === 'rise') {
         if (!dwellerInSight(e.y, view) && e.y > view.top + view.height) return null;
         e.y -= R.squid.rise * h;
-        if (e.y < view.top + R.squid.turnLine) { ai.state = 'dive'; e.stompable = false; }
+        if (e.y < view.top + R.squid.turnLine) { ai.state = 'poise'; ai.t = 0; }
+        return null;
+      }
+      if (ai.state === 'poise') {
+        ai.t += h;
+        if (ai.t >= R.squid.poise) { ai.state = 'dive'; e.stompable = false; }
         return null;
       }
       e.y += R.squid.dive * h;
