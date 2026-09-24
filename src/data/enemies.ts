@@ -206,6 +206,12 @@ export interface Enemy {
    * `enemyPosition` and never has one.
    */
   ai?: ChaseState;
+  /**
+   * STAGE GENERATION v2: laid by a flow rule rather than the ordinary one -- `path` across a fall,
+   * `landing` beside a landing. Absent for every enemy placed the v1 way. Read only by tests and the
+   * development measurements; nothing in play depends on it.
+   */
+  placed?: 'path' | 'landing';
 }
 export function spawnEnemy(kind: EnemyKind, id: number, x: number, y: number, range = 0, phase = 0, slot: 'guard' | 'open' = 'guard'): Enemy {
   const type = ENEMY_TYPES[kind];

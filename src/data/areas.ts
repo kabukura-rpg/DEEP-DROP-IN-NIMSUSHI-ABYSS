@@ -1,4 +1,5 @@
 import type { EnemyKind } from './enemies';
+import type { StageFlowProfile } from './stageFlow';
 import type { SpikeKind } from './hazards';
 import { AREA1_RHYTHM, type RhythmGrammar } from './rhythm';
 import { AREA1_GRAMMAR, type PieceGrammar } from './pieces';
@@ -31,6 +32,8 @@ export interface WaterPhysics {
  * entirely for that section, so AREA tuning and run progression never stack on top of each other.
  */
 export interface SectionPlan {
+  /** STAGE GENERATION v2: where this SECTION's enemies go relative to the fall. See stageFlow.ts. */
+  flow?: StageFlowProfile;
   /** Platform width range, in pixels, inside the 394px playable shaft. */
   platformWidth: [number, number];
   /** Vertical distance to the next row before the random 0-28px jitter. */

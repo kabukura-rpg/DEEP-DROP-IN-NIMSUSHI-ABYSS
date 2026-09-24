@@ -12,6 +12,7 @@ import type { SectionPlan, WaterPhysics } from '../data/areas';
 import { RhythmWalker, getTerrainMode, laneOf, type RhythmBand } from '../data/rhythm';
 import { PiecePlanner, type RowIntent } from '../data/pieces';
 import { dormantGhost, GHOST_RULES } from '../data/chasers';
+import type { StageFlowProfile } from '../data/stageFlow';
 
 export type { Enemy, EnemyKind } from '../data/enemies';
 export type { Pickup } from '../data/pickups';
@@ -65,7 +66,27 @@ export interface Platform {
 }
 export interface RoutePlatform extends Platform { safeX: number; exitX: number; safeSide: -1 | 1 }
 export const START_PLATFORM: RoutePlatform = { id: -2, x: 155, y: 250, width: 140, safeX: 225, exitX: 307, safeSide: 1, breakable: false, state: 'stable' };
-export const canReachPlatform = (from: RoutePlatform, to: RoutePlatform, water?: WaterPhysics) => to.y > from.y && Math.abs(to.safeX - from.exitX) <= horizontalReach(to.y - from.y, water);
+/**
+ * Can a fall from `from`'s way off reach `to`'s landing without ever touching this movement box?
+ *
+ * The body must be clear of the box (13px either side: 9 of body, 4 of margin) for the whole time it
+ * is level with it (15px above to 15px below). It may pass on either side. Going round on the left
+ * means being left of the box by the time the fall reaches its top -- `horizontalReach` of the drop so
+ * far -- and getting from there to the landing in the drop that is left; the right mirrors it. Both
+ * legs are measured from rest, which is the conservative reading of a steering envelope.
+ */
+export function canPassEnemy(box: { minX: number; maxX: number; minY: number; maxY: number }, from: RoutePlatform, to: RoutePlatform, water?: WaterPhysics) {
+  const y1 = box.minY - 15, y2 = box.maxY + 15;
+  if (y1 <= from.y || y2 >= to.y) return false;
+  const reachIn = horizontalReach(y1 - from.y, water), reachOut = horizontalReach(to.y - y2, water);
+  const inner = WORLD.wall + 9, outer = WORLD.width - WORLD.wall - 9;
+  const left = box.minX - 13, right = box.maxX + 13;
+  const viaLeft = left >= inner && (from.exitX <= left || from.exitX - left <= reachIn) && (to.safeX <= left || to.safeX - left <= reachOut);
+  const viaRight = right <= outer && (from.exitX >= right || right - from.exitX <= reachIn) && (to.safeX >= right || right - to.safeX <= reachOut);
+  return viaLeft || viaRight;
+}
+export const canReachPlatform = 
+(from: RoutePlatform, to: RoutePlatform, water?: WaterPhysics) => to.y > from.y && Math.abs(to.safeX - from.exitX) <= horizontalReach(to.y - from.y, water);
 
 /** Everything one row needs, whether it came from a SECTION plan or the shared depth curve. */
 interface RowTuning { minWidth: number; maxWidth: number; gap: number; enemyChance: number; flyChance: number; toughChance: number; heavyChance: number; comboBias: number; containerChance: number; maxOxygenGap: number; bubbleOffside: number; lavaPoolChance: number; lavaWallChance: number; ventChance: number; iceChance: number; iceOffside: number; breakableChance: number; maxBreakableRun: number; spikeChance: number; spikeKinds: readonly SpikeKind[]; spikePlatformChance: number; limboHazardChance: number; groundless: boolean; doodadChance: number }
@@ -681,16 +702,30 @@ export class StageGenerator {
           : null;
         const min = deadEnd ? deadEnd[0] : platform.safeSide === -1 ? platform.x + 78 : platform.x + 20;
         const max = deadEnd ? deadEnd[1] : platform.safeSide === -1 ? platform.x + width - 20 : platform.x + width - 78;
-        const kind = max >= min ? this.kindFor('guard', tuning, width) : undefined;
-        if (kind) {
-          guard = this.enemy(kind, (min + max) / 2, y - 15, Math.min(22, (max - min) / 2), 'guard');
+        // STAGE FLOW v2: this row's guard may stand beside the landing instead of at the far end.
+        const beside = !shaped && max >= min && this.flow && this.random() < this.flow.landingGuards ? this.landingGuard(platform, tuning) : null;
+        if (beside) {
+          guard = beside;
           if (y >= start) enemies.push(guard);
+        } else {
+          const kind = max >= min ? this.kindFor('guard', tuning, width) : undefined;
+          if (kind) {
+            guard = this.enemy(kind, (min + max) / 2, y - 15, Math.min(22, (max - min) / 2), 'guard');
+            if (y >= start) enemies.push(guard);
+          }
         }
       }
 
       // A row that already has a ground enemy is more likely to get an air enemy, on the same side:
       // stomping the pair is a route the player can choose, never one forced on the safe path.
-      if (this.openKinds && this.random() < tuning.flyChance + (guard ? tuning.comboBias : 0)) {
+      // STAGE FLOW v2: this row's flyer may be laid across the fall itself, where it has to be answered.
+      // The roll that decides WHETHER there is a flyer is the one it always was; only where it goes can
+      // change, and when no line across the fall passes the checks it goes where it always went.
+      const onPath = this.openKinds && this.flow ? this.random() < this.flow.pathFlyers : false;
+      const flies = this.openKinds && this.random() < tuning.flyChance + (guard ? tuning.comboBias : 0);
+      const pathFlyer = flies && onPath ? this.pathFlyer(platform, y, tuning) : undefined;
+      if (pathFlyer) { if (y >= start) enemies.push(pathFlyer); }
+      else if (flies) {
         // Patrol outside the entire envelope of this safe transfer, including the wing span.
         const corridorLeft = Math.min(this.previous.exitX, platform.safeX) - 48;
         const corridorRight = Math.max(this.previous.exitX, platform.safeX) + 48;
@@ -1194,7 +1229,57 @@ export class StageGenerator {
     this.lastAirY = bandY;
   }
 
+  /** This SECTION's flow profile, if it runs STAGE GENERATION v2. */
+  private get flow(): StageFlowProfile | undefined { return this.context.plan?.flow; }
+
+  /**
+   * A guard standing BESIDE the landing: on the ledge interior, clear of the spot a fall arrives at
+   * by the player's half-body, a margin and the guard's whole patrol. Null when the ledge has no room
+   * for that, and the row falls back to the far-end guard it always had.
+   */
+  private landingGuard(platform: RoutePlatform, tuning: RowTuning): Enemy | null {
+    const kind = this.kindFor('guard', tuning, platform.width);
+    if (!kind) return null;
+    const dir = platform.safeSide === -1 ? 1 : -1;          // away from the way off
+    const half = ENEMY_TYPES[kind].bodyWidth / 2, range = 12, clear = 9 + 8;
+    const originX = platform.safeX + dir * (clear + half + range);
+    const far = originX + dir * (range + half);
+    if (far < platform.x + 4 || far > platform.x + platform.width - 4) return null;
+    const e = this.enemy(kind, originX, platform.y - 15, range, 'guard');
+    const env = motionEnvelope(e);
+    // Belt and braces: whatever the kind's own movement, the landing spot is outside all of it.
+    if (env.minX < platform.safeX + 9 + 4 && env.maxX > platform.safeX - 9 - 4) return null;
+    e.placed = 'landing';
+    return e;
+  }
+
+  /**
+   * A flyer across the fall between the band above and this row, on the line from the previous exit
+   * to this landing. Laid only where the fall can still go round its WHOLE movement and make the
+   * landing afterwards -- checked against `horizontalReach`, the real steering envelope -- so it is a
+   * question with three answers (shoot, stomp, go round), never a wall.
+   */
+  private pathFlyer(platform: RoutePlatform, y: number, tuning: RowTuning): Enemy | undefined {
+    const kind = this.kindFor('open', tuning);
+    if (!kind) return undefined;
+    const top = this.previous.y, band = y - top, exit = this.previous.exitX;
+    if (band < 170) return undefined;
+    const water = this.context.water;
+    for (const t of [0.5, 0.42, 0.58, 0.36, 0.64]) {
+      const ey = Math.round(top + band * t), ex = Math.round(exit + (platform.safeX - exit) * t);
+      const probe = spawnEnemy(kind, -1, ex, ey, 14, 0, 'open');
+      const env = motionEnvelope(probe);
+      if (env.minX < WORLD.wall + 4 || env.maxX > WORLD.width - WORLD.wall - 4) continue;
+      if (env.minY < top + 40 || env.maxY > y - 60) continue;
+      // From EVERY ledge of the band above -- a fall can start from any of them -- there has to be a
+      // way past its whole movement that still makes this landing.
+      if (this.previousBand.every(from => canPassEnemy(env, from, platform, water))) return { ...this.enemy(kind, ex, ey, 14, 'open'), placed: 'path' as const };
+    }
+    return undefined;
+  }
+
   private enemy(kind: EnemyKind, x: number, y: number, range: number, slot: 'guard' | 'open'): Enemy {
+
     return spawnEnemy(kind, this.id++, x, y, range, this.random() * Math.PI * 2, slot);
   }
 }
