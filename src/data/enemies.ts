@@ -170,8 +170,8 @@ export const ENEMY_TYPES: Record<EnemyKind, EnemyType> = {
   // on the type rather than overridden at spawn -- and all of it flies, because LIMBO has no ground
   // worth guarding. They are separate kinds from DEMON and WRAITH on purpose: those two are also
   // in the FINAL BOSS's roster, and the fight is not being changed to follow the AREAs.
-  voidWisp: { id: 'voidWisp', name: 'VOID WISP', shootable: true, stompable: false, flying: true, threat: 'basic', spawnSlot: 'any', spawnWeight: 1, hp: 1, silhouette: 'wisp', bodyWidth: 26, swaySpeed: 1.2, damageCause: 'enemy', contactHint: '踏めない・撃て' },
-  hollowShade: { id: 'hollowShade', name: 'HOLLOW SHADE', shootable: true, stompable: false, flying: true, threat: 'basic', spawnSlot: 'open', spawnWeight: 0.9, hp: 1, silhouette: 'hollow', bodyWidth: 26, swaySpeed: 0.5, damageCause: 'enemy', contactHint: '踏めない・撃て' },
+  voidWisp: { id: 'voidWisp', name: 'VOID WISP', shootable: true, stompable: false, flying: true, threat: 'basic', spawnSlot: 'open', spawnWeight: 1, hp: 2, silhouette: 'wisp', bodyWidth: 26, swaySpeed: 1.2, damageCause: 'enemy', contactHint: '踏めない・撃て', behaviour: 'column' },
+  hollowShade: { id: 'hollowShade', name: 'HOLLOW SHADE', shootable: true, stompable: false, flying: true, threat: 'basic', spawnSlot: 'open', spawnWeight: 0.6, hp: 2, silhouette: 'hollow', bodyWidth: 26, swaySpeed: 0.5, damageCause: 'enemy', contactHint: '踏めない・撃て', behaviour: 'orbit' },
   armorGuard: { id: 'armorGuard', name: 'ARMOR GUARD', shootable: true, stompable: false, flying: false, threat: 'heavy', spawnSlot: 'guard', spawnWeight: 1, hp: 3, silhouette: 'bulwark', bodyWidth: 32, swaySpeed: 0.6, damageCause: 'tank', contactHint: '装甲に注意', minPlatformWidth: 108 },
   spikeDemon: { id: 'spikeDemon', name: 'SPIKE DEMON', shootable: true, stompable: false, flying: true, threat: 'armored', spawnSlot: 'any', spawnWeight: 1, hp: 1, silhouette: 'barb', bodyWidth: 26, swaySpeed: 1.0, damageCause: 'spike', contactHint: 'トゲは踏めない' },
   // THE ABYSS. NIMUSHI splits pieces of itself off: little hooded things that behave like any
@@ -223,7 +223,7 @@ export const ENEMY_TYPES: Record<EnemyKind, EnemyType> = {
   boneHopper: { id: 'boneHopper', name: 'BONE HOPPER', shootable: true, stompable: true, flying: false, threat: 'basic', spawnSlot: 'guard', spawnWeight: 1, hp: 2, silhouette: 'boneSkull', bodyWidth: 22, swaySpeed: 0, damageCause: 'enemy', contactHint: '接触', behaviour: 'groundSkull', gems: 4 },
   boneThrower: { id: 'boneThrower', name: 'BONE THROWER', shootable: true, stompable: true, flying: false, threat: 'armored', spawnSlot: 'guard', spawnWeight: 0.8, hp: 5, silhouette: 'bones', bodyWidth: 26, swaySpeed: 0, damageCause: 'enemy', contactHint: '骨を投げる', leavesCorpse: true, behaviour: 'throw', gems: 10 },
   shadeOrb: { id: 'shadeOrb', name: 'SHADE ORB', shootable: true, stompable: false, flying: true, threat: 'armored', spawnSlot: 'open', spawnWeight: 1, hp: 2, silhouette: 'orbShade', bodyWidth: 24, swaySpeed: 0, damageCause: 'spike', contactHint: '踏めない・撃て', behaviour: 'phantom', gems: 8 },
-  angryOrb: { id: 'angryOrb', name: 'ANGRY ORB', shootable: true, stompable: false, flying: true, threat: 'armored', spawnSlot: 'open', spawnWeight: 0.5, hp: 2, silhouette: 'orbShade', bodyWidth: 24, swaySpeed: 0, damageCause: 'spike', contactHint: '追ってくる・撃て', behaviour: 'phantomChase', gems: 8 },
+  angryOrb: { id: 'angryOrb', name: 'ANGRY ORB', shootable: true, stompable: false, flying: true, threat: 'armored', spawnSlot: 'open', spawnWeight: 0.3, hp: 2, silhouette: 'orbShade', bodyWidth: 24, swaySpeed: 0, damageCause: 'spike', contactHint: '追ってくる・撃て', behaviour: 'phantomChase', gems: 8 },
   // AQUIFER: swimming turtle -> SHELL SWIMMER, jellyfish -> RISER JELLY, squid -> SQUID, piranha -> BITER.
   shellSwimmer: { id: 'shellSwimmer', name: 'SHELL SWIMMER', shootable: false, stompable: true, flying: true, threat: 'armored', spawnSlot: 'open', spawnWeight: 0.7, hp: 1, silhouette: 'turtle', bodyWidth: 30, swaySpeed: 0, damageCause: 'enemy', contactHint: '弾が効かない・踏め', leavesCorpse: true, behaviour: 'swim', gems: 14 },
   riserJelly: { id: 'riserJelly', name: 'RISER JELLY', shootable: true, stompable: false, flying: true, threat: 'armored', spawnSlot: 'open', spawnWeight: 1, hp: 3, silhouette: 'bell', bodyWidth: 24, swaySpeed: 0, damageCause: 'spike', contactHint: '昇ってくる・踏めない', behaviour: 'rise', gems: 6 },
@@ -232,7 +232,7 @@ export const ENEMY_TYPES: Record<EnemyKind, EnemyType> = {
   // LIMBO: phantoms (SHADE ORB / ANGRY ORB above) and the three kinds of "stuff". VOID WISP and HOLLOW
   // SHADE are LIMBO's own existing bodies and now carry the tapered and spherical roles; the diatomic
   // role is a new VOID SHARD rather than SPIKE DEMON, which the boss still uses as it always has.
-  voidShard: { id: 'voidShard', name: 'VOID SHARD', shootable: true, stompable: false, flying: true, threat: 'armored', spawnSlot: 'open', spawnWeight: 0.5, hp: 3, silhouette: 'shard', bodyWidth: 24, swaySpeed: 0, damageCause: 'spike', contactHint: '跳ね回る・撃て', behaviour: 'bounce', gems: 8 },
+  voidShard: { id: 'voidShard', name: 'VOID SHARD', shootable: true, stompable: false, flying: true, threat: 'armored', spawnSlot: 'open', spawnWeight: 0.5, hp: 2, silhouette: 'shard', bodyWidth: 24, swaySpeed: 0, damageCause: 'spike', contactHint: '跳ね回る・撃て', behaviour: 'bounce', gems: 8 },
   ruinBreaker: { id: 'ruinBreaker', name: 'RUIN BREAKER', shootable: true, stompable: true, flying: false, threat: 'basic', spawnSlot: 'guard', spawnWeight: 0.45, hp: 1, silhouette: 'breaker', bodyWidth: 30, swaySpeed: 0.8, damageCause: 'enemy', contactHint: '接触', leavesCorpse: true, onDefeat: 'shatterNearby' },
 };
 export const enemyType = (kind: EnemyKind) => ENEMY_TYPES[kind];

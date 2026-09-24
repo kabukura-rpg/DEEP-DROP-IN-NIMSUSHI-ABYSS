@@ -784,7 +784,7 @@ export class StageGenerator {
       // flyer -- invisible while every AREA had a basic flyer, +70% flyers in a roster without one.
       const flyKind = flies ? this.kindFor('open', tuning) : undefined;
       const pathFlyer = flyKind && onPath ? this.pathFlyer(flyKind, platform, y) : undefined;
-      if (pathFlyer) { if (y >= start) enemies.push(pathFlyer); }
+      if (pathFlyer) { if (y >= start) enemies.push(pathFlyer, ...this.companions(pathFlyer, enemies.filter(o => Math.abs(o.y - pathFlyer.y) < 200))); }
       else if (flyKind) {
         // Patrol outside the entire envelope of this safe transfer, including the wing span.
         const corridorLeft = Math.min(this.previous.exitX, platform.safeX) - 48;
@@ -796,7 +796,7 @@ export class StageGenerator {
           const range = Math.min(32, (right - left) / 2);
           const kind = flyKind;
           const e = ENEMY_TYPES[kind].behaviour === 'bat' ? this.hangingBat(kind, y) : this.enemy(kind, (left + right) / 2, y - 115, range, 'open');
-          if (e && y >= start) enemies.push(e);
+          if (e && y >= start) enemies.push(e, ...this.companions(e, enemies.filter(o => Math.abs(o.y - e.y) < 200)));
         }
       }
       // A GHOST due at this depth waits inside a wall just above this row. It is in the brickwork, so
@@ -814,6 +814,8 @@ export class StageGenerator {
       if (this.context.heat) this.placeHeat(tuning, platform, y, width, start, pickups, hazards, enemies);
       this.placeSpikes(tuning, platform, y, width, start, hazards, enemies, containers);
       this.placeDoodad(tuning, platform, y, start, doodads, hazards, enemies);
+      const laneBand = this.context.plan?.laneDoodadBand;
+      if (laneBand !== undefined && y - this.previous.y >= laneBand) this.placeLaneDoodad(platform, y, start, doodads, hazards, enemies);
       this.placeSafeZone(platform, y, localDepth, start, safeZones, caves, platforms, hazards, enemies, containers);
       // (Laid AFTER the row's air, doodad and chamber, so it can keep clear of them.)
       // DOWNWELL NORMAL GAMEPLAY CLONE: more of the shaft's inhabitants, loose in the band above this
@@ -834,7 +836,7 @@ export class StageGenerator {
             ...safeZones.map(z => ({ x: z.x - 20, y: z.y - 20, width: z.width + 40, height: z.height + 40 })),
             ...platforms.filter(q => Math.abs(q.y - y) < 400).map(q => ({ x: q.x - 16, y: q.y - 30, width: q.width + 32, height: 50 })),
           ]);
-          if (e && !band.some(o => Math.hypot(o.x - e.x, o.y - e.y) < 40) && y >= start) enemies.push(e);
+          if (e && !band.some(o => Math.hypot(o.x - e.x, o.y - e.y) < 40) && y >= start) enemies.push(e, ...this.companions(e, band));
         }
       }
       // No weapon crate and no shop doorway are laid in the shaft. Both are SAFE ZONE content and
@@ -922,7 +924,30 @@ export class StageGenerator {
       const env = motionEnvelope(e);
       return env.minX < zone.maxX && env.maxX > zone.minX && env.minY < zone.maxY && env.maxY > zone.minY;
     });
-    if (!inTheWay) doodads.push(spawnDoodad(id, x, bandY, variant));
+    // Spent by the bounce that uses it, as the original's are (DOWNWELL NORMAL GAMEPLAY CLONE).
+    if (!inTheWay) doodads.push(spawnDoodad(id, x, bandY, variant, true));
+  }
+
+  /**
+   * LIMBO's second doodad in a tall band: ON the line the fall takes, in the band's upper middle, so a
+   * long drop offers a bounce -- a reload that keeps the chain -- to a player who does nothing but fall.
+   * Same refusals as any doodad: never in a hazard, never where a bounce meets an enemy's movement.
+   * Its draws are always spent, whether or not it is laid, so a refusal moves nothing after it.
+   */
+  private placeLaneDoodad(platform: RoutePlatform, y: number, start: number, doodads: Doodad[], hazards: Hazard[], enemies: Enemy[]) {
+    const top = this.previous.y, band = y - top;
+    const bandY = Math.round(top + band * (0.3 + this.random() * 0.2));
+    const t = (bandY - top) / band, lineX = this.previous.exitX + (platform.safeX - this.previous.exitX) * t;
+    const w = DOODAD_RULES.width;
+    const x = Math.round(Math.max(WORLD.wall + 6, Math.min(WORLD.width - WORLD.wall - 6 - w, lineX - w / 2 + (this.random() - 0.5) * 30)));
+    const id = this.id++;
+    const variant = this.random() < 0.5 ? 'lamp' : 'bracket';
+    if (y < start) return;
+    if (hazards.some(h => x < h.x + h.width + 10 && x + w > h.x - 10 && bandY < h.y + h.height + 14 && bandY + DOODAD_RULES.height > h.y - 14)) return;
+    if (doodads.some(d => Math.abs(d.y - bandY) < 90 && Math.abs(d.x - x) < 60)) return;
+    const zone = doodadBounceZone({ x, y: bandY, width: w, height: DOODAD_RULES.height }, this.context.water?.gravity);
+    if (enemies.some(e => { const env = motionEnvelope(e); return env.minX < zone.maxX && env.maxX > zone.minX && env.minY < zone.maxY && env.maxY > zone.minY; })) return;
+    doodads.push(spawnDoodad(id, x, bandY, variant, true));
   }
 
   /**
@@ -1400,6 +1425,30 @@ export class StageGenerator {
       return this.enemy(kind, ex, ey, 24, 'open');
     }
     return null;
+  }
+  /**
+   * The original's "stuff" comes in company: a TAPERED column (VOID WISP) is one of a swarm crossing the
+   * screen together, a SPHERICAL one (HOLLOW SHADE) one of a pair on the same orbit. The rest of the
+   * group is laid with it, clear of what is already in the band and of the walls; a crowded band
+   * simply gets a smaller group. Every other kind comes alone.
+   */
+  private companions(e: Enemy, band: readonly Enemy[]): Enemy[] {
+    const b = ENEMY_TYPES[e.kind].behaviour;
+    const out: Enemy[] = [];
+    const fits = (x: number, y: number) => x > WORLD.wall + 40 && x < WORLD.width - WORLD.wall - 40
+      && ![...band, e, ...out].some(o => Math.hypot(o.x - x, o.y - y) < 40);
+    if (b === 'column') {
+      const n = this.random() < 0.5 ? 1 : 0;
+      for (let k = 1; k <= n; k++) {
+        const x = e.originX + (k % 2 ? 46 : -46) * Math.ceil(k / 2), y = (e.originY ?? e.y) + (k % 2 ? -34 : 34);
+        // Same phase, so the same direction: a column crosses together.
+        if (fits(x, y)) out.push({ ...spawnEnemy(e.kind, this.id++, x, y, e.range, e.phase, 'open'), placed: 'group' });
+      }
+    } else if (b === 'orbit') {
+      const mate = spawnEnemy(e.kind, this.id++, e.originX, e.originY ?? e.y, e.range, e.phase + Math.PI, 'open');
+      out.push({ ...mate, placed: 'group' });
+    }
+    return out;
   }
   private enemy(kind: EnemyKind, x: number, y: number, range: number, slot: 'guard' | 'open'): Enemy {
 

@@ -51,7 +51,7 @@ export const DWELLER_RULES = {
   drift: { accel: 110, speed: 80 },
   eye: { speed: 85, wobble: 50, wobbleRate: 5 },
   piranha: { speed: 130, wobble: 0, wobbleRate: 0 },
-  phantomChase: { speed: 105, wobble: 0, wobbleRate: 0 },
+  phantomChase: { speed: 90, wobble: 0, wobbleRate: 0 },
   frog: { wait: [1.1, 1.9] as const, windup: 0.45, jump: 560, run: 150 },
   groundSkull: { wait: [0.35, 0.9] as const, windup: 0, jump: 300, run: 70 },
   skull: { calmRadius: 34, calmRate: 0.9, speed: 125, turn: 500 },
@@ -60,7 +60,7 @@ export const DWELLER_RULES = {
   jelly: { pause: 0.5, move: 0.7, dx: 46, dy: 64 },
   /** Rises, POISES for `poise` seconds at the turn (the tell), then darts straight down. */
   squid: { rise: 55, dive: 390, turnLine: 250, poise: 0.3 },
-  column: { speed: 72 },
+  column: { speed: 60 },
   orbit: { rate: 1.6 },
   bounce: { speed: 92 },
   swim: { speed: 62 },

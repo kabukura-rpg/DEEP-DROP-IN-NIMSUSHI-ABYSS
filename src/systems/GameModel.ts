@@ -1673,8 +1673,13 @@ export class GameModel {
     p.grounded = -1;
     this.reloadCharge();
     this.lastAirShot = -Infinity;
-    // Spent by the bounce, where the doodad says so. Only THE ABYSS's are.
-    if (touching.consumable) { touching.active = false; this.doodadContact = null; }
+    // Spent by the bounce, where the doodad says so: THE ABYSS's always were, and since the clone the
+    // shaft's are too -- the original's doodads break under a stomp and "drop a few gems" -- which is
+    // what ends bouncing on one lamp forever to keep a chain alive. The shaft's leaves one SMALL coin.
+    if (touching.consumable) {
+      touching.active = false; this.doodadContact = null;
+      if (this.abyssStage === 'none') this.coins.burst(touching.x + touching.width / 2, touching.y, 1, this.random, 'small');
+    }
     this.events.push({ type: 'doodad', x: touching.x + touching.width / 2, y: touching.y, value: this.combo });
   }
   /**

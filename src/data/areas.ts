@@ -199,6 +199,13 @@ export interface SectionPlan {
    * fraction is a chance of one more). See StageGenerator's swarm.
    */
   swarm?: number;
+  /**
+   * DOWNWELL NORMAL GAMEPLAY CLONE (Limbo): a band this tall or taller also gets a doodad IN the fall
+   * lane -- the original's limbo scatters its reload boxes through the space the player falls
+   * through, which is what lets a chain run on through a long drop. A bounce never hurts, so a doodad
+   * in the way is a reload offered, not an obstacle. Absent: every doodad stays off the route.
+   */
+  laneDoodadBand?: number;
   /** Enemies the area owns but this SECTION holds back, so a roster can be introduced gradually. */
   enemyExclude?: readonly EnemyKind[];
 }
@@ -381,21 +388,27 @@ export const AREAS: readonly AreaConfig[] = [
     // some of it turning (SPIKE PLATFORMS whose warning outlasts the walk off them). Barbs survive as
     // debris beside the route, never on it. Nothing in the pool can be stomped, so the gunboots clear
     // the way; floating scenery still reloads them between landings.
+    // DOWNWELL NORMAL GAMEPLAY CLONE (reference spec, Limbo): the original's limbo has no blocks at all
+    // -- no breakables, no traps -- only floating rubble, most of it topped with spikes, floating
+    // doodads to reload on, and enemies none of which can be stood on: phantoms (SHADE ORB, ANGRY ORB)
+    // and three kinds of "stuff" -- tapered columns crossing the screen in swarms (VOID WISP), orbiting
+    // pairs (HOLLOW SHADE), diagonal bouncers (VOID SHARD). So the collapsing ledges and catacomb traps
+    // this AREA carried are gone, barbed rubble becomes the common case beside the route, the long void
+    // drops (where a chain is built on shots and doodad bounces) come more often, and nothing guards a
+    // ledge. Depth stays 570m (~19.9 original screens; original median 18.8, D 20-23).
     id: 4, name: 'COLLAPSED REALM', sections: 3, sectionLength: 570,
-    enemyPool: ['voidWisp', 'hollowShade', 'spikeDemon'],
+    enemyPool: ['voidWisp', 'hollowShade', 'voidShard', 'shadeOrb', 'angryOrb'],
     theme: { wall: 0x241f2e, wallEdge: 0x3c3350, pillar: 0x2d2740, brick: 0x171422, accent: 0xc0a7ed, dust: 0x8c82a5, rift: { glow: 0x9d7bd8, void: 0x0b0710, debris: 0x4a3f63 } },
-    gimmicks: { breakablePlatforms: true },
     plans: [
-      // 4-1 THE WAY IN. Rubble to land on, a few ledges giving way, barbs only now and then.
-      { platformWidth: [92, 112], gap: 232, pieces: AREA4_RUBBLE, enemyChance: 0.43, flyChance: 0.37, toughChance: 0.16, heavyChance: 0, comboBias: 0.24, graceDepth: 26,
-        flow: { pathFlyers: 0.3, landingGuards: 0.2 }, breakableChance: 0.12, maxBreakableRun: 2, doodadChance: 0.95, safeZoneCount: 1 },
-      // 4-2 THE FALLING CITY. More collapse, barbed debris, longer drops; the first turning ledges.
-      { platformWidth: [84, 102], gap: 238, pieces: AREA4_RUINFALL, enemyChance: 0.65, flyChance: 0.57, toughChance: 0.28, heavyChance: 0, comboBias: 0.34,
-        flow: { pathFlyers: 0.45, landingGuards: 0.3 }, breakableChance: 0.25, maxBreakableRun: 2, spikePlatformChance: 0.12, spikeReaction: 0.35, doodadChance: 0.95, safeZoneCount: 1 },
-      // 4-3 THE VOID. Every tool at once. Never more than two collapsing ledges in a row, so a stable
-      // one always arrives; no ledge ever hurts on the landing itself.
-      { platformWidth: [76, 94], gap: 244, pieces: AREA4_VOID, enemyChance: 0.85, flyChance: 0.73, toughChance: 0.34, heavyChance: 0, comboBias: 0.40,
-        flow: { pathFlyers: 0.6, landingGuards: 0.4 }, breakableChance: 0.35, maxBreakableRun: 2, spikePlatformChance: 0.22, spikeReaction: 0.35, doodadChance: 0.95, safeZoneCount: 1 },
+      // 4-1 THE WAY IN. Rubble to land on, barbed debris beside it, the first void drops and swarms.
+      { platformWidth: [92, 112], gap: 232, pieces: AREA4_RUBBLE, enemyChance: 0, flyChance: 0.55, swarm: 0.3, toughChance: 0.3, heavyChance: 0, comboBias: 0, graceDepth: 20,
+        flow: { pathFlyers: 0.4, landingGuards: 0 }, doodadChance: 0.95, laneDoodadBand: 420, safeZoneCount: 1 },
+      // 4-2 THE FALLING CITY. More barbed rubble, longer and more frequent void drops.
+      { platformWidth: [84, 102], gap: 238, pieces: AREA4_RUINFALL, enemyChance: 0, flyChance: 0.6, swarm: 0.45, toughChance: 0.35, heavyChance: 0, comboBias: 0,
+        flow: { pathFlyers: 0.5, landingGuards: 0 }, doodadChance: 0.95, laneDoodadBand: 400, safeZoneCount: 1 },
+      // 4-3 THE VOID. The longest drops, the most barbs, the thickest swarms; the route still lands.
+      { platformWidth: [76, 94], gap: 244, pieces: AREA4_VOID, enemyChance: 0, flyChance: 0.65, swarm: 0.6, toughChance: 0.4, heavyChance: 0, comboBias: 0,
+        flow: { pathFlyers: 0.6, landingGuards: 0 }, doodadChance: 0.95, laneDoodadBand: 380, safeZoneCount: 1 },
     ],
   },
 ];

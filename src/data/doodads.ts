@@ -6,7 +6,9 @@ import { BALANCE } from './balance';
  *
  *   - bouncing off one fills CHARGE and keeps the chain running, exactly as stomping an enemy does;
  *   - it is not a kill, so nothing about it touches COMBO, the kill count, COIN or the kill event;
- *   - it survives, so the same one can be used again on a later pass.
+ *   - it BREAKS under the bounce and leaves a small coin, as the original's do ("doodads drop a few
+ *     gems when broken") -- DOWNWELL NORMAL GAMEPLAY CLONE; it used to survive, which let one lamp
+ *     be bounced on forever to keep a chain alive.
  *
  * That makes it the piece of scenery that turns a long fall into a chain: somewhere to reload when
  * there is nothing alive within reach.

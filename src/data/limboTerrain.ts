@@ -86,18 +86,18 @@ export function limboPieces(t: LimboTerrain): readonly PieceSpec[] {
 
 export const limboGrammar = (t: LimboTerrain): PieceGrammar => ({ pieces: limboPieces(t), maxStep: t.voidSpan[1] });
 
-/** 4-1 THE WAY IN. Steps and stairs between the first void drops; barbs are rare. */
+/** 4-1 THE WAY IN. Steps and stairs between the first void drops; barbed rubble already common, as in the original. */
 export const AREA4_RUBBLE = limboGrammar({
-  fieldBarbs: 0.25, fieldExtras: [1, 1], voidSpan: [460, 540], catchBarbs: 0.2,
-  weights: { step: 0.3, field: 0.25, stair: 0.2, drop: 0.25 },
+  fieldBarbs: 0.45, fieldExtras: [1, 2], voidSpan: [460, 540], catchBarbs: 0.4,
+  weights: { step: 0.25, field: 0.3, stair: 0.15, drop: 0.3 },
 });
 /** 4-2 THE FALLING CITY. More debris fields and more barbs in them; longer drops onto barbed catches. */
 export const AREA4_RUINFALL = limboGrammar({
-  fieldBarbs: 0.4, fieldExtras: [1, 2], voidSpan: [500, 580], catchBarbs: 0.35,
-  weights: { step: 0.2, field: 0.3, stair: 0.15, drop: 0.35 },
+  fieldBarbs: 0.55, fieldExtras: [1, 2], voidSpan: [500, 580], catchBarbs: 0.5,
+  weights: { step: 0.15, field: 0.3, stair: 0.1, drop: 0.45 },
 });
 /** 4-3 THE VOID. Every tool at once: the longest drops, the most barbed catches, the fewest steps. */
 export const AREA4_VOID = limboGrammar({
-  fieldBarbs: 0.5, fieldExtras: [1, 2], voidSpan: [520, 600], catchBarbs: 0.5,
-  weights: { step: 0.15, field: 0.3, stair: 0.1, drop: 0.45 },
+  fieldBarbs: 0.65, fieldExtras: [1, 2], voidSpan: [520, 600], catchBarbs: 0.6,
+  weights: { step: 0.1, field: 0.25, stair: 0.1, drop: 0.55 },
 });

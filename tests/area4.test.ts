@@ -98,18 +98,16 @@ describe('COLLAPSED REALM is broken rubble to land on', () => {
     }
   });
 
-  it('collapses ledges through the existing BREAK system: more of them deeper, never three in a row', () => {
-    expect(area4.gimmicks?.breakablePlatforms).toBe(true);
-    const chances = SECTIONS.map(s => plan(s).breakableChance ?? 0);
-    expect(chances[0]).toBeGreaterThan(0);
-    for (let i = 1; i < chances.length; i++) expect(chances[i]).toBeGreaterThan(chances[i - 1]);
+  // WAS: ledges collapse through the BREAK system, more of them deeper. The original's limbo has no
+  // blocks of any kind -- no breakables, no traps (reference spec) -- so the clone lays neither: what
+  // turns the rubble dangerous is the barbs on it, not the rubble giving way.
+  it('lays no collapsing ledge and no spike trap, as the original has neither', () => {
+    expect(area4.gimmicks?.breakablePlatforms ?? false).toBe(false);
     for (const sectionId of SECTIONS) {
-      expect(plan(sectionId).breakDelay).toBeUndefined();   // the ordinary 0.65s, nothing of its own
+      expect(plan(sectionId).breakableChance ?? 0).toBe(0);
+      expect(plan(sectionId).spikePlatformChance ?? 0).toBe(0);
       for (let seed = 1; seed <= SEEDS; seed++) {
-        const shaft = section(sectionId, seed * 409);
-        const route = [...new Map(shaft.ledges.map(p => [Math.round(p.y), p])).values()].sort((a, b) => a.y - b.y);
-        let run = 0;
-        for (const p of route) { run = p.breakable ? run + 1 : 0; expect({ sectionId, seed, run: run <= 2 }).toEqual({ sectionId, seed, run: true }); }
+        for (const p of section(sectionId, seed * 409).ledges) expect({ sectionId, seed, breakable: !!p.breakable, trap: !!p.spikePlatform }).toEqual({ sectionId, seed, breakable: false, trap: false });
       }
     }
   });
@@ -210,9 +208,14 @@ describe('LIMBO enemies cannot be stood on', () => {
       game.player.invincible = 0;
       game.combo = 5; game.ammo = 2;
       const enemy = spawnEnemy(kind, 1, game.player.x, game.player.y + 40);
+      // Already in view (NO CHEAP HIT holds an unseen body back), and held where the fall meets it:
+      // the clone's LIMBO bodies move on their own, which is not what this is about.
+      if (enemy.ai) (enemy.ai as { seen: number }).seen = 1;
+      if (enemy.ai?.kind === 'orbit') enemy.ai.radius = 0;
       game.enemies = [enemy];
       game.player.vy = 320;
-      for (let i = 0; i < 120 && game.hp === game.stats.maxHp; i++) game.step(1 / 120, 0, false);
+      const at = { x: enemy.x, y: enemy.y };
+      for (let i = 0; i < 120 && game.hp === game.stats.maxHp; i++) { enemy.x = at.x; enemy.y = at.y; game.step(1 / 120, 0, false); }
       expect({ kind, hurt: game.hp < game.stats.maxHp }).toEqual({ kind, hurt: true });
       expect({ kind, alive: enemy.alive }).toEqual({ kind, alive: true });
       expect({ kind, combo: game.combo }).toEqual({ kind, combo: 5 });
@@ -570,27 +573,23 @@ describe('COLLAPSED REALM: STAGE GENERATION v2 guarantees', () => {
     expect(checked).toBeGreaterThan(100);
   });
 
-  it('gets busier from 4-1 to 4-3 by combining its tools, not by adding enemies', () => {
-    // Enemies per 100m as c9a0a63 laid them (200 seeds: 4.83 / 5.21 / 4.62).
-    const v1 = [4.83, 5.21, 4.62];
+  // WAS: busier by combining collapse, traps and barbs while holding enemies to c9a0a63's count. The
+  // clone takes the original's limbo instead: more barbed rubble, longer void drops, and the
+  // original's floating roster growing -- ~2.4 enemies a screen in D's limbo (reference spec).
+  it("gets busier from 4-1 to 4-3: more barbs, more void, more of the original's floaters", () => {
     const per = SECTIONS.map(sectionId => {
-      let barbs = 0, collapsing = 0, turning = 0, enemies = 0;
+      let barbs = 0, enemies = 0;
       for (let seed = 1; seed <= SEEDS; seed++) {
         const shaft = section(sectionId, seed * 577);
         barbs += shaft.ledges.filter(p => p.limboHazard).length;
-        collapsing += shaft.ledges.filter(p => p.breakable).length;
-        turning += shaft.ledges.filter(p => p.spikePlatform).length;
         enemies += shaft.enemies.length;
       }
-      return { barbs, collapsing, turning, enemies100: enemies / SEEDS * 100 / area4.sectionLength };
+      return { barbs, perScreen: enemies / SEEDS * 28.6 / area4.sectionLength };
     });
-    expect(per[0].turning).toBe(0);
-    for (let i = 1; i < 3; i++) {
-      expect(per[i].barbs).toBeGreaterThan(per[i - 1].barbs);
-      expect(per[i].collapsing).toBeGreaterThan(per[i - 1].collapsing);
-      expect(per[i].turning).toBeGreaterThan(per[i - 1].turning);
-    }
-    per.forEach((p, i) => expect(Math.abs(p.enemies100 - v1[i]) / v1[i], `4-${i + 1}`).toBeLessThan(0.12));
+    for (let i = 1; i < 3; i++) { expect(per[i].barbs).toBeGreaterThan(per[i - 1].barbs); expect(per[i].perScreen).toBeGreaterThan(per[i - 1].perScreen); }
+    for (const p of per) { expect(p.perScreen).toBeGreaterThan(1.2); expect(p.perScreen).toBeLessThan(3.6); }
+    // Every one of them is answered with the gunboots: nothing in LIMBO can be stood on.
+    for (const kind of area4.enemyPool) expect(ENEMY_TYPES[kind].stompable).toBe(false);
   });
 
   it('never hurts on a landing: a turning ledge warns for longer than the walk off it', () => {
