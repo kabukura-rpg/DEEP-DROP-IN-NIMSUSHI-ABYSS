@@ -244,7 +244,7 @@ export const AREAS: readonly AreaConfig[] = [
     // CAVERNS ROLE. Fall, shoot, land, stomp, chain, open a block. No gauge, no timer on the ground,
     // and deliberately nothing lethal on touch: AREA 1 is where the controls are learned, so a run
     // ends here because the player ran out of hearts, never because they brushed a wall.
-    id: 1, name: 'SURFACE RUINS', sections: 3, sectionLength: 300,
+    id: 1, name: 'SURFACE RUINS', sections: 3, sectionLength: 360,
     enemyPool: ['slime', 'bat', 'armoredSlime'],
     theme: { wall: 0x2b3228, wallEdge: 0x44523a, brick: 0x222a20, pillar: 0x33402c, accent: 0xb9ef70, dust: 0x9db98a, sky: 0x2d4a52, horizon: 0x47707a, grass: 0x6d9c4a },
     plans: [
@@ -257,15 +257,15 @@ export const AREAS: readonly AreaConfig[] = [
       // raised by the rows lost -- enemies per 100m are what they were -- and the flow profile puts
       // them into the fall the player makes. 1-1 keeps the most breathing space of the three.
       { platformWidth: [176, 196], gap: 232, rhythm: AREA1_RHYTHM, pieces: AREA1_GRAMMAR, enemyChance: 0.43, flyChance: 0.12, toughChance: 0.17, heavyChance: 0, comboBias: 0.20, graceDepth: 25,
-        flow: { pathFlyers: 0.35, landingGuards: 0.25 },
+        flow: { pathFlyers: 0.3, landingGuards: 0.15 },
         breakBlockRows: 2, breakBlockDurability: 1,
         doodadChance: 0.12, safeZoneCount: 1, sideRooms: 2 },
       { platformWidth: [152, 178], gap: 238, rhythm: AREA1_RHYTHM, pieces: AREA1_GRAMMAR, enemyChance: 0.50, flyChance: 0.27, toughChance: 0.22, heavyChance: 0, comboBias: 0.22,
-        flow: { pathFlyers: 0.55, landingGuards: 0.35 },
+        flow: { pathFlyers: 0.4, landingGuards: 0.2 },
         breakBlockRows: 3, breakBlockDurability: 2,
         doodadChance: 0.12, safeZoneCount: 1, sideRooms: 2 },
       { platformWidth: [132, 158], gap: 244, rhythm: AREA1_RHYTHM, pieces: AREA1_GRAMMAR, enemyChance: 0.73, flyChance: 0.42, toughChance: 0.30, heavyChance: 0, comboBias: 0.30,
-        flow: { pathFlyers: 0.6, landingGuards: 0.35 },
+        flow: { pathFlyers: 0.5, landingGuards: 0.25 },
         breakBlockRows: 3, breakBlockDurability: 2,
         doodadChance: 0.12, safeZoneCount: 1, sideRooms: 2 },
     ],
@@ -278,7 +278,7 @@ export const AREAS: readonly AreaConfig[] = [
     // skulls that rattle and lunge). And the ground itself is the AREA's rule: EVERY ordinary ledge is
     // a spike platform (Human Review, v2), each with a warning long enough to walk off it from
     // anywhere -- so moving is always safe, and standing still never is.
-    id: 2, name: 'CATACOMB RUINS', sections: 3, sectionLength: 300,
+    id: 2, name: 'CATACOMB RUINS', sections: 3, sectionLength: 450,
     enemyPool: ['slime', 'bat', 'armoredSlime', 'tank', 'flyingSkull'],
     theme: { wall: 0x2a2620, wallEdge: 0x463f33, brick: 0x1a1713, pillar: 0x3b3428, accent: 0xe8c98a, dust: 0xb6a888 },
     plans: [
@@ -286,15 +286,15 @@ export const AREAS: readonly AreaConfig[] = [
       // STAGE GENERATION v2: the shelves are spaced ~1.75x further apart (catacombTerrain.ts), so the
       // per-row chances are raised by the same factor -- enemies and skulls per 100m are unchanged --
       // and the flow profile puts them across the fall and beside the shelves.
-      { platformWidth: [168, 198], gap: 220, pieces: AREA2_INTRO, enemyChance: 0.40, flyChance: 0.31, flow: { pathFlyers: 0.45, landingGuards: 0.3 }, toughChance: 0.22, heavyChance: 0, comboBias: 0.18, graceDepth: 12,
+      { platformWidth: [168, 198], gap: 220, pieces: AREA2_INTRO, enemyChance: 0.40, flyChance: 0.31, flow: { pathFlyers: 0.5, landingGuards: 0.3 }, toughChance: 0.22, heavyChance: 0, comboBias: 0.18, graceDepth: 12,
         spikePlatformChance: 1, spikeReaction: 0.35, breakBlockRows: 2, breakBlockDurability: 2,
         doodadChance: 0.24, safeZoneCount: 1, enemyExclude: ['flyingSkull'], ghosts: { count: 4, speed: 70 } },
       // 2-2 PURSUIT. Six ghosts, skulls join, slots narrow.
-      { platformWidth: [160, 190], gap: 220, pieces: AREA2_PURSUIT, enemyChance: 0.54, flyChance: 0.38, flow: { pathFlyers: 0.55, landingGuards: 0.35 }, toughChance: 0.30, heavyChance: 0.08, comboBias: 0.24,
+      { platformWidth: [160, 190], gap: 220, pieces: AREA2_PURSUIT, enemyChance: 0.54, flyChance: 0.38, flow: { pathFlyers: 0.6, landingGuards: 0.35 }, toughChance: 0.30, heavyChance: 0.08, comboBias: 0.24,
         spikePlatformChance: 1, spikeReaction: 0.35, breakBlockRows: 2, breakBlockDurability: 2,
         doodadChance: 0.26, safeZoneCount: 1, ghosts: { count: 6, speed: 80 } },
       // 2-3 OSSUARY. Everything at once -- carried by the shape of the shaft, not by a longer roster.
-      { platformWidth: [148, 178], gap: 220, pieces: AREA2_OSSUARY, enemyChance: 0.66, flyChance: 0.45, flow: { pathFlyers: 0.65, landingGuards: 0.4 }, toughChance: 0.38, heavyChance: 0.14, comboBias: 0.28,
+      { platformWidth: [148, 178], gap: 220, pieces: AREA2_OSSUARY, enemyChance: 0.66, flyChance: 0.45, flow: { pathFlyers: 0.7, landingGuards: 0.4 }, toughChance: 0.38, heavyChance: 0.14, comboBias: 0.28,
         spikePlatformChance: 1, spikeReaction: 0.35, breakBlockRows: 2, breakBlockDurability: 2,
         doodadChance: 0.28, safeZoneCount: 1, ghosts: { count: 8, speed: 88 } },
     ],
@@ -303,7 +303,7 @@ export const AREAS: readonly AreaConfig[] = [
     // AQUIFER ROLE. The breath gauge replaces the floor as the thing that is running out. Air comes
     // only from containers that have to be broken and then chased, so the route is decided by where
     // the air is rather than by where the ledges are. Nothing in here is lethal on touch.
-    id: 3, name: 'SUNKEN RUINS', sections: 3, sectionLength: 340,
+    id: 3, name: 'SUNKEN RUINS', sections: 3, sectionLength: 510,
     enemyPool: ['fish', 'bubbleFish', 'jellyfish', 'urchin'],
     theme: { wall: 0x1c2a2c, wallEdge: 0x324245, brick: 0x111c1f, pillar: 0x24484f, accent: 0x70d8ef, dust: 0x8fd5e0, water: { tint: 0x123844, light: 0x9fe8f5, weed: 0x2f7361 } },
     gimmicks: { oxygen: true },
@@ -353,7 +353,7 @@ export const AREAS: readonly AreaConfig[] = [
     // some of it turning (SPIKE PLATFORMS whose warning outlasts the walk off them). Barbs survive as
     // debris beside the route, never on it. Nothing in the pool can be stomped, so the gunboots clear
     // the way; floating scenery still reloads them between landings.
-    id: 4, name: 'COLLAPSED REALM', sections: 3, sectionLength: 380,
+    id: 4, name: 'COLLAPSED REALM', sections: 3, sectionLength: 570,
     enemyPool: ['voidWisp', 'hollowShade', 'spikeDemon'],
     theme: { wall: 0x241f2e, wallEdge: 0x3c3350, pillar: 0x2d2740, brick: 0x171422, accent: 0xc0a7ed, dust: 0x8c82a5, rift: { glow: 0x9d7bd8, void: 0x0b0710, debris: 0x4a3f63 } },
     gimmicks: { breakablePlatforms: true },

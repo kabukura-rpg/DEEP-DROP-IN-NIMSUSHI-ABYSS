@@ -491,7 +491,8 @@ describe('AREA 3 submerged physics', () => {
     // Clear the shaft each step: this is about recoil, not about bouncing off a passing fish.
     // Gun modules are cleared alongside the enemies: swapping weapons mid-measurement would be
     // testing the crate, not the recoil.
-    for (let i = 0; i < 900; i++) { game.oxygen.remaining = OXYGEN_RULES.max; game.player.invincible = 99; game.enemies = []; game.platforms = []; game.pickups = []; game.step(1 / 120, 0, true); highest = Math.min(highest, game.player.y); }
+    // Doodads go too: a bounce reloads, and whether one hangs in the first band is the terrain's business.
+    for (let i = 0; i < 900; i++) { game.oxygen.remaining = OXYGEN_RULES.max; game.player.invincible = 99; game.enemies = []; game.platforms = []; game.pickups = []; game.doodads = []; game.step(1 / 120, 0, true); highest = Math.min(highest, game.player.y); }
     // Recoil may lift underwater too; what must hold is that it never turns into climbing.
     expect(game.ammo).toBe(0);
     expect(game.player.y).toBeGreaterThan(200);

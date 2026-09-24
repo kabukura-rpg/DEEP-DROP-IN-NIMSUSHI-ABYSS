@@ -170,8 +170,11 @@ describe('AREA 1 section pacing', () => {
     const density = [1, 2, 3].map(s => sample(s as SectionId).density);
     expect(density[0]).toBeLessThan(density[1]);
     expect(density[1]).toBeLessThan(density[2]);
-    expect(density[0]).toBeLessThan(0.55);
-    expect(density[2]).toBeGreaterThan(0.6);
+    // Per ROW. STAGE GENERATION v2 spaced the rows out and raised the per-row chances by the rows lost
+    // (x1.43 in 1-1, x1.40 in 1-3) so enemies per 100m stay where they were; the old 0.55 and 0.6
+    // bounds move by the same factors.
+    expect(density[0]).toBeLessThan(0.55 * 1.43);
+    expect(density[2]).toBeGreaterThan(0.6 * 1.4);
   });
   it('keeps 1-1 gentle: mostly stompable enemies and a quiet opening', () => {
     const { enemies } = sample(1, 40, 3);

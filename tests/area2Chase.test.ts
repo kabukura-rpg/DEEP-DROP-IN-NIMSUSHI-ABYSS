@@ -134,8 +134,10 @@ describe('CATACOMB terrain is walked, not fallen through', () => {
     // And the rolled roster is no denser than the catacombs had before the rework (16.7/23.0/27.6).
     // Ghosts are left out of this count: they are laid on a schedule of their own, raised on purpose
     // by Human Review v2, and checked against that schedule above and in the safety pass.
-    const perSection = [1, 2, 3].map(n => { let e = 0; for (let seed = 1; seed <= 40; seed++) e += shaft(n as SectionId, seed * 53).enemies.filter(x => x.ai?.kind !== 'ghost').length; return e / 40; });
-    [17.5, 24, 29].forEach((cap, i) => expect(perSection[i], `2-${i + 1}`).toBeLessThan(cap));
+    // Per 100m: STAGE GENERATION v2 made the SECTION longer (300 -> 450m), and a longer SECTION is
+    // not a denser roster. The caps are the old per-SECTION ones over the old 300m.
+    const per100 = [1, 2, 3].map(n => { let e = 0; for (let seed = 1; seed <= 40; seed++) e += shaft(n as SectionId, seed * 53).enemies.filter(x => x.ai?.kind !== 'ghost').length; return e / 40 * 100 / area2.sectionLength; });
+    [17.5, 24, 29].forEach((cap, i) => expect(per100[i], `2-${i + 1}`).toBeLessThan(cap / 3));
   });
 });
 

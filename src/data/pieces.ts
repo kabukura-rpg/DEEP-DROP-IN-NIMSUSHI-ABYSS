@@ -140,7 +140,7 @@ const count = (random: () => number, lo: number, hi: number) => lo + Math.floor(
  */
 export const AREA1_PIECES: readonly PieceSpec[] = [
   {
-    id: 'normal', weight: 0.2,
+    id: 'normal', weight: 0.14,
     rows: r => Array.from({ length: count(r, 1, 2) }, () => ({
       piece: 'normal' as const, step: between(r, 330, 410), widthBias: [0, 1] as const, extras: 0, openSpan: false,
     })),
@@ -157,7 +157,7 @@ export const AREA1_PIECES: readonly PieceSpec[] = [
   {
     // Several small ledges per band: pick a landing. Now a short stretch rather than a staircase of
     // them -- two bands at most -- so a cluster is a decision, not the terrain.
-    id: 'ledgeCluster', weight: 0.28,
+    id: 'ledgeCluster', weight: 0.36,
     rows: r => Array.from({ length: count(r, 1, 2) }, () => ({
       piece: 'ledgeCluster' as const, step: between(r, 240, 290), widthBias: [0, 0.4] as const,
       ledgeWidth: [100, 140] as const, extras: count(r, 1, 2), openSpan: false,
@@ -166,7 +166,7 @@ export const AREA1_PIECES: readonly PieceSpec[] = [
   {
     // Two or three rows down one wall. The other side is left open, so taking the channel is a choice
     // about where to be rather than a corridor with one way through.
-    id: 'wallChannel', weight: 0.2,
+    id: 'wallChannel', weight: 0.18,
     rows: (r, side) => Array.from({ length: count(r, 2, 3) }, () => ({
       piece: 'wallChannel' as const, step: between(r, 300, 360), widthBias: [0.15, 0.65] as const,
       hug: side, extras: 0, openSpan: false,

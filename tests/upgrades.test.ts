@@ -307,9 +307,10 @@ describe('HEART BALLOON', () => {
   it('slows the fall while it is alive', () => {
     const fall = (held: UpgradeId[]) => {
       const game = run(held);
-      game.platforms = [];
       game.player.y = 200; game.player.vy = 0; game.player.grounded = -1;
-      tick(game, 2);
+      // Nothing to land on or bounce off for the whole fall: this is about the fall itself, and the
+      // terrain the SECTION happens to generate below is not.
+      for (let i = 0; i < 240; i++) { game.platforms = []; game.enemies = []; game.doodads = []; game.step(1 / 120, 0, false); }
       return game.player.vy;
     };
     expect(fall(['heartBalloon'])).toBeLessThan(fall([]));
