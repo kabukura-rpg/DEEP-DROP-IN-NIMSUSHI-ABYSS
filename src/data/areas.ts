@@ -278,16 +278,16 @@ export const AREAS: readonly AreaConfig[] = [
       // STAGE GENERATION v2: fewer, further-apart rows (pieces.ts), so the per-row enemy chances are
       // raised by the rows lost -- enemies per 100m are what they were -- and the flow profile puts
       // them into the fall the player makes. 1-1 keeps the most breathing space of the three.
-      { platformWidth: [176, 196], gap: 232, rhythm: AREA1_RHYTHM, pieces: AREA1_GRAMMAR, enemyChance: 0.55, flyChance: 0.35, swarm: 0.15, toughChance: 0.2, heavyChance: 0, comboBias: 0.20, graceDepth: 12, enemyExclude: ['watcher'],
-        flow: { pathFlyers: 0.5, landingGuards: 0.3 },
+      { platformWidth: [176, 196], gap: 232, rhythm: AREA1_RHYTHM, pieces: AREA1_GRAMMAR, enemyChance: 0.55, flyChance: 0.3, swarm: 0.1, toughChance: 0.2, heavyChance: 0, comboBias: 0.20, graceDepth: 12, enemyExclude: ['watcher'],
+        flow: { pathFlyers: 0.35, landingGuards: 0.3 },
         breakBlockRows: 2, breakBlockDurability: 1,
         doodadChance: 0.12, safeZoneCount: 1, sideRooms: 2 },
-      { platformWidth: [152, 178], gap: 238, rhythm: AREA1_RHYTHM, pieces: AREA1_GRAMMAR, enemyChance: 0.60, flyChance: 0.45, swarm: 0.3, toughChance: 0.28, heavyChance: 0, comboBias: 0.22,
-        flow: { pathFlyers: 0.6, landingGuards: 0.35 },
+      { platformWidth: [152, 178], gap: 238, rhythm: AREA1_RHYTHM, pieces: AREA1_GRAMMAR, enemyChance: 0.55, flyChance: 0.33, swarm: 0.15, toughChance: 0.28, heavyChance: 0, comboBias: 0.22,
+        flow: { pathFlyers: 0.45, landingGuards: 0.35 },
         breakBlockRows: 3, breakBlockDurability: 2,
         doodadChance: 0.12, safeZoneCount: 1, sideRooms: 2 },
-      { platformWidth: [132, 158], gap: 244, rhythm: AREA1_RHYTHM, pieces: AREA1_GRAMMAR, enemyChance: 0.70, flyChance: 0.50, swarm: 0.45, toughChance: 0.34, heavyChance: 0, comboBias: 0.30,
-        flow: { pathFlyers: 0.7, landingGuards: 0.4 },
+      { platformWidth: [132, 158], gap: 244, rhythm: AREA1_RHYTHM, pieces: AREA1_GRAMMAR, enemyChance: 0.65, flyChance: 0.4, swarm: 0.25, toughChance: 0.34, heavyChance: 0, comboBias: 0.30,
+        flow: { pathFlyers: 0.55, landingGuards: 0.4 },
         breakBlockRows: 3, breakBlockDurability: 2,
         doodadChance: 0.12, safeZoneCount: 1, sideRooms: 2 },
     ],
@@ -315,15 +315,15 @@ export const AREAS: readonly AreaConfig[] = [
       // per-row chances are raised by the same factor -- enemies and skulls per 100m are unchanged --
       // and the flow profile puts them across the fall and beside the shelves.
       { platformWidth: [168, 198], gap: 220, pieces: AREA2_INTRO, enemyChance: 0.72, flyChance: 0.3, swarm: 0.05, flow: { pathFlyers: 0.5, landingGuards: 0.35 }, toughChance: 0.3, heavyChance: 0, comboBias: 0.18, graceDepth: 12,
-        spikePlatformChance: 0.3, spikeWarning: 0.4, breakBlockRows: 2, breakBlockDurability: 2,
+        spikePlatformChance: 0.3, spikeWarning: 0.5, breakBlockRows: 2, breakBlockDurability: 2,
         doodadChance: 0.24, safeZoneCount: 1, enemyExclude: ['flyingSkull'], ghosts: { count: 4, speed: 70 } },
       // 2-2 PURSUIT. Six ghosts, skulls join, slots narrow.
       { platformWidth: [160, 190], gap: 220, pieces: AREA2_PURSUIT, enemyChance: 0.72, flyChance: 0.3, swarm: 0.1, flow: { pathFlyers: 0.6, landingGuards: 0.4 }, toughChance: 0.35, heavyChance: 0, comboBias: 0.24,
-        spikePlatformChance: 0.35, spikeWarning: 0.4, breakBlockRows: 2, breakBlockDurability: 2,
+        spikePlatformChance: 0.35, spikeWarning: 0.5, breakBlockRows: 2, breakBlockDurability: 2,
         doodadChance: 0.26, safeZoneCount: 1, ghosts: { count: 6, speed: 80 } },
       // 2-3 OSSUARY. Everything at once -- carried by the shape of the shaft, not by a longer roster.
       { platformWidth: [148, 178], gap: 220, pieces: AREA2_OSSUARY, enemyChance: 0.8, flyChance: 0.35, swarm: 0.15, flow: { pathFlyers: 0.7, landingGuards: 0.45 }, toughChance: 0.4, heavyChance: 0, comboBias: 0.28,
-        spikePlatformChance: 0.4, spikeWarning: 0.4, breakBlockRows: 2, breakBlockDurability: 2,
+        spikePlatformChance: 0.4, spikeWarning: 0.5, breakBlockRows: 2, breakBlockDurability: 2,
         doodadChance: 0.28, safeZoneCount: 1, ghosts: { count: 8, speed: 88 } },
     ],
   },

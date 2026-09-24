@@ -40,21 +40,22 @@ import type { DwellerRole, Enemy } from './enemies';
 
 export const DWELLER_RULES = {
   /** Seconds a dweller must have been in sight before its body can hurt. */
-  seenBeforeHit: 0.3,
+  seenBeforeHit: 0.5,
   /** A dweller further than this from the player (vertically) holds still: the shaft is long. */
   activeRange: 620,
   /**
    * A bat wakes once the player has gone past it (below its height, within `reach` across), takes
    * `unfurl` seconds to drop off its perch, then flies at the player.
    */
-  bat: { reach: 230, unfurl: 0.3, speed: 170, turn: 600 },
-  drift: { accel: 110, speed: 80 },
+  bat: { reach: 180, unfurl: 0.3, speed: 150, turn: 350 },
+  /** Floaty: it homes at half its speed vertically, so it drifts into a fall rather than climbing after it. */
+  drift: { accel: 70, speed: 55, rise: 0.5 },
   eye: { speed: 85, wobble: 50, wobbleRate: 5 },
   piranha: { speed: 130, wobble: 0, wobbleRate: 0 },
   phantomChase: { speed: 90, wobble: 0, wobbleRate: 0 },
   frog: { wait: [1.1, 1.9] as const, windup: 0.45, jump: 560, run: 150 },
   groundSkull: { wait: [0.35, 0.9] as const, windup: 0, jump: 300, run: 70 },
-  skull: { calmRadius: 34, calmRate: 0.9, speed: 125, turn: 500 },
+  skull: { calmRadius: 34, calmRate: 0.9, speed: 100, turn: 500 },
   skeleton: { range: 330, every: 1.7, windup: 0.35, boneVx: 165, boneVy: -430 },
   phantom: { sway: 1.0, bob: 16, bobRate: 1.7, near: 150, approach: 45 },
   jelly: { pause: 0.5, move: 0.7, dx: 46, dy: 64 },
@@ -171,7 +172,7 @@ export function stepDweller(e: Enemy, ai: DwellerState, player: { x: number; y: 
     case 'drift': {
       if (!dwellerInSight(e.y, view) && ai.vx === 0 && ai.vy === 0) return null;
       const [tx, ty] = toward(e, player, R.drift.speed);
-      steer(ai, tx, ty, R.drift.accel, h);
+      steer(ai, tx, ty * R.drift.rise, R.drift.accel, h);
       e.x += ai.vx * h; e.y += ai.vy * h;
       bounceWalls(e, ai);
       return null;

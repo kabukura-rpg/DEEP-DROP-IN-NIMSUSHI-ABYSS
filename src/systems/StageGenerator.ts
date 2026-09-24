@@ -510,12 +510,12 @@ export class StageGenerator {
     const fixed = this.context.plan?.spikeWarning;
     if (fixed !== undefined) {
       // The fixed warning, unless this ledge needs longer to leave: from the worst place a fall can land
-      // on it, the walk to the nearest edge that is not against a wall, plus a tenth of a second to
-      // react. A free-standing ledge up to ~220px is left in the fixed time; one held against a wall
+      // on it, the walk to the nearest edge that is not against a wall, plus 0.15s to react. A
+      // free-standing ledge up to ~230px is left in the fixed time; one held against a wall
       // must be walked its whole width. Nobody is ever caught who moves at once.
       const leftOpen = p.x > WORLD.wall + 4, rightOpen = p.x + p.width < WORLD.width - WORLD.wall - 4;
       const walk = leftOpen && rightOpen ? p.width / 2 + 9 : p.width + 9;
-      return spikePlatform(Math.max(fixed, walk / BALANCE.moveSpeed + 0.1));
+      return spikePlatform(Math.max(fixed, walk / BALANCE.moveSpeed + 0.15));
     }
     const reaction = this.context.plan?.spikeReaction;
     return spikePlatform(reaction === undefined ? undefined : (p.width + 18) / BALANCE.moveSpeed + reaction);

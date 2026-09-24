@@ -117,7 +117,7 @@ describe('CATACOMB terrain is walked, not fallen through', () => {
             // WAS "every shelf spiked, warning >= the walk to its exit + 0.35". The clone spikes a share
             // of ledges (the original's traps are a minority) with a short fixed warning -- never shorter
             // than walking the shelf from its wall end to its one open end, plus a reaction.
-            if (route.spikePlatform) expect(route.spikePlatform.warning).toBeGreaterThanOrEqual((route.width + 9) / 350 + 0.1 - 1e-9);
+            if (route.spikePlatform) expect(route.spikePlatform.warning).toBeGreaterThanOrEqual((route.width + 9) / 350 + 0.15 - 1e-9);
           }
           above = here;
         }
@@ -173,12 +173,12 @@ describe('CATACOMB generation safety across 1,500 SECTIONs', () => {
           }
           // NO FORCED SPIKE HIT. A spiked ledge (a share of them since the clone) promises time: from ANY
           // landing point on it, walking to its nearest open end -- the one end, for a shelf against a
-          // wall -- clears the body before the teeth come up, with a tenth of a second to react.
+          // wall -- clears the body before the teeth come up, with 0.15s to react.
           for (const p of here) {
             if (!p.spikePlatform) continue;
             const leftOpen = p.x > WORLD.wall + 4, rightOpen = p.x + p.width < WORLD.width - WORLD.wall - 4;
             const walk = leftOpen && rightOpen ? p.width / 2 + 9 : p.width + 9;
-            if ((p.spikePlatform.warning ?? 0) < walk / 350 + 0.1 - 1e-9) expect.fail(`${tag}: spikes faster than the walk off at y${y}`);
+            if ((p.spikePlatform.warning ?? 0) < walk / 350 + 0.15 - 1e-9) expect.fail(`${tag}: spikes faster than the walk off at y${y}`);
           }
           // No enemy can ever stand on or pass through the route's landing spot.
           const landing: Box = { minX: route.safeX - 9, maxX: route.safeX + 9, minY: route.y - 30, maxY: route.y };
