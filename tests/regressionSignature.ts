@@ -76,3 +76,14 @@ export function replaySignature(start: (g: GameModel) => void, seeds = 6, second
   }
   return hash.digest('hex').slice(0, 24);
 }
+
+/**
+ * Start a replay the moment the run ENTERS the AREA (or the fight), with the run's random stream
+ * replaced there. A fresh GameModel first sets up 1-1, and how many numbers that draws depends on
+ * AREA 1's own terrain -- so without this, re-shaping AREA 1 would move every other AREA's replay
+ * and the boss's with it, and the fingerprint would stop saying anything about the AREA it names.
+ */
+export function entered(go: (g: GameModel) => void) {
+  let k = 0;
+  return (g: GameModel) => { (g as unknown as { random: () => number }).random = seeded(9001 + ++k * 37); go(g); };
+}

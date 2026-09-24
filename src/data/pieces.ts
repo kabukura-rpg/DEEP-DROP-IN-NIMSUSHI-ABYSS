@@ -119,37 +119,44 @@ const count = (random: () => number, lo: number, hi: number) => lo + Math.floor(
  *     the horizontal reach of each other. At a 176-216px step the reach is 104-120px, so the spread
  *     is held to 1.5x it and the intersection can never close.
  */
+/*
+ * STAGE GENERATION v2 (AREA 1). The same five pieces, spaced for a descent rather than a ladder.
+ * Measured at c9a0a63 a bot that steers to the route landed 2.7-2.9 times a screen in AREA 1 and the
+ * magazine was 7.2-7.9 of 8 at every one; Downwell footage (PHASE 7C-1) shows an ordinary player at
+ * 0.7-2.0. So every piece now asks for more fall between landings -- fewer, shorter clusters, longer
+ * steps, more open drops -- and the enemies that fall passes are what spends the magazine.
+ */
 export const AREA1_PIECES: readonly PieceSpec[] = [
   {
-    id: 'normal', weight: 0.24,
-    rows: r => Array.from({ length: count(r, 2, 4) }, () => ({
-      piece: 'normal' as const, step: between(r, 232, 276), widthBias: [0, 1] as const, extras: 0, openSpan: false,
+    id: 'normal', weight: 0.2,
+    rows: r => Array.from({ length: count(r, 1, 2) }, () => ({
+      piece: 'normal' as const, step: between(r, 330, 410), widthBias: [0, 1] as const, extras: 0, openSpan: false,
     })),
   },
   {
     // The lip, then the catch. The span sits between them, and the catch is wide because a landing
     // at terminal speed after a full screen of fall should not also be a precision problem.
-    id: 'openDrop', weight: 0.18,
+    id: 'openDrop', weight: 0.32,
     rows: r => [
-      { piece: 'openDrop', step: between(r, 540, 740), widthBias: [0.1, 0.6], extras: 0, openSpan: true },
-      { piece: 'openDrop', step: between(r, 236, 272), widthBias: [0.72, 1], extras: 0, openSpan: false },
+      { piece: 'openDrop', step: between(r, 580, 780), widthBias: [0.1, 0.6], extras: 0, openSpan: true },
+      { piece: 'openDrop', step: between(r, 280, 330), widthBias: [0.72, 1], extras: 0, openSpan: false },
     ],
   },
   {
-    // Several small ledges per band, close together vertically: land, pick the next one, land again.
-    // This is the piece that breaks "one row = one ledge", and the only one that needs to.
-    id: 'ledgeCluster', weight: 0.36,
-    rows: r => Array.from({ length: count(r, 4, 6) }, () => ({
-      piece: 'ledgeCluster' as const, step: between(r, 172, 206), widthBias: [0, 0.4] as const,
+    // Several small ledges per band: pick a landing. Now a short stretch rather than a staircase of
+    // them -- two bands at most -- so a cluster is a decision, not the terrain.
+    id: 'ledgeCluster', weight: 0.28,
+    rows: r => Array.from({ length: count(r, 1, 2) }, () => ({
+      piece: 'ledgeCluster' as const, step: between(r, 240, 290), widthBias: [0, 0.4] as const,
       ledgeWidth: [100, 140] as const, extras: count(r, 1, 2), openSpan: false,
     })),
   },
   {
-    // Three rows down one wall. The other side is left open, so taking the channel is a choice about
-    // where to be rather than a corridor with one way through.
-    id: 'wallChannel', weight: 0.17,
-    rows: (r, side) => Array.from({ length: count(r, 3, 4) }, () => ({
-      piece: 'wallChannel' as const, step: between(r, 218, 268), widthBias: [0.15, 0.65] as const,
+    // Two or three rows down one wall. The other side is left open, so taking the channel is a choice
+    // about where to be rather than a corridor with one way through.
+    id: 'wallChannel', weight: 0.2,
+    rows: (r, side) => Array.from({ length: count(r, 2, 3) }, () => ({
+      piece: 'wallChannel' as const, step: between(r, 300, 360), widthBias: [0.15, 0.65] as const,
       hug: side, extras: 0, openSpan: false,
     })),
   },

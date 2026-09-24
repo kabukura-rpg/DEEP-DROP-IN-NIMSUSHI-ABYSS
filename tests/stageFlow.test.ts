@@ -15,7 +15,8 @@ const FULL: StageFlowProfile = { pathFlyers: 1, landingGuards: 1 };
 
 function build(areaId: number, n: number, seed: number, flow?: StageFlowProfile) {
   const area = AREAS.find(a => a.id === areaId)!;
-  const plan: SectionPlan = { ...area.plans![n], ...(flow ? { flow } : {}) };
+  // The profile is always the one given: none means the v1 placement, whatever the plan now carries.
+  const plan: SectionPlan = { ...area.plans![n], flow };
   const g = new StageGenerator(seeded(seed), { plan, enemyPool: area.enemyPool, water: area.water, oxygen: area.gimmicks?.oxygen === true, breakable: area.gimmicks?.breakablePlatforms === true, sectionLength: area.sectionLength });
   const platforms: RoutePlatform[] = [], enemies: Enemy[] = [];
   const LIMIT = WORLD.startY + area.sectionLength * WORLD.pixelsPerMeter;

@@ -312,6 +312,8 @@ describe('the shower is fought through, not waited out', () => {
     const summoned = new Set<number>();
     for (const seed of [221, 222, 223, 224, 225]) {
       const g = new GameModel(false, seeded(seed));
+      // The fight starts on a stream of its own, so how 1-1 happened to be set up cannot change it.
+      (g as unknown as { random: () => number }).random = seeded(seed);
       g.jumpToNimushi();
       g.platforms = []; g.doodads = []; g.containers = [];
       g.bullets.push(round(g.boss.x, g.boss.eye.y + g.boss.eye.height / 2, 1));

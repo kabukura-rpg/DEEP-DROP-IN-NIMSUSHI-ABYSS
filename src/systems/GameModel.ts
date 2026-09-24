@@ -2241,7 +2241,7 @@ export class GameModel {
     this.oxygen.reset(!this.practice && this.stage.config.gimmicks?.oxygen === true);
     this.heat.reset(!this.practice && this.stage.config.gimmicks?.heat === true);
     this.collapse.reset(this.stage.sectionPlan?.breakDelay ?? BREAK_RULES.delay);
-    this.generator = new StageGenerator(this.random, { depthOffset: this.completedDepth, plan: this.stage.sectionPlan, enemyPool: this.stage.enemyPool, water: this.stage.config.water, oxygen: this.oxygen.enabled, heat: this.heat.enabled, breakable: !this.practice && this.stage.config.gimmicks?.breakablePlatforms === true, sectionLength: this.practice || this.state === 'boss' || !this.stage.enabled ? undefined : this.stage.sectionLength,
+    this.generator = new StageGenerator(this.random, { depthOffset: this.stage.boss ? ABYSS.curveDepth : this.completedDepth, plan: this.stage.sectionPlan, enemyPool: this.stage.enemyPool, water: this.stage.config.water, oxygen: this.oxygen.enabled, heat: this.heat.enabled, breakable: !this.practice && this.stage.config.gimmicks?.breakablePlatforms === true, sectionLength: this.practice || this.state === 'boss' || !this.stage.enabled ? undefined : this.stage.sectionLength,
       // MEMBER'S CARD: a shop near the top of every SECTION from the one after it was taken.
       guaranteedShopDepth: this.upgrades.has('membersCard') && !this.practice && this.state !== 'boss'
         ? UPGRADE_TUNING.membersCard.shopDepth : undefined });

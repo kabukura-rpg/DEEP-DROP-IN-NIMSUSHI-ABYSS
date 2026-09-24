@@ -7,7 +7,6 @@ import { ENEMY_TYPES, motionEnvelope, spawnEnemy } from '../src/data/enemies';
 import { CHASE_STEP, GHOST_RULES, SKULL_RULES, dormantGhost, idleSkull, inSight } from '../src/data/chasers';
 import { SPIKE_PLATFORM_RULES, spikePlatform } from '../src/data/structures';
 import { CATACOMB_MAX_STEP } from '../src/data/catacombTerrain';
-import { generationSignature, replaySignature } from './regressionSignature';
 
 const seeded = (s: number) => () => { s = (Math.imul(s, 1664525) + 1013904223) >>> 0; return s / 4294967296; };
 const area2 = areaConfig(2);
@@ -508,23 +507,6 @@ describe('Human Review v2: ghosts are seen before they are felt', () => {
   });
 });
 
-describe('AREA 2 rework leaves every other AREA exactly as it was', () => {
-  const golden = {
-    gen1: '707f0b6eee8d535d9ef25833', gen3: 'af813a1562e0a964cd619371', gen4: '61ec760733be4c4e52523a49',
-    'play1-1': 'f9d5fc5f35f968bacc2c94e5', 'play1-2': '3cef4efed337ce80efd8807e', 'play1-3': '771f7a5f3ae7cdab4df8b7f4',
-    'play3-1': '4e9406607977012b37e3074b', 'play3-2': '958556e75502ad20c087fbc7', 'play3-3': 'c86f5a9420a7a9a3e8c8f337',
-    'play4-1': '6b2fd789d54a8c6abe655be3', 'play4-2': 'a6386cd04e6d8435e855e8e5', 'play4-3': '6bcef0adb86a4296d3a4b23b',
-    boss: 'd93809d83f997674e6a17fac',
-  };
-  it('generates AREA 1, 3 and 4 identically', () => {
-    for (const a of [1, 3, 4] as const) expect(generationSignature(a), `AREA ${a}`).toBe(golden[`gen${a}` as keyof typeof golden]);
-  });
-  it('plays AREA 1, 3 and 4 identically', () => {
-    for (const a of [1, 3, 4] as const) for (const s of [1, 2, 3] as const) {
-      expect(replaySignature(g => g.jumpToStage(a, s)), `${a}-${s}`).toBe(golden[`play${a}-${s}` as keyof typeof golden]);
-    }
-  });
-  it('plays the FINAL BOSS identically', () => {
-    expect(replaySignature(g => g.jumpToBoss())).toBe(golden.boss);
-  });
-});
+// The AREA 2 rework's isolation check (AREA 1, 3, 4 and the boss against c8a9262) now lives in
+// tests/stageV2Isolation.test.ts, against c9a0a63 -- which carried those same AREAs unchanged -- with
+// replays started at each AREA's entry so that re-shaping AREA 1 cannot move the others.

@@ -168,7 +168,10 @@ describe('AREA 1 terrain pieces', () => {
         const hugging = rows.filter(p => p.x <= WORLD.wall + 2 || p.x + p.width >= WORLD.width - WORLD.wall - 2);
         // The piece is walked into rather than jumped to, so its first band may still be the
         // approach. What it may never be is a channel that never reaches its wall.
+        // STAGE GENERATION v2 channels run two or three bands: a two-band one may spend its first on
+        // the approach and must hug with the second.
         if (rows.length >= 3) { expect(hugging.length).toBeGreaterThanOrEqual(2); channels++; }
+        else if (rows.length === 2) { expect(hugging.length).toBeGreaterThanOrEqual(1); channels++; }
       }
     }
     expect(channels).toBeGreaterThan(20);
@@ -206,15 +209,22 @@ describe('AREA 1 terrain pieces', () => {
     }
   });
 
+  /**
+   * STAGE GENERATION v2 spaces AREA 1's rows further apart and raises the per-row enemy chances by
+   * the rows it lost. What this used to hold -- the pieces never change how many enemies the player
+   * meets -- is now held against the density itself: enemies per 100m, section by section, against
+   * what c9a0a63 laid (measured over 200 seeds: 3.15 / 4.83 / 7.08). The legacy/grammar A/B cannot
+   * express that any more: the two modes share one set of per-row chances written for the v2 rows.
+   */
   it('does not prop the terrain up with enemies', () => {
-    const per = (mode: TerrainMode) => {
-      setTerrainMode(mode);
-      let total = 0, n = 0;
-      for (const seed of SEEDS) for (const section of [1, 2, 3]) { total += build(1, section, seed).enemies; n++; }
-      return total / n;
-    };
-    const legacy = per('legacy'), v2 = per('grammar-v2');
-    expect(Math.abs(v2 - legacy) / legacy).toBeLessThan(0.10);
+    setTerrainMode('grammar-v2');
+    const v1 = [3.15, 4.83, 7.08];
+    for (const section of [1, 2, 3]) {
+      let total = 0;
+      for (const seed of SEEDS) total += build(1, section, seed).enemies;
+      const per100 = total / SEEDS.length * 100 / areaConfig(1).sectionLength;
+      expect(Math.abs(per100 - v1[section - 1]) / v1[section - 1], `1-${section}`).toBeLessThan(0.15);
+    }
   });
 
   it('generates the same SECTION twice from the same seed', () => {

@@ -1,7 +1,9 @@
 import { describe, expect, it } from 'vitest';
 import { reachExit } from './exitHelper';
 import { GameModel } from '../src/systems/GameModel';
-import { StageGenerator, START_PLATFORM, canReachPlatform, type RoutePlatform } from '../src/systems/StageGenerator';
+import { StageGenerator, START_PLATFORM, canReachPlatform, canPassEnemy, type RoutePlatform } from '../src/systems/StageGenerator';
+import { motionEnvelope } from '../src/data/enemies';
+import { horizontalReach } from '../src/data/difficulty';
 import { ENEMY_TYPES, enemyType, spawnEnemy, type Enemy, type EnemyKind } from '../src/data/enemies';
 import { AREAS, areaConfig, type SectionId } from '../src/data/areas';
 import { WORLD } from '../src/data/balance';
@@ -196,7 +198,10 @@ describe('AREA 1 section pacing', () => {
     let maxPerRow = 0, pairs = 0, choices = 0;
     // Enough seeds that this is the generator's behaviour and not one draw's luck.
     for (let seed = 1; seed <= 240; seed++) {
-      const generator = new StageGenerator(seeded(seed * 613), { plan: plan(3), enemyPool: area1.enemyPool });
+      // The v1 pairing rule, which STAGE GENERATION v2 keeps as the fallback for any flyer its flow
+      // profile does not place across the fall. Held here on the plan without a profile, so the rule
+      // is asserted in full; what the profile does instead is tests/stageFlow.test.ts's subject.
+      const generator = new StageGenerator(seeded(seed * 613), { plan: { ...plan(3), flow: undefined }, enemyPool: area1.enemyPool });
       let previous: RoutePlatform = { ...START_PLATFORM };
       for (let chunk = 0; chunk < 3; chunk++) {
         const result = generator.chunk(chunk);
@@ -261,10 +266,21 @@ describe('AREA 1 generation safety across seeds', () => {
             const band = Math.round(p.y);
             if (seen.has(band)) continue;
             seen.add(band);
-            expect(p.y - previous.y).toBeGreaterThanOrEqual(floor);
-            const guard = result.enemies.find(e => !e.flying && e.y === p.y - 15);
+            // The very first row sits at the generator's fixed opening height, not at a piece's step.
+            if (previous.id !== START_PLATFORM.id) expect(p.y - previous.y).toBeGreaterThanOrEqual(floor);
+            // STAGE GENERATION v2: a guard stood beside the landing is held to a different rule -- its
+            // whole patrol clear of the landing spot -- and a flyer laid across the fall to being
+            // passable on one side all the way to the landing. Everything else keeps the v1 rule.
+            for (const e of result.enemies.filter(x => x.placed === 'landing' && x.y === p.y - 15)) {
+              const env = motionEnvelope(e);
+              expect(env.minX >= p.safeX + 13 || env.maxX <= p.safeX - 13).toBe(true);
+            }
+            for (const e of result.enemies.filter(x => x.placed === 'path' && x.y < p.y && x.y > previous.y)) {
+              expect(Math.abs(p.safeX - previous.exitX) <= horizontalReach(p.y - previous.y) && canPassEnemy(motionEnvelope(e), previous, p)).toBe(true);
+            }
+            const guard = result.enemies.find(e => !e.flying && e.y === p.y - 15 && !e.placed);
             if (guard) expect(Math.abs(guard.originX - p.safeX) - guard.range).toBeGreaterThanOrEqual(52);
-            const fly = result.enemies.find(e => e.flying && e.y === p.y - 115);
+            const fly = result.enemies.find(e => e.flying && e.y === p.y - 115 && !e.placed);
             if (fly) {
               const left = Math.min(previous.exitX, p.safeX), right = Math.max(previous.exitX, p.safeX);
               expect(fly.originX + fly.range + 26 <= left - 48 || fly.originX - fly.range - 26 >= right + 48).toBe(true);

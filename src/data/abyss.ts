@@ -66,6 +66,14 @@ export const ARENA_VIEW = {
 } as const;
 
 export const ABYSS = {
+  /**
+   * The depth the ABYSS reads the shared difficulty curve at. It has no SECTION plan, so whatever it
+   * lays without one comes off that curve -- and it used to be read at the run's banked depth, which
+   * made the fight depend on how long AREA 1-4's SECTIONs happen to be. Fixed at 3780m, the total the
+   * FINAL BOSS was built and reviewed against (3 x 240 + 3 x 300 + 3 x 340 + 3 x 380), so STAGE
+   * GENERATION v2 can re-length the SECTIONs without moving a single thing in the fight.
+   */
+  curveDepth: 3780,
   /** Plain ledges on the way down, so the drop in is ordinary play rather than a cutscene. */
   ledgeGap: 236,
   ledgeWidth: 148,

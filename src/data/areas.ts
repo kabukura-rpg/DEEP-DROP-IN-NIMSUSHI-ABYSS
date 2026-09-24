@@ -242,7 +242,7 @@ export const AREAS: readonly AreaConfig[] = [
     // CAVERNS ROLE. Fall, shoot, land, stomp, chain, open a block. No gauge, no timer on the ground,
     // and deliberately nothing lethal on touch: AREA 1 is where the controls are learned, so a run
     // ends here because the player ran out of hearts, never because they brushed a wall.
-    id: 1, name: 'SURFACE RUINS', sections: 3, sectionLength: 240,
+    id: 1, name: 'SURFACE RUINS', sections: 3, sectionLength: 300,
     enemyPool: ['slime', 'bat', 'armoredSlime'],
     theme: { wall: 0x2b3228, wallEdge: 0x44523a, brick: 0x222a20, pillar: 0x33402c, accent: 0xb9ef70, dust: 0x9db98a, sky: 0x2d4a52, horizon: 0x47707a, grass: 0x6d9c4a },
     plans: [
@@ -251,13 +251,19 @@ export const AREAS: readonly AreaConfig[] = [
       // neighbours have three is the obvious next thing to try, but changing the gate cadence and
       // the vertical rhythm in the same step would leave a Human A/B unable to say which one it
       // was reacting to -- the same reason SAFE ZONE frequency is being held back to a later step.
-      { platformWidth: [176, 196], gap: 232, rhythm: AREA1_RHYTHM, pieces: AREA1_GRAMMAR, enemyChance: 0.30, flyChance: 0.08, toughChance: 0.17, heavyChance: 0, comboBias: 0.20, graceDepth: 25,
+      // STAGE GENERATION v2: fewer, further-apart rows (pieces.ts), so the per-row enemy chances are
+      // raised by the rows lost -- enemies per 100m are what they were -- and the flow profile puts
+      // them into the fall the player makes. 1-1 keeps the most breathing space of the three.
+      { platformWidth: [176, 196], gap: 232, rhythm: AREA1_RHYTHM, pieces: AREA1_GRAMMAR, enemyChance: 0.43, flyChance: 0.12, toughChance: 0.17, heavyChance: 0, comboBias: 0.20, graceDepth: 25,
+        flow: { pathFlyers: 0.35, landingGuards: 0.25 },
         breakBlockRows: 2, breakBlockDurability: 1,
         doodadChance: 0.12, safeZoneCount: 1, sideRooms: 2 },
-      { platformWidth: [152, 178], gap: 238, rhythm: AREA1_RHYTHM, pieces: AREA1_GRAMMAR, enemyChance: 0.38, flyChance: 0.20, toughChance: 0.22, heavyChance: 0, comboBias: 0.22,
+      { platformWidth: [152, 178], gap: 238, rhythm: AREA1_RHYTHM, pieces: AREA1_GRAMMAR, enemyChance: 0.50, flyChance: 0.27, toughChance: 0.22, heavyChance: 0, comboBias: 0.22,
+        flow: { pathFlyers: 0.5, landingGuards: 0.3 },
         breakBlockRows: 3, breakBlockDurability: 2,
         doodadChance: 0.12, safeZoneCount: 1, sideRooms: 2 },
-      { platformWidth: [132, 158], gap: 244, rhythm: AREA1_RHYTHM, pieces: AREA1_GRAMMAR, enemyChance: 0.52, flyChance: 0.30, toughChance: 0.30, heavyChance: 0, comboBias: 0.30,
+      { platformWidth: [132, 158], gap: 244, rhythm: AREA1_RHYTHM, pieces: AREA1_GRAMMAR, enemyChance: 0.73, flyChance: 0.42, toughChance: 0.30, heavyChance: 0, comboBias: 0.30,
+        flow: { pathFlyers: 0.6, landingGuards: 0.35 },
         breakBlockRows: 3, breakBlockDurability: 2,
         doodadChance: 0.12, safeZoneCount: 1, sideRooms: 2 },
     ],
