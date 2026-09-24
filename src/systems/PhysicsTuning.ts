@@ -6,11 +6,12 @@ import { BALANCE, type Stats } from '../data/balance';
  * Gravity, move and fall were widened when video measurement of the original put its scale
  * equivalents at ~1680 / ~350 / ~930 -- above every one of the previous ceilings, which would have
  * made the comparison profile unreachable. A bound that cannot express the thing being tested is
- * not a safety feature.
+ * not a safety feature. Shot Recoil was widened for the same reason when the machine gun's recoil
+ * was measured at 510 (DOWNWELL NORMAL GAMEPLAY CLONE).
  */
 export const TUNING_FIELDS = [
   { key: 'gravity', label: 'Gravity', min: 400, max: 2000, step: 50 },
-  { key: 'shotRecoil', label: 'Shot Recoil', min: 60, max: 350, step: 10 },
+  { key: 'shotRecoil', label: 'Shot Recoil', min: 60, max: 900, step: 10 },
   { key: 'moveSpeed', label: 'Move Speed', min: 90, max: 400, step: 10 },
   { key: 'maxFallSpeed', label: 'Max Fall', min: 250, max: 1000, step: 20 },
   { key: 'maxAmmo', label: 'Ammo', min: 2, max: 12, step: 1 },

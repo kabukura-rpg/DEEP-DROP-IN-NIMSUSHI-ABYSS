@@ -18,6 +18,12 @@ export type GunRequest =
 export class GunModuleSystem {
   id: GunModuleId = STARTING_GUN_MODULE;
   private cooldown = 0;
+  /**
+   * Seconds between volleys for this module, as the run currently fires it. The FINAL BOSS arena keeps
+   * the gunboots it was balanced with (bossPhysics.ts: BOSS_GUNBOOTS), so the machine gun there fires
+   * at its old interval; everywhere else this is the module's own.
+   */
+  intervalOf: (def: GunModuleDefinition) => number = def => def.fireInterval;
   /** Rounds still to leave the barrel from the current burst, already paid for. */
   private burstLeft = 0;
   private burstTimer = 0;
@@ -81,7 +87,7 @@ export class GunModuleSystem {
       if (this.burstTimer > 0) return { kind: 'idle' };
       this.burstLeft--;
       this.burstTimer = def.burst?.interval ?? 0;
-      if (this.burstLeft === 0) this.cooldown = def.fireInterval;
+      if (this.burstLeft === 0) this.cooldown = this.intervalOf(def);
       return { kind: 'fire', cost: 0 };
     }
 
@@ -90,7 +96,7 @@ export class GunModuleSystem {
     // The last round always fires. A volley costs what it costs, but a magazine with anything in
     // it can pay for one more shot -- SHOTGUN on 4 of its 5, LASER on 1 of its 4 -- and only an
     // empty magazine refuses. The caller clamps the spend at zero.
-    if (ammo <= 0) { this.cooldown = def.fireInterval; return { kind: 'empty' }; }
+    if (ammo <= 0) { this.cooldown = this.intervalOf(def); return { kind: 'empty' }; }
 
     // One press buys exactly one volley.
     this.pressBuffer = 0;
@@ -100,7 +106,7 @@ export class GunModuleSystem {
       this.burstTimer = def.burst.interval;
       return { kind: 'fire', cost: def.ammoCost };
     }
-    this.cooldown = def.fireInterval;
+    this.cooldown = this.intervalOf(def);
     return { kind: 'fire', cost: def.ammoCost };
   }
 }

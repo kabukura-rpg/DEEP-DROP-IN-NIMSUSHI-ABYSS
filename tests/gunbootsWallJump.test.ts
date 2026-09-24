@@ -216,10 +216,10 @@ describe('the gunboots are brakes: recoil kills a descent but never adds height'
   });
   it('still lets a falling player be slowed rather than only launched', () => {
     const game = airborne();
-    game.player.vy = 400;
+    game.player.vy = 900;
     game.cooldown = 0;
     game.shoot();
-    expect(game.player.vy).toBe(400 - GUN_MODULES.machine.recoil);
+    expect(game.player.vy).toBe(900 - GUN_MODULES.machine.recoil);
     expect(game.player.vy).toBeGreaterThan(0);
   });
 });

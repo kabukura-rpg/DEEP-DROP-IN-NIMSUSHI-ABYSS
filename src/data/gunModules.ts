@@ -1,4 +1,4 @@
-import { BALANCE, type Stats } from './balance';
+import { BALANCE, RECOIL_SCALE, type Stats } from './balance';
 
 /**
  * Gun modules replace the shot itself: rate, recoil, spread, reach and cost all come from this
@@ -68,7 +68,7 @@ export const GUN_MODULES: Record<GunModuleId, GunModuleDefinition> = {
   },
   burst: {
     ...base, id: 'burst', name: 'BURST', short: 'BURST',
-    ammoCost: 3, automatic: false, fireInterval: 0.46, recoil: 150,
+    ammoCost: 3, automatic: false, fireInterval: 0.46, recoil: Math.round(150 * RECOIL_SCALE),
     projectileSpeed: 900, projectileDamage: 1, range: 900,
     burst: { count: 3, interval: 0.075 },
     description: '1入力で3点射。反動も3回に分かれて効く。',
@@ -77,14 +77,14 @@ export const GUN_MODULES: Record<GunModuleId, GunModuleDefinition> = {
     ...base, id: 'laser', name: 'LASER', short: 'LASER',
     // recoil 420 is MEASUREMENT REQUIRED like every other number here: what matters is that it is
     // decisively above MACHINE's 190 and large enough to throw the player upward from a standstill.
-    ammoCost: 4, automatic: false, fireInterval: 0.5, recoil: 420,
+    ammoCost: 4, automatic: false, fireInterval: 0.5, recoil: Math.round(420 * RECOIL_SCALE),
     projectileSpeed: 2600, projectileDamage: 3, projectileSize: 3, range: 2000, piercing: 99,
     blockPiercing: true, beam: true,
     description: '超長射程・高威力・貫通。壁も敵も抜ける。反動は最強クラス。',
   },
   noppy: {
     ...base, id: 'noppy', name: 'NOPPY', short: 'NOPPY',
-    ammoCost: 1, automatic: true, fireInterval: 0.085, recoil: 95,
+    ammoCost: 1, automatic: true, fireInterval: 0.085, recoil: Math.round(95 * RECOIL_SCALE),
     projectileSpeed: 950, projectileDamage: 1, projectileSize: 3, range: 620,
     horizontalAimFactor: 0.42,
     description: '高速連射・小弾・弱反動。横移動で弾道が斜めに傾く。',
@@ -94,20 +94,20 @@ export const GUN_MODULES: Record<GunModuleId, GunModuleDefinition> = {
     // Three rounds leaving the muzzle side by side and staying that way: a narrow column, not a
     // fan. The angular spread is deliberately an order of magnitude under TRIPLE's, and the width
     // comes from where the rounds START rather than from where they diverge to.
-    ammoCost: 2, automatic: true, fireInterval: 0.30, recoil: 165,
+    ammoCost: 2, automatic: true, fireInterval: 0.30, recoil: Math.round(165 * RECOIL_SCALE),
     projectileSpeed: 520, projectileDamage: 1, projectileCount: 3, projectileSize: 5,
     spread: 0.06, spawnSpread: 22, range: 330,
     description: '近距離へ3発を平行に叩き込む。低速・短射程、横に散らない。',
   },
   shotgun: {
     ...base, id: 'shotgun', name: 'SHOTGUN', short: 'SHOT',
-    ammoCost: 5, automatic: false, fireInterval: 0.55, recoil: 330,
+    ammoCost: 5, automatic: false, fireInterval: 0.55, recoil: Math.round(330 * RECOIL_SCALE),
     projectileSpeed: 780, projectileDamage: 1, projectileCount: 5, range: 260, spread: 0.85,
     description: '扇状に5発。至近距離で最大火力、反動は最強。',
   },
   triple: {
     ...base, id: 'triple', name: 'TRIPLE', short: 'TRIPLE',
-    ammoCost: 2, automatic: true, fireInterval: 0.28, recoil: 150,
+    ammoCost: 2, automatic: true, fireInterval: 0.28, recoil: Math.round(150 * RECOIL_SCALE),
     projectileSpeed: 820, projectileDamage: 1, projectileCount: 3, range: 700, spread: 0.62,
     description: '左下・真下・右下の3方向を継続射撃。',
   },

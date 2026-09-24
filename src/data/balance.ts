@@ -20,9 +20,30 @@ export const WORLD = { width: 450, height: 800, wall: 28, startY: 180, pixelsPer
  * `impulse^2 / 2g`, so all four shrank to ~54% when it rose. That was checked by hand and kept --
  * see JUMP below. Changing gravity again silently re-scales every one of them.
  *
+ * DOWNWELL NORMAL GAMEPLAY CLONE -- two more are now VIDEO-MEASURED, from the frame analysis of a
+ * Normal Mode run (Dzumeister, youtube -qsLdDehni4, 1-1 before any weapon pickup, ~0.1s samples),
+ * with the same shaft-width normalisation (the original's shaft is 413px of that 1280px frame):
+ *
+ *   quantity        original                           DEEP DROP now        was
+ *   shot interval   0.08-0.11s between rapid shots      0.10s               0.16s
+ *   recoil          a terminal fall (~1.9 sw/s) is cut  510 px/s (1.29 sw/s) 190 px/s (0.48 sw/s)
+ *                   to ~0.6 sw/s by one shot and to
+ *                   ~0.25 sw/s by three; held fire
+ *                   descends at 0.27-0.48 sw/s
+ *
+ * At the old pair, holding the trigger from terminal speed never got the fall below 740px/s: the
+ * gunboots could not hover, so a player could not hang in the air over what they were shooting.
+ * At the new pair a held magazine descends at ~0.49 sw/s, inside the measured range. The rule that
+ * recoil is a BRAKE and never lifts is unchanged. Confidence MEDIUM-LOW (one player, a few bursts).
+ *
  * Every other number here is DEEP DROP's own and unmeasured.
  */
-export const BALANCE = { gravity: 1680, moveSpeed: 350, maxFallSpeed: 930, shotRecoil: 190, maxAmmo: 8, maxHp: 4, shotDelay: 0.16, bounce: 210 };
+export const BALANCE = { gravity: 1680, moveSpeed: 350, maxFallSpeed: 930, shotRecoil: 510, maxAmmo: 8, maxHp: 4, shotDelay: 0.10, bounce: 210 };
+/**
+ * How much stronger every module's recoil is than it was, so that re-measuring the machine gun keeps
+ * every other module where it stood relative to it: 510 / 190.
+ */
+export const RECOIL_SCALE = 510 / 190;
 
 /**
  * The ground jump ACTION performs while standing.

@@ -14,7 +14,7 @@ import { DOODAD_RULES, spawnDoodad, type Doodad } from '../data/doodads';
 import { CORPSE_RULES, spawnCorpse, type Corpse } from '../data/corpses';
 import { insideSafeZone, SAFE_ZONE_RULES, type SafeZone } from '../data/safeZone';
 import { CAVE_RULES, caveRewardSpot, caveVeinBounds, inCaveInterior, insideCave, shapeOf, type SideCave } from '../data/sideCave';
-import { BOSS_PHYSICS, GRAVITY_DIRECTION, type BattlePhysics } from '../data/bossPhysics';
+import { BOSS_GUNBOOTS, BOSS_PHYSICS, GRAVITY_DIRECTION, type BattlePhysics } from '../data/bossPhysics';
 import { spawnEnemy } from '../data/enemies';
 import { ABYSS_SHOP_AREA, shopItem, type ShopOffer } from '../data/shop';
 import { CHARGE_AMMO_BONUS, gunModule, rollGunModule, STARTING_GUN_MODULE, volley, volleyRecoil, type GunModuleId, type ShotBoost } from '../data/gunModules';
@@ -142,6 +142,8 @@ export class GameModel {
   readonly collapse = new BreakablePlatformSystem();
   readonly boss = new NimushiBossSystem();
   readonly gun = new GunModuleSystem();
+  /** The gunboots' interval for a module here: THE ABYSS -- staging room, inversion and arena -- keeps the fight's own (BOSS_GUNBOOTS). */
+  private fireIntervalOf(def: { id: string; fireInterval: number }) { return this.abyssStage !== 'none' && def.id === 'machine' ? BOSS_GUNBOOTS.machineInterval : def.fireInterval; }
   readonly coins = new CoinSystem();
   readonly shop = new ShopSystem();
   /**
@@ -452,6 +454,7 @@ export class GameModel {
   private random: () => number;
   private lastAirShot = -Infinity;
   constructor(public practice = false, random = Math.random, progression: 'stage' | 'endless' = 'stage') {
+    this.gun.intervalOf = def => this.fireIntervalOf(def);
     this.random = random;
     this.stage = new StageProgressionSystem(progression === 'stage');
     this.upgrades = new UpgradeSystem(random);
@@ -604,8 +607,8 @@ export class GameModel {
     const p = this.player;
     const def = this.gun.module;
     this.ammo = Math.max(0, this.ammo - cost);
-    const recovery = Math.max(0.65, Math.min(1, 0.65 + (this.elapsed - this.lastAirShot - def.fireInterval) / 0.18 * 0.35));
-    const kick = volleyRecoil(def, this.stats) * recovery;
+    const recovery = Math.max(0.65, Math.min(1, 0.65 + (this.elapsed - this.lastAirShot - this.fireIntervalOf(def)) / 0.18 * 0.35));
+    const kick = volleyRecoil(def, this.stats) * recovery * (this.abyssStage !== 'none' ? BOSS_GUNBOOTS.recoilScale : 1);
     /**
      * RECOIL IS A BRAKE, NEVER A THRUSTER.
      *

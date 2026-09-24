@@ -84,8 +84,8 @@ describe('MACHINE GUN', () => {
   });
   it('brakes a fall by the standard recoil without ever lifting', () => {
     const game = armed('machine');
-    game.player.vy = 300;
-    const falling = 300 + game.stats.gravity / 120;   // this frame's gravity arrives before the shot
+    game.player.vy = 800;
+    const falling = 800 + game.stats.gravity / 120;   // this frame's gravity arrives before the shot
     hold(game, 1 / 120, 0, true);
     expect(game.player.vy).toBeCloseTo(falling - volleyRecoil(GUN_MODULES.machine, game.stats), 3);
     expect(game.player.vy).toBeGreaterThanOrEqual(0);
@@ -232,8 +232,8 @@ describe('SHOTGUN', () => {
   });
   it('kicks harder than anything else and still cannot lift the player', () => {
     const game = armed('shotgun');
-    game.player.vy = 400;
-    const falling = 400 + game.stats.gravity / 120;
+    game.player.vy = 900;
+    const falling = 900 + game.stats.gravity / 120;
     hold(game, 1 / 120, 0, true);
     expect(game.player.vy).toBeCloseTo(falling - volleyRecoil(GUN_MODULES.shotgun, game.stats), 3);
     expect(game.player.vy).toBeGreaterThanOrEqual(0);

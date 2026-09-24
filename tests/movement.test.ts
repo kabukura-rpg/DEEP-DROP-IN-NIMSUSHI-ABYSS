@@ -139,11 +139,17 @@ describe('C. firing at terminal velocity', () => {
     slow.shoot();
     expect(slow.player.vy).toBe(0);
 
+    // A terminal fall is slowed, not halted, by one machine-gun round (510 of 930, measured) ...
     const fast = airborneAt(BALANCE.maxFallSpeed);
-    fast.gun.equip('laser'); fast.ammo = 99; fast.cooldown = 0;
+    fast.cooldown = 0;
     fast.shoot();
-    expect(fast.player.vy).toBe(BALANCE.maxFallSpeed - GUN_MODULES.laser.recoil);
+    expect(fast.player.vy).toBe(BALANCE.maxFallSpeed - GUN_MODULES.machine.recoil);
     expect(fast.player.vy).toBeGreaterThan(0);
+    // ... and LASER, the heaviest kick, now takes the whole of it and no more.
+    const laser = airborneAt(BALANCE.maxFallSpeed);
+    laser.gun.equip('laser'); laser.ammo = 99; laser.cooldown = 0;
+    laser.shoot();
+    expect(laser.player.vy).toBe(0);
   });
 });
 
