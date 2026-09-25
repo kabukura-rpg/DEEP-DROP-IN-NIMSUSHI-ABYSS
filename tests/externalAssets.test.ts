@@ -4,7 +4,8 @@ import { PLAYER_ART_ASSETS, artFrameUsable, type ArtMap } from '../src/render/pl
 import { NIMUSHI_ART, nimushiArtPlacement, nimushiArtShade } from '../src/render/NimushiArt';
 import { PLAYER_ANIMATIONS } from '../src/dev/playerAnimationState';
 import { UPGRADES } from '../src/data/upgrades';
-import { UPGRADE_ICON_ASSETS, upgradeIcon } from '../src/data/upgradeIcons';
+import { UPGRADE_ICON_ASSETS, UPGRADE_ICON_FILES, upgradeIcon } from '../src/data/upgradeIcons';
+import codexMappingRaw from '../output/upgrade-icons-v1/mapping.json?raw';
 import { upgradeCardHtml } from '../src/ui/upgradeCard';
 import { entered, replaySignature } from './regressionSignature';
 
@@ -74,21 +75,41 @@ describe('NIMUSHI in the shipped fight', () => {
 });
 
 describe('upgrade icons and the choice card', () => {
-  it('maps every upgrade, and falls back to its own glyph where no artwork exists', () => {
-    expect(Object.keys(UPGRADE_ICON_ASSETS).sort()).toEqual(UPGRADES.map(u => u.id).sort());
-    for (const u of UPGRADES) {
-      // ASSET MISSING, all twenty: no upgrade artwork exists in the repository.
-      expect(UPGRADE_ICON_ASSETS[u.id]).toBeNull();
-      expect(upgradeIcon(u)).toEqual({ kind: 'glyph', text: u.icon });
-    }
-    // ...and the moment a path is filled in, it is the image that shows.
-    expect(upgradeIcon(UPGRADES[0], { [UPGRADES[0].id]: 'icons/apple.png' })).toEqual({ kind: 'image', src: 'icons/apple.png' });
+  // Codex's UPGRADE ICONS v1: mapping.json names the 64px file for each upgrade id.
+  const CODEX_MAPPING = JSON.parse(codexMappingRaw) as Record<string, string>;
+  const SHIPPED_FILES = Object.keys(import.meta.glob('../src/assets/upgrades/*.png')).map(p => p.split('/').pop()!);
+
+  it('maps all twenty upgrades, exactly as mapping.json does, with no duplicates', () => {
+    const ids = UPGRADES.map(u => u.id).sort();
+    expect(Object.keys(UPGRADE_ICON_FILES).sort()).toEqual(ids);
+    expect(Object.keys(CODEX_MAPPING).sort()).toEqual(ids);
+    for (const u of UPGRADES) expect({ id: u.id, file: UPGRADE_ICON_FILES[u.id] }).toEqual({ id: u.id, file: CODEX_MAPPING[u.id].split('/').pop() });
+    expect(new Set(Object.values(UPGRADE_ICON_FILES)).size).toBe(20);
   });
 
-  it('shows ICON / NAME / one short line, and nothing longer', () => {
+  it('ships a file for every one of them, and resolves each to an image', () => {
+    expect(SHIPPED_FILES.sort()).toEqual(Object.values(UPGRADE_ICON_FILES).sort());
+    for (const u of UPGRADES) {
+      const src = UPGRADE_ICON_ASSETS[u.id];
+      expect(typeof src, u.id).toBe('string');
+      expect(upgradeIcon(u)).toEqual({ kind: 'image', src, fallback: u.icon });
+    }
+    expect(new Set(Object.values(UPGRADE_ICON_ASSETS)).size).toBe(20);
+  });
+
+  it('falls back to the upgrade\'s own glyph where a file is missing, and when an image fails to load', () => {
+    const apple = UPGRADES.find(u => u.id === 'apple')!;
+    expect(upgradeIcon(apple, {})).toEqual({ kind: 'glyph', text: apple.icon });
+    expect(upgradeIcon(apple, { apple: null })).toEqual({ kind: 'glyph', text: apple.icon });
+    const html = upgradeCardHtml(apple, 0);
+    expect(html).toContain(`data-fallback="${apple.icon}"`);
+    expect(html).toContain('onerror="this.replaceWith(document.createTextNode(this.dataset.fallback))"');
+  });
+
+  it('keeps the card ICON / NAME / one short line, with the image in the icon slot', () => {
     for (const [i, u] of UPGRADES.entries()) {
       const html = upgradeCardHtml(u, i);
-      expect(html).toContain(`<span class="upgrade-icon">${u.icon}</span>`);
+      expect(html).toContain(`<span class="upgrade-icon"><img src="${UPGRADE_ICON_ASSETS[u.id]}" alt="" width="32" height="32"`);
       expect(html).toContain(`<strong>${u.name}</strong><small>${u.short}</small>`);
       expect(html).toContain(`id="upgrade-${i}" aria-pressed="false"`);
       expect(html).not.toContain(u.description);

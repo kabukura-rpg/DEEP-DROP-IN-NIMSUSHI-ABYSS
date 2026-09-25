@@ -1,0 +1,22 @@
+{
+  "safetyJetpack": "output/upgrade-icons-v1/64/safety-jetpack.png",
+  "rocketJump": "output/upgrade-icons-v1/64/rocket-jump.png",
+  "drone": "output/upgrade-icons-v1/64/drone.png",
+  "heartBalloon": "output/upgrade-icons-v1/64/heart-balloon.png",
+  "blastModule": "output/upgrade-icons-v1/64/blast-module.png",
+  "laserSight": "output/upgrade-icons-v1/64/laser-sight.png",
+  "gemPowered": "output/upgrade-icons-v1/64/gem-powered.png",
+  "gemAttractor": "output/upgrade-icons-v1/64/gem-attractor.png",
+  "poppingGems": "output/upgrade-icons-v1/64/popping-gems.png",
+  "gunpowderBlocks": "output/upgrade-icons-v1/64/gunpowder-blocks.png",
+  "hotCasing": "output/upgrade-icons-v1/64/hot-casing.png",
+  "knifeAndFork": "output/upgrade-icons-v1/64/knife-and-fork.png",
+  "restInPieces": "output/upgrade-icons-v1/64/rest-in-pieces.png",
+  "reverseEngineering": "output/upgrade-icons-v1/64/reverse-engineering.png",
+  "timeout": "output/upgrade-icons-v1/64/timeout.png",
+  "apple": "output/upgrade-icons-v1/64/apple.png",
+  "youth": "output/upgrade-icons-v1/64/youth.png",
+  "candle": "output/upgrade-icons-v1/64/candle.png",
+  "membersCard": "output/upgrade-icons-v1/64/members-card.png",
+  "gemSick": "output/upgrade-icons-v1/64/gem-sick.png"
+}
