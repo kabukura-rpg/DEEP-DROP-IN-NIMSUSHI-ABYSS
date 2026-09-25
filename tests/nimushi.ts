@@ -1,5 +1,5 @@
 import { GameModel, type Bullet } from '../src/systems/GameModel';
-import { TAPIOCA_SHOWER } from '../src/data/nimushi';
+import { TAPIOCA_SHOWER, approachExtra } from '../src/data/nimushi';
 
 /** A deterministic RNG, so every ABYSS fixture is repeatable. */
 export const seeded = (seed: number) => () => { seed = (seed * 1103515245 + 12345) % 2147483648; return seed / 2147483648; };
@@ -37,13 +37,25 @@ export function shootBody(game: GameModel, damage = 1, source: Bullet['source'] 
   game.step(STEP, 0, false);
 }
 
+/**
+ * Straight into the arena at the fight's own distance -- the ABYSS as it opened before the BOSS PARITY
+ * PASS added the approach. For tests whose subject is the fight; the approach has tests of its own.
+ */
+export function atFightDistance(game: GameModel) {
+  const extra = approachExtra.views;
+  approachExtra.views = 0;
+  try { return game.jumpToNimushi(); } finally { approachExtra.views = extra; }
+}
 /** In the arena, dormant, at full HP, with nothing underfoot -- the clean slate for a fight test. */
 export function atNimushi(seed = 5) {
   const game = new GameModel(false, seeded(seed));
   // Re-seeded at the fight's entry (as regressionSignature's `entered` does): what 1-1's setup draws
   // before the jump must never decide a boss fixture. Every AREA 1 change used to re-flip these.
   (game as unknown as { random: () => number }).random = seeded(seed);
-  game.jumpToNimushi();
+  // BOSS PARITY PASS: the arena now opens with an APPROACH -- NIMUSHI asleep a viewport further off.
+  // These fixtures are about the fight, so they open it at the fight's own distance, as it always
+  // did; the approach has its own tests, which open it exactly as a run does.
+  atFightDistance(game);
   game.platforms = []; game.doodads = []; game.containers = []; game.enemies = [];
   return game;
 }
@@ -129,4 +141,16 @@ export function intoTheAbyss(game: GameModel, seconds = 40) {
     game.step(STEP, Math.sin(i / 90) > 0 ? 1 : -1, i % 30 === 0);
     if (game.state === 'shop') game.closeShop();
   }
+}
+
+/**
+ * BOSS PARITY PASS: the damage window no longer times out -- it shuts on damage alone, as the
+ * original's eye does -- so a fixture that stands still and waits for an attack now has to earn it.
+ * One real round of 3 into the weak point every tenth of a second while it is exposed: the window
+ * closes within a few frames and the barrier's sequence runs, exactly as a player who shoots it.
+ */
+export function feedWindow(game: GameModel, frame: number) {
+  if (game.boss.state !== 'eyeOpen' || frame % 12 !== 0) return;
+  const eye = game.boss.eye;
+  game.bullets.push(round(game.boss.x, eye.y + eye.height / 2, 3));
 }

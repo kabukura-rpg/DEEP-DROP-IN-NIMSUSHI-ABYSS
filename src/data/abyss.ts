@@ -160,13 +160,19 @@ export interface AbyssPhase {
   groundless: boolean;
   /** What NIMUSHI splits into while this stretch is running. */
   clonePool: readonly EnemyKind[];
+  /**
+   * BOSS PARITY PASS: what NIMUSHI SUMMONS in this stretch -- the matching AREA's own roster, as the
+   * original's boss calls up its sub-area's enemies. Only kinds that live without ground are listed:
+   * the arena has none, so a walker would simply fall out of the fight.
+   */
+  summonPool: readonly EnemyKind[];
   /** A guaranteed heart somewhere in the stretch. LIMBO deliberately has none. */
   heart: boolean;
   /** Which of the five attacks this stretch may use, in rotation order. */
   attacks: readonly AbyssAttackId[];
 }
 
-export type AbyssAttackId = 'tapiocaShower' | 'cupSummon' | 'strawBeam' | 'nimushiClones';
+export type AbyssAttackId = 'tapiocaShower' | 'cupSummon' | 'strawBeam' | 'nimushiClones' | 'tripleShot' | 'enemySummon';
 
 /**
  * The four stretches of the fight.
@@ -183,6 +189,13 @@ export type AbyssAttackId = 'tapiocaShower' | 'cupSummon' | 'strawBeam' | 'nimus
  * challenge, it is a stall.
  */
 /**
+ * BOSS PARITY PASS (NIMUSHI VERSION): every stretch now runs the original's loop in its own order --
+ * the weak point open until it has taken enough, then the TAPIOCA BARRIER, a THREE-WAY shot, a
+ * SUMMON from the stretch's own AREA, and the barrier drops. SHOWER, BEAM, CLONES and CUP are all
+ * still whole in the code; none of them is in a rotation.
+ *
+ * (What follows is the record of the rotation this replaced.)
+ *
  * THREE ATTACKS ARE BACK. CUP is still disabled, and it is not deleted.
  *
  * The core loop was judged good by hand: gravity, the standing supply of things to stomp, the drop
@@ -209,35 +222,35 @@ export const ABYSS_PHASES: readonly AbyssPhase[] = [
     id: 1, name: 'CAVERN OF THE PEARL', role: 'cavern', from: 1,
     rowGap: 360, ledgeWidth: [0, 0],
     breakBlockChance: 0, spikeChance: 0, containerChance: 0, doodadChance: 0,
-    groundless: true, clonePool: ['nimushiClone'], heart: true,
+    groundless: true, clonePool: ['nimushiClone'], summonPool: ['caveBat', 'spore', 'watcher'], heart: true,
     // One attack, low density: this stretch is where the player learns that down is up.
     // The stretch where the player learns that down is up. Its clones can all be stood on.
-    attacks: ['tapiocaShower', 'strawBeam', 'nimushiClones'],
+    attacks: ['tripleShot', 'enemySummon'],
   },
   {
     id: 2, name: 'CATACOMB OF CUPS', role: 'catacomb', from: 0.75,
     rowGap: 355, ledgeWidth: [0, 0],
     breakBlockChance: 0, spikeChance: 0, containerChance: 0, doodadChance: 0,
-    groundless: true, clonePool: ['nimushiClone'], heart: true,
+    groundless: true, clonePool: ['nimushiClone'], summonPool: ['flyingSkull', 'shadeOrb'], heart: true,
     // CUP is still out of the rotation, whatever this stretch is called.
-    attacks: ['tapiocaShower', 'strawBeam', 'nimushiClones'],
+    attacks: ['tripleShot', 'enemySummon'],
   },
   {
     id: 3, name: 'AQUIFER OF SYRUP', role: 'aquifer', from: 0.5,
     gimmicks: { oxygen: true }, water: { gravity: 0.9, responsiveness: 11 },
     rowGap: 350, ledgeWidth: [0, 0],
     breakBlockChance: 0, spikeChance: 0, containerChance: 0.8, doodadChance: 0,
-    groundless: true, clonePool: ['nimushiClone'], heart: true,
+    groundless: true, clonePool: ['nimushiClone'], summonPool: ['biter', 'riserJelly'], heart: true,
     // The stretch the BEAM was named for, and it is finally in it.
-    attacks: ['tapiocaShower', 'strawBeam', 'nimushiClones'],
+    attacks: ['tripleShot', 'enemySummon'],
   },
   {
     id: 4, name: 'LIMBO OF THE DEEP', role: 'limbo', from: 0.25,
     rowGap: 330, ledgeWidth: [0, 0],
     breakBlockChance: 0, spikeChance: 0, containerChance: 0, doodadChance: 0,
-    groundless: true, clonePool: ['nimushiShade'], heart: false,
+    groundless: true, clonePool: ['nimushiShade'], summonPool: ['voidWisp', 'hollowShade', 'angryOrb'], heart: false,
     // LIMBO's `clonePool` is SHADES: down here none of what NIMUSHI splits off can be stood on.
-    attacks: ['tapiocaShower', 'strawBeam', 'nimushiClones'],
+    attacks: ['tripleShot', 'enemySummon'],
   },
 ];
 

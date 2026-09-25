@@ -19,7 +19,7 @@ import { spawnEnemy } from '../data/enemies';
 import { ABYSS_SHOP_AREA, shopItem, type ShopOffer } from '../data/shop';
 import { CHARGE_AMMO_BONUS, gunModule, rollGunModule, STARTING_GUN_MODULE, volley, volleyRecoil, type GunModuleId, type ShotBoost } from '../data/gunModules';
 import { ABYSS, abyssPhase, ARENA_FLOOR, ARENA_VIEW, TOMATO, type AbyssPhase } from '../data/abyss';
-import { BOUNCE_TAPIOCA, NIMUSHI, NIMUSHI_LINES, STRAW_BEAM, TAPIOCA_CUP } from '../data/nimushi';
+import { BOSS_APPROACH, BOSS_SUMMON, BOUNCE_TAPIOCA, NIMUSHI, NIMUSHI_LINES, STRAW_BEAM, TAPIOCA_CUP } from '../data/nimushi';
 import { hazardBounds, hazardType, ventStateAt, type Hazard } from '../data/hazards';
 import { pickupType, spawnGunModule, spawnPickup, type Pickup } from '../data/pickups';
 import { HealthSystem, type DamageCause } from './HealthSystem';
@@ -366,11 +366,25 @@ export class GameModel {
    * the two of them are drawn. What it costs is the old promise that the view could never run
    * ahead of the player -- it can now, and `ARENA_FLOOR` catching them is exactly the point.
    */
-  private leadCamera(py: number) {
+  private leadCamera(py: number, dt = 0) {
     const held = this.bossAnchorCamera();
     // Still monotonic along the pull, and for free: NIMUSHI's own position only ever advances.
-    if (held !== null) return this.gravity > 0 ? Math.max(this.cameraY, held) : Math.min(this.cameraY, held);
-    const want = py - WORLD.height * (this.gravity > 0 ? 0.37 : 0.63);
+    // BOSS PARITY PASS: when NIMUSHI wakes, the view is still where the approach left it -- following
+    // the player -- so it travels to the boss's frame at `cameraCatchUp` rather than jumping there.
+    if (held !== null) {
+      // The HANDOFF is an offset that shrinks at `cameraCatchUp` on top of NIMUSHI's own motion, so
+      // the view both closes the gap it was left with and keeps pace with the boss while it does.
+      if (this.cameraHandoff === null) this.cameraHandoff = this.cameraY - held;
+      const step = dt > 0 ? BOSS_APPROACH.cameraCatchUp * dt : Infinity;
+      this.cameraHandoff = Math.sign(this.cameraHandoff) * Math.max(0, Math.abs(this.cameraHandoff) - step);
+      const eased = held + this.cameraHandoff;
+      return this.gravity > 0 ? Math.max(this.cameraY, eased) : Math.min(this.cameraY, eased);
+    }
+    this.cameraHandoff = null;
+    // On the ABYSS approach the player rides low in the frame, so the shaft ahead -- and NIMUSHI in it
+    // -- fills the view. Everywhere else the camera leads exactly as it always has.
+    const approach = this.inBossArena && this.boss.enabled && !this.boss.engaged && this.gravity < 0;
+    const want = py - WORLD.height * (approach ? BOSS_APPROACH.playerShare : this.gravity > 0 ? 0.37 : 0.63);
     return this.gravity > 0 ? Math.max(this.cameraY, want) : Math.min(this.cameraY, want);
   }
   /**
@@ -408,8 +422,13 @@ export class GameModel {
     if (Math.abs(this.cameraX - want) < 0.2) this.cameraX = want;
   }
 
+  /** BOSS PARITY PASS: what is left of the camera's move from the approach to NIMUSHI's frame. */
+  private cameraHandoff: number | null = null;
   private bossAnchorCamera(): number | null {
     if (!this.inBossArena || !this.boss.enabled) return null;
+    // On the approach, NIMUSHI is something the player climbs toward: the view follows the player,
+    // and the boss comes into it from the edge. Its own frame takes over at the fight's distance.
+    if (!this.boss.engaged && this.boss.reach(this.player.y) > BOSS_APPROACH.triggerGap) return null;
     // The FRAMED body: NIMUSHI's station, with the hit recoil left out, so shooting the eye jolts
     // the boss against a steady view rather than shaking the whole screen.
     const body = this.boss.framedBody;
@@ -1055,9 +1074,14 @@ export class GameModel {
         // Never the same round twice, however many frames it spends inside NIMUSHI. This is what
         // keeps a piercing LASER to ONE hit on the weak point rather than grinding it down while
         // it passes through -- the same rule an ordinary enemy gets, through the same set.
-        const part = b.hits.has(NIMUSHI_TARGET) ? null : this.boss.hitTest(b);
+        // Asleep and still off the top of the view, NIMUSHI is not there to be shot: a round cannot
+        // start the fight against something the player has not yet seen.
+        const unseen = !this.boss.started && this.boss.framedBody.y + this.boss.framedBody.height <= this.cameraY;
+        const part = b.hits.has(NIMUSHI_TARGET) || unseen ? null : this.boss.hitTest(b);
         if (part) {
-          const landed = part === 'eye' ? this.boss.hitEye(b.damage) : [];
+          // BOSS PARITY PASS: with the barrier down the whole body takes the round -- "the shot goes
+          // through to NIMUSHI" -- and with it up, nothing does. `hitEye` refuses behind the barrier.
+          const landed = this.boss.hitEye(b.damage);
           if (landed.length) {
             for (const signal of landed) this.onBossSignal(signal);
             this.events.push({ type: 'bossHit', x: b.x, y: this.boss.eye.y, value: this.boss.ratio });
@@ -1277,7 +1301,7 @@ export class GameModel {
       // there, and a view that froze with them would leave the far end of the cave off screen.
       this.trackCaveCamera(dt);
       if (!frozen) {
-        this.cameraY = this.leadCamera(p.y);
+        this.cameraY = this.leadCamera(p.y, dt);
         this.generate();
         this.generateAbyss();
         if (this.abyssStage === 'staging') this.tickSeal();
@@ -1538,7 +1562,9 @@ export class GameModel {
      * bite, which is what leaves a short-range weapon room to fire and get out again.
      */
     const body = this.boss.contactBox;
-    if (p.x + 9 > body.x && p.x - 9 < body.x + body.width && p.y + 15 > body.y && p.y - 15 < body.y + body.height) {
+    // Asleep, NIMUSHI hurts nobody: it wakes long before a body could be reached, and the rule is
+    // stated here as well so that it holds however the approach is tuned.
+    if (this.boss.started && p.x + 9 > body.x && p.x - 9 < body.x + body.width && p.y + 15 > body.y && p.y - 15 < body.y + body.height) {
       if (this.damage(NIMUSHI.contactDamage, 'bossContact') && this.hp > 0) {
         p.vy = this.up * this.stats.bounce;
         p.grounded = -1;
@@ -1570,7 +1596,7 @@ export class GameModel {
      * between a boss at the top and a drop at the bottom, which is the shape AREA 1-4 already uses
      * with the roles the other way up.
      */
-    if (this.inBossArena && this.player.y - this.cameraY > WORLD.height + ARENA_FLOOR.margin) {
+    if (this.inBossArena && this.boss.engaged && this.player.y - this.cameraY > WORLD.height + ARENA_FLOOR.margin) {
       this.killInstantly('crush');
     }
   }
@@ -1593,6 +1619,8 @@ export class GameModel {
       this.events.push({ type: 'bossFire', x: this.boss.x, y: this.boss.y, stage: signal.attack });
     } else if (signal.kind === 'clones') {
       this.summonClones(signal.count, signal.y);
+    } else if (signal.kind === 'summon') {
+      this.summonFromArea(signal.count, signal.y);
 
     } else if (signal.kind === 'rage') {
       this.events.push({ type: 'bossRage', x: this.boss.x, y: this.boss.y, value: this.boss.ratio });
@@ -1621,6 +1649,28 @@ export class GameModel {
       const enemy = spawnEnemy(kind, this.nextAbyssId--, x, y + (this.random() - 0.5) * 90, 34, this.random() * Math.PI * 2, 'open');
       this.enemies.push(enemy);
     }
+  }
+
+  /**
+   * BOSS PARITY PASS: NIMUSHI calls up the stretch's own AREA, into the ORDINARY enemy list -- they
+   * are those enemies, with every rule they already carry, including being seen before they can hit.
+   * Spread across the shaft on the band between NIMUSHI and the player, and never within
+   * `BOSS_SUMMON.clearOfPlayer` of the player: a summon is a thing to read, never an ambush.
+   */
+  private summonFromArea(count: number, y: number) {
+    const pool = this.boss.phase.summonPool;
+    const p = this.player;
+    const span = WORLD.width - WORLD.wall * 2 - 80;
+    let placed = 0;
+    for (let i = 0; i < count * 3 && placed < count; i++) {
+      const kind = pool[Math.min(pool.length - 1, Math.floor(this.random() * pool.length))];
+      const x = WORLD.wall + 40 + span * (((placed + 0.5) / count + (this.random() - 0.5) * 0.2 + 1) % 1);
+      const ey = y + (this.random() - 0.5) * 70;
+      if (Math.hypot(x - p.x, ey - p.y) < BOSS_SUMMON.clearOfPlayer) continue;
+      this.enemies.push(spawnEnemy(kind, this.nextAbyssId--, x, ey, 34, this.random() * Math.PI * 2, 'open'));
+      placed++;
+    }
+    this.events.push({ type: 'bossTelegraph', x: this.boss.x, y, stage: 'summoned', value: placed });
   }
 
   /**
@@ -2092,7 +2142,8 @@ export class GameModel {
     // and letting the anchor take over would drop the whole frame 142px on the first step.
     this.bossAscent = 0;
     this.boss.start(p.y, this.gravity);
-    this.cameraY = this.bossAnchorCamera() ?? p.y - WORLD.height * (this.gravity > 0 ? 0.37 : 0.63);
+    this.cameraY = this.bossAnchorCamera() ?? p.y - WORLD.height * (this.gravity > 0 ? 0.37 : BOSS_APPROACH.playerShare);
+    this.cameraHandoff = this.bossAnchorCamera() === null ? null : 0;
     const phase = abyssPhase(1);
     this.oxygen.reset(phase.gimmicks?.oxygen === true);
     this.heat.reset(false);

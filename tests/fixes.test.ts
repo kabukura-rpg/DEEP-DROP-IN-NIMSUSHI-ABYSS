@@ -4,7 +4,7 @@ import { GameModel } from '../src/systems/GameModel';
 import { GameAudio, EVENT_SOUNDS, eventSound, type SoundId } from '../src/systems/Audio';
 import { DAMAGE_LABELS, damageLabel } from '../src/data/damage';
 import { NIMUSHI } from '../src/data/nimushi';
-import { defeatNimushi, shootEye } from './nimushi';
+import { atFightDistance, defeatNimushi, shootEye } from './nimushi';
 import { spawnEnemy } from '../src/data/enemies';
 import type { GameEvent } from '../src/systems/GameModel';
 
@@ -98,7 +98,7 @@ describe('H2: a won fight can never become a loss', () => {
    */
   function onePointFromVictory() {
     const game = new GameModel(false, seeded(21));
-    game.jumpToNimushi();
+    atFightDistance(game);
     // Brought down to one heart BEFORE the fight is decided: once it is, the victory is sealed and
     // HealthSystem refuses damage outright -- which is the very thing being tested.
     while (game.hp > 1) { game.player.invincible = 0; game.damage(1, 'enemy'); }
@@ -246,7 +246,7 @@ describe('M2: the FINAL BOSS shows the banked total, not 000m', () => {
 
   it('keeps the planned run total on GAME CLEAR', () => {
     const game = new GameModel(false, seeded(23));
-    game.jumpToNimushi();
+    atFightDistance(game);
     expect(defeatNimushi(game)).toBe(true);
     tick(game, NIMUSHI.defeatDelay + 0.3);
     expect(game.state).toBe('clear');

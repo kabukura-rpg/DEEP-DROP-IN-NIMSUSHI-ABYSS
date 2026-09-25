@@ -1,3 +1,4 @@
+import { atFightDistance } from './nimushi';
 import { describe, expect, it } from 'vitest';
 import { GameModel } from '../src/systems/GameModel';
 import { reachExit } from './exitHelper';
@@ -153,7 +154,7 @@ describe('LASER', () => {
   });
   it('only ever lands one hit on NIMUSHI, however far it pierces', () => {
     const game = new GameModel(false, seeded(4));
-    game.jumpToNimushi();
+    atFightDistance(game);
     game.platforms = []; game.doodads = [];
     game.gun.equip('laser');
     const before = game.boss.hp;
@@ -468,7 +469,7 @@ describe('gun modules across the run', () => {
   });
   it.each(GUN_MODULE_IDS)('%s can reach NIMUSHI\'s eye', id => {
     const game = new GameModel(false, seeded(21));
-    game.jumpToNimushi();
+    atFightDistance(game);
     game.platforms = []; game.doodads = [];
     game.gun.equip(id);
     game.stats.maxAmmo = 40; game.ammo = 40;

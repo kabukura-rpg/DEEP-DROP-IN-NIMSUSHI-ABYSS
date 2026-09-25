@@ -1,5 +1,5 @@
-import { describe, expect, it } from 'vitest';
-import { atNimushi, fighting, laneOf, round, seeded, STEP, tick } from './nimushi';
+import { afterEach, beforeEach, describe, expect, it } from 'vitest';
+import { atFightDistance, feedWindow, atNimushi, fighting, laneOf, round, seeded, STEP, tick } from './nimushi';
 import { GameModel } from '../src/systems/GameModel';
 import { NIMUSHI, TAPIOCA_SHOWER, FULL_SCREEN_TAPIOCA, STRAW_BEAM, TAPIOCA_CUP, ATTACK_STATES } from '../src/data/nimushi';
 import { ENEMY_TYPES, spawnEnemy } from '../src/data/enemies';
@@ -103,21 +103,35 @@ describe('the four attacks ask for different answers', () => {
  * wind-up is still a pure warning; what changed is the answer to it.
  */
 describe('the shower is fought through, not waited out', () => {
-  it('keeps the eye SHUT through the wind-up and OPEN through the shower', () => {
+  /**
+   * BOSS PARITY PASS: SHOWER, BEAM and CLONES are out of NIMUSHI's rotation -- every stretch now runs
+   * the original's TRIPLE SHOT then SUMMON -- but their code is kept whole. These tests put the old
+   * rotation back for their own length, so what was kept is still proven to work. The one rule that
+   * changed is the eye: EVERY attack now runs behind the TAPIOCA BARRIER, so the assertions that the
+   * eye stood open through a shower or a burning beam are turned round, and say so where they are.
+   */
+  let saved: (readonly string[])[] = [];
+  beforeEach(() => {
+    saved = ABYSS_PHASES.map(p => p.attacks);
+    for (const p of ABYSS_PHASES) (p as { attacks: readonly string[] }).attacks = ['tapiocaShower', 'strawBeam', 'nimushiClones'];
+  });
+  afterEach(() => { ABYSS_PHASES.forEach((p, i) => { (p as { attacks: readonly string[] }).attacks = saved[i]; }); });
+
+  // WAS: shut for the wind-up, OPEN for the shower. Now shut for both: the barrier holds throughout.
+  it('keeps the barrier up through the wind-up and through the shower', () => {
     const g = fighting(204);
     let prepOpen = 0, prepFrames = 0, showerShut = 0, showerFrames = 0;
     for (let i = 0; i < 60 / STEP && g.state === 'boss'; i++) {
-      g.player.invincible = 9;
+      g.player.invincible = 9; feedWindow(g, i);
       g.step(STEP, 0, false);
       if (g.boss.state === 'attackPrep') { prepFrames++; if (g.boss.eyeOpen) prepOpen++; }
       if (g.boss.state === 'tapiocaShower') { showerFrames++; if (!g.boss.eyeOpen) showerShut++; }
     }
     expect(prepFrames).toBeGreaterThan(0);
     expect(showerFrames).toBeGreaterThan(0);
-    // Closed for the tell...
+    // Closed for the tell, and closed for the attack.
     expect(prepOpen).toBe(0);
-    // ...open for the answer.
-    expect(showerShut).toBe(0);
+    expect(showerShut).toBe(showerFrames);
   });
 
   /**
@@ -133,7 +147,7 @@ describe('the shower is fought through, not waited out', () => {
     const perAttack: number[] = [];
     const seen = new Set<number>();
     for (let i = 0; i < 90 / STEP && g.state === 'boss'; i++) {
-      g.player.invincible = 9;
+      g.player.invincible = 9; feedWindow(g, i);
       g.step(STEP, 0, false);
       if (g.boss.beams.length > 1) twoAtOnce++;
       for (const b of g.boss.beams) if (!seen.has(b.id)) { seen.add(b.id); columnsThisAttack++; }
@@ -154,7 +168,7 @@ describe('the shower is fought through, not waited out', () => {
     const seen = new Set<number>();
     // Walk, so the player is somewhere different by the time each column is raised.
     for (let i = 0; i < 90 / STEP && g.state === 'boss' && raised.length < 9; i++) {
-      g.player.invincible = 9;
+      g.player.invincible = 9; feedWindow(g, i);
       g.step(STEP, Math.sin(i / 70) > 0 ? 1 : -1, false);
       for (const b of g.boss.beams) {
         if (seen.has(b.id)) continue;
@@ -171,12 +185,13 @@ describe('the shower is fought through, not waited out', () => {
     expect(Math.max(...moves)).toBeGreaterThan(STRAW_BEAM.width);
   });
 
-  it('holds the eye shut for each warning and open for each burn, all three times', () => {
+  // WAS: shut for each warning, open for each burn. Now shut for both, all three times.
+  it('holds the barrier up for each warning and each burn, all three times', () => {
     const g = fighting(212);
     let warnOpen = 0, warnFrames = 0, liveShut = 0, liveFrames = 0, burns = 0;
     let wasLive = false;
     for (let i = 0; i < 90 / STEP && g.state === 'boss'; i++) {
-      g.player.invincible = 9;
+      g.player.invincible = 9; feedWindow(g, i);
       g.step(STEP, 0, false);
       const warning = g.boss.beams.some(b => b.state === 'warning');
       const live = g.boss.beams.some(b => b.state === 'live');
@@ -188,8 +203,7 @@ describe('the shower is fought through, not waited out', () => {
     expect(burns).toBeGreaterThanOrEqual(STRAW_BEAM.count);
     expect(warnFrames).toBeGreaterThan(0);
     expect(warnOpen).toBe(0);
-    // ...including the last column, which used to burn on into `recovery` with the eye shut.
-    expect(liveShut).toBe(0);
+    expect(liveShut).toBe(liveFrames);
   });
 
   /**
@@ -203,7 +217,7 @@ describe('the shower is fought through, not waited out', () => {
     const g = fighting(213);
     const seen = new Map<number, string>();
     for (let i = 0; i < 90 / STEP && g.state === 'boss'; i++) {
-      g.player.invincible = 9;
+      g.player.invincible = 9; feedWindow(g, i);
       g.step(STEP, 0, false);
       for (const e of g.enemies) {
         if (e.kind === 'nimushiClone' || e.kind === 'nimushiShade') seen.set(e.id, e.kind);
@@ -266,13 +280,13 @@ describe('the shower is fought through, not waited out', () => {
     // NOT `fighting`, which wipes the arena to give a geometry test a clean slate -- this one is
     // about the supply, so it keeps what the arena itself lays and only clears the terrain.
     const g = new GameModel(false, seeded(215));
-    g.jumpToNimushi();
+    atFightDistance(g);
     g.platforms = []; g.doodads = []; g.containers = [];
     g.bullets.push(round(g.boss.x, g.boss.eye.y + g.boss.eye.height / 2, 1));
     g.step(STEP, 0, false);
     let noTarget = 0, frames = 0, sawSummoned = false;
     for (let i = 0; i < 90 / STEP && g.state === 'boss'; i++) {
-      g.player.invincible = 9;
+      g.player.invincible = 9; feedWindow(g, i);
       if (g.player.y - g.cameraY > WORLD.height * 0.9) g.player.y = g.cameraY + WORLD.height * 0.6;
       const target = g.enemies.filter(e => e.alive && e.stompable && e.y < g.player.y).sort((a, b) => b.y - a.y)[0];
       g.step(STEP, target ? Math.sign(target.x - g.player.x) as -1 | 0 | 1 : 0, false);
@@ -314,14 +328,14 @@ describe('the shower is fought through, not waited out', () => {
       const g = new GameModel(false, seeded(seed));
       // The fight starts on a stream of its own, so how 1-1 happened to be set up cannot change it.
       (g as unknown as { random: () => number }).random = seeded(seed);
-      g.jumpToNimushi();
+      atFightDistance(g);
       g.platforms = []; g.doodads = []; g.containers = [];
       g.bullets.push(round(g.boss.x, g.boss.eye.y + g.boss.eye.height / 2, 1));
       g.step(STEP, 0, false);
       let was = '';
       for (let i = 0; i < 300 / STEP && g.state === 'boss' && !g.boss.defeated; i++) {
-        const p = g.player;
-        g.player.invincible = 9;
+        const p = g.player; feedWindow(g, i);
+        g.player.invincible = 9; feedWindow(g, i);
         if (p.y - g.cameraY > WORLD.height * 0.9) p.y = g.cameraY + WORLD.height * 0.6;
         const ahead = g.enemies.filter(e => e.alive && e.stompable && e.y < p.y).sort((a, b) => b.y - a.y)[0];
         const want = g.boss.eyeOpen && g.ammo > 0 ? g.boss.x : (ahead ? ahead.x : p.x);
@@ -350,16 +364,13 @@ describe('the shower is fought through, not waited out', () => {
     void phase4Clones;
   });
 
-  it('leaves CUP shut, whenever it comes back', () => {
-    // Opening the eye is not something an attack inherits by being an attack: only the three that
-    // were judged one at a time are named in `eyeOpen`.
+  // WAS: CUP shut while SHOWER and CLONES opened the eye. Now every attack is behind the barrier.
+  it('keeps every attack behind the barrier, CUP included', () => {
     const g = fighting(205);
     const machine = g.boss as unknown as { state: string };
-    machine.state = ATTACK_STATES.cupSummon;
-    expect(g.boss.eyeOpen).toBe(false);
-    for (const id of ['tapiocaShower', 'nimushiClones'] as const) {
+    for (const id of Object.keys(ATTACK_STATES) as (keyof typeof ATTACK_STATES)[]) {
       machine.state = ATTACK_STATES[id];
-      expect({ id, open: g.boss.eyeOpen }).toEqual({ id, open: true });
+      expect({ id, open: g.boss.eyeOpen, barrier: g.boss.barrier }).toEqual({ id, open: false, barrier: true });
     }
   });
 
@@ -367,24 +378,25 @@ describe('the shower is fought through, not waited out', () => {
    * The BEAM's telegraph outlives the `attackPrep` state by half a second, so the state alone is
    * the wrong thing to ask -- what decides it is whether a line is still being PROMISED.
    */
-  it('keeps the eye shut while a beam is only a warning, and opens it once it burns', () => {
+  // WAS: shut while a warning, open once it burns. Now shut throughout.
+  it('keeps the weak point shut while a beam is a warning, and while it burns', () => {
     const g = fighting(206);
     const machine = g.boss as unknown as { state: string };
     machine.state = ATTACK_STATES.strawBeam;
     g.boss.beams.push({ id: 1, x: 200, width: STRAW_BEAM.width, state: 'warning', timer: STRAW_BEAM.warning });
     expect(g.boss.eyeOpen).toBe(false);
     g.boss.beams[0].state = 'live';
-    expect(g.boss.eyeOpen).toBe(true);
-    // ...and for the tail of the attack after the column has gone.
+    expect(g.boss.eyeOpen).toBe(false);
     g.boss.beams = [];
-    expect(g.boss.eyeOpen).toBe(true);
+    expect(g.boss.eyeOpen).toBe(false);
   });
 
-  it('shuts the eye through the warning, in a real fight', () => {
+  // WAS: shut through the warning and open through the burn. Now shut through both.
+  it('shuts the weak point through warning and burn, in a real fight', () => {
     const g = fighting(207);
     let warnOpen = 0, warnFrames = 0, liveShut = 0, liveFrames = 0;
     for (let i = 0; i < 60 / STEP && g.state === 'boss'; i++) {
-      g.player.invincible = 9;
+      g.player.invincible = 9; feedWindow(g, i);
       g.step(STEP, 0, false);
       const warning = g.boss.beams.some(b => b.state === 'warning');
       const live = g.boss.beams.some(b => b.state === 'live');
@@ -394,6 +406,6 @@ describe('the shower is fought through, not waited out', () => {
     expect(warnFrames).toBeGreaterThan(0);
     expect(liveFrames).toBeGreaterThan(0);
     expect(warnOpen).toBe(0);
-    expect(liveShut).toBe(0);
+    expect(liveShut).toBe(liveFrames);
   });
 });

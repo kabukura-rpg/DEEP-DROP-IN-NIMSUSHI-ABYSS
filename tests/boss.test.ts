@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest';
 import { GameModel } from '../src/systems/GameModel';
 import { ABYSS, ABYSS_PHASES, abyssPhaseAt, ARENA_VIEW, TOMATO } from '../src/data/abyss';
 import {
-  FINAL_RAGE_RATIO, FULL_SCREEN_TAPIOCA, HIT_REACTION, NIMUSHI, NIMUSHI_ATTACKS, NIMUSHI_LINES, STRAW_BEAM, TAPIOCA_CUP, TAPIOCA_SHOWER, ATTACK_STATES } from '../src/data/nimushi';
+  FINAL_RAGE_RATIO, FULL_SCREEN_TAPIOCA, HIT_REACTION, NIMUSHI, NIMUSHI_ATTACKS, NIMUSHI_LINES, STRAW_BEAM, TAPIOCA_CUP, TAPIOCA_SHOWER, ATTACK_STATES, BOSS_APPROACH } from '../src/data/nimushi';
 import { PLANNED_TOTAL_DEPTH } from '../src/data/areas';
 import { GUN_MODULE_IDS } from '../src/data/gunModules';
 import { SHOP_ITEMS, shopPrice, ABYSS_SHOP_AREA } from '../src/data/shop';
@@ -394,31 +394,44 @@ describe('gravity is a sign, and every direction reads it', () => {
   });
 });
 
+/** The arena exactly as a run opens it: NIMUSHI asleep, a viewport further off, on the approach. */
+function onApproach(seed: number) {
+  const game = new GameModel(false, seeded(seed));
+  (game as unknown as { random: () => number }).random = seeded(seed);
+  game.jumpToNimushi();
+  game.platforms = []; game.doodads = []; game.containers = []; game.enemies = [];
+  return game;
+}
+
 describe('the weak point is the whole fight', () => {
-  it('sleeps until a round finds the eye', () => {
-    const game = atNimushi(22);
+  // WAS: slept until a round found the EYE, and standing beside it did nothing. BOSS PARITY PASS: it
+  // sleeps on the approach, and wakes to either the player coming within the fight's distance or the
+  // first round anywhere on it -- "find the boss, then the player starts it".
+  it('sleeps on the approach, until the player comes within reach', () => {
+    const game = onApproach(22);
     expect(game.boss.state).toBe('dormant');
-    tick(game, 3);
+    for (let i = 0; i < 3 / STEP; i++) { pin(game, BOSS_APPROACH.triggerGap + 200); game.step(STEP, 0, false); }
     expect(game.boss.state).toBe('dormant');
     expect(game.boss.started).toBe(false);
-    // Standing next to it is not an attack.
-    pin(game, NIMUSHI.minGap);
-    tick(game, 1);
-    expect(game.boss.started).toBe(false);
+    pin(game, BOSS_APPROACH.triggerGap - 20);
+    game.step(STEP, 0, false);
+    expect(game.boss.started).toBe(true);
   });
 
-  it('is not woken by shooting the body', () => {
-    const game = atNimushi(23);
-    const hp = game.boss.hp;
-    for (let i = 0; i < 20; i++) shootBody(game, 3);
+  // WAS: not woken by shooting the body. Now any round that lands on it is the player's move.
+  it('is woken by the first round that lands anywhere on it', () => {
+    const game = onApproach(23);
+    // In sight but not yet within reach -- a round cannot start it against something unseen.
+    for (let i = 0; i < 0.5 / STEP; i++) { pin(game, BOSS_APPROACH.triggerGap + 150); game.step(STEP, 0, false); }
     expect(game.boss.started).toBe(false);
-    expect(game.boss.state).toBe('dormant');
-    expect(game.boss.hp).toBe(hp);
+    shootBody(game, 1);
+    expect(game.boss.started).toBe(true);
+    expect(game.boss.state).toBe('eyeOpen');
   });
 
   it('starts the fight, and BOSS TIME, on the first round into the eye', () => {
-    const game = atNimushi(24);
-    tick(game, 2);
+    const game = onApproach(24);
+    for (let i = 0; i < 2 / STEP; i++) { pin(game, BOSS_APPROACH.triggerGap + 150); game.step(STEP, 0, false); }
     expect(game.boss.elapsed).toBe(0);
     shootEye(game, 1);
     expect(game.boss.started).toBe(true);
@@ -429,11 +442,18 @@ describe('the weak point is the whole fight', () => {
     expect(game.boss.elapsed).toBeLessThan(1.2);
   });
 
-  it('takes nothing off through the body once the fight has started', () => {
+  // WAS: nothing through the body, ever. BOSS PARITY PASS: with the TAPIOCA BARRIER down "the shot goes
+  // through to NIMUSHI" -- body and eye alike -- and with it up, nothing goes through at all.
+  it('takes damage through the body while the barrier is down, and none while it is up', () => {
     const game = fighting(25);
     const hp = game.boss.hp;
+    shootBody(game, 1);
+    expect(game.boss.hp).toBe(hp - 1);
+    while (game.boss.state === 'eyeOpen') shootBody(game, 4);
+    expect(game.boss.barrier).toBe(true);
+    const held = game.boss.hp;
     for (let i = 0; i < 10; i++) shootBody(game, 3);
-    expect(game.boss.hp).toBe(hp);
+    expect(game.boss.hp).toBe(held);
   });
 
   it('takes nothing off through a shut eye', () => {
@@ -453,10 +473,13 @@ describe('the weak point is the whole fight', () => {
       shootEye(open, 1, source);
       expect(open.boss.hp).toBe(before - 1);
 
-      const body = fighting(27);
-      const held = body.boss.hp;
-      shootBody(body, 1, source);
-      expect(body.boss.hp).toBe(held);
+      // WAS: the body stopped every source. Now the BARRIER does -- every source, the same way.
+      const shut = fighting(27);
+      while (shut.boss.state === 'eyeOpen') shootEye(shut, 4);
+      const held = shut.boss.hp;
+      shootBody(shut, 1, source);
+      shootEye(shut, 1, source);
+      expect(shut.boss.hp).toBe(held);
     }
   });
 
@@ -506,20 +529,24 @@ describe('the weak point is the whole fight', () => {
 
 describe('the eye cycle', () => {
 
-  it('shuts the window on damage OR on time, whichever comes first', () => {
+  // WAS: the window shut on damage OR on a 6s timeout. BOSS PARITY PASS: the original's weak point
+  // stays exposed until it has taken enough, so the window now shuts on damage alone -- and a window
+  // nobody shoots stays open rather than timing out into an attack.
+  it('shuts the window on damage, and holds it open until then', () => {
     const fast = fighting(31);
     for (let i = 0; i < 12 && fast.boss.state === 'eyeOpen'; i++) shootEye(fast, 4);
     expect(fast.boss.state).not.toBe('eyeOpen');
-    expect(fast.boss.elapsed).toBeLessThan(NIMUSHI.eyeWindow.timeout);
+    expect(fast.boss.barrier).toBe(true);
 
     const slow = fighting(31);
-    // Keep the player alive for the whole window. Nothing here is about survival, but a dead player
+    // Keep the player alive for a long stretch. Nothing here is about survival, but a dead player
     // stops the simulation, and the boss then sits in whatever state it was in when the run ended.
-    for (let i = 0; i < (NIMUSHI.eyeWindow.timeout + 0.1) / STEP; i++) {
+    for (let i = 0; i < 15 / STEP; i++) {
       slow.player.invincible = 9;
       slow.step(STEP, 0, false);
     }
-    expect(slow.boss.state).not.toBe('eyeOpen');
+    expect(slow.boss.state).toBe('eyeOpen');
+    expect(Number.isFinite(NIMUSHI.eyeWindow.timeout)).toBe(false);
   });
 
   it('keeps the damage window separate from the phase thresholds', () => {
@@ -602,9 +629,11 @@ describe('the five attacks', () => {
    * and the weak point above. Cases that drove a live attack went with the rotation and return with
    * it, in the order SHOWER, BEAM, CLONES, CUP.
    */
-  it('runs three of the four, and keeps the fourth intact', () => {
+  // WAS: SHOWER, BEAM and CLONES in rotation. BOSS PARITY PASS: the original's TRIPLE SHOT then SUMMON;
+  // every attack still has a wind-up and a state of its own.
+  it('runs the original\'s two, and keeps every other attack intact', () => {
     for (const phase of ABYSS_PHASES) {
-      expect([...phase.attacks]).toEqual(['tapiocaShower', 'strawBeam', 'nimushiClones']);
+      expect([...phase.attacks]).toEqual(['tripleShot', 'enemySummon']);
     }
     for (const id of Object.keys(NIMUSHI_ATTACKS) as (keyof typeof NIMUSHI_ATTACKS)[]) {
       expect(NIMUSHI_ATTACKS[id].prep).toBeGreaterThan(0);
@@ -1171,13 +1200,18 @@ describe('the twenty upgrades inside an inverted fight', () => {
     expect(Math.abs(held)).toBeLessThan(Math.abs(free.player.vy));
   });
 
-  it('gives DRONE and BLAST MODULE no way round the weak point', () => {
+  // WAS: DRONE could not hurt it through the body. Now the rule is the barrier: DRONE lands in the
+  // window like any round, and is stopped by the barrier like any round.
+  it('gives DRONE and BLAST MODULE no way round the barrier', () => {
     const drone = fighting(104);
     const hp = drone.boss.hp;
-    shootBody(drone, 1, 'drone');
-    expect(drone.boss.hp).toBe(hp);
     shootEye(drone, 1, 'drone');
     expect(drone.boss.hp).toBe(hp - 1);
+    while (drone.boss.state === 'eyeOpen') shootEye(drone, 4);
+    const shut = drone.boss.hp;
+    shootBody(drone, 1, 'drone');
+    shootEye(drone, 1, 'drone');
+    expect(drone.boss.hp).toBe(shut);
 
     // BLAST MODULE rides a stomp, and NIMUSHI is not stompable -- so it never reaches it at all.
     const blast = fighting(105);

@@ -32,6 +32,8 @@ const C9A0A63: Record<string, string> = {
 };
 
 const UNCHANGED_AREAS = [] as const;
+/** The FINAL BOSS's replay as the BOSS PARITY PASS left it (approach, barrier, triple shot, summon). */
+const BOSS_PARITY_PASS = '47f4f796c2f3b2c98507455f';
 
 describe('STAGE GENERATION v2 leaves every AREA it has not rebuilt, and the boss, exactly as c9a0a63', () => {
   it('generates the untouched AREAs identically', () => {
@@ -42,7 +44,11 @@ describe('STAGE GENERATION v2 leaves every AREA it has not rebuilt, and the boss
       expect(replaySignature(entered(g => g.jumpToStage(a, s))), `${a}-${s}`).toBe(C9A0A63[`play${a}-${s}`]);
     }
   });
-  it('plays the FINAL BOSS identically', () => {
-    expect(replaySignature(entered(g => g.jumpToBoss()))).toBe(C9A0A63.boss);
+  // WAS: identical to c9a0a63's boss, which every pass up to 5de724e kept. The BOSS PARITY PASS is
+  // the one pass allowed to change the fight, so the boss is pinned to THAT pass's own replay from
+  // here on: the same guarantee -- nothing else moves the FINAL BOSS -- against the new baseline.
+  it('plays the FINAL BOSS identically to the BOSS PARITY PASS', () => {
+    expect(C9A0A63.boss).toBe('3b6bd54d9a118f15a17a5a58');
+    expect(replaySignature(entered(g => g.jumpToBoss()))).toBe(BOSS_PARITY_PASS);
   });
 });

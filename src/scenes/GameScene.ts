@@ -9,6 +9,7 @@ import { pickupType } from '../data/pickups';
 import { gunModule } from '../data/gunModules';
 import { AIR_CONTAINER_RULES, BREAK_BLOCK_RULES, LIMBO_HAZARD_RULES, SPIKE_PLATFORM_RULES } from '../data/structures';
 import { SAFE_ZONE_RULES } from '../data/safeZone';
+import { TAPIOCA_BARRIER } from '../data/nimushi';
 import type { SideCave } from '../data/sideCave';
 import type { AreaTheme } from '../data/areas';
 import { hazardBounds, hazardType, type Hazard } from '../data/hazards';
@@ -200,7 +201,10 @@ export class GameScene extends Phaser.Scene {
     if (event.type === 'corpse') this.label(event.x, event.y - 20, `OMNOM ${event.value}/10`, '#d8c8d4', 12);
     // The chain being banked. It never opens a screen, so the shaft itself has to carry it.
     if (event.type === 'comboSettle') { this.flash = Math.max(this.flash, 0.08); this.burst(event.x, event.y, 0xf4e9ad, 24); this.label(event.x, event.y - 62, `${event.value} COMBO · ${event.stage ?? ''}`, '#f4e9ad', 16); }
-    if (event.type === 'bossHit') { this.burst(event.x, event.y, 0xd9a0ff, 6); this.shake = Math.max(this.shake, 1.4); }
+    // A round the TAPIOCA BARRIER stopped reads differently from one that landed: a spray of brown
+    // pearl chips and a white glint, no shake -- "blocked", at the point it was blocked.
+    if (event.type === 'bossHit' && (event.value ?? 0) < 0) { this.burst(event.x, event.y, 0x5a3b2a, 5); this.burst(event.x, event.y, 0xfff4e0, 2); }
+    else if (event.type === 'bossHit') { this.burst(event.x, event.y, 0xd9a0ff, 6); this.shake = Math.max(this.shake, 1.4); }
     if (event.type === 'bossFire') this.shake = Math.max(this.shake, 2.2);
     if (event.type === 'bossDown') { this.shake = 6; this.flash = 0.16; this.burst(event.x, event.y, 0xffd2a0, 40); this.label(event.x, event.y - 40, 'BOSS DEFEATED', '#ffd2a0', 18); }
     if (event.type === 'kill') {
@@ -1118,11 +1122,15 @@ export class GameScene extends Phaser.Scene {
     for (const pearl of fight.tapiocas) {
       const py = pearl.y - cam;
       if (py < -30 || py > 840) continue;
+      // A pale rim first: a dark pearl on a dark shaft has to read as a THING coming at the player.
+      this.graphics.fillStyle(0xffe9c4, 0.85).fillCircle(pearl.x, py, pearl.size + 2);
       this.graphics.fillStyle(0x1b1016, 0.95).fillCircle(pearl.x, py, pearl.size);
       this.graphics.fillStyle(0x6b4a58, 0.8).fillCircle(pearl.x - pearl.size * 0.3, py - pearl.size * 0.3, pearl.size * 0.4);
     }
 
     this.bossBody(cam);
+    this.bossBarrier(cam);
+    this.bossTells(cam);
     const body = fight.body, y = body.y - cam;
     if (y > 860 || y + body.height < -220) return;
     const pose = fight.pose;
@@ -1134,6 +1142,67 @@ export class GameScene extends Phaser.Scene {
     if (pose === 'dead') for (let i = 0; i < 8; i++) this.rect(body.x + i * 21, y + body.height, 10, 12 + (i % 3) * 8, 0x4a3f45, 0.4);
   }
 
+  /**
+   * THE TAPIOCA BARRIER, and its absence.
+   *
+   * Up: `TAPIOCA_BARRIER.pearls` dark tapioca pearls circle the body, closing in from further out as
+   * it forms. Down (the damage window): the pearls burst outward and fall away, and the body's rim
+   * pulses gold for as long as it can be hurt. One glance answers "can I hurt it now".
+   */
+  private bossBarrier(cam: number) {
+    const fight = this.model.boss;
+    if (!fight.started || fight.defeated) return;
+    const body = fight.body, cx = fight.x, cy = body.y + body.height / 2 - cam;
+    const n = TAPIOCA_BARRIER.pearls, spin = this.reducedMotion ? 0 : this.model.elapsed * TAPIOCA_BARRIER.spin;
+    const pearl = (x: number, y: number, r: number, alpha: number) => {
+      this.graphics.fillStyle(0x1b1016, 0.95 * alpha).fillCircle(x, y, r);
+      this.graphics.fillStyle(0x4a2e22, 0.9 * alpha).fillCircle(x, y, r * 0.78);
+      this.graphics.fillStyle(0xb58a6a, 0.75 * alpha).fillCircle(x - r * 0.32, y - r * 0.32, r * 0.3);
+    };
+    if (fight.barrier) {
+      const t = Math.min(1, fight.barrierAge / TAPIOCA_BARRIER.form);
+      const spread = 1 + (1 - t) * 1.3;
+      // A faint shell joining them, so the ring reads as one closed thing rather than loose pearls.
+      this.graphics.lineStyle(3, 0x3a2418, 0.35 * t).strokeEllipse(cx, cy, TAPIOCA_BARRIER.radiusX * 2, TAPIOCA_BARRIER.radiusY * 2);
+      for (let i = 0; i < n; i++) {
+        const a = spin + (i / n) * Math.PI * 2;
+        pearl(cx + Math.cos(a) * TAPIOCA_BARRIER.radiusX * spread, cy + Math.sin(a) * TAPIOCA_BARRIER.radiusY * spread, TAPIOCA_BARRIER.pearlSize, t);
+      }
+      return;
+    }
+    if (!fight.eyeOpen) return;
+    // Just dropped: the ring bursts outward and falls away.
+    const t = fight.barrierAge / TAPIOCA_BARRIER.burst;
+    if (t < 1) {
+      for (let i = 0; i < n; i++) {
+        const a = spin + (i / n) * Math.PI * 2;
+        const out = 1 + t * 1.6, fall = t * t * 90;
+        pearl(cx + Math.cos(a) * TAPIOCA_BARRIER.radiusX * out, cy + Math.sin(a) * TAPIOCA_BARRIER.radiusY * out + fall, TAPIOCA_BARRIER.pearlSize * (1 - t * 0.5), 1 - t);
+      }
+    }
+    // Exposed: a gold rim that breathes for as long as the window lasts.
+    const beat = 0.35 + Math.abs(Math.sin(this.model.elapsed * 5)) * 0.4;
+    this.graphics.lineStyle(3, 0xffd66b, beat).strokeRect(body.x - 8, body.y - cam - 8, body.width + 16, body.height + 16);
+  }
+  /** TRIPLE SHOT's three lines, and the rings a SUMMON is about to come through. */
+  private bossTells(cam: number) {
+    const fight = this.model.boss;
+    const tell = fight.tripleTelegraph;
+    if (tell) {
+      const beat = 0.35 + Math.abs(Math.sin(this.model.elapsed * 14)) * 0.45;
+      for (const a of tell.angles) {
+        for (let d = 24; d < 420; d += 22) {
+          const x = tell.origin.x + Math.cos(a) * d, y = tell.origin.y + Math.sin(a) * d - cam;
+          this.graphics.fillStyle(0xffe9a8, beat * (1 - d / 460)).fillCircle(x, y, 3);
+        }
+      }
+    }
+    if (fight.summonTelegraph) {
+      const grow = (this.model.elapsed * 2) % 1;
+      const y = fight.face - fight.reach(this.model.player.y) * 0.45 - cam;
+      for (const x of [110, 225, 340]) this.graphics.lineStyle(2, 0xc9a7ed, 0.7 * (1 - grow)).strokeCircle(x, y, 10 + grow * 22);
+    }
+  }
   /** Body/face rendering only. Kept separate from hazards for isolated art review. */
   private bossBody(cam: number) {
     const m = this.model, fight = m.boss;

@@ -1,8 +1,8 @@
-import { describe, expect, it } from 'vitest';
-import { fighting, round, seeded, STEP, tick } from './nimushi';
+import { afterEach, beforeEach, describe, expect, it } from 'vitest';
+import { atFightDistance, feedWindow, fighting, round, seeded, STEP, tick } from './nimushi';
 import { GameModel } from '../src/systems/GameModel';
 import { ABYSS_PHASES, ARENA_FLOOR } from '../src/data/abyss';
-import { FINAL_RAGE_RATIO, FULL_SCREEN_TAPIOCA, NIMUSHI, STRAW_BEAM, TAPIOCA_SHOWER, TRANSITION_HAUL } from '../src/data/nimushi';
+import { FINAL_RAGE_RATIO, FULL_SCREEN_TAPIOCA, NIMUSHI, NIMUSHI_ATTACKS, STRAW_BEAM, TAPIOCA_SHOWER, TRANSITION_HAUL } from '../src/data/nimushi';
 import { WORLD } from '../src/data/balance';
 import { GUN_MODULES, GUN_MODULE_IDS, type GunModuleId } from '../src/data/gunModules';
 import { BOSS_PHYSICS } from '../src/data/bossPhysics';
@@ -24,7 +24,7 @@ function arena(seed: number) {
   const g = new GameModel(false, seeded(seed));
   // Re-seeded at the fight's entry (see tests/nimushi.ts): 1-1's setup draws no longer pick the luck.
   (g as unknown as { random: () => number }).random = seeded(seed);
-  g.jumpToNimushi();
+  atFightDistance(g);
   g.platforms = []; g.doodads = []; g.containers = [];
   g.bullets.push(round(g.boss.x, g.boss.eye.y + g.boss.eye.height / 2, 1));
   g.step(STEP, 0, false);
@@ -83,7 +83,16 @@ describe('doing nothing carries the player into NIMUSHI', () => {
    * since BODY CONTACT RECOVERY a touch costs a heart and hands back a bounce, so the title and the
    * criterion had come apart.
    */
+  // BOSS PARITY PASS: measured with the barrier's attack sequence switched OFF. What this test holds
+  // is the DISTANCE loop -- stomp, bounce, brake against a climbing NIMUSHI -- and the new three-way
+  // shot and summon are answered by reading them, which a steer-at-the-nearest-target bot does not
+  // do; their fairness has its own tests (postBossParity). The eye cycle still runs.
   it('can be held for thirty seconds by stomping, bouncing and braking', () => {
+    const saved = ABYSS_PHASES.map(p => p.attacks);
+    for (const p of ABYSS_PHASES) (p as { attacks: readonly string[] }).attacks = [];
+    try { holdThirtySeconds(); } finally { ABYSS_PHASES.forEach((p, i) => { (p as { attacks: readonly string[] }).attacks = saved[i]; }); }
+  });
+  const holdThirtySeconds = () => {
     const seeds = Array.from({ length: 20 }, (_, i) => 620 + i);
     const drifts: number[] = [];
     let held = 0;
@@ -127,7 +136,7 @@ describe('doing nothing carries the player into NIMUSHI', () => {
     // is the half of this test the attacks are not allowed to move. -9.8px/s with three beams in
     // the rotation, against -4.0 with one: the attacks cost hearts, not ground.
     expect(Math.abs(drifts.reduce((a, b) => a + b, 0) / drifts.length)).toBeLessThan(15);
-  });
+  };
 
   /**
    * Every weapon can fire from outside the boss's danger zone, and the short ones by enough time to
@@ -392,7 +401,22 @@ describe('the drop below is the other edge', () => {
   });
 });
 
+/** What the stretches really run, read before any test below swaps a rotation in for its own length. */
+const REAL_ROTATION = ABYSS_PHASES.map(p => [...p.attacks]);
+
 describe('the prototype runs on gravity and the weak point alone', () => {
+  /**
+   * BOSS PARITY PASS: SHOWER, BEAM and CLONES are kept whole but out of the rotation; these tests put
+   * them back for their own length. What changed is the eye -- every attack runs behind the TAPIOCA
+   * BARRIER -- and the damage window no longer times out, so a waiting fixture feeds it (feedWindow).
+   */
+  let saved: (readonly string[])[] = [];
+  beforeEach(() => {
+    saved = ABYSS_PHASES.map(p => p.attacks);
+    for (const p of ABYSS_PHASES) (p as { attacks: readonly string[] }).attacks = ['tapiocaShower', 'strawBeam', 'nimushiClones'];
+  });
+  afterEach(() => { ABYSS_PHASES.forEach((p, i) => { (p as { attacks: readonly string[] }).attacks = saved[i]; }); });
+
   /**
    * ONE ROUND, ONE PEARL.
    *
@@ -448,16 +472,29 @@ describe('the prototype runs on gravity and the weak point alone', () => {
    * here are exactly the three the C1 geometry was measured for: the long one that was always fine
    * and the two short ones that only just became usable.
    */
-  it('lets MACHINE, SHOTGUN and PUNCHER all hit the weak point during a shower', () => {
+  // WAS: "...during a shower", with the eye open through it. Now the attack is behind the barrier, so
+  // the same three weapons are held to hitting NIMUSHI from their own range in the DAMAGE WINDOW --
+  // and to being stopped, all three, by the barrier.
+  it('lets MACHINE, SHOTGUN and PUNCHER all hit NIMUSHI in the damage window, and none through the barrier', () => {
     for (const [id, reach] of [['machine', 400], ['shotgun', 200], ['puncher', 190]] as const) {
+      const shut = arena(640);
+      shut.gun.equip(id as GunModuleId);
+      (shut.boss as unknown as { state: string; timer: number }).state = 'tapiocaShower';
+      (shut.boss as unknown as { timer: number }).timer = 2.4;
+      const before = shut.boss.hp;
+      for (let i = 0; i < 1.2 / STEP; i++) {
+        shut.player.invincible = 9; shut.player.vy = 0; shut.player.x = shut.boss.x;
+        shut.player.y = shut.boss.face + reach; shut.ammo = shut.stats.maxAmmo;
+        shut.step(STEP, 0, i % 8 < 4);
+      }
+      expect({ id, blocked: shut.boss.hp }).toEqual({ id, blocked: before });
+
       const g = arena(640);
       g.gun.equip(id as GunModuleId);
       g.reloadCharge();
-      const machine = g.boss as unknown as { state: string; timer: number; pendingAttack: string; waveTimer: number };
-      machine.pendingAttack = 'tapiocaShower';
-      machine.state = 'tapiocaShower';
-      machine.timer = 2.4;
-      machine.waveTimer = 0;
+      const machine = g.boss as unknown as { state: string; timer: number };
+      machine.state = 'eyeOpen';
+      machine.timer = Infinity;
       expect(g.boss.eyeOpen).toBe(true);
       const hp = g.boss.hp;
       let landed = false;
@@ -470,7 +507,7 @@ describe('the prototype runs on gravity and the weak point alone', () => {
         g.step(STEP, 0, i % 8 < 4);
         if (g.boss.hp < hp) landed = true;
       }
-      expect(landed, `${id} could not reach the eye during a shower`).toBe(true);
+      expect(landed, `${id} could not reach NIMUSHI in the damage window`).toBe(true);
     }
   });
 
@@ -480,10 +517,12 @@ describe('the prototype runs on gravity and the weak point alone', () => {
    * A round that meets a pearl dies on it; a round that meets nothing carries on to the eye. The
    * failure this guards against is a pearl pass that swallows every round in flight.
    */
-  it('lets a round pass a shower and still reach the eye', () => {
+  // WAS: during a shower. The pearls are still what the round has to pass; the boss now has to be in
+  // its damage window for the round to count, so the window is where it is set.
+  it('lets a round pass pearls in the air and still reach NIMUSHI', () => {
     const g = arena(641);
     const machine = g.boss as unknown as { state: string; timer: number; waveTimer: number };
-    machine.state = 'tapiocaShower'; machine.timer = 2.4;
+    machine.state = 'eyeOpen'; machine.timer = Infinity;
     (g.boss as unknown as { spawnShowerWave(r: () => number): number[] }).spawnShowerWave(seeded(11));
     // Hold the next wave off, or the step under test would spawn one and the count would move for
     // a reason that has nothing to do with the round.
@@ -500,24 +539,24 @@ describe('the prototype runs on gravity and the weak point alone', () => {
     for (const id of before) expect({ id, alive: after.has(id) }).toEqual({ id, alive: true });
   });
 
-  it('closes the eye again once the shower is over', () => {
+  // WAS: open through the shower, shut again after it. Now shut through it, and open again once the
+  // barrier's sequence has run and the barrier drops.
+  it('keeps the barrier up through the shower, and drops it once the sequence is over', () => {
     const g = arena(642);
-    let sawShowerOpen = false, sawShutAfter = false, was = '';
+    let sawShowerOpen = false, sawShutAfter = false, sawReopen = false, was = '';
     for (let i = 0; i < 40 / STEP && g.state === 'boss'; i++) {
-      g.player.invincible = 9;
+      g.player.invincible = 9; feedWindow(g, i);
       if (g.player.y - g.cameraY > WORLD.height * 0.9) g.player.y = g.cameraY + WORLD.height * 0.6;
       const target = g.enemies.filter(e => e.alive && e.y < g.player.y).sort((a, b) => b.y - a.y)[0];
       g.step(STEP, target ? Math.sign(target.x - g.player.x) as -1 | 0 | 1 : 0, false);
       if (g.boss.state === 'tapiocaShower' && g.boss.eyeOpen) sawShowerOpen = true;
-      if (was === 'tapiocaShower' && g.boss.state !== 'tapiocaShower') {
-        // Back to the ordinary cycle: recovery, with the eye shut until it reopens.
-        expect(g.boss.state).toBe('recovery');
-        if (!g.boss.eyeOpen) sawShutAfter = true;
-      }
+      if (was === 'tapiocaShower' && g.boss.state !== 'tapiocaShower' && !g.boss.eyeOpen) sawShutAfter = true;
+      if (sawShutAfter && g.boss.state === 'eyeOpen') sawReopen = true;
       was = g.boss.state;
     }
-    expect(sawShowerOpen).toBe(true);
+    expect(sawShowerOpen).toBe(false);
     expect(sawShutAfter).toBe(true);
+    expect(sawReopen).toBe(true);
   });
 
   /**
@@ -527,7 +566,7 @@ describe('the prototype runs on gravity and the weak point alone', () => {
    * fires two or three times a minute, so waiting for a stomp to coincide with one measures luck.
    * Here the column is put where the player is not, and the loop is played underneath it.
    */
-  it('keeps stomp, bounce, reload and the weak point working while a beam burns', () => {
+  it('keeps stomp, bounce and reload working while a beam burns behind the barrier', () => {
     // The seed is a fixture parameter, not a subject: the fight needs a stompable target more than
     // 90px clear of the column, and whether one is standing there is luck. Measured over 101 seeds
     // it holds 78% of the time on EVERY terrain mode -- legacy, rhythm-v1 and grammar-v2 alike, so
@@ -540,13 +579,13 @@ describe('the prototype runs on gravity and the weak point alone', () => {
     // A column, far from the player, actually burning.
     g.boss.beams.push({ id: 1, x: WORLD.wall + 30, width: STRAW_BEAM.width, state: 'live', timer: STRAW_BEAM.live });
     expect(g.boss.beams.some(b => b.state === 'live')).toBe(true);
-    expect(g.boss.eyeOpen).toBe(true);                        // F: open while it burns
-
-    // F: a round into the eye lands.
+    // WAS: F, the eye open while it burns and a round landing. Now the barrier is up through it: the
+    // round is stopped and nothing is credited -- the loop underneath still runs, which is the point.
+    expect(g.boss.eyeOpen).toBe(false);
     const hp = g.boss.hp;
     g.bullets.push(round(g.boss.x, g.boss.eye.y + g.boss.eye.height / 2, 1));
     g.step(STEP, 0, false);
-    expect(g.boss.hp).toBe(hp - 1);
+    expect(g.boss.hp).toBe(hp);
 
     // D/E: stomp something clear of the column, and get the bounce and the magazine for it.
     const target = g.enemies.filter(e => e.alive && Math.abs(e.x - g.boss.beams[0].x) > 90).sort((a, b) => b.y - a.y)[0];
@@ -563,37 +602,36 @@ describe('the prototype runs on gravity and the weak point alone', () => {
     expect(g.boss.beams.some(b => b.state === 'live')).toBe(true);
   });
 
-  it('has SHOWER, BEAM and CLONES back, and nothing else', () => {
-    for (const phase of ABYSS_PHASES) {
-      expect({ id: phase.id, rotation: [...phase.attacks] })
-        .toEqual({ id: phase.id, rotation: ['tapiocaShower', 'strawBeam', 'nimushiClones'] });
+  // WAS: SHOWER, BEAM and CLONES in every stretch. BOSS PARITY PASS: the original's loop -- TRIPLE SHOT
+  // then SUMMON -- in every stretch, with the four older attacks kept whole in the code.
+  it('runs the original\'s loop in every stretch, and keeps the older attacks whole', () => {
+    for (const [i, phase] of ABYSS_PHASES.entries()) {
+      expect({ id: phase.id, rotation: REAL_ROTATION[i] }).toEqual({ id: phase.id, rotation: ['tripleShot', 'enemySummon'] });
     }
-    // CUP is still whole enough to switch back on.
-    expect(NIMUSHI.eyeWindow.timeout).toBeGreaterThan(0);
+    for (const id of ['tapiocaShower', 'strawBeam', 'nimushiClones', 'cupSummon'] as const) expect(NIMUSHI_ATTACKS[id]).toBeDefined();
   });
 
   /**
-   * They are never in the air at once. The machine runs one attack at a time by construction, and
-   * measured over six 90-second fights a live beam and a pearl coexisted for 0.00 seconds -- the
-   * beam's whole life fits inside its own attack, and `openEye` sweeps the pearls before the next.
+   * WAS: a live beam and a pearl never coexisted, because each attack had a whole barrier to itself.
+   * BOSS PARITY PASS: there is no beam in the fight, and the barrier now runs its whole sequence in
+   * one go. What that rule protected -- the damage window is for shooting NIMUSHI, not for dodging the
+   * last attack's leftovers -- is held directly: the window always opens on a clear screen.
    */
-  it('never has a beam burning while pearls are falling', () => {
+  it('opens every damage window on a screen with nothing of NIMUSHI\'s left in the air', () => {
+    ABYSS_PHASES.forEach((p, i) => { (p as { attacks: readonly string[] }).attacks = REAL_ROTATION[i]; });
     const g = arena(660);
-    let both = 0, sawBeam = 0, sawPearls = 0;
-    for (let i = 0; i < 90 / STEP && g.state === 'boss'; i++) {
-      g.player.invincible = 9;
+    let windows = 0, dirty = 0, sawPearls = 0, was = '';
+    for (let i = 0; i < 90 / STEP && g.state === 'boss' && !g.boss.defeated; i++) {
+      g.player.invincible = 9; feedWindow(g, i);
       if (g.player.y - g.cameraY > WORLD.height * 0.9) g.player.y = g.cameraY + WORLD.height * 0.6;
-      const target = g.enemies.filter(e => e.alive && e.y < g.player.y).sort((a, b) => b.y - a.y)[0];
-      g.step(STEP, target ? Math.sign(target.x - g.player.x) as -1 | 0 | 1 : 0, false);
-      const live = g.boss.beams.some(b => b.state === 'live');
-      const pearls = g.boss.tapiocas.some(t => t.life > 0);
-      if (live) sawBeam++;
-      if (pearls) sawPearls++;
-      if (live && pearls) both++;
+      g.step(STEP, 0, false);
+      if (g.boss.tapiocas.length) sawPearls++;
+      if (g.boss.state === 'eyeOpen' && was !== 'eyeOpen') { windows++; if (g.boss.tapiocas.length) dirty++; }
+      was = g.boss.state;
     }
-    expect(sawBeam).toBeGreaterThan(0);
     expect(sawPearls).toBeGreaterThan(0);
-    expect(both).toBe(0);
+    expect(windows).toBeGreaterThan(3);
+    expect(dirty).toBe(0);
   });
 
   it('still cycles the eye, so the weak point still has a window', () => {

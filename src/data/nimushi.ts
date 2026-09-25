@@ -26,6 +26,8 @@ export type NimushiState =
   | 'cupSummon'
   | 'strawBeam'
   | 'nimushiClones'
+  | 'tripleShot'
+  | 'enemySummon'
   | 'recovery'
   | 'phaseTransition'
   | 'finalRage'
@@ -37,6 +39,8 @@ export const ATTACK_STATES: Record<AbyssAttackId, NimushiState> = {
   cupSummon: 'cupSummon',
   strawBeam: 'strawBeam',
   nimushiClones: 'nimushiClones',
+  tripleShot: 'tripleShot',
+  enemySummon: 'enemySummon',
 };
 
 /** What the view draws. Derived from the state, so a sprite can never disagree with the machine. */
@@ -62,7 +66,7 @@ export const NIMUSHI = {
    * run that can reach it easily does not skip it. Deliberately its own pair of numbers, entirely
    * separate from the phase thresholds. MEASUREMENT REQUIRED.
    */
-  eyeWindow: { damage: 8, timeout: 6 },
+  eyeWindow: { damage: 8, timeout: Infinity },
   /** Seconds the eye takes to shut once the window is spent -- still invulnerable throughout. */
   closing: 0.45,
   /** Seconds after an attack before the eye reopens. */
@@ -306,7 +310,109 @@ export const NIMUSHI_ATTACKS: Record<AbyssAttackId, NimushiAttackDef> = {
    */
   strawBeam: { id: 'strawBeam', name: 'ストロービーム', prep: 0.35, active: 5.2 },
   nimushiClones: { id: 'nimushiClones', name: 'にむし分身', prep: 0.6, active: 0.4 },
+  /** The original's three-way shot, in tapioca. See TRIPLE_SHOT. */
+  tripleShot: { id: 'tripleShot', name: 'タピオカ三連', prep: 0.75, active: 1.45 },
+  /** The original's summon, from the stretch's own AREA. See BOSS_SUMMON. */
+  enemySummon: { id: 'enemySummon', name: 'よびだし', prep: 0.7, active: 0.5 },
 };
+
+/**
+ * BOSS PARITY PASS -- the approach.
+ *
+ * The arena used to open with NIMUSHI `restGap` (430px) ahead: on screen, and close enough to be in
+ * the body within a second and a half of doing nothing. Now it opens further off, ASLEEP -- it climbs
+ * but does nothing else, cannot be touched for damage and cannot hurt -- and the camera follows the
+ * player rather than the boss, so NIMUSHI comes into view from the top of the frame as the player
+ * rises to it. The fight starts when the player either comes within `triggerGap` or lands a shot.
+ *
+ *   MEASURED, 20 seeds each, from the arena opening (start gap is to the face):
+ *
+ *   option  extra    start gap   no input: seen / wakes    shooting ahead: seen / wakes
+ *   now     0         374px        at once / at once            at once / at once
+ *   half    0.5 view  774px        1.61s   / 2.55s              3.05s   / 4.06s
+ *   one     1 view   1174px        3.78s   / 5.02s              4.73s   / 5.82s
+ *
+ * In every run NIMUSHI was on screen before it woke, and nothing hurt the player before it woke.
+ * `one` is the Human Review candidate: the only one with a stretch of the inverted controls before
+ * the boss is even in sight, and about a second of seeing it before the fight begins. `half` keeps
+ * the same second of sighting with less climb before it.
+ * `?approach=now|half|one` on the page swaps between them for side-by-side review.
+ */
+export const BOSS_APPROACH = {
+  options: { now: 0, half: 0.5, one: 1 } as Record<string, number>,
+  /** Extra start distance, in viewports on top of `restGap`. */
+  extraViews: 1,
+  /** Within this reach of the face, a sleeping NIMUSHI wakes. The fight's own opening distance. */
+  triggerGap: 430,
+  /**
+   * Where the player sits in the frame on the approach, as a share of the view from the top. Low, so
+   * most of the screen is the shaft ahead: NIMUSHI is seen coming well before it can be reached.
+   */
+  playerShare: 0.8,
+  /** How fast the camera moves from following the player to framing NIMUSHI once it wakes, px/s. */
+  cameraCatchUp: 420,
+  /**
+   * Woken by a shot from further off than `triggerGap`, NIMUSHI comes at the player -- against the
+   * pull, at this pace -- until the fight's own distance is reached. The fight is ENGAGED from then:
+   * that is when the view hands over to NIMUSHI and when the drop below starts to count.
+   */
+  closeSpeed: 420,
+} as const;
+export const approachExtra = { views: BOSS_APPROACH.extraViews as number };
+
+/**
+ * THE TAPIOCA BARRIER -- the original's eye closing, as NIMUSHI's pearls.
+ *
+ * A TIME-limited invulnerable phase, not a thing to shoot down: it forms once the open window has
+ * taken `NIMUSHI.eyeWindow.damage`, holds through the three-way shot and the summon, and drops on its
+ * own. Rounds that meet it are stopped and credited nothing, with a visible block.
+ */
+export const TAPIOCA_BARRIER = {
+  /** Pearls circling the body while it is up. */
+  pearls: 12,
+  /** How far outside the body's centre they orbit, as x and y radii. */
+  radiusX: 118, radiusY: 88,
+  /** Radians per second the ring turns. */
+  spin: 1.6,
+  pearlSize: 10,
+  /** Seconds the pearls take to close in (forming) and to burst away (dropping). Visual only. */
+  form: 0.45, burst: 0.55,
+} as const;
+
+/**
+ * TRIPLE SHOT -- the original's three-way shot, in tapioca.
+ *
+ * Three pearls from the eye, the middle one at the player and the other two `spread` either side.
+ * Every volley is announced: the lines are drawn through the whole wind-up, and each later volley
+ * flashes its lines `tell` seconds before it fires. Between two lines at the fight's shortest
+ * range there is still a gap wider than the player, so standing still is what gets hit.
+ */
+export const TRIPLE_SHOT = {
+  volleys: 3,
+  interval: 0.6,
+  /** Radians either side of the aimed pearl. */
+  spread: 0.42,
+  speed: 250,
+  size: 9,
+  damage: 1,
+  tell: 0.3,
+  life: 5,
+} as const;
+
+/**
+ * THE SUMMON -- the original's boss calling up its sub-area's enemies, from NIMUSHI's stretch.
+ *
+ * Who comes is the stretch's `summonPool` (AREA 1-4's own roster, the kinds that live without
+ * ground). They appear between NIMUSHI and the player but never on top of the player, and like every
+ * dweller they must be SEEN for half a second before they can land a hit.
+ */
+export const BOSS_SUMMON = {
+  count: [2, 3, 3, 3] as readonly number[],
+  /** Closest a summoned enemy may appear to the player, in px. */
+  clearOfPlayer: 170,
+  /** How far off the face toward the player they appear, at most. */
+  reach: 170,
+} as const;
 
 /**
  * TAPIOCA SHOWER. Columns of pearls poured down the shaft at the player.

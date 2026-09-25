@@ -1,5 +1,6 @@
 import Phaser from 'phaser';
 import { LEVEL_SELECT_DESTINATIONS, LEVEL_SELECT_GESTURE, type LevelDestination } from './data/levelSelect';
+import { approachExtra, BOSS_APPROACH } from './data/nimushi';
 import './style.css';
 import { GameScene, type GameBridge } from './scenes/GameScene';
 import { GameModel } from './systems/GameModel';
@@ -763,3 +764,12 @@ window.addEventListener('pageshow', () => { game.loop.wake(); });
 // The separate /tests/browser.html entry imports these for browser regression checks.
 // No test controls or fixtures are included by the production entry point.
 export { scene, bridge, start, pause };
+
+/**
+ * BOSS PARITY PASS, Human Review: `?approach=now|half|one` sets how far off NIMUSHI is found, so the
+ * three candidates can be compared on the published build. Absent, the chosen default holds.
+ */
+{
+  const choice = new URLSearchParams(location.search).get('approach');
+  if (choice !== null && choice in BOSS_APPROACH.options) approachExtra.views = BOSS_APPROACH.options[choice];
+}

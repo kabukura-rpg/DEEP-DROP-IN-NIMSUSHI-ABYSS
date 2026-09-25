@@ -2,7 +2,8 @@ import { WORLD } from '../data/balance';
 import { ABYSS, ABYSS_PHASES, abyssPhaseAt, type AbyssAttackId, type AbyssPhase } from '../data/abyss';
 import {
   FINAL_RAGE_RATIO, FULL_SCREEN_TAPIOCA, HIT_REACTION, TRANSITION_HAUL, NIMUSHI, NIMUSHI_ATTACKS, NIMUSHI_CLONES, NIMUSHI_DYING_RATIO,
-  NIMUSHI_LINES, STRAW_BEAM, TAPIOCA_CUP, TAPIOCA_SHOWER, type NimushiPose, type NimushiState, ATTACK_STATES } from '../data/nimushi';
+  NIMUSHI_LINES, STRAW_BEAM, TAPIOCA_CUP, TAPIOCA_SHOWER, type NimushiPose, type NimushiState, ATTACK_STATES,
+  BOSS_APPROACH, BOSS_SUMMON, TRIPLE_SHOT, approachExtra } from '../data/nimushi';
 
 /** One pearl in the air. Shower pearls, cup spit and FULL SCREEN waves are all just these. */
 export interface Tapioca { id: number; x: number; y: number; vx: number; vy: number; size: number; life: number; damage: number }
@@ -21,6 +22,7 @@ export type NimushiSignal =
   | { kind: 'prep'; attack: AbyssAttackId }
   | { kind: 'attack'; attack: AbyssAttackId }
   | { kind: 'clones'; count: number; y: number }
+  | { kind: 'summon'; count: number; y: number }
   | { kind: 'rage' }
   | { kind: 'line'; text: string }
   | { kind: 'started' }
@@ -52,6 +54,11 @@ export class NimushiBossSystem {
   /** Seconds of BOSS TIME: it starts at the first weak-point hit, not when the arena opens. */
   elapsed = 0;
   started = false;
+  /**
+   * Awake AND within the fight's own distance. The approach ends here: the camera frames NIMUSHI and
+   * the drop below the view becomes the arena's floor. Woken from further off, it closes in first.
+   */
+  engaged = false;
   defeated = false;
   raged = false;
   x = WORLD.width / 2;
@@ -98,6 +105,15 @@ export class NimushiBossSystem {
   private taunted = false;
   private nextId = 1;
   private pendingAttack: AbyssAttackId = 'tapiocaShower';
+  /** What is left of the current barrier's sequence: the three-way shot, then the summon. */
+  private queue: AbyssAttackId[] = [];
+  /** TRIPLE SHOT: volleys still to fire, and the seconds until the next one. */
+  private volleysLeft = 0;
+  private volleyTimer = 0;
+  /** Seconds since the barrier last changed, for the view's forming and bursting animation. */
+  barrierAge = 0;
+  /** Where the player was when the current telegraph was read -- what the lines point at. */
+  private aimAt = { x: WORLD.width / 2, y: 0 };
 
   get maxHp() { return NIMUSHI.maxHp; }
   get ratio() { return Math.max(0, Math.min(1, this.hp / NIMUSHI.maxHp)); }
@@ -134,10 +150,31 @@ export class NimushiBossSystem {
    */
   get eyeOpen() {
     if (!this.active) return false;
-    if (this.state === 'dormant' || this.state === 'eyeOpen') return true;
-    if (this.state === 'tapiocaShower' || this.state === 'nimushiClones') return true;
-    return this.state === 'strawBeam' && !this.beams.some(b => b.state === 'warning');
+    // BOSS PARITY PASS: the original's rule, exactly. Open means the weak point is exposed and
+    // nothing else; every attack now happens behind the barrier. (The comment above is the record of
+    // the rule this replaced, which kept the eye open through SHOWER, BEAM and CLONES.)
+    return this.state === 'dormant' || this.state === 'eyeOpen';
   }
+  /**
+   * THE TAPIOCA BARRIER is up: the fight has started and the weak point is not exposed. Every round
+   * that meets NIMUSHI now is stopped and credited nothing. Asleep, there is no barrier -- the first
+   * shot is what wakes it.
+   */
+  get barrier() { return this.active && this.started && this.state !== 'eyeOpen'; }
+  /**
+   * The three lines the next volley will follow, while one is being announced: the whole wind-up,
+   * and `TRIPLE_SHOT.tell` before each later volley. Null otherwise. Geometry, for the view.
+   */
+  get tripleTelegraph() {
+    const winding = this.state === 'attackPrep' && this.pendingAttack === 'tripleShot';
+    const between = this.state === 'tripleShot' && this.volleysLeft > 0 && this.volleyTimer <= TRIPLE_SHOT.tell;
+    if (!winding && !between) return null;
+    const origin = { x: this.x, y: this.face };
+    const aim = Math.atan2(this.aimAt.y - origin.y, this.aimAt.x - origin.x);
+    return { origin, angles: [aim - TRIPLE_SHOT.spread, aim, aim + TRIPLE_SHOT.spread] };
+  }
+  /** Where a summon is about to appear, while it is being announced. For the view. */
+  get summonTelegraph() { return this.state === 'attackPrep' && this.pendingAttack === 'enemySummon'; }
   /** What the view draws. Derived, so a sprite can never disagree with the machine. */
   get pose(): NimushiPose {
     if (this.defeated) return 'dead';
@@ -223,15 +260,17 @@ export class NimushiBossSystem {
   start(playerY: number, sign: 1 | -1) {
     this.enabled = true; this.sign = sign;
     this.hp = NIMUSHI.maxHp; this.state = 'dormant'; this.phaseId = 1; this.pushback = 0; this.recoil = 0;
-    this.elapsed = 0; this.started = false; this.defeated = false; this.raged = false; this.taunted = false;
-    this.x = WORLD.width / 2; this.y = playerY + NIMUSHI.restGap * sign;
+    this.elapsed = 0; this.started = false; this.engaged = false; this.defeated = false; this.raged = false; this.taunted = false;
+    // BOSS PARITY PASS: it opens further off than the fight is fought at, asleep -- see BOSS_APPROACH.
+    this.x = WORLD.width / 2; this.y = playerY + (NIMUSHI.restGap + approachExtra.views * WORLD.height) * sign;
+    this.queue = []; this.volleysLeft = 0; this.volleyTimer = 0; this.barrierAge = 0;
     this.tapiocas = []; this.cups = []; this.beams = [];
     this.mark = playerY; this.deepY = playerY - ABYSS.maxSlack * sign;
     this.timer = 0; this.defeatTimer = 0; this.windowDamage = 0; this.rotation = 0; this.beamsFired = 0;
     this.waveTimer = 0; this.rageTimer = 0; this.rageLane = 0; this.rageDir = 1;
   }
   reset() {
-    this.enabled = false; this.started = false; this.defeated = false; this.raged = false;
+    this.enabled = false; this.started = false; this.engaged = false; this.defeated = false; this.raged = false;
     this.state = 'dormant'; this.hp = NIMUSHI.maxHp; this.elapsed = 0; this.phaseId = 1; this.pushback = 0; this.recoil = 0;
     this.tapiocas = []; this.cups = []; this.beams = [];
     this.mark = 0; this.deepY = 0; this.windowDamage = 0; this.beamsFired = 0;
@@ -264,11 +303,7 @@ export class NimushiBossSystem {
   hitEye(amount: number): NimushiSignal[] {
     const signals: NimushiSignal[] = [];
     if (!this.eyeOpen || !Number.isFinite(amount) || amount <= 0) return signals;
-    if (!this.started) {
-      this.started = true; this.elapsed = 0;
-      this.state = 'eyeOpen'; this.timer = NIMUSHI.eyeWindow.timeout; this.windowDamage = 0;
-      signals.push({ kind: 'started' }, { kind: 'line', text: NIMUSHI_LINES.wake });
-    }
+    if (!this.started) this.wake(signals);
     this.hp = Math.max(0, this.hp - amount);
     this.windowDamage += amount;
     // The hit REACTION: the body is knocked back a few pixels and springs home. It is feedback, not
@@ -299,6 +334,15 @@ export class NimushiBossSystem {
     return signals;
   }
 
+  /**
+   * NIMUSHI wakes: by the first round that lands, or by the player coming within `triggerGap`.
+   * BOSS TIME starts here, and the fight opens on the weak point exposed -- the original's order.
+   */
+  private wake(signals: NimushiSignal[]) {
+    this.started = true; this.elapsed = 0;
+    this.state = 'eyeOpen'; this.timer = NIMUSHI.eyeWindow.timeout; this.windowDamage = 0; this.barrierAge = 0;
+    signals.push({ kind: 'started' }, { kind: 'line', text: NIMUSHI_LINES.wake }, { kind: 'eye', open: true });
+  }
   /** A round hit a cup. Cups are the one thing in the fight that is NOT the weak point rule. */
   hitCup(cup: TapiocaCup, amount: number) {
     cup.hp -= amount;
@@ -317,7 +361,12 @@ export class NimushiBossSystem {
       if (this.defeatTimer <= 0) { this.enabled = false; out.push({ kind: 'cleared' }); }
       return out;
     }
-    if (this.state === 'dormant') return out;
+    this.barrierAge += dt;
+    if (this.state === 'dormant') {
+      // Asleep: it climbs, and waits to be found. Coming within reach is one of the two ways in.
+      if (this.reach(player.y) <= BOSS_APPROACH.triggerGap) this.wake(out);
+      return out;
+    }
     this.elapsed += dt;
     this.pressure(dt, player);
     if (this.rageActive) this.pourRage(dt, random);
@@ -356,7 +405,11 @@ export class NimushiBossSystem {
     void cameraY;
     const haul = TRANSITION_HAUL.enabled && this.state === 'phaseTransition' ? NIMUSHI.transitionSpeed : 0;
     // Well under the arena's terminal speed, so the player always closes when they stop working.
-    this.y += (NIMUSHI.ascentSpeed + haul) * dt * this.sign;
+    // Woken from afar, it comes at the player until the fight's distance is reached; then it climbs.
+    const closing = this.started && !this.engaged && this.reach(player.y) > BOSS_APPROACH.triggerGap;
+    if (closing) this.y -= Math.min(BOSS_APPROACH.closeSpeed * dt, this.reach(player.y) - BOSS_APPROACH.triggerGap) * this.sign;
+    else this.y += (NIMUSHI.ascentSpeed + haul) * dt * this.sign;
+    if (this.started && !this.engaged && this.reach(player.y) <= BOSS_APPROACH.triggerGap + 0.5) this.engaged = true;
     // The hit recoil springs home. It moves the body, not the station, so nothing here is a rule
     // about where the player may be -- and NIMUSHI cannot be shot out of the frame.
     this.recoil = Math.max(0, this.recoil - (HIT_REACTION.recoil / HIT_REACTION.settle) * dt);
@@ -454,7 +507,7 @@ export class NimushiBossSystem {
         // The window shuts on whichever comes first: enough damage taken, or long enough open.
         if (this.windowDamage < NIMUSHI.eyeWindow.damage && this.timer > 0) return;
         if (this.enterPhaseTransition(out)) return;
-        this.state = 'eyeClosing'; this.timer = NIMUSHI.closing;
+        this.state = 'eyeClosing'; this.timer = NIMUSHI.closing; this.barrierAge = 0;
         out.push({ kind: 'eye', open: false });
         return;
       case 'eyeClosing':
@@ -463,10 +516,9 @@ export class NimushiBossSystem {
         // prototype runs the fight on gravity, stomps and the weak point alone, to find out whether
         // that is a game before anything is layered on top of it.
         if (!this.phase.attacks.length) { this.state = 'recovery'; this.timer = NIMUSHI.recovery; return; }
-        this.pendingAttack = this.nextAttack();
-        this.state = 'attackPrep'; this.timer = NIMUSHI_ATTACKS[this.pendingAttack].prep;
-        this.prepare(this.pendingAttack, player);
-        out.push({ kind: 'prep', attack: this.pendingAttack });
+        // The barrier's whole sequence, in the original's order: the three-way shot, then the summon.
+        this.queue = [...this.phase.attacks];
+        this.nextInQueue(player, out);
         return;
       case 'attackPrep':
         if (this.timer > 0) return;
@@ -478,7 +530,7 @@ export class NimushiBossSystem {
       case 'tapiocaShower':
         this.pourShower(dt, random);
         if (this.timer > 0) return;
-        this.state = 'recovery'; this.timer = NIMUSHI.recovery;
+        this.nextInQueue(player, out);
         return;
       case 'strawBeam':
         this.nextBeam(player);
@@ -491,12 +543,24 @@ export class NimushiBossSystem {
          * and with a timer alone the third beam burned on into `recovery`, where the eye is shut.
          */
         if (this.timer > 0 || this.beams.length) return;
-        this.state = 'recovery'; this.timer = NIMUSHI.recovery;
+        this.nextInQueue(player, out);
         return;
       case 'cupSummon':
       case 'nimushiClones':
         if (this.timer > 0) return;
-        this.state = 'recovery'; this.timer = NIMUSHI.recovery;
+        // Every attack hands on to the next in the barrier's sequence, and the sequence ends in recovery.
+        this.nextInQueue(player, out);
+        return;
+      case 'tripleShot':
+        this.volleyTimer -= dt;
+        if (this.volleysLeft > 0 && this.volleyTimer <= TRIPLE_SHOT.tell && this.volleyTimer + dt > TRIPLE_SHOT.tell) this.aimAt = { x: player.x, y: player.y };
+        if (this.volleysLeft > 0 && this.volleyTimer <= 0) this.fireVolley();
+        if (this.timer > 0 || this.volleysLeft > 0) return;
+        this.nextInQueue(player, out);
+        return;
+      case 'enemySummon':
+        if (this.timer > 0) return;
+        this.nextInQueue(player, out);
         return;
       case 'recovery':
         if (this.timer > 0) return;
@@ -506,6 +570,9 @@ export class NimushiBossSystem {
       case 'phaseTransition':
         if (this.timer > 0) return;
         if (!this.raged && this.ratio <= FINAL_RAGE_RATIO) { this.enterRage(out); return; }
+        // The transition happens with the barrier already up, so the new stretch opens on its own
+        // sequence -- its three-way shot and its own AREA's summon -- before the weak point returns.
+        if (this.phase.attacks.length) { this.queue = [...this.phase.attacks]; this.nextInQueue(player, out); return; }
         this.openEye(out);
         return;
       case 'finalRage':
@@ -530,7 +597,7 @@ export class NimushiBossSystem {
   private openEye(out: NimushiSignal[]) {
     if (!this.raged && this.ratio <= FINAL_RAGE_RATIO) { this.enterRage(out); return; }
     if (this.state !== 'finalRage') this.tapiocas = [];
-    this.state = 'eyeOpen'; this.timer = NIMUSHI.eyeWindow.timeout; this.windowDamage = 0;
+    this.state = 'eyeOpen'; this.timer = NIMUSHI.eyeWindow.timeout; this.windowDamage = 0; this.barrierAge = 0;
     out.push({ kind: 'eye', open: true });
   }
 
@@ -559,7 +626,7 @@ export class NimushiBossSystem {
      * LIMBO's shades never summoned once. Carrying the index turns the same fight into 3.4 / 3.1 /
      * 2.6 with two shades, and nothing else about any of them moves.
      */
-    this.state = 'phaseTransition'; this.timer = NIMUSHI.transition;
+    this.state = 'phaseTransition'; this.timer = NIMUSHI.transition; this.barrierAge = 0;
     // Everything the previous stretch had in the air goes with it, so the haul upward is clean.
     this.tapiocas = []; this.cups = []; this.beams = [];
     this.deepY = this.mark - ABYSS.maxSlack * this.sign;
@@ -580,8 +647,39 @@ export class NimushiBossSystem {
     return id;
   }
 
+  /**
+   * The next attack of the barrier's sequence, or -- once the sequence is spent -- the beat of
+   * recovery before the barrier drops.
+   */
+  private nextInQueue(player: { x: number; y: number }, out: NimushiSignal[]) {
+    const next = this.queue.shift();
+    if (!next) { this.state = 'recovery'; this.timer = NIMUSHI.recovery; return; }
+    this.pendingAttack = next;
+    this.state = 'attackPrep'; this.timer = NIMUSHI_ATTACKS[next].prep;
+    this.prepare(next, player);
+    out.push({ kind: 'prep', attack: next });
+  }
+  /** One volley of TRIPLE SHOT, along the three lines last announced. */
+  private fireVolley() {
+    const tell = this.tripleTelegraph ?? (() => {
+      const aim = Math.atan2(this.aimAt.y - this.face, this.aimAt.x - this.x);
+      return { origin: { x: this.x, y: this.face }, angles: [aim - TRIPLE_SHOT.spread, aim, aim + TRIPLE_SHOT.spread] };
+    })();
+    for (const angle of tell.angles) {
+      this.tapiocas.push({
+        id: this.nextId++, x: tell.origin.x, y: tell.origin.y,
+        vx: Math.cos(angle) * TRIPLE_SHOT.speed, vy: Math.sin(angle) * TRIPLE_SHOT.speed,
+        size: TRIPLE_SHOT.size, life: TRIPLE_SHOT.life, damage: TRIPLE_SHOT.damage,
+      });
+    }
+    this.volleysLeft--;
+    this.volleyTimer = TRIPLE_SHOT.interval;
+  }
+
   /** The wind-up. Only the beam has anything to show before it lands -- and it must. */
   private prepare(attack: AbyssAttackId, player: { x: number; y: number }) {
+    // TRIPLE SHOT locks its first aim at the start of the wind-up: the lines drawn are the lines used.
+    if (attack === 'tripleShot') { this.aimAt = { x: player.x, y: player.y }; return; }
     if (attack !== 'strawBeam') return;
     this.beamsFired = 0;
     this.raiseBeam(player);
@@ -623,6 +721,15 @@ export class NimushiBossSystem {
           hp: TAPIOCA_CUP.hp, state: 'falling', timer: 0, fired: 0, life: TAPIOCA_CUP.life, alive: true,
         });
       }
+    }
+    if (attack === 'tripleShot') {
+      this.volleysLeft = TRIPLE_SHOT.volleys;
+      this.volleyTimer = 0;
+      this.fireVolley();
+    }
+    if (attack === 'enemySummon') {
+      const count = BOSS_SUMMON.count[this.phaseId - 1] ?? 2;
+      out.push({ kind: 'summon', count, y: this.face - Math.min(BOSS_SUMMON.reach, Math.max(60, this.reach(player.y) * 0.45)) * this.sign });
     }
     if (attack === 'nimushiClones') {
       const span = NIMUSHI_CLONES.maxCount - NIMUSHI_CLONES.minCount;
