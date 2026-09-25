@@ -1,6 +1,7 @@
 import Phaser from 'phaser';
 import { LEVEL_SELECT_DESTINATIONS, LEVEL_SELECT_GESTURE, type LevelDestination } from './data/levelSelect';
 import { approachExtra, BOSS_APPROACH } from './data/nimushi';
+import { TITLE, buildIdentifier } from './ui/branding';
 import './style.css';
 import { GameScene, type GameBridge } from './scenes/GameScene';
 import { GameModel } from './systems/GameModel';
@@ -316,7 +317,7 @@ function showTitle() {
   $('practice-label').hidden = true;
   $('run-status').textContent = 'READY TO DESCEND';
   $('touch-controls').classList.remove('visible');
-  setOverlay(`<div class="title-content"><div class="pill"><span></span> 4 AREAS · 12 SECTIONS</div><div class="title-symbol">↓</div><h2>DEEP<br><span>DROP</span><i>01</i></h2><p>深く潜れ。弾が尽きる、その前に。</p><button id="start" class="primary-button">潜降開始 <span>↘</span></button><button id="practice" class="text-button">操作を試す <span>CONTROL LAB →</span></button><div class="title-hint desktop-hint">MOVE <b>← →</b><span>·</span> SHOOT <b>SPACE</b></div><div class="title-hint mobile-hint">左右をホールドで移動 · タップで射撃<br>FIREボタン長押しで連射</div></div><span class="overlay-bottom">6 BULLETS. ONE WAY DOWN.</span>`);
+  setOverlay(`<div class="title-content"><div class="pill"><span></span> 4 AREAS · 12 SECTIONS</div><div class="title-symbol">↓</div><h2>DEEP<br><span>DROP</span></h2><div class="title-sub">${TITLE.sub}</div><p>深く潜れ。弾が尽きる、その前に。</p><button id="start" class="primary-button">潜降開始 <span>↘</span></button><button id="practice" class="text-button">操作を試す <span>CONTROL LAB →</span></button><div class="title-hint desktop-hint">MOVE <b>← →</b><span>·</span> SHOOT <b>SPACE</b></div><div class="title-hint mobile-hint">左右をホールドで移動 · タップで射撃<br>FIREボタン長押しで連射</div></div><span class="overlay-bottom">6 BULLETS. ONE WAY DOWN.</span><span class="build-tag" id="build-tag">${buildIdentifier()}</span>`);
   $('start').onclick = () => start(); $('practice').onclick = () => start(true);
   // TEST LEVEL SELECT: hidden from the ordinary title. Tap the arrow above the logo five times, or
   // open the page with `?levels`, and a LEVEL SELECT button appears under CONTROL LAB. Works the

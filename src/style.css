@@ -203,3 +203,6 @@
 }
 /* TEST LEVEL SELECT: four columns of SECTIONs, BOSS across the bottom. Big enough for a thumb. */
 .level-select h2{margin-bottom:16px}.level-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:8px}.level-button{min-height:44px;background:#17231d;border:1px solid #4a5945;color:#dfe9d2;font-size:14px;letter-spacing:1px}.level-button:hover,.level-button:focus-visible{border-color:var(--lime);color:var(--lime)}.level-button.boss{grid-column:1/-1;border-color:#8a4a5a;color:#f8a0b4}
+/* EXTERNAL TEST BUILD: the subtitle under DEEP DROP, and the build tag -- small, in the corner, title screen only. */
+.title-sub{font-family:'Barlow Condensed','Arial Narrow',Impact,sans-serif;font-weight:800;font-size:26px;letter-spacing:6px;color:#e8c98a;margin-top:12px;line-height:1}.build-tag{position:absolute;top:10px;right:12px;font-size:8px;letter-spacing:1px;color:#6f8179;opacity:.85;pointer-events:none}
+@media(max-width:650px){.title-sub{font-size:20px;letter-spacing:5px;margin-top:9px}}
