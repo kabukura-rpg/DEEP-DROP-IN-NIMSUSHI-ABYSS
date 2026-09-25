@@ -750,6 +750,22 @@ fireButton.addEventListener('pointercancel', releaseFire);
 fireButton.addEventListener('lostpointercapture', releaseFire);
 
 /**
+ * iOS SAFARI'S DOUBLE-TAP ZOOM. The CSS above takes the gesture away everywhere a browser honours
+ * touch-action; iOS Safari still reads two quick taps on a button as a zoom, and hammering LEFT or
+ * RIGHT is exactly that. So on the two pads only -- whose buttons are driven by pointer events alone
+ * and have no click to lose -- the touch's own default is cancelled. Non-passive, or the call is
+ * ignored. Pointer events are dispatched ahead of and independently of touch events, so each
+ * finger's pointerdown / pointermove / pointerup / pointercancel still arrives with its pointerId:
+ * held state, LEFT+FIRE together and the slide between LEFT and RIGHT are untouched. PAUSE and the
+ * overlays are not listed: they act on click, which this would cancel.
+ */
+const holdGesture = (e: TouchEvent) => { if (e.cancelable) e.preventDefault(); };
+for (const pad of [movePad, $('fire-pad')]) {
+  pad.addEventListener('touchstart', holdGesture, { passive: false });
+  pad.addEventListener('touchend', holdGesture, { passive: false });
+}
+
+/**
  * The playfield itself is no longer a control on touch. A MOUSE click still fires, because that is
  * how the desktop build has always worked and nothing about a mouse was the problem.
  */
