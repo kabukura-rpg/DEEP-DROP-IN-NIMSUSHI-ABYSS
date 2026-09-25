@@ -1,3 +1,6 @@
+import { BALANCE } from '../data/balance';
+import { BOSS_PHYSICS } from '../data/bossPhysics';
+
 /** Candidate artwork selector: observes the simulation, never changes it. */
 export const PLAYER_ANIMATIONS = {
   idle: [2, 6, true], damage: [2, 12, false], death: [4, 8, false],
@@ -7,6 +10,8 @@ export const PLAYER_ANIMATIONS = {
   boss_ascend: [3, 6, true], boss_brake: [2, 16, true], boss_hover: [2, 16, true], boss_damage: [2, 12, false],
   // PLAYER BOSS CONTACT REBOUND v1 (ART LOCKED): one still frame, held for BOSS_CONTACT_REBOUND_SECONDS.
   boss_contact_rebound: [1, 1, false],
+  // PLAYER BOSS ENEMY STOMP REBOUND v1: one still frame, held for BOSS_ENEMY_STOMP_REBOUND_SECONDS.
+  boss_enemy_stomp_rebound: [1, 1, false],
 } as const;
 /**
  * How long the rebound frame shows after a SURVIVED body contact with NIMUSHI: the length of the
@@ -15,6 +20,14 @@ export const PLAYER_ANIMATIONS = {
  * movement it depicts, and hands back to the ordinary poses as the player turns round.
  */
 export const BOSS_CONTACT_REBOUND_SECONDS = 0.23;
+/**
+ * How long the stomp frame shows after a stomp kill in the boss arena: the length of the throw it
+ * depicts. A stomp sets the player off at the run's bounce (`stats.bounce`, BALANCE.bounce = 210px/s
+ * -- no upgrade changes it) against the arena's pull (BOSS_PHYSICS.gravity = 900px/s^2), so the throw
+ * is spent in 210/900 = 0.23s. At that moment the player turns round and the ordinary boss poses,
+ * which read the velocity, are right again -- the frame never outlives the movement.
+ */
+export const BOSS_ENEMY_STOMP_REBOUND_SECONDS = BALANCE.bounce / BOSS_PHYSICS.gravity;
 export type PlayerAnimation = keyof typeof PLAYER_ANIMATIONS;
 export interface AnimationInput {
   readonly elapsed: number; readonly hp: number; readonly state: string;
@@ -27,10 +40,13 @@ export class PlayerAnimationState {
   private land = -Infinity;
   private wall = -Infinity;
   private rebound = -Infinity;
-  reset() { this.shot = this.hurt = this.land = this.wall = this.rebound = -Infinity; }
+  private stomp = -Infinity;
+  reset() { this.shot = this.hurt = this.land = this.wall = this.rebound = this.stomp = -Infinity; }
   event(e: {readonly type: string; readonly stomp?: boolean; readonly cause?: string}, m: AnimationInput) {
     // Only a SURVIVED body contact with NIMUSHI: a killing blow is a death, and a stomp is not a hurt.
     if (e.type === 'hurt' && e.cause === 'bossContact' && m.hp > 0) this.rebound = m.elapsed;
+    // Only a stomp KILL in the boss arena: the shaft's stomps keep their own poses.
+    if (e.type === 'kill' && e.stomp && m.inBossArena) this.stomp = m.elapsed;
     if (e.type === 'shot' && m.player.grounded === -1 && (!m.inBossArena || m.player.vy <= 0)) this.shot = m.elapsed;
     if (e.type === 'hurt') this.hurt = m.elapsed;
     if (e.type === 'land') this.land = m.elapsed;
@@ -40,6 +56,8 @@ export class PlayerAnimationState {
   pose(m: AnimationInput): PlayerAnimation | null {
     if (m.hp <= 0 && m.state === 'over') return 'death';
     if (!['playing','boss'].includes(m.state)) return null;
+    // The two rebound frames: whichever happened last, while its throw lasts.
+    if (m.hp > 0 && m.inBossArena && this.stomp >= this.rebound && m.elapsed-this.stomp < BOSS_ENEMY_STOMP_REBOUND_SECONDS) return 'boss_enemy_stomp_rebound';
     if (m.hp > 0 && m.elapsed-this.rebound < BOSS_CONTACT_REBOUND_SECONDS) return 'boss_contact_rebound';
     if (m.elapsed-this.hurt < 2/12) return m.inBossArena ? 'boss_damage' : 'damage';
     if (m.player.grounded !== -1) return m.elapsed-this.land < 2/12 ? 'landing' : Math.abs(m.player.vx)>5 ? 'run' : 'idle';

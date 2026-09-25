@@ -23,8 +23,8 @@ describe('PLAYER ART v1 in the shipped game', () => {
       expect(typeof url).toBe('string');
       expect(url.length).toBeGreaterThan(0);
     }
-    // The three approved v1 sheets, plus the locked contact-rebound frame as a one-cell sheet of its own.
-    expect(Object.keys(PLAYER_ART_ASSETS.sheets).sort()).toEqual(['boss', 'contact', 'normal', 'shared']);
+    // The three approved v1 sheets, plus the contact- and stomp-rebound frames as one-cell sheets of their own.
+    expect(Object.keys(PLAYER_ART_ASSETS.sheets).sort()).toEqual(['boss', 'contact', 'normal', 'shared', 'stomp']);
   });
 
   it('has a frame, on a shipped sheet, for every frame of every animation the game asks for', () => {

@@ -602,6 +602,16 @@
       "group": "contact",
       "sheet": "../player-boss-contact-rebound-v1/boss_contact_rebound_00.png",
       "index": 0
+    },
+    "boss_enemy_stomp_rebound_00": {
+      "file": "../player-boss-enemy-stomp-rebound-v1/boss_enemy_stomp_rebound_00.png",
+      "anchor": {
+        "x": 24,
+        "y": 23
+      },
+      "group": "stomp",
+      "sheet": "../player-boss-enemy-stomp-rebound-v1/boss_enemy_stomp_rebound_00.png",
+      "index": 0
     }
   },
   "animations": {
@@ -733,6 +743,13 @@
     "boss_contact_rebound": {
       "frames": [
         "boss_contact_rebound_00"
+      ],
+      "fps": 1,
+      "loop": false
+    },
+    "boss_enemy_stomp_rebound": {
+      "frames": [
+        "boss_enemy_stomp_rebound_00"
       ],
       "fps": 1,
       "loop": false
