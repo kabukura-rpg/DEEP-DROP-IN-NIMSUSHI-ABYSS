@@ -188,12 +188,13 @@ describe('AREA 1 side rooms', () => {
     expect(v1.withShop).toBeLessThan(0.8);
   });
 
-  // AREA 2-4 keep the rectangular chamber but cut TWO a SECTION: across three Downwell normal runs
-  // players entered 1.0-2.33 rooms a level in AREA 2, 1.0-1.67 in AREA 3 and 1.3-3.7 in AREA 4, with
-  // levels of two entered in each, so one chamber could not hold what was observed.
-  it('cuts two chambers in every AREA 2, 3 and 4 SECTION, in either mode', () => {
+  // AREA 2-4 cut TWO side rooms a SECTION (518af88: across three Downwell normal runs players entered
+  // 1.0-2.33 rooms a level in AREA 2, 1.0-1.67 in AREA 3 and 1.3-3.7 in AREA 4). Since POST-CLONE
+  // CUSTOM PASS 1 they are the same wall caves AREA 1 has; the dev `legacy` switch still puts the
+  // two rectangular chambers back, so the count holds on both sides of it.
+  it('cuts two side rooms in every AREA 2, 3 and 4 SECTION, in either mode', () => {
     for (const area of AREAS.filter(a => a.id !== 1)) {
-      expect(area.plans?.every(p => p.sideRooms === undefined)).toBe(true);
+      expect(area.plans?.every(p => p.sideRooms === 2)).toBe(true);
       for (const mode of ['v1', 'legacy'] as const) {
         setSideRoomMode(mode);
         for (const plan of area.plans!) expect(sideRoomCount(plan)).toBe(2);

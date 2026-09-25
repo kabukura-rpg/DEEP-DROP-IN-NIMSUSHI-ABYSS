@@ -201,3 +201,5 @@
   }
   .rest-overlay .primary-button { flex: 0 0 auto; }
 }
+/* TEST LEVEL SELECT: four columns of SECTIONs, BOSS across the bottom. Big enough for a thumb. */
+.level-select h2{margin-bottom:16px}.level-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:8px}.level-button{min-height:44px;background:#17231d;border:1px solid #4a5945;color:#dfe9d2;font-size:14px;letter-spacing:1px}.level-button:hover,.level-button:focus-visible{border-color:var(--lime);color:var(--lime)}.level-button.boss{grid-column:1/-1;border-color:#8a4a5a;color:#f8a0b4}

@@ -214,6 +214,50 @@ export const SPIKE_PLATFORM_RULES = {
   reach: 16,
 } as const;
 
+/**
+ * CATACOMB CONVEYOR (POST-CLONE CUSTOM PASS 1). A belt on a spike floor that runs toward the NEARER
+ * wall: a ledge left of centre carries the player left, one right of centre carries them right. It
+ * pushes, it never throws -- the player's own walk (moveSpeed) is always well above it -- and it stops
+ * short of the belt's wall-side end, so the belt alone never carries anyone off a ledge.
+ */
+export const CONVEYOR_RULES = {
+  /** How far inside the belt's wall-side end the push stops, measured to the player's centre. */
+  edgeStop: 10,
+  /** Half the player's body: an edge is left once the centre is this far past it. */
+  halfBody: 9,
+  /** The narrowest gap beside a wall a player can drop through. Narrower, and that end is closed. */
+  dropGap: 26,
+  /** Seconds to see the warning and start moving, on top of the walk. As the fixed spike rule. */
+  react: 0.15,
+} as const;
+export interface Conveyor { dir: -1 | 1; speed: number }
+
+/** The belt direction for a ledge: toward whichever wall is nearer its middle. */
+export const conveyorDirFor = (x: number, width: number, shaftLeft: number, shaftRight: number): -1 | 1 =>
+  x + width / 2 < (shaftLeft + shaftRight) / 2 ? -1 : 1;
+
+/**
+ * The longest a player landing ANYWHERE on this belt needs to get clear of it, reacting at once.
+ *
+ * Each open end is a way off: walking with the belt is faster (moveSpeed + speed), against it slower
+ * (moveSpeed - speed). An end against a wall, or beside a gap too narrow to drop through, is not a
+ * way off at all. From every landing point the faster open way is taken; the answer is the worst of
+ * those, plus the reaction time. Infinity when no end is open or the belt outruns the walk.
+ */
+export function conveyorEscapeTime(x: number, width: number, belt: Conveyor, shaftLeft: number, shaftRight: number, moveSpeed: number) {
+  if (belt.speed >= moveSpeed) return Infinity;
+  const leftOpen = x - shaftLeft >= CONVEYOR_RULES.dropGap, rightOpen = shaftRight - (x + width) >= CONVEYOR_RULES.dropGap;
+  const speedLeft = moveSpeed + (belt.dir === -1 ? belt.speed : -belt.speed);
+  const speedRight = moveSpeed + (belt.dir === 1 ? belt.speed : -belt.speed);
+  let worst = 0;
+  for (let d = 0; d <= width; d += 2) {
+    const toLeft = leftOpen ? (d + CONVEYOR_RULES.halfBody) / speedLeft : Infinity;
+    const toRight = rightOpen ? (width - d + CONVEYOR_RULES.halfBody) / speedRight : Infinity;
+    worst = Math.max(worst, Math.min(toLeft, toRight));
+  }
+  return worst + CONVEYOR_RULES.react;
+}
+
 /** A fresh, unarmed spike platform. */
 export const spikePlatform = (warning?: number): SpikePlatform =>
   warning === undefined ? { state: 'safe', timer: 0 } : { state: 'safe', timer: 0, warning };

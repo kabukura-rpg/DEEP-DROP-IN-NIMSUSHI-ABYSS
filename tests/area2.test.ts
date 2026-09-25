@@ -31,7 +31,7 @@ function section(sectionId: SectionId, seed: number) {
   const generator = new StageGenerator(seeded(seed), {
     plan: plan(sectionId), enemyPool: area2.enemyPool, sectionLength: area2.sectionLength,
   });
-  const platforms: RoutePlatform[] = [], hazards: Hazard[] = [], zones: SafeZone[] = [];
+  const platforms: RoutePlatform[] = [], hazards: Hazard[] = [], zones: { x: number; y: number; width: number; height: number }[] = [];
   const doodads: { x: number; y: number; width: number; height: number }[] = [];
   const containers: { x: number; y: number }[] = [];
   const enemies: { kind: EnemyKind; y: number }[] = [];
@@ -39,7 +39,8 @@ function section(sectionId: SectionId, seed: number) {
   for (let chunk = 0; chunk < CHUNKS; chunk++) {
     const built = generator.chunk(chunk);
     platforms.push(...built.platforms.filter(p => p.y <= WORLD.startY + SECTION_PIXELS));
-    hazards.push(...built.hazards); zones.push(...built.safeZones);
+    // A side room is a SIDE CAVE now, as in AREA 1: what it occupies is the cave's own bounds.
+    hazards.push(...built.hazards); zones.push(...built.safeZones, ...built.caves.map(c => c.bounds));
     doodads.push(...built.doodads); containers.push(...built.containers);
     enemies.push(...built.enemies);
     if (built.exit) exit = built.exit;
@@ -51,7 +52,7 @@ function bare(sectionId: SectionId = 1, seed = 21) {
   const game = new GameModel(false, seeded(seed));
   game.jumpToStage(2, sectionId);
   game.platforms = []; game.enemies = []; game.pickups = []; game.hazards = [];
-  game.doodads = []; game.safeZones = []; game.containers = [];
+  game.doodads = []; game.safeZones = []; game.caves = []; game.containers = [];
   game.player.invincible = 0;
   return game;
 }
@@ -418,12 +419,12 @@ describe('AREA 2 generation carries the CATACOMBS role', () => {
     }
   });
 
-  it('guarantees a SAFE ZONE and leaves the route intact', () => {
+  it('guarantees a side room and leaves the route intact', () => {
     for (const sectionId of SECTIONS) {
       for (let seed = 1; seed <= SEEDS; seed++) {
         const shaft = section(sectionId, seed * 613);
         expect({ sectionId, seed, zones: shaft.zones.length >= 1 }).toEqual({ sectionId, seed, zones: true });
-        // A chamber floor is its own slab against a wall, never a step on the fall route.
+        // A side room's floor is its own slab in the wall, never a step on the fall route.
         //
         // The route is a chain of BANDS, not a list of platforms: a CATACOMB SLOT lays two shelves at
         // one height, and measuring the "fall" between them asks what zero pixels of drop can steer.

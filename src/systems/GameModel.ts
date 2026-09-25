@@ -9,7 +9,7 @@ import { CoinSystem } from './CoinSystem';
 import { CoinHighSystem } from './CoinHighSystem';
 import { ShopSystem } from './ShopSystem';
 import { coinsFor, type Coin } from '../data/coins';
-import { AIR_CONTAINER_RULES, BREAK_BLOCK_RULES, EXIT_RULES, LIMBO_HAZARD_RULES, PLATFORM_THICKNESS, SHOP_DOOR, SPIKE_PLATFORM_RULES, breakBlockWidth, spikePlatform, type AirBubble, type AirContainer, type StageExit } from '../data/structures';
+import { AIR_CONTAINER_RULES, BREAK_BLOCK_RULES, CONVEYOR_RULES, EXIT_RULES, LIMBO_HAZARD_RULES, PLATFORM_THICKNESS, SHOP_DOOR, SPIKE_PLATFORM_RULES, breakBlockWidth, spikePlatform, type AirBubble, type AirContainer, type StageExit } from '../data/structures';
 import { DOODAD_RULES, spawnDoodad, type Doodad } from '../data/doodads';
 import { CORPSE_RULES, spawnCorpse, type Corpse } from '../data/corpses';
 import { insideSafeZone, SAFE_ZONE_RULES, type SafeZone } from '../data/safeZone';
@@ -24,6 +24,7 @@ import { hazardBounds, hazardType, ventStateAt, type Hazard } from '../data/haza
 import { pickupType, spawnGunModule, spawnPickup, type Pickup } from '../data/pickups';
 import { HealthSystem, type DamageCause } from './HealthSystem';
 import { comboTierFor } from '../data/combo';
+import { parseDestination } from '../data/levelSelect';
 import { UPGRADE_TUNING, type UpgradeId } from '../data/upgrades';
 import { UpgradeSystem } from './UpgradeSystem';
 import { StageProgressionSystem } from './StageProgressionSystem';
@@ -545,7 +546,7 @@ export class GameModel {
     if (this.wallJumpUsed !== 0 && this.wallSide === -this.wallJumpUsed) this.wallJumpUsed = 0;
     if (!water) {
       p.vx = 0;
-      p.x = Math.max(this.leftEdge, Math.min(this.rightEdge, p.x + (input * this.physics.moveSpeed + this.wallKick) * dt));
+      p.x = Math.max(this.leftEdge, Math.min(this.rightEdge, p.x + (input * this.physics.moveSpeed + this.wallKick) * dt + this.beltPush(dt)));
       this.decayWallKick(dt);
       this.noteWallTouch();
       return;
@@ -557,6 +558,23 @@ export class GameModel {
     p.x = next;
     this.decayWallKick(dt);
     this.noteWallTouch();
+  }
+  /**
+   * CATACOMB CONVEYOR: how far the belt under a standing player carries them this frame.
+   *
+   * It stops CONVEYOR_RULES.edgeStop short of the belt's wall-side end, so standing still on a belt
+   * ends at the end of it, never off it -- going over the edge is always the player's own step.
+   * Nothing but a belt the player is standing on moves anyone.
+   */
+  private beltPush(dt: number) {
+    const p = this.player;
+    if (p.grounded === -1) return 0;
+    const floor = this.platforms.find(f => f.id === p.grounded);
+    const belt = floor?.conveyor;
+    if (!floor || !belt) return 0;
+    const step = belt.dir * belt.speed * dt;
+    if (belt.dir === -1) return Math.min(0, Math.max(step, floor.x + CONVEYOR_RULES.edgeStop - p.x));
+    return Math.max(0, Math.min(step, floor.x + floor.width - CONVEYOR_RULES.edgeStop - p.x));
   }
   /** The shove fades over WALL_JUMP.kickTime and is then exactly zero again. */
   private decayWallKick(dt: number) {
@@ -1441,6 +1459,13 @@ export class GameModel {
   private tickLethalTerrain() {
     const p = this.player;
     for (const hazard of this.hazards) {
+      const hurts = hazardType(hazard.kind).damage;
+      if (hurts && !hazard.lethal) {
+        // Ordinary damage, through HealthSystem: invulnerability applies, one touch is one heart.
+        const box = hazardBounds(hazard);
+        if (p.invincible <= 0 && p.x + 9 > box.x && p.x - 9 < box.x + box.width && p.y + 15 > box.y && p.y - 15 < box.y + box.height) this.damage(hurts, hazardType(hazard.kind).damageCause);
+        continue;
+      }
       if (!hazard.lethal) continue;
       const box = hazardBounds(hazard);
       if (p.x + 9 > box.x && p.x - 9 < box.x + box.width && p.y + 15 > box.y && p.y - 15 < box.y + box.height) {
@@ -2218,6 +2243,25 @@ export class GameModel {
     this.completedDepth = this.stage.plannedDepthBefore();
     this.paused = false;
     this.startAbyss();
+    return true;
+  }
+  /**
+   * TEST LEVEL SELECT: move a freshly started run to a SECTION, or to the ABYSS before the boss.
+   *
+   * Anything not on the list is refused and the run is left exactly where it was. The jump itself
+   * rebuilds the world, camera and SECTION state; on top of that, whatever a chain, a hit or a
+   * held input could leave behind is cleared here, so a warp lands in the same state a player
+   * arriving there fresh would.
+   */
+  warpTo(destination: unknown) {
+    const target = parseDestination(destination);
+    if (!target || this.practice) return false;
+    const ok = target === 'boss' ? this.jumpToBoss() : this.jumpToStage(target.area, target.section);
+    if (!ok) return false;
+    this.combo = 0;
+    this.player.invincible = 0; this.player.vx = 0; this.player.vy = 0;
+    this.timeoutBubbles = []; this.timeVoidOn = false;
+    this.cameraX = 0;
     return true;
   }
   /**

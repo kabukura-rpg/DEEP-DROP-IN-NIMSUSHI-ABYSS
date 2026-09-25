@@ -2,8 +2,20 @@ import { WORLD, BALANCE } from '../data/balance';
 import { difficultyAt, fallTime, horizontalReach } from '../data/difficulty';
 import { ENEMY_TYPES, enemyType, motionEnvelope, spawnEnemy, type Enemy, type EnemyKind } from '../data/enemies';
 import { spawnPickup, type Pickup, type PickupKind } from '../data/pickups';
-import { AIR_CONTAINER_RULES, BREAK_BLOCK_RULES, breakBlockWidth, EXIT_RULES, spikePlatform, type AirContainer, type SpikePlatform, type StageExit } from '../data/structures';
+import { AIR_CONTAINER_RULES, BREAK_BLOCK_RULES, breakBlockWidth, conveyorDirFor, conveyorEscapeTime, EXIT_RULES, SPIKE_PLATFORM_RULES, spikePlatform, type AirContainer, type Conveyor, type SpikePlatform, type StageExit } from '../data/structures';
 import { spawnHazard, type Hazard, type SpikeKind } from '../data/hazards';
+
+/** SUNKEN RUINS' barbed reef, in px. See StageGenerator.placeReef for what each one protects. */
+export const REEF_RULES = {
+  /** Kept clear of the guaranteed fall line on each side, for the whole band. */
+  corridor: 34,
+  /** How far wall barbs reach into the shaft, and how tall a run of them is. */
+  wallReach: 18, wallMin: 60, wallMax: 130,
+  /** A shelf-end patch: its width range, height, and the clearance kept from landing and way off. */
+  ledgeMin: 26, ledgeMax: 44, ledgeHeight: 12, ledgeClear: 62,
+  /** Water kept between barbs and an AIR CONTAINER, and how far above and below it they run. */
+  airGap: 30, airSpan: 36,
+} as const;
 import { spawnDoodad, doodadBounceZone, DOODAD_RULES, type Doodad } from '../data/doodads';
 import { getSideRoomMode, rollSafeZoneContent, safeZoneDepths, safeZoneRowClearance, sideRoomCount, SAFE_ZONE_RULES, type SafeZone } from '../data/safeZone';
 import { CAVE_RULES, caveShape, placeCave, type CaveArchetype, type SideCave } from '../data/sideCave';
@@ -58,6 +70,8 @@ export interface Platform {
    * reloads and never settles a chain -- it is passed through, at the cost of a heart.
    */
   limboHazard?: boolean;
+  /** CATACOMBS: a belt on this spike floor, running toward the nearer wall. See CONVEYOR_RULES. */
+  conveyor?: Conveyor;
   /**
    * The SAFE ZONE this slab is the floor of. Landing on it reloads but does NOT settle the chain,
    * which is the one thing that makes a chamber shelter rather than ground.
@@ -521,6 +535,24 @@ export class StageGenerator {
     return spikePlatform(reaction === undefined ? undefined : (p.width + 18) / BALANCE.moveSpeed + reaction);
   }
 
+  /**
+   * CATACOMB CONVEYOR: maybe lay a belt on this spike floor, toward the nearer wall.
+   *
+   * Only where the floor's OWN warning -- the one it already has, unchanged -- still covers getting
+   * off it from any landing point with the belt running. A belt never lengthens a warning; a ledge
+   * the belt would make too slow to leave simply gets no belt. Drawn only in a SECTION that asks for
+   * belts, so every other SECTION's stream is untouched.
+   */
+  private beltFor(p: RoutePlatform) {
+    const plan = this.context.plan;
+    if (!plan?.conveyorChance || !plan.conveyorSpeed || !p.spikePlatform || p.breakBlock) return;
+    if (this.random() >= plan.conveyorChance) return;
+    const left = WORLD.wall, right = WORLD.width - WORLD.wall;
+    const belt: Conveyor = { dir: conveyorDirFor(p.x, p.width, left, right), speed: plan.conveyorSpeed };
+    const warning = p.spikePlatform.warning ?? SPIKE_PLATFORM_RULES.warning;
+    if (conveyorEscapeTime(p.x, p.width, belt, left, right, BALANCE.moveSpeed) <= warning) p.conveyor = belt;
+  }
+
   private pick<T>(items: readonly T[]) { return items[Math.min(items.length - 1, Math.floor(this.random() * items.length))]; }
   /** Draw inside a tier by spawnWeight, so a rewarding enemy can stay uncommon without a special case. */
   private weighted(kinds: readonly EnemyKind[]): EnemyKind {
@@ -710,11 +742,12 @@ export class StageGenerator {
       // A row's own `spikeChance` overrides the SECTION's; rows that state none use the SECTION's. On a
       // SLOT it applies to both shelves -- the other one is rolled just below.
       else if (this.random() < (intent?.spikeChance ?? tuning.spikePlatformChance)) platform.spikePlatform = this.spikeFor(platform);
+      this.beltFor(platform);
       if (y >= start) platforms.push(platform);
       // More than one ledge in this band, when the piece asked for it. Laid before the chamber and
       // the doodad are placed, so both see them and keep clear the way they keep clear of any ledge.
       const extras = shaped ? shaped.others : intent ? this.layExtras(intent, platform, y, tuning) : [];
-      if (shaped && intent?.slot) for (const other of extras) if (this.random() < (intent.spikeChance ?? tuning.spikePlatformChance)) other.spikePlatform = this.spikeFor(other);
+      if (shaped && intent?.slot) for (const other of extras) if (this.random() < (intent.spikeChance ?? tuning.spikePlatformChance)) { other.spikePlatform = this.spikeFor(other); this.beltFor(other); }
       // COLLAPSED REALM: some of a band's extra ledges are barbs. Only debris clear of BOTH ends of the
       // route may be: the way in -- every line from the band above's exits to this landing, which a
       // fall at full speed finishes only as it arrives -- and the way off, which starts beside it.
@@ -810,9 +843,12 @@ export class StageGenerator {
         if (y >= start) enemies.push(ghost);
       }
 
+      const airBefore = containers.length;
       if (this.context.oxygen) this.placeAir(tuning, platform, y, start, containers, enemies, plannedStep!);
       if (this.context.heat) this.placeHeat(tuning, platform, y, width, start, pickups, hazards, enemies);
       this.placeSpikes(tuning, platform, y, width, start, hazards, enemies, containers);
+      // Not on a row a side room is due on: the reef must never be what keeps a room from being cut.
+      if (this.context.plan?.reef && !chamberDue && localDepth >= (this.context.plan.graceDepth ?? 0)) this.placeReef(this.context.plan.reef, platform, y, start, hazards, enemies, containers.slice(airBefore));
       this.placeDoodad(tuning, platform, y, start, doodads, hazards, enemies);
       const laneBand = this.context.plan?.laneDoodadBand;
       if (laneBand !== undefined && y - this.previous.y >= laneBand) this.placeLaneDoodad(platform, y, start, doodads, hazards, enemies);
@@ -1142,6 +1178,67 @@ export class StageGenerator {
       exitX: side === -1 ? x + width + 12 : x - 12,
       breakable: false, state: 'stable', safeZone: zone.id,
     });
+  }
+  /**
+   * SUNKEN RUINS' BARBED REEF. Every piece of it is one heart a touch and every rule here is about
+   * keeping that a ROUTE problem rather than a trap:
+   *
+   *   - THE FALL CORRIDOR IS NEVER TOUCHED. Between the band above's ways off and this row's landing
+   *     spot is the line the generator guarantees a fall can take; barbs keep 34px clear of all of
+   *     it, horizontally, for the whole band. The route that exists without barbs exists with them.
+   *   - A LEDGE-END patch sits only on the end of the shelf that is neither the landing spot nor the
+   *     way off, 62px clear of both, and never under an enemy's patrol.
+   *   - AIR is reached from the open side. Barbs by a container go only on the WALL BEHIND it, with at
+   *     least 30px of water between them and the container, and never between it and the shaft.
+   *
+   * Laid before doodads and side rooms, so both keep clear of the reef the way they keep clear of any
+   * hazard. Only a SECTION with a `reef` draws for it, so every other SECTION's stream is untouched.
+   */
+  private placeReef(reef: { wall: number; ledgeEnd: number; air: number }, platform: RoutePlatform, y: number, start: number, hazards: Hazard[], enemies: Enemy[], air: AirContainer[]) {
+    const left = WORLD.wall, right = WORLD.width - WORLD.wall;
+    const bandTop = this.previous.y + 30, bandBottom = y - 34;
+    const exits = [...this.previousBand.map(p => p.exitX), platform.safeX];
+    const corridor = { lo: Math.min(...exits) - REEF_RULES.corridor, hi: Math.max(...exits) + REEF_RULES.corridor };
+    const clearOfCorridor = (x: number, w: number) => x + w <= corridor.lo || x >= corridor.hi;
+    const clearOfAir = (x: number, w: number, top: number, h: number) => air.every(c =>
+      x + w + REEF_RULES.airGap <= c.x || x >= c.x + c.width + REEF_RULES.airGap || top + h + REEF_RULES.airGap <= c.y || top >= c.y + c.height + REEF_RULES.airGap);
+    const push = (x: number, top: number, w: number, h: number, face: Hazard['face']) => { if (top >= start) hazards.push(spawnHazard('reefBarb', this.id++, Math.round(x), Math.round(top), Math.round(w), Math.round(h), 0, face)); };
+
+    // 1. A wall that bites: barbs across part of the band on one wall.
+    if (bandBottom - bandTop >= REEF_RULES.wallMin + 20 && this.random() < reef.wall) {
+      const h = Math.min(bandBottom - bandTop - 20, REEF_RULES.wallMin + this.random() * (REEF_RULES.wallMax - REEF_RULES.wallMin));
+      const top = bandTop + 10 + this.random() * (bandBottom - bandTop - 20 - h);
+      const first: -1 | 1 = this.random() < 0.5 ? -1 : 1;
+      for (const side of [first, -first as -1 | 1]) {
+        const x = side === -1 ? left : right - REEF_RULES.wallReach;
+        if (!clearOfCorridor(x, REEF_RULES.wallReach) || !clearOfAir(x, REEF_RULES.wallReach, top, h)) continue;
+        push(x, top, REEF_RULES.wallReach, h, side === -1 ? 'right' : 'left');
+        break;
+      }
+    }
+
+    // 2. The end of a shelf nobody has to use.
+    if (!platform.breakBlock && platform.safeZone === undefined && this.random() < reef.ledgeEnd) {
+      const w = REEF_RULES.ledgeMin + Math.round(this.random() * (REEF_RULES.ledgeMax - REEF_RULES.ledgeMin));
+      const ends = [platform.x + 4, platform.x + platform.width - 4 - w];
+      const keep = [platform.safeX, platform.exitX];
+      const fits = (x: number) => keep.every(k => k < x - REEF_RULES.ledgeClear || k > x + w + REEF_RULES.ledgeClear)
+        && !enemies.some(e => e.y > y - 40 && e.y <= y + 4 && e.originX + e.range > x - 14 && e.originX - e.range < x + w + 14);
+      const x = ends.find(fits);
+      if (x !== undefined && w <= platform.width - 8) push(x, y - REEF_RULES.ledgeHeight, w, REEF_RULES.ledgeHeight, 'up');
+    }
+
+    // 3. Air with teeth behind it.
+    for (const c of air) {
+      if (this.random() >= reef.air) continue;
+      const side: -1 | 1 = c.x + c.width / 2 < (left + right) / 2 ? -1 : 1;
+      const x = side === -1 ? left : right - REEF_RULES.wallReach;
+      const gap = side === -1 ? c.x - (left + REEF_RULES.wallReach) : (right - REEF_RULES.wallReach) - (c.x + c.width);
+      if (gap < REEF_RULES.airGap) continue;
+      const top = c.y - REEF_RULES.airSpan, h = c.height + REEF_RULES.airSpan * 2;
+      if (!clearOfCorridor(x, REEF_RULES.wallReach)) continue;
+      push(x, top, REEF_RULES.wallReach, h, side === -1 ? 'right' : 'left');
+    }
   }
   /**
    * SPIKE. It kills outright, so every one of these rules is a safety rule rather than a flavour:

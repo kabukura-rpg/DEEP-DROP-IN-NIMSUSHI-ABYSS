@@ -5,7 +5,7 @@ import type { DamageCause } from '../systems/HealthSystem';
  * ends the run outright. They are terrain, not an attack -- nothing about them cycles or moves --
  * so they share the hazard table with lava and simply carry no heat.
  */
-export type HazardKind = 'lavaPool' | 'lavaWall' | 'vent' | 'stoneSpike' | 'ancientStake' | 'poisonCoral' | 'urchinSpike';
+export type HazardKind = 'lavaPool' | 'lavaWall' | 'vent' | 'stoneSpike' | 'ancientStake' | 'poisonCoral' | 'urchinSpike' | 'reefBarb';
 export type HazardSilhouette = 'pool' | 'wall' | 'vent' | 'teeth' | 'stakes';
 /** Every SPIKE kind, in the order an area introduces them. Generation and tests both read this. */
 export const SPIKE_KINDS = ['stoneSpike', 'ancientStake', 'poisonCoral', 'urchinSpike'] as const;
@@ -30,6 +30,11 @@ export interface HazardType {
   silhouette: HazardSilhouette;
   /** Drawing colours. SPIKE variants differ only here, so a new variant needs no new draw code. */
   palette?: { body: number; tip: number; base: number };
+  /**
+   * Ordinary contact damage in hearts, for a hazard that is NOT lethal: it goes through
+   * HealthSystem, so invulnerability applies and one touch costs one heart, never the run.
+   */
+  damage?: number;
 }
 
 /**
@@ -46,6 +51,9 @@ export const HAZARD_TYPES: Record<HazardKind, HazardType> = {
   ancientStake: { id: 'ancientStake', lethal: true, damageCause: 'spike', heat: 0, heatRadius: 0, silhouette: 'stakes', palette: { body: 0xcbb184, tip: 0xffe7b4, base: 0x5a4630 } },
   poisonCoral: { id: 'poisonCoral', lethal: true, damageCause: 'spike', heat: 0, heatRadius: 0, silhouette: 'teeth', palette: { body: 0xd98ad6, tip: 0xffd6fb, base: 0x4a2a52 } },
   urchinSpike: { id: 'urchinSpike', lethal: true, damageCause: 'spike', heat: 0, heatRadius: 0, silhouette: 'stakes', palette: { body: 0x7ad8e0, tip: 0xdcfbff, base: 0x1f4a52 } },
+  // SUNKEN RUINS' barbed reef (POST-CLONE CUSTOM PASS 1): one heart a touch, like the original's
+  // spikes -- the route is what is dangerous here, not a single mistake ending the run.
+  reefBarb: { id: 'reefBarb', lethal: false, damageCause: 'spike', heat: 0, heatRadius: 0, silhouette: 'teeth', palette: { body: 0xf08a5d, tip: 0xffd2b8, base: 0x5a2a1c }, damage: 1 },
 };
 export const hazardType = (kind: HazardKind) => HAZARD_TYPES[kind];
 
@@ -58,10 +66,14 @@ export interface Hazard {
   state: VentState;
   /** Height of the plume above a vent while it is erupting. */
   plume: number;
+  /** Which way the points face. Absent is up, off a ledge; a wall's barbs face into the shaft. */
+  face?: 'up' | 'left' | 'right';
 }
-export function spawnHazard(kind: HazardKind, id: number, x: number, y: number, width: number, height: number, phase = 0): Hazard {
+export function spawnHazard(kind: HazardKind, id: number, x: number, y: number, width: number, height: number, phase = 0, face?: Hazard['face']): Hazard {
   const type = HAZARD_TYPES[kind];
-  return { id, kind, x, y, width, height, lethal: type.lethal, phase, state: 'idle', plume: kind === 'vent' ? 132 : 0 };
+  const hazard: Hazard = { id, kind, x, y, width, height, lethal: type.lethal, phase, state: 'idle', plume: kind === 'vent' ? 132 : 0 };
+  if (face) hazard.face = face;
+  return hazard;
 }
 
 /** Pure function of elapsed time: a vent's phase never jumps, so the warning always precedes fire. */

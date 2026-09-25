@@ -3,7 +3,7 @@ import { GameModel } from '../src/systems/GameModel';
 import { WORLD } from '../src/data/balance';
 import { DOODAD_RULES, spawnDoodad, type Doodad } from '../src/data/doodads';
 import { SAFE_ZONE_RULES, coinVeinTotal, insideSafeZone, rollSafeZoneContent, type SafeZone, type SafeZoneContentKind, sideRoomCount } from '../src/data/safeZone';
-import type { SideCave } from '../src/data/sideCave';
+import { CAVE_RULES, type SideCave } from '../src/data/sideCave';
 import { COMBO_TIERS } from '../src/data/combo';
 import { StageGenerator, START_PLATFORM, type Platform, type RoutePlatform } from '../src/systems/StageGenerator';
 import { areaConfig, type AreaId, type SectionId } from '../src/data/areas';
@@ -949,35 +949,37 @@ describe('SAFE ZONE generation stays out of everything else', () => {
   };
 
   /**
-   * AREA 1's side rooms are CAVES now -- every one of its three content kinds is found in one -- so
-   * the rectangular chamber is an AREA 2-4 shape and these are AREA 2-4 statements. AREA 1's own
-   * side rooms have their own file; what matters here is that the chamber those AREAs still use is
-   * unchanged, and `sideRoomCount` is still what decides how many of them a SECTION gets.
+   * EVERY AREA's side rooms are CAVES now (POST-CLONE CUSTOM PASS 1): AREA 2-4 used to cut a
+   * rectangular chamber into the shaft, which showed the shop or module sitting in the fall. These
+   * are the AREA 2-4 statements of the same shape AREA 1's own file holds for AREA 1.
    */
-  it('cuts the planned number of chambers, inside the shaft and clear of the ends', () => {
-    for (const section of [1, 2, 3] as SectionId[]) {
-      // What the SECTION actually asks for, from the same call the generator makes. `safeZoneCount`
-      // is only the floor now; `sideRooms` is what an AREA raises it to once it has been measured.
-      const want = sideRoomCount(areaConfig(2).plans![section - 1]);
-      expect(want).toBeGreaterThan(0);
-      let seen = 0;
+  it('cuts the planned number of side rooms in AREA 2-4, with the room body in the wall', () => {
+    for (const area of [2, 3, 4] as AreaId[]) for (const section of [1, 2, 3] as SectionId[]) {
+      const want = sideRoomCount(areaConfig(area).plans![section - 1]);
+      expect(want).toBe(2);
       for (let seed = 1; seed <= 40; seed++) {
-        const shaft = build(2, section, seed * 613);
-        seen += shaft.zones.length;
-        expect(shaft.zones.length).toBeLessThanOrEqual(want);
-        for (const zone of shaft.zones) {
-          // Cut into a wall, never floating mid-shaft.
-          const againstWall = zone.x === WORLD.wall || zone.x + zone.width === WORLD.width - WORLD.wall;
-          expect({ seed, againstWall }).toEqual({ seed, againstWall: true });
-          expect(zone.x).toBeGreaterThanOrEqual(WORLD.wall);
-          expect(zone.x + zone.width).toBeLessThanOrEqual(WORLD.width - WORLD.wall);
-          const depth = (zone.y - WORLD.startY) / WORLD.pixelsPerMeter;
+        const shaft = build(area, section, seed * 613);
+        // No rectangular chamber is left in the shaft; every room is a cave.
+        expect({ area, section, seed, chambers: shaft.zones.length }).toEqual({ area, section, seed, chambers: 0 });
+        expect({ area, section, seed, rooms: shaft.caves.length }).toEqual({ area, section, seed, rooms: want });
+        for (const cave of shaft.caves) {
+          const outside = (r: { x: number; width: number }) => cave.side === -1 ? r.x + r.width <= WORLD.wall : r.x >= WORLD.width - WORLD.wall;
+          // The room itself -- past the throat, its roof and its ledges -- is all in the rock.
+          expect({ area, seed, interior: outside(cave.interior) }).toEqual({ area, seed, interior: true });
+          for (const r of cave.roof) expect({ area, seed, roof: outside(r) }).toEqual({ area, seed, roof: true });
+          for (const r of cave.floors.slice(1)) expect({ area, seed, ledge: outside(r) }).toEqual({ area, seed, ledge: true });
+          // ONLY the entrance touches the shaft: the opening sits on the wall face, and the sill's
+          // overhang is the one piece of the room that reaches in, by exactly its landing lip.
+          const face = cave.side === -1 ? WORLD.wall : WORLD.width - WORLD.wall;
+          expect(cave.side === -1 ? cave.opening.x + cave.opening.width : cave.opening.x).toBe(face);
+          const sill = cave.floors[0];
+          const reach = cave.side === -1 ? sill.x + sill.width - WORLD.wall : WORLD.width - WORLD.wall - sill.x;
+          expect(reach).toBe(CAVE_RULES.sillOverhang);
+          const depth = (sill.y - WORLD.startY) / WORLD.pixelsPerMeter;
           expect(depth).toBeGreaterThan(SAFE_ZONE_RULES.depthMargin * 0.5);
           expect(depth).toBeLessThan(shaft.length - SAFE_ZONE_RULES.depthMargin * 0.5);
         }
       }
-      // Skipping when the mouth would be unfair is allowed; never cutting one at all is not.
-      expect(seen).toBeGreaterThan(20);
     }
   });
   it('never puts a chamber mouth on SPIKE, a BREAK BLOCK, an air container or a ledge', () => {
@@ -1098,16 +1100,14 @@ describe('SAFE ZONE supply reaches all twelve SECTIONs', () => {
     }
   });
 
-  it('uses both walls in every AREA, so a chamber is never always on one side', () => {
-    // AREA 1 is excluded by having none: its side rooms are caves, which are checked for the same
-    // property in their own file. This is about the chamber the other three still cut.
-    for (const area of [2, 3, 4] as AreaId[]) {
+  it('uses both walls in every AREA, so a side room is never always on one side', () => {
+    for (const area of [1, 2, 3, 4] as AreaId[]) {
       let left = 0, right = 0;
       for (const section of [1, 2, 3] as SectionId[]) {
         for (let seed = 1; seed <= SEEDS; seed++) {
-          for (const zone of build(area, section, seed * 613).zones) {
-            if (zone.side === -1) { left++; expect(zone.x).toBe(WORLD.wall); }
-            else { right++; expect(zone.x + zone.width).toBe(WORLD.width - WORLD.wall); }
+          for (const cave of build(area, section, seed * 613).caves) {
+            if (cave.side === -1) { left++; expect(cave.opening.x + cave.opening.width).toBe(WORLD.wall); }
+            else { right++; expect(cave.opening.x).toBe(WORLD.width - WORLD.wall); }
           }
         }
       }
@@ -1173,20 +1173,23 @@ describe('SAFE ZONE supply reaches all twelve SECTIONs', () => {
   });
 
   it('brings its own floor, so AREA 4 needs no solid ledge to host one', () => {
-    // Every AREA 4 ledge collapses. A chamber must not inherit the old shaft SHOP's "find a
+    // Every AREA 4 ledge collapses. A side room must not inherit the old shaft SHOP's "find a
     // non-collapsing ledge" condition, or AREA 4 would have no supply at all.
     for (const section of [1, 2, 3] as SectionId[]) {
       let seen = 0;
       for (let seed = 1; seed <= SEEDS; seed++) {
         const shaft = build(4, section, seed * 613);
-        for (const zone of shaft.zones) {
-          seen++;
-          const floor = shaft.platforms.find(f => f.safeZone === zone.id);
-          expect(floor).toBeDefined();
-          // The chamber's own floor never collapses, whatever the AREA does to ordinary ledges.
-          expect({ section, breakable: floor!.breakable === true }).toEqual({ section, breakable: false });
-          expect(floor!.state).toBe('stable');
-          expect(floor!.y).toBe(zone.y + zone.height);
+        for (const cave of shaft.caves) {
+          const slabs = shaft.platforms.filter(f => f.safeZone === cave.id);
+          expect(slabs.length).toBe(cave.floors.length);
+          for (const floor of slabs) {
+            seen++;
+            // The room's own floor never collapses, whatever the AREA does to ordinary ledges.
+            expect({ section, breakable: floor.breakable === true }).toEqual({ section, breakable: false });
+            expect(floor.state).toBe('stable');
+            expect(floor.limboHazard === true).toBe(false);
+          }
+          expect(slabs.some(f => f.y === cave.floors[0].y)).toBe(true);
         }
       }
       expect(seen).toBeGreaterThanOrEqual(SEEDS);

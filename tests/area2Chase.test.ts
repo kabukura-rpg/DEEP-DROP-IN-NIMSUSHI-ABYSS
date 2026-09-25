@@ -31,7 +31,10 @@ function bare(sectionId: SectionId = 2) {
   // before the jump can never decide what this fixture finds in AREA 2.
   (g as unknown as { random: () => number }).random = seeded(4401);
   g.jumpToStage(2, sectionId);
-  g.platforms = []; g.enemies = []; g.pickups = []; g.hazards = []; g.doodads = []; g.safeZones = [];
+  g.platforms = []; g.enemies = []; g.pickups = []; g.hazards = []; g.doodads = []; g.safeZones = []; g.caves = [];
+  // Nothing streams in behind the fixture either: what it holds still at a fixed point is the chaser
+  // alone, not whatever the SECTION's own shaft happens to generate there on this seed.
+  (g as unknown as { nextChunk: number }).nextChunk = Infinity;
   g.player.invincible = 0;
   return g;
 }
@@ -134,17 +137,22 @@ describe('CATACOMB terrain is walked, not fallen through', () => {
     // Skulls are held back for 2-1 and arrive in 2-2.
     expect(plans[0].enemyExclude).toContain('flyingSkull');
     expect(plans[1].enemyExclude ?? []).not.toContain('flyingSkull');
-    // Gaps narrow, and more of the ledges turn (the original's traps: a minority, growing).
+    // Gaps narrow. WAS: more of the ledges turn, a growing minority. POST-CLONE CUSTOM PASS 1 (Human
+    // Review): every floor is a spike floor in every SECTION, on the same 0.5s warning, and what
+    // rises instead is the WALLWARD CONVEYOR -- more belts, and faster ones, 2-1 -> 2-3.
     const slot = (i: number) => plans[i].pieces!.pieces.find(p => p.id === 'slot')!.rows(seeded(1), 1)[0];
     expect(slot(0).slot![0]).toBeGreaterThan(slot(1).slot![0]);
     expect(slot(1).slot![0]).toBeGreaterThan(slot(2).slot![0]);
-    expect(plans[0].spikePlatformChance!).toBeLessThan(plans[1].spikePlatformChance!);
-    expect(plans[1].spikePlatformChance!).toBeLessThan(plans[2].spikePlatformChance!);
-    expect(plans[2].spikePlatformChance!).toBeLessThan(0.5);
+    for (const p of plans) { expect(p.spikePlatformChance).toBe(1); expect(p.spikeWarning).toBe(0.5); }
+    expect(plans[0].conveyorChance!).toBeLessThan(plans[1].conveyorChance!);
+    expect(plans[1].conveyorChance!).toBeLessThan(plans[2].conveyorChance!);
+    expect(plans[0].conveyorSpeed!).toBeLessThan(plans[1].conveyorSpeed!);
+    expect(plans[1].conveyorSpeed!).toBeLessThan(plans[2].conveyorSpeed!);
     // WAS: the rolled roster no denser than before the rework (caps 17.5/24/29 over 300m). The clone
     // sets it to the ORIGINAL's instead -- ~2-2.8 enemies a screen in D's catacombs (reference spec) --
     // rising through the AREA. Ghosts are left out: they keep their own schedule, checked above.
-    const perScreen = [1, 2, 3].map(n => { let e = 0; for (let seed = 1; seed <= 40; seed++) e += shaft(n as SectionId, seed * 53).enemies.filter(x => x.ai?.kind !== 'ghost').length; return e / 40 * 28.6 / area2.sectionLength; });
+    // 200 seeds, not 40: at 40 the 2-1 mean sat within sampling noise of the 1.5 floor.
+    const perScreen = [1, 2, 3].map(n => { let e = 0; for (let seed = 1; seed <= 200; seed++) e += shaft(n as SectionId, seed * 53).enemies.filter(x => x.ai?.kind !== 'ghost').length; return e / 200 * 28.6 / area2.sectionLength; });
     expect(perScreen[0]).toBeLessThan(perScreen[2]);
     for (const d of perScreen) { expect(d).toBeGreaterThan(1.5); expect(d).toBeLessThan(3.6); }
   });

@@ -106,7 +106,7 @@ describe('SIDE CAVE shell', () => {
 });
 
 describe('SIDE CAVE in a run', () => {
-  it('is where AREA 1 puts all three of its side contents, and only AREA 1', () => {
+  it('is where every AREA puts all three of its side contents', () => {
     const kinds = new Map<string, number>();
     let caves = 0;
     for (const seed of SEEDS) for (const section of [1, 2, 3]) {
@@ -119,13 +119,21 @@ describe('SIDE CAVE in a run', () => {
     expect(caves).toBeGreaterThan(20);
     // Every kind arrives in a cave: the rectangular chamber is gone from this AREA entirely.
     expect([...kinds.keys()].sort()).toEqual(['coinVein', 'gunModule', 'shop']);
-    // Nowhere else. The other AREAs have no side-room pilot, so they have no caves.
+    // AREA 2-4 too (POST-CLONE CUSTOM PASS 1): all three kinds, in a cave, and no chamber left.
     for (const area of AREAS.filter(a => a.id !== 1)) {
-      const g = new StageGenerator(seeded(7), {
-        plan: area.plans?.[0], enemyPool: area.enemyPool, water: area.water,
-        oxygen: area.gimmicks?.oxygen, sectionLength: area.sectionLength,
-      });
-      for (let c = 0; c < 8; c++) expect(g.chunk(c).caves).toEqual([]);
+      const seen = new Set<string>();
+      for (const seed of SEEDS) for (const plan of area.plans!) {
+        const g = new StageGenerator(seeded(seed), {
+          plan, enemyPool: area.enemyPool, water: area.water,
+          oxygen: area.gimmicks?.oxygen, sectionLength: area.sectionLength,
+        });
+        for (let c = 0; c < 40; c++) {
+          const k = g.chunk(c);
+          expect(k.safeZones).toEqual([]);
+          for (const cave of k.caves) seen.add(cave.content?.kind ?? 'none');
+        }
+      }
+      expect({ area: area.id, kinds: [...seen].sort() }).toEqual({ area: area.id, kinds: ['coinVein', 'gunModule', 'shop'] });
     }
   });
 
@@ -565,7 +573,7 @@ describe('SIDE CAVE frequency', () => {
     }
   });
 
-  it('never leaves a SECTION without one, and never touches the other AREAs', () => {
+  it('never leaves a SECTION without one, in any AREA', () => {
     for (const mode of ['low', 'variable', 'high'] as const) {
       for (const seed of SOME) for (const n of [1, 2, 3]) {
         expect(section(mode, n, seed).caves.length).toBeGreaterThanOrEqual(1);
@@ -576,10 +584,10 @@ describe('SIDE CAVE frequency', () => {
           plan: area.plans?.[0], enemyPool: area.enemyPool, water: area.water,
           oxygen: area.gimmicks?.oxygen, sectionLength: area.sectionLength,
         });
-        let zones = 0;
-        for (let c = 0; c < 8; c++) { const k = g.chunk(c); expect(k.caves).toEqual([]); zones += k.safeZones.length; }
-        // ...and they still get the one chamber they have always had, at any cave frequency.
-        expect(zones, `${mode} AREA ${area.id}`).toBeGreaterThanOrEqual(1);
+        let caves = 0;
+        for (let c = 0; c < 40; c++) { const k = g.chunk(c); expect(k.safeZones).toEqual([]); caves += k.caves.length; }
+        // AREA 2-4 run the same caves now, so the same promise holds for them at any frequency.
+        expect(caves, `${mode} AREA ${area.id}`).toBeGreaterThanOrEqual(1);
       }
     }
   });

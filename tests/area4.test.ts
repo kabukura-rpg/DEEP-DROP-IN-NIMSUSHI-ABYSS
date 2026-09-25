@@ -32,12 +32,14 @@ function section(sectionId: SectionId, seed: number) {
     plan: plan(sectionId), enemyPool: area4.enemyPool, sectionLength: area4.sectionLength,
     breakable: area4.gimmicks?.breakablePlatforms === true,
   });
-  const platforms: RoutePlatform[] = [], hazards: Hazard[] = [], zones: SafeZone[] = [], doodads: Doodad[] = [];
+  // A side room is a SIDE CAVE now, as in AREA 1. What these tests read of one is its id (to find its
+  // floor slab) and where that floor is -- the same two things for a chamber and for a cave.
+  const platforms: RoutePlatform[] = [], hazards: Hazard[] = [], zones: { id: number; y: number; height: number }[] = [], doodads: Doodad[] = [];
   const enemies: ReturnType<typeof spawnEnemy>[] = [];
   for (let chunk = 0; chunk < CHUNKS; chunk++) {
     const built = generator.chunk(chunk);
     platforms.push(...built.platforms.filter(p => p.y <= WORLD.startY + SECTION_PIXELS));
-    hazards.push(...built.hazards); zones.push(...built.safeZones);
+    hazards.push(...built.hazards); zones.push(...built.safeZones, ...built.caves.map(c => ({ id: c.id, y: c.floors[0].y, height: 0 })));
     doodads.push(...built.doodads.filter(d => d.y <= WORLD.startY + SECTION_PIXELS));
     enemies.push(...built.enemies.filter(e => e.y <= WORLD.startY + SECTION_PIXELS));
   }
@@ -49,7 +51,7 @@ function bare(sectionId: SectionId = 1, seed = 41) {
   const game = new GameModel(false, seeded(seed));
   game.jumpToStage(4, sectionId);
   game.platforms = []; game.enemies = []; game.pickups = []; game.hazards = [];
-  game.doodads = []; game.safeZones = [];
+  game.doodads = []; game.safeZones = []; game.caves = [];
   return game;
 }
 
@@ -320,7 +322,7 @@ describe('LIMBO reloads through doodads and a chamber, and nothing else', () => 
 });
 
 describe('LIMBO keeps the rest of the run intact', () => {
-  it('guarantees a SAFE ZONE whose floor is the one place to stand', () => {
+  it('guarantees a side room whose floor is the one place to stand', () => {
     for (const sectionId of SECTIONS) {
       for (let seed = 1; seed <= SEEDS; seed++) {
         const shaft = section(sectionId, seed * 613);

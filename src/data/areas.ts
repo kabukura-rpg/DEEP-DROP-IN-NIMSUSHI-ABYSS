@@ -111,6 +111,26 @@ export interface SectionPlan {
    */
   spikeWarning?: number;
   /**
+   * CATACOMB CONVEYOR (POST-CLONE CUSTOM PASS 1): the chance a spike floor carries a belt toward the
+   * nearer wall, and the belt's speed in px/s. Rising 2-1 -> 2-3. A belt is only laid where the
+   * floor's own warning still covers leaving it -- see StageGenerator.beltFor.
+   */
+  conveyorChance?: number;
+  conveyorSpeed?: number;
+  /**
+   * SUNKEN RUINS' barbed reef (POST-CLONE CUSTOM PASS 1), per-row chances. One heart a touch, never
+   * lethal, and never where the route, a landing or the way to air has to go -- see placeReef.
+   *
+   *   wall      barbs jutting from a shaft wall across the band: the lane narrows on one side
+   *   ledgeEnd  barbs on the end of a shelf the route neither lands on nor leaves by
+   *   air       barbs on the wall behind an AIR CONTAINER: air is still reached from the open side,
+   *             but overshooting it now costs a heart
+   *
+   * Rising 3-1 -> 3-3, so the combined situations -- enemy, barb, air and shelf together -- grow
+   * from terrain rather than from enemy HP.
+   */
+  reef?: { wall: number; ledgeEnd: number; air: number };
+  /**
    * Per-row chance that the row is LIMBO's dangerous ground: barbs that are not a floor at all.
    * Nothing lands on one, so it neither reloads nor settles -- it is fallen through for a heart.
    *
@@ -222,6 +242,16 @@ export interface AreaTheme {
   ember?: { glow: number; ash: number };
   /** The collapsing realm shows a void below and drifting rubble across the shaft. */
   rift?: { glow: number; void: number; debris: number };
+  /**
+   * How this AREA's SIDE CAVES look. The shell is the same everywhere -- one entrance in the wall, a
+   * room in the rock, back out the same way -- only its lining changes. Left out (AREA 1), a cave is
+   * drawn exactly as it always has been.
+   *
+   *   tomb    a burial chamber cut into the catacomb wall: niches along the back, a stone lintel
+   *   ruin    a drowned ruin in the rock: broken column stubs, standing water, drips from the roof
+   *   rubble  a hollow in LIMBO's broken wall: ragged edges and debris hanging in the dark
+   */
+  cave?: { style: 'tomb' | 'ruin' | 'rubble'; hollow: number; lining: number; frame: number; light: number };
 }
 
 export interface AreaConfig {
@@ -309,23 +339,24 @@ export const AREAS: readonly AreaConfig[] = [
     // are -- a minority of differently coloured ledges that fire shortly after a landing -- rather than
     // every ledge on a walk-off timer.
     enemyPool: ['boneHopper', 'boneThrower', 'flyingSkull', 'shadeOrb'],
-    theme: { wall: 0x2a2620, wallEdge: 0x463f33, brick: 0x1a1713, pillar: 0x3b3428, accent: 0xe8c98a, dust: 0xb6a888 },
+    theme: { wall: 0x2a2620, wallEdge: 0x463f33, brick: 0x1a1713, pillar: 0x3b3428, accent: 0xe8c98a, dust: 0xb6a888,
+      cave: { style: 'tomb', hollow: 0x0e0b08, lining: 0x2e261c, frame: 0x6b5a40, light: 0xf0c878 } },
     plans: [
       // 2-1 LEARN THE SHELVES. Four ghosts (two out at most), no skulls, spikes on every ledge.
       // STAGE GENERATION v2: the shelves are spaced ~1.75x further apart (catacombTerrain.ts), so the
       // per-row chances are raised by the same factor -- enemies and skulls per 100m are unchanged --
       // and the flow profile puts them across the fall and beside the shelves.
       { platformWidth: [168, 198], gap: 220, pieces: AREA2_INTRO, enemyChance: 0.72, flyChance: 0.3, swarm: 0.05, flow: { pathFlyers: 0.5, landingGuards: 0.35 }, toughChance: 0.3, heavyChance: 0, comboBias: 0.18, graceDepth: 12,
-        spikePlatformChance: 0.3, spikeWarning: 0.5, breakBlockRows: 2, breakBlockDurability: 2,
-        doodadChance: 0.24, safeZoneCount: 2, enemyExclude: ['flyingSkull'], ghosts: { count: 4, speed: 70 } },
+        spikePlatformChance: 1, spikeWarning: 0.5, conveyorChance: 0.45, conveyorSpeed: 70, breakBlockRows: 2, breakBlockDurability: 2,
+        doodadChance: 0.24, safeZoneCount: 2, sideRooms: 2, enemyExclude: ['flyingSkull'], ghosts: { count: 4, speed: 70 } },
       // 2-2 PURSUIT. Six ghosts, skulls join, slots narrow.
       { platformWidth: [160, 190], gap: 220, pieces: AREA2_PURSUIT, enemyChance: 0.72, flyChance: 0.3, swarm: 0.1, flow: { pathFlyers: 0.6, landingGuards: 0.4 }, toughChance: 0.35, heavyChance: 0, comboBias: 0.24,
-        spikePlatformChance: 0.35, spikeWarning: 0.5, breakBlockRows: 2, breakBlockDurability: 2,
-        doodadChance: 0.26, safeZoneCount: 2, ghosts: { count: 6, speed: 80 } },
+        spikePlatformChance: 1, spikeWarning: 0.5, conveyorChance: 0.7, conveyorSpeed: 90, breakBlockRows: 2, breakBlockDurability: 2,
+        doodadChance: 0.26, safeZoneCount: 2, sideRooms: 2, ghosts: { count: 6, speed: 80 } },
       // 2-3 OSSUARY. Everything at once -- carried by the shape of the shaft, not by a longer roster.
       { platformWidth: [148, 178], gap: 220, pieces: AREA2_OSSUARY, enemyChance: 0.8, flyChance: 0.35, swarm: 0.15, flow: { pathFlyers: 0.7, landingGuards: 0.45 }, toughChance: 0.4, heavyChance: 0, comboBias: 0.28,
-        spikePlatformChance: 0.4, spikeWarning: 0.5, breakBlockRows: 2, breakBlockDurability: 2,
-        doodadChance: 0.28, safeZoneCount: 2, ghosts: { count: 8, speed: 88 } },
+        spikePlatformChance: 1, spikeWarning: 0.5, conveyorChance: 0.95, conveyorSpeed: 110, breakBlockRows: 2, breakBlockDurability: 2,
+        doodadChance: 0.28, safeZoneCount: 2, sideRooms: 2, ghosts: { count: 8, speed: 88 } },
     ],
   },
   {
@@ -341,7 +372,8 @@ export const AREAS: readonly AreaConfig[] = [
     // screens -- its aquifer is shorter than its catacombs).
     id: 3, name: 'SUNKEN RUINS', sections: 3, sectionLength: 435,
     enemyPool: ['squid', 'shellSwimmer', 'riserJelly', 'biter'],
-    theme: { wall: 0x1c2a2c, wallEdge: 0x324245, brick: 0x111c1f, pillar: 0x24484f, accent: 0x70d8ef, dust: 0x8fd5e0, water: { tint: 0x123844, light: 0x9fe8f5, weed: 0x2f7361 } },
+    theme: { wall: 0x1c2a2c, wallEdge: 0x324245, brick: 0x111c1f, pillar: 0x24484f, accent: 0x70d8ef, dust: 0x8fd5e0, water: { tint: 0x123844, light: 0x9fe8f5, weed: 0x2f7361 },
+      cave: { style: 'ruin', hollow: 0x06141a, lining: 0x1a3a40, frame: 0x3f6f6a, light: 0x8fe0d0 } },
     gimmicks: { oxygen: true },
     water: { gravity: 0.90, responsiveness: 11 },
     plans: [
@@ -371,13 +403,16 @@ export const AREAS: readonly AreaConfig[] = [
       // what changes is where the enemies are -- across the fall and beside the shelves -- which is
       // what turns air into a route choice: the straight line has something in it, the air is off it.
       { platformWidth: [182, 214], gap: 330, pieces: AREA3_OPEN_WATER, enemyChance: 0.34, flyChance: 0.55, swarm: 0.45, flow: { pathFlyers: 0.5, landingGuards: 0.35 }, toughChance: 0.4, enemyExclude: ['biter'], heavyChance: 0, comboBias: 0.18, graceDepth: 12, containerChance: 0.44, maxOxygenGap: 30, bubbleOffside: 0.35,
-        breakBlockRows: 1, breakBlockDurability: 2, doodadChance: 0.34, safeZoneCount: 2 },
+        reef: { wall: 0.2, ledgeEnd: 0.25, air: 0.3 },
+        breakBlockRows: 1, breakBlockDurability: 2, doodadChance: 0.34, safeZoneCount: 2, sideRooms: 2 },
       // 3-2 CROSS CURRENT. Alternating shelves take over; the lateral decision arrives earlier.
       { platformWidth: [168, 198], gap: 336, pieces: AREA3_CROSS_CURRENT, enemyChance: 0.46, flyChance: 0.65, swarm: 0.7, flow: { pathFlyers: 0.6, landingGuards: 0.4 }, toughChance: 0.45, heavyChance: 0, comboBias: 0.24, containerChance: 0.29, maxOxygenGap: 40, bubbleOffside: 0.62,
-        breakBlockRows: 2, breakBlockDurability: 2, doodadChance: 0.40, safeZoneCount: 2 },
+        reef: { wall: 0.35, ledgeEnd: 0.4, air: 0.5 },
+        breakBlockRows: 2, breakBlockDurability: 2, doodadChance: 0.40, safeZoneCount: 2, sideRooms: 2 },
       // 3-3 DROWNED RUINS. Lanes, shelves, branches, gates and scenery at the AREA's widest spacing.
       { platformWidth: [152, 182], gap: 342, pieces: AREA3_DROWNED_RUINS, enemyChance: 0.56, flyChance: 0.75, swarm: 0.95, flow: { pathFlyers: 0.7, landingGuards: 0.45 }, toughChance: 0.5, heavyChance: 0, comboBias: 0.28, containerChance: 0.21, maxOxygenGap: 50, bubbleOffside: 0.85,
-        breakBlockRows: 2, breakBlockDurability: 2, doodadChance: 0.46, safeZoneCount: 2 },
+        reef: { wall: 0.5, ledgeEnd: 0.55, air: 0.7 },
+        breakBlockRows: 2, breakBlockDurability: 2, doodadChance: 0.46, safeZoneCount: 2, sideRooms: 2 },
     ],
   },
   {
@@ -399,17 +434,18 @@ export const AREAS: readonly AreaConfig[] = [
     // ledge. Depth stays 570m (~19.9 original screens; original median 18.8, D 20-23).
     id: 4, name: 'COLLAPSED REALM', sections: 3, sectionLength: 570,
     enemyPool: ['voidWisp', 'hollowShade', 'voidShard', 'shadeOrb', 'angryOrb'],
-    theme: { wall: 0x241f2e, wallEdge: 0x3c3350, pillar: 0x2d2740, brick: 0x171422, accent: 0xc0a7ed, dust: 0x8c82a5, rift: { glow: 0x9d7bd8, void: 0x0b0710, debris: 0x4a3f63 } },
+    theme: { wall: 0x241f2e, wallEdge: 0x3c3350, pillar: 0x2d2740, brick: 0x171422, accent: 0xc0a7ed, dust: 0x8c82a5, rift: { glow: 0x9d7bd8, void: 0x0b0710, debris: 0x4a3f63 },
+      cave: { style: 'rubble', hollow: 0x07050b, lining: 0x2a2238, frame: 0x4a3f63, light: 0xc0a7ed } },
     plans: [
       // 4-1 THE WAY IN. Rubble to land on, barbed debris beside it, the first void drops and swarms.
       { platformWidth: [92, 112], gap: 232, pieces: AREA4_RUBBLE, enemyChance: 0, flyChance: 0.55, swarm: 0.3, toughChance: 0.3, heavyChance: 0, comboBias: 0, graceDepth: 20,
-        flow: { pathFlyers: 0.4, landingGuards: 0 }, doodadChance: 0.95, laneDoodadBand: 420, safeZoneCount: 2 },
+        flow: { pathFlyers: 0.4, landingGuards: 0 }, doodadChance: 0.95, laneDoodadBand: 420, safeZoneCount: 2, sideRooms: 2 },
       // 4-2 THE FALLING CITY. More barbed rubble, longer and more frequent void drops.
       { platformWidth: [84, 102], gap: 238, pieces: AREA4_RUINFALL, enemyChance: 0, flyChance: 0.6, swarm: 0.45, toughChance: 0.35, heavyChance: 0, comboBias: 0,
-        flow: { pathFlyers: 0.5, landingGuards: 0 }, doodadChance: 0.95, laneDoodadBand: 400, safeZoneCount: 2 },
+        flow: { pathFlyers: 0.5, landingGuards: 0 }, doodadChance: 0.95, laneDoodadBand: 400, safeZoneCount: 2, sideRooms: 2 },
       // 4-3 THE VOID. The longest drops, the most barbs, the thickest swarms; the route still lands.
       { platformWidth: [76, 94], gap: 244, pieces: AREA4_VOID, enemyChance: 0, flyChance: 0.65, swarm: 0.6, toughChance: 0.4, heavyChance: 0, comboBias: 0,
-        flow: { pathFlyers: 0.6, landingGuards: 0 }, doodadChance: 0.95, laneDoodadBand: 380, safeZoneCount: 2 },
+        flow: { pathFlyers: 0.6, landingGuards: 0 }, doodadChance: 0.95, laneDoodadBand: 380, safeZoneCount: 2, sideRooms: 2 },
     ],
   },
 ];

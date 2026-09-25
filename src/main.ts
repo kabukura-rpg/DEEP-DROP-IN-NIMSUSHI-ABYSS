@@ -1,4 +1,5 @@
 import Phaser from 'phaser';
+import { LEVEL_SELECT_DESTINATIONS, LEVEL_SELECT_GESTURE, type LevelDestination } from './data/levelSelect';
 import './style.css';
 import { GameScene, type GameBridge } from './scenes/GameScene';
 import { GameModel } from './systems/GameModel';
@@ -38,6 +39,18 @@ app.innerHTML = `
 const $ = <T extends HTMLElement = HTMLElement>(id: string) => document.getElementById(id) as T;
 export const audio = new GameAudio();
 let best = 0;
+/**
+ * True while the run was started from TEST LEVEL SELECT. Such a run never writes PERSONAL BEST: its
+ * depth counts every SECTION it skipped, so saving it would overwrite a real record with a warp.
+ */
+let warpedRun = false;
+/** Record a finished run's depth as PERSONAL BEST, unless it was a LEVEL SELECT run. */
+function recordBest(depth: number) {
+  if (warpedRun) return;
+  best = Math.max(best, depth);
+  try { localStorage.setItem('deep-drop-best', String(best)); } catch { /* Keep a session best if storage is unavailable. */ }
+  $('side-best').textContent = String(best).padStart(3, '0');
+}
 try { best = Number(localStorage.getItem('deep-drop-best') || 0); if (!Number.isFinite(best)) best = 0; } catch { /* Storage is optional in private browsing. */ }
 type Mode = 'title' | 'playing' | 'paused' | 'upgrade' | 'boss' | 'over' | 'clear' | 'shop';
 let mode: Mode = 'title';
@@ -262,6 +275,7 @@ const menuOpen = () => !$('overlay').hidden && mode !== 'playing' && mode !== 'b
 function start(practice = false) {
   if (!ready) return;
   audio.unlock(); clearInput(); scene.startRun(practice);
+  warpedRun = false;
   // DEV: a run asked for by seed is rebuilt here, before anything reads the model. Compiled out.
   if (import.meta.env.DEV) (window as unknown as { __roadSeedApply?: () => void }).__roadSeedApply?.();
   mode = 'playing'; resumeInput();
@@ -303,6 +317,25 @@ function showTitle() {
   $('touch-controls').classList.remove('visible');
   setOverlay(`<div class="title-content"><div class="pill"><span></span> 4 AREAS · 12 SECTIONS</div><div class="title-symbol">↓</div><h2>DEEP<br><span>DROP</span><i>01</i></h2><p>深く潜れ。弾が尽きる、その前に。</p><button id="start" class="primary-button">潜降開始 <span>↘</span></button><button id="practice" class="text-button">操作を試す <span>CONTROL LAB →</span></button><div class="title-hint desktop-hint">MOVE <b>← →</b><span>·</span> SHOOT <b>SPACE</b></div><div class="title-hint mobile-hint">左右をホールドで移動 · タップで射撃<br>FIREボタン長押しで連射</div></div><span class="overlay-bottom">6 BULLETS. ONE WAY DOWN.</span>`);
   $('start').onclick = () => start(); $('practice').onclick = () => start(true);
+  // TEST LEVEL SELECT: hidden from the ordinary title. Tap the arrow above the logo five times, or
+  // open the page with `?levels`, and a LEVEL SELECT button appears under CONTROL LAB. Works the
+  // same with a mouse and a finger, and in the published build, because Human Review happens there.
+  const revealLevelSelect = () => {
+    if (document.getElementById('level-select')) return;
+    const button = document.createElement('button');
+    button.id = 'level-select'; button.className = 'text-button';
+    button.innerHTML = 'LEVEL SELECT <span>TEST →</span>';
+    button.onclick = showLevelSelect;
+    $('practice').insertAdjacentElement('afterend', button);
+  };
+  if (new URLSearchParams(location.search).has('levels')) revealLevelSelect();
+  let taps: number[] = [];
+  const arrow = $('overlay').querySelector<HTMLElement>('.title-symbol');
+  arrow?.addEventListener('pointerdown', () => {
+    const now = performance.now();
+    taps = [...taps.filter(t => now - t < LEVEL_SELECT_GESTURE.windowMs), now];
+    if (taps.length >= LEVEL_SELECT_GESTURE.taps) revealLevelSelect();
+  });
   // DEV only: a BOSS TEST button beside the ordinary ones. The markup is added here rather than in
   // the title template so that a production build has no trace of it at all.
   if (import.meta.env.DEV) {
@@ -325,6 +358,24 @@ function showTitle() {
     $('practice').insertAdjacentElement('afterend', picker);
     picker.insertAdjacentElement('beforebegin', button);
   }
+}
+/** TEST LEVEL SELECT: every SECTION and the ABYSS before the boss, one tap each. */
+function showLevelSelect() {
+  const label = (d: LevelDestination) => d === 'boss' ? 'BOSS' : d;
+  setOverlay(`<div class="panel-content level-select"><div class="eyebrow">TEST / HUMAN REVIEW</div><h2>LEVEL SELECT<span>通常の新規ランとして開始します</span></h2><div class="level-grid">${LEVEL_SELECT_DESTINATIONS.map(d => `<button class="level-button${d === 'boss' ? ' boss' : ''}" data-dest="${d}">${label(d)}</button>`).join('')}</div><button id="level-back" class="text-button">タイトルへ</button></div>`);
+  $('overlay').querySelectorAll<HTMLButtonElement>('.level-button').forEach(b => { b.onclick = () => warp(b.dataset.dest); });
+  $('level-back').onclick = showTitle;
+}
+/** Start an ordinary run and move it; a refused destination puts the title back. */
+function warp(destination: unknown) {
+  if (!ready) return false;
+  start();
+  if (!scene.model.warpTo(destination)) { showTitle(); return false; }
+  warpedRun = true;
+  clearInput(); resumeInput();
+  $('run-status').textContent = `LEVEL SELECT / ${String(destination).toUpperCase()}`;
+  lastHud = ''; updateHud(scene.model);
+  return true;
 }
 let pausedFrom: 'playing' | 'boss' = 'playing';
 function pause() {
@@ -474,9 +525,7 @@ function showBoss(model: GameModel) {
 function showClear(model: GameModel) {
   mode = 'clear'; bridge.active = false; clearInput();
   const depth = Math.floor(model.totalDepth);
-  best = Math.max(best, depth);
-  try { localStorage.setItem('deep-drop-best', String(best)); } catch { /* Keep a session best if storage is unavailable. */ }
-  $('side-best').textContent = String(best).padStart(3, '0');
+  recordBest(depth);
   $('run-status').textContent = 'NIMUSHI DEFEATED';
   const upgrades = model.upgrades.acquired.length;
   // model.elapsed only advances inside a running step, so it is play time: title screens, PAUSE
@@ -489,10 +538,8 @@ function showClear(model: GameModel) {
 }
 function showResult(model: GameModel) {
   mode = 'over'; bridge.active = false; clearInput();
-  const depth = Math.floor(model.totalDepth), newBest = depth > best;
-  best = Math.max(best, depth);
-  try { localStorage.setItem('deep-drop-best', String(best)); } catch { /* Keep a session best if storage is unavailable. */ }
-  $('side-best').textContent = String(best).padStart(3, '0');
+  const depth = Math.floor(model.totalDepth), newBest = !warpedRun && depth > best;
+  recordBest(depth);
   $('run-status').textContent = 'SIGNAL LOST';
   setOverlay(`<div class="panel-content result-content"><div class="eyebrow">SIGNAL LOST / GAME OVER</div><h2>NICE DIVE.<span>まだ、深くへ行ける。</span></h2><div class="result-depth"><small>DEPTH REACHED</small><strong>${depth}<span>m</span></strong>${newBest ? '<b>↗ NEW PERSONAL BEST</b>' : ''}</div><div class="result-stats"><div><span>KILLS</span><b>${model.kills}</b></div><div><span>MAX COMBO</span><b>${model.maxCombo}</b></div><div><span>SCORE</span><b>${model.score.toLocaleString()}</b></div><div><span>REACHED</span><b>${model.stage.label}</b></div></div><div class="death-cause"><small>DEFEATED BY</small><b>${damageLabel(model.health.deathCause?.cause)}</b></div><button id="retry" class="primary-button">もう一度潜る <span>↻</span></button><button id="share" class="secondary-button">結果をシェア ↗</button><button id="home" class="text-button">タイトルへ</button></div>`);
   $('retry').onclick = () => start(); $('home').onclick = showTitle;

@@ -9,6 +9,8 @@ import { pickupType } from '../data/pickups';
 import { gunModule } from '../data/gunModules';
 import { AIR_CONTAINER_RULES, BREAK_BLOCK_RULES, LIMBO_HAZARD_RULES, SPIKE_PLATFORM_RULES } from '../data/structures';
 import { SAFE_ZONE_RULES } from '../data/safeZone';
+import type { SideCave } from '../data/sideCave';
+import type { AreaTheme } from '../data/areas';
 import { hazardBounds, hazardType, type Hazard } from '../data/hazards';
 import { TerrainWatch } from '../dev/TerrainWatch';
 import { SPEED_PROFILES } from '../data/speedProfiles';
@@ -423,6 +425,7 @@ export class GameScene extends Phaser.Scene {
       for (let x = f.x + 5; x < f.x + f.width - 4; x += 14) this.rect(x + shake, y + 7, 6, critical ? 2 : 3, 0x718266);
       if (!critical) { this.rect(f.x + 8, y + 16, 6, 5, 0x253331); this.rect(f.x + f.width - 14, y + 16, 6, 5, 0x253331); }
       if (f.spikePlatform) this.spikePlatform(f.x, y, f.width, f.spikePlatform);
+      if (f.conveyor) this.conveyor(f.x, y, f.width, f.conveyor);
     }
     for (const hazard of m.hazards) this.hazard(hazard, cam);
     for (const item of m.pickups) {
@@ -773,6 +776,28 @@ export class GameScene extends Phaser.Scene {
    * fairness of the mechanic, so it is the loudest of the three -- the spikes visibly rise, and a
    * bar drains across the ledge so how long is left is readable without counting frames.
    */
+  /**
+   * CATACOMB CONVEYOR: a belt band along the ledge's face with chevrons running the way it carries,
+   * at the speed it carries, and a solid arrowhead at the end it carries toward -- readable at a
+   * glance as "this pushes me to the wall". Paint only; the push is GameModel.beltPush.
+   */
+  private conveyor(x: number, y: number, width: number, belt: NonNullable<Platform['conveyor']>) {
+    const band = 0x1d3a44, mark = 0x7fd6e8;
+    this.rect(x, y + 7, width, 7, band, 0.95);
+    this.rect(x, y + 7, width, 1, mark, 0.45);
+    const spacing = 14;
+    const shift = this.reducedMotion ? 0 : ((this.model.elapsed * belt.speed) % spacing + spacing) % spacing;
+    const g = this.graphics.fillStyle(mark, 0.85);
+    for (let i = -spacing; i < width + spacing; i += spacing) {
+      const cx = belt.dir === 1 ? x + i + shift : x + width - i - shift;
+      if (cx < x + 4 || cx > x + width - 4) continue;
+      // A chevron pointing along the belt.
+      g.fillTriangle(cx + belt.dir * 4, y + 10.5, cx - belt.dir * 2, y + 7.5, cx - belt.dir * 2, y + 13.5);
+    }
+    // The end it carries toward: a bold arrowhead, so the direction reads even with the belt still.
+    const tip = belt.dir === 1 ? x + width : x;
+    this.graphics.fillStyle(0xbff0fa, 0.95).fillTriangle(tip + belt.dir * 2, y + 10.5, tip - belt.dir * 8, y + 5, tip - belt.dir * 8, y + 16);
+  }
   private spikePlatform(x: number, y: number, width: number, spikes: NonNullable<Platform['spikePlatform']>) {
     const { state, timer } = spikes;
     // A platform's own warning, where it has one (the CATACOMBS'); otherwise the global one.
@@ -853,7 +878,10 @@ export class GameScene extends Phaser.Scene {
    * break the shaft wall where the mouth is, so the opening is a hole through the brickwork rather
    * than a panel laid over it.
    */
-  private sideCaves(m: GameModel, cam: number, theme: { wall: number; wallEdge: number; accent: number; brick: number }) {
+  private sideCaves(m: GameModel, cam: number, theme: AreaTheme) {
+    // AREA 1 has no `cave` entry and keeps the look it was reviewed with; the others line the same
+    // shell with their own rock. Only colours and the dressing below differ -- the shape is shared.
+    const look = theme.cave ?? { style: undefined, hollow: 0x070d11, lining: 0x15303a, frame: 0x3c7a84, light: 0x9fe8f5 };
     for (const cave of m.caves) {
       const b = cave.bounds, top = b.y - cam;
       if (top > 900 || top + b.height < -90) continue;
@@ -863,12 +891,13 @@ export class GameScene extends Phaser.Scene {
       // it black put a hole in the middle of the fall corridor.
       const mouth = left ? cave.opening.x + cave.opening.width : cave.opening.x;
       const hollowX = left ? b.x : mouth, hollowW = left ? mouth - b.x : b.x + b.width - mouth;
-      this.rect(hollowX, top, hollowW, b.height, 0x070d11, 0.99);
-      this.rect(left ? hollowX : hollowX + hollowW - 8, top, 8, b.height, 0x15303a, 0.85);
-      for (let i = 0; i < 7; i++) {
+      this.rect(hollowX, top, hollowW, b.height, look.hollow, 0.99);
+      this.rect(left ? hollowX : hollowX + hollowW - 8, top, 8, b.height, look.lining, 0.85);
+      if (!look.style) for (let i = 0; i < 7; i++) {
         const x = left ? hollowX + 12 + i * 15 : hollowX + hollowW - 14 - i * 15;
-        this.rect(x, top + 6, 2, b.height - 12, 0x9fe8f5, 0.05);
+        this.rect(x, top + 6, 2, b.height - 12, look.light, 0.05);
       }
+      else this.caveDressing(cave, look, hollowX, hollowW, top, b.height, cam);
       // The roof slabs, so the cave has a ceiling to read against rather than open black.
       for (const slab of cave.roof) {
         this.rect(slab.x, slab.y - cam, slab.width, slab.height, theme.brick);
@@ -887,13 +916,72 @@ export class GameScene extends Phaser.Scene {
       const o = cave.opening, oy = o.y - cam;
       const mouthX = left ? o.x + o.width : o.x;
       const frameX = left ? mouthX - 30 : mouthX - 22, frameW = 52;
-      this.rect(frameX, oy - 8, frameW, 8, 0x3c7a84);
-      this.rect(frameX, oy - 8, frameW, 2, 0x9fe8f5, 0.7);
+      this.rect(frameX, oy - 8, frameW, 8, look.frame);
+      this.rect(frameX, oy - 8, frameW, 2, look.light, 0.7);
       for (let i = 0; i < 8; i++) {
         const w = 8 + i * 6;
-        this.rect(left ? mouthX : mouthX - w, oy + 8 + i * 2, w, o.height - 16 - i * 4, 0x9fe8f5, 0.085 - i * 0.01);
+        this.rect(left ? mouthX : mouthX - w, oy + 8 + i * 2, w, o.height - 16 - i * 4, look.light, 0.085 - i * 0.01);
       }
-      this.rect(left ? mouthX - 3 : mouthX, oy + 3, 3, o.height - 6, 0x9fe8f5, 0.5);
+      this.rect(left ? mouthX - 3 : mouthX, oy + 3, 3, o.height - 6, look.light, 0.5);
+      if (look.style === 'rubble') {
+        // LIMBO's wall is broken, not cut: ragged teeth of rock hang over the mouth and jut under it.
+        for (let i = 0; i < 4; i++) {
+          const w = 5 + ((cave.id + i) * 7) % 7, h = 4 + ((cave.id * 3 + i) * 5) % 9;
+          this.rect(left ? mouthX - 30 + i * 13 : mouthX - 22 + i * 13, oy - 8 - h, w, h, look.frame, 0.9);
+        }
+      }
+    }
+  }
+  /**
+   * What makes an AREA 2-4 cave read as that AREA's rock. Drawn inside the hollow only -- none of it
+   * reaches the shaft -- and none of it is solid: the floors, ledges and roof are the shared shell.
+   */
+  private caveDressing(cave: SideCave, look: NonNullable<AreaTheme['cave']>, x: number, w: number, top: number, h: number, cam: number) {
+    const left = cave.side === -1, far = left ? x : x + w;       // the back wall of the room
+    const into = (d: number, width: number) => left ? far + d : far - d - width;
+    const floorY = cave.floors[0].y - cam;
+    if (look.style === 'tomb') {
+      // Burial niches in rows along the back half, each a dark arch with a stone sill.
+      for (let row = 0; row < 2; row++) for (let i = 0; i < 4; i++) {
+        const nx = into(18 + i * 34, 22), ny = top + 18 + row * 42;
+        if (ny + 30 > floorY - 30) continue;
+        this.rect(nx, ny, 22, 28, look.lining, 0.9);
+        this.rect(nx + 3, ny + 4, 16, 22, 0x050403, 0.95);
+        this.rect(nx - 2, ny + 28, 26, 3, look.frame, 0.9);
+      }
+      // A candle on the floor by the back wall, its light pooled around it.
+      const cx = into(10, 4);
+      this.rect(cx, floorY - 12, 4, 12, 0xe8dcc0, 0.9);
+      this.rect(cx - 10, floorY - 34, 24, 24, look.light, 0.06);
+      this.rect(cx + 1, floorY - 16, 2, 4, look.light, 0.9);
+    } else if (look.style === 'ruin') {
+      // Standing water over the floor, broken column stubs, and water running down from the roof.
+      this.rect(x, floorY - 10, w, 10, 0x123844, 0.55);
+      this.rect(x, floorY - 10, w, 1, look.light, 0.35);
+      for (let i = 0; i < 3; i++) {
+        const cx = into(24 + i * 62, 12), ch = 26 + ((cave.id + i) * 13) % 30;
+        this.rect(cx, floorY - ch, 12, ch, look.lining, 0.95);
+        this.rect(cx - 2, floorY - ch, 16, 3, look.frame, 0.9);
+      }
+      for (let i = 0; i < 5; i++) {
+        const dx = into(14 + i * 37, 2), len = 10 + ((cave.id * 5 + i * 11) % 18);
+        const drop = ((this.model.elapsed * 40 + i * 23) % (h - len - 20));
+        this.rect(dx, top + 6, 2, len, look.light, 0.25);
+        this.rect(dx, top + 10 + len + drop, 2, 3, look.light, 0.4);
+      }
+    } else if (look.style === 'rubble') {
+      // Ragged edges on the roof and the floor, and debris hanging in the dark between them.
+      for (let i = 0; i * 14 < w; i++) {
+        const tx = x + i * 14, th = 3 + ((cave.id * 7 + i * 5) % 11);
+        this.rect(tx, top, 10, th, look.lining, 0.95);
+        this.rect(tx + 4, floorY - 2 - ((cave.id + i * 3) % 6), 8, 2 + ((cave.id + i * 3) % 6), look.lining, 0.9);
+      }
+      for (let i = 0; i < 6; i++) {
+        const bob = Math.sin(this.model.elapsed * 1.3 + i * 1.7) * 3;
+        const dx = into(16 + i * 30, 6), dy = top + 24 + ((cave.id * 11 + i * 29) % Math.max(20, h - 60)) + bob;
+        this.rect(dx, dy, 6 + (i % 3) * 2, 4 + (i % 2) * 3, look.frame, 0.8);
+      }
+      this.rect(x, top, w, h, look.light, 0.03);
     }
   }
 
@@ -932,6 +1020,18 @@ export class GameScene extends Phaser.Scene {
    * and the colours come from the hazard table, so a new variant needs no new code here.
    */
   private spikes(h: Hazard, tall: boolean, palette: { body: number; tip: number; base: number }, y: number) {
+    if (h.face === 'left' || h.face === 'right') {
+      // Barbs on a wall, pointing into the shaft: a base plate on the wall, teeth down its length.
+      const out = h.face === 'right' ? 1 : -1, base = out === 1 ? h.x : h.x + h.width, tipX = base + out * h.width;
+      this.rect(out === 1 ? h.x - 2 : h.x + h.width - 2, y - 2, 4, h.height + 4, palette.base, 0.95);
+      this.rect(h.x - 4, y - 3, h.width + 8, h.height + 6, palette.tip, 0.1);
+      for (let i = 0; i + 5 <= h.height; i += 9) {
+        const top = y + i, bottom = y + Math.min(i + 8, h.height), mid = (top + bottom) / 2;
+        this.graphics.fillStyle(palette.body, 0.98).fillTriangle(tipX, mid, base, top, base, bottom);
+        this.graphics.fillStyle(palette.tip, 0.95).fillTriangle(tipX - out, mid, base + out * h.width * 0.45, mid - 2, base + out * h.width * 0.45, mid + 2);
+      }
+      return;
+    }
     const step = tall ? 14 : 9, height = h.height;
     // A warning band beneath the points, so the patch reads as lethal even at a glance.
     this.rect(h.x - 2, y + height - 2, h.width + 4, 4, palette.base, 0.95);
