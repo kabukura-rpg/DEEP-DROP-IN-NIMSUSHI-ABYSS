@@ -25,29 +25,34 @@ export interface Upgrade {
   label: string;
   icon: string;
   description: string;
+  /**
+   * EXTERNAL TEST BUILD: the one line the upgrade choice shows under the name. Short on purpose --
+   * a tester reads three of these at a rest point, on a phone as well as a desktop.
+   */
+  short: string;
 }
 
 export const UPGRADES: readonly Upgrade[] = [
-  { id: 'apple', origin: 'Apple', name: 'APPLE', label: 'りんご', icon: '🍎', description: 'HPを4回復。満タン分は余剰回復（LIFE UP）へ。' },
-  { id: 'blastModule', origin: 'Blast Module', name: 'BLAST MODULE', label: '爆砕モジュール', icon: '💥', description: '踏みつけた瞬間、足元で爆発。周囲の敵とブロックを巻き込む。' },
-  { id: 'candle', origin: 'Candle', name: 'CANDLE', label: 'ろうそく', icon: '🕯', description: '被弾後の無敵時間が延びる。' },
-  { id: 'drone', origin: 'Drone', name: 'DRONE', label: 'ドローン', icon: '🛸', description: '随伴機が同時に撃つ。CHARGEは消費しない。' },
-  { id: 'gemAttractor', origin: 'Gem Attractor', name: 'COIN MAGNET', label: '集金装置', icon: '🧲', description: 'COINを引き寄せる範囲が広がる。' },
-  { id: 'gemPowered', origin: 'Gem Powered', name: 'COIN POWERED', label: 'コイン駆動', icon: '🔋', description: 'COINを拾うとCHARGEが回復。SMALL +1 / LARGE +5。' },
-  { id: 'gemSick', origin: 'Gem Sick', name: 'COIN SICK', label: 'コイン中毒', icon: '🤑', description: 'COIN HIGH の持続が伸びる。' },
-  { id: 'gunpowderBlocks', origin: 'Gunpowder Blocks', name: 'GUNPOWDER BLOCKS', label: '火薬ブロック', icon: '🧨', description: 'BREAK BLOCKが割れると上へ一発撃ち、隣へ誘爆する。' },
-  { id: 'heartBalloon', origin: 'Heart Balloon', name: 'HEART BALLOON', label: 'ハート風船', icon: '🎈', description: '落下が遅くなる。敵が触れると爆発して消える。' },
-  { id: 'hotCasing', origin: 'Hot Casing', name: 'HOT CASING', label: '排莢', icon: '🔥', description: '射撃のたび熱い薬莢が飛ぶ。敵にダメージ。' },
-  { id: 'knifeAndFork', origin: 'Knife and Fork', name: 'KNIFE & FORK', label: 'ナイフとフォーク', icon: '🍴', description: '死体を食べられる。10体でHP +1。' },
-  { id: 'laserSight', origin: 'Laser Sight', name: 'LASER SIGHT', label: '照準レーザー', icon: '🎯', description: '照準線が出て、弾の射程が伸びる。' },
-  { id: 'membersCard', origin: "Member's Card", name: "MEMBER'S CARD", label: '会員証', icon: '💳', description: 'SHOPが10%引き。以降のSECTION序盤にSHOPが出る。' },
-  { id: 'poppingGems', origin: 'Popping Gems', name: 'POPPING COINS', label: '弾けるコイン', icon: '✨', description: 'COINを拾うたび上へ一発撃つ。CHARGEは消費しない。' },
-  { id: 'restInPieces', origin: 'Rest in Pieces', name: 'REST IN PIECES', label: '安らかに', icon: '☠', description: '死体を撃つと爆発する。' },
-  { id: 'reverseEngineering', origin: 'Reverse Engineering', name: 'REVERSE ENGINEERING', label: '解析', icon: '🔧', description: 'GUN MODULEを撃つと中身を1度だけ引き直せる。' },
-  { id: 'rocketJump', origin: 'Rocket Jump', name: 'ROCKET JUMP', label: 'ロケットジャンプ', icon: '🚀', description: '地上ジャンプが高くなり、足元で爆発する。' },
-  { id: 'safetyJetpack', origin: 'Safety Jetpack', name: 'SAFETY JETPACK', label: '安全装置', icon: '🪂', description: 'CHARGE 0でも空中でACTIONを押すと降下が緩む。燃料制。' },
-  { id: 'timeout', origin: 'Timeout', name: 'TIMEOUT', label: 'タイムアウト', icon: '⏳', description: '被弾した場所に時間停止の泡が残る。中にいる間、外の世界が止まる。' },
-  { id: 'youth', origin: 'Youth', name: 'YOUTH', label: '若さ', icon: '🌱', description: 'HPを1回復。以降の強化の選択肢が4つになる。' },
+  { id: 'apple', origin: 'Apple', name: 'APPLE', label: 'りんご', icon: '🍎', description: 'HPを4回復。満タン分は余剰回復（LIFE UP）へ。', short: 'HPを4回復' },
+  { id: 'blastModule', origin: 'Blast Module', name: 'BLAST MODULE', label: '爆砕モジュール', icon: '💥', description: '踏みつけた瞬間、足元で爆発。周囲の敵とブロックを巻き込む。', short: '踏みつけで爆発' },
+  { id: 'candle', origin: 'Candle', name: 'CANDLE', label: 'ろうそく', icon: '🕯', description: '被弾後の無敵時間が延びる。', short: '被弾後の無敵が長くなる' },
+  { id: 'drone', origin: 'Drone', name: 'DRONE', label: 'ドローン', icon: '🛸', description: '随伴機が同時に撃つ。CHARGEは消費しない。', short: '随伴機が一緒に撃つ' },
+  { id: 'gemAttractor', origin: 'Gem Attractor', name: 'COIN MAGNET', label: '集金装置', icon: '🧲', description: 'COINを引き寄せる範囲が広がる。', short: 'COINを遠くから吸い寄せる' },
+  { id: 'gemPowered', origin: 'Gem Powered', name: 'COIN POWERED', label: 'コイン駆動', icon: '🔋', description: 'COINを拾うとCHARGEが回復。SMALL +1 / LARGE +5。', short: 'COINを拾うとCHARGE回復' },
+  { id: 'gemSick', origin: 'Gem Sick', name: 'COIN SICK', label: 'コイン中毒', icon: '🤑', description: 'COIN HIGH の持続が伸びる。', short: 'COIN HIGHが長続き' },
+  { id: 'gunpowderBlocks', origin: 'Gunpowder Blocks', name: 'GUNPOWDER BLOCKS', label: '火薬ブロック', icon: '🧨', description: 'BREAK BLOCKが割れると上へ一発撃ち、隣へ誘爆する。', short: 'ブロックが弾を撃って誘爆' },
+  { id: 'heartBalloon', origin: 'Heart Balloon', name: 'HEART BALLOON', label: 'ハート風船', icon: '🎈', description: '落下が遅くなる。敵が触れると爆発して消える。', short: '落下が遅くなる風船' },
+  { id: 'hotCasing', origin: 'Hot Casing', name: 'HOT CASING', label: '排莢', icon: '🔥', description: '射撃のたび熱い薬莢が飛ぶ。敵にダメージ。', short: '薬莢が敵にダメージ' },
+  { id: 'knifeAndFork', origin: 'Knife and Fork', name: 'KNIFE & FORK', label: 'ナイフとフォーク', icon: '🍴', description: '死体を食べられる。10体でHP +1。', short: '死体10体でHP+1' },
+  { id: 'laserSight', origin: 'Laser Sight', name: 'LASER SIGHT', label: '照準レーザー', icon: '🎯', description: '照準線が出て、弾の射程が伸びる。', short: '照準線と射程アップ' },
+  { id: 'membersCard', origin: "Member's Card", name: "MEMBER'S CARD", label: '会員証', icon: '💳', description: 'SHOPが10%引き。以降のSECTION序盤にSHOPが出る。', short: 'SHOPが早く出て10%引き' },
+  { id: 'poppingGems', origin: 'Popping Gems', name: 'POPPING COINS', label: '弾けるコイン', icon: '✨', description: 'COINを拾うたび上へ一発撃つ。CHARGEは消費しない。', short: 'COINを拾うと上へ一発' },
+  { id: 'restInPieces', origin: 'Rest in Pieces', name: 'REST IN PIECES', label: '安らかに', icon: '☠', description: '死体を撃つと爆発する。', short: '死体を撃つと爆発' },
+  { id: 'reverseEngineering', origin: 'Reverse Engineering', name: 'REVERSE ENGINEERING', label: '解析', icon: '🔧', description: 'GUN MODULEを撃つと中身を1度だけ引き直せる。', short: 'GUN MODULEを1度引き直す' },
+  { id: 'rocketJump', origin: 'Rocket Jump', name: 'ROCKET JUMP', label: 'ロケットジャンプ', icon: '🚀', description: '地上ジャンプが高くなり、足元で爆発する。', short: '地上ジャンプ強化＋爆発' },
+  { id: 'safetyJetpack', origin: 'Safety Jetpack', name: 'SAFETY JETPACK', label: '安全装置', icon: '🪂', description: 'CHARGE 0でも空中でACTIONを押すと降下が緩む。燃料制。', short: 'EMPTY時にFIREで短時間ホバー' },
+  { id: 'timeout', origin: 'Timeout', name: 'TIMEOUT', label: 'タイムアウト', icon: '⏳', description: '被弾した場所に時間停止の泡が残る。中にいる間、外の世界が止まる。', short: '被弾地点に時間停止の泡' },
+  { id: 'youth', origin: 'Youth', name: 'YOUTH', label: '若さ', icon: '🌱', description: 'HPを1回復。以降の強化の選択肢が4つになる。', short: 'HP+1・選択肢が4つに' },
 ];
 
 export const upgrade = (id: UpgradeId) => UPGRADES.find(u => u.id === id)!;

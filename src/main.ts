@@ -2,6 +2,7 @@ import Phaser from 'phaser';
 import { LEVEL_SELECT_DESTINATIONS, LEVEL_SELECT_GESTURE, type LevelDestination } from './data/levelSelect';
 import { approachExtra, BOSS_APPROACH } from './data/nimushi';
 import { TITLE, buildIdentifier } from './ui/branding';
+import { upgradeCardHtml } from './ui/upgradeCard';
 import './style.css';
 import { GameScene, type GameBridge } from './scenes/GameScene';
 import { GameModel } from './systems/GameModel';
@@ -411,7 +412,7 @@ function showUpgrade(model: GameModel) {
   const cleared = model.stage.boss ? 'FINAL' : `SECTION ${model.stage.label}`;
   const destination = model.stage.isFinalSection ? 'FINAL BOSS' : model.stage.isAreaFinale ? `AREA ${model.stage.progress.area + 1}` : nextSectionLabel(model);
   $('run-status').textContent = 'REST / SAFE ZONE';
-  setOverlay(`<div class="panel-content upgrade-content" role="dialog" aria-modal="true" aria-labelledby="rest-title"><div class="eyebrow">${cleared} CLEAR / REST POINT</div><h2 id="rest-title">CHOOSE ONE<span>安全地帯 · HPの自動回復はありません</span></h2><div class="rest-stats"><span>HP <b>${model.hp} / ${model.health.maxHp}</b></span><span>MAX HP <b>${model.health.maxHp}</b></span><span>LIFE UP <b>${model.health.overflowHealing} / ${HEALTH_RULES.overflowPerLife}</b></span><span>弾数上限 <b>${model.stats.maxAmmo}</b></span><span>NEXT <b>${destination}</b></span><span>SECTION <b>${model.stage.clearedSections + 1} / ${TOTAL_SECTIONS}</b></span></div><div class="owned-upgrades" aria-label="取得済み強化">${acquired || '<span>取得済み強化：なし</span>'}</div><div class="upgrade-list">${choices.map((u, i) => `<button class="upgrade-card" id="upgrade-${i}" aria-pressed="false"><span class="upgrade-icon">${u.icon}</span><span><strong>${u.name}</strong><b>${u.label}</b><small>${u.description}</small><small>ORIGIN · ${u.origin}</small></span><span class="upgrade-arrow">○</span></button>`).join('')}</div><p id="selection-summary" class="upgrade-note" aria-live="polite">1つ選んでNEXTで確定。選択中は時間が停止します。</p><button id="upgrade-confirm" class="primary-button" disabled>NEXT · 選択してください</button></div>`);
+  setOverlay(`<div class="panel-content upgrade-content" role="dialog" aria-modal="true" aria-labelledby="rest-title"><div class="eyebrow">${cleared} CLEAR / REST POINT</div><h2 id="rest-title">CHOOSE ONE<span>安全地帯 · HPの自動回復はありません</span></h2><div class="rest-stats"><span>HP <b>${model.hp} / ${model.health.maxHp}</b></span><span>MAX HP <b>${model.health.maxHp}</b></span><span>LIFE UP <b>${model.health.overflowHealing} / ${HEALTH_RULES.overflowPerLife}</b></span><span>弾数上限 <b>${model.stats.maxAmmo}</b></span><span>NEXT <b>${destination}</b></span><span>SECTION <b>${model.stage.clearedSections + 1} / ${TOTAL_SECTIONS}</b></span></div><div class="owned-upgrades" aria-label="取得済み強化">${acquired || '<span>取得済み強化：なし</span>'}</div><div class="upgrade-list">${choices.map((u, i) => upgradeCardHtml(u, i)).join('')}</div><p id="selection-summary" class="upgrade-note" aria-live="polite">1つ選んでNEXTで確定。選択中は時間が停止します。</p><button id="upgrade-confirm" class="primary-button" disabled>NEXT · 選択してください</button></div>`);
   choices.forEach((u, i) => { $(`upgrade-${i}`).onclick = () => {
     if (!model.selectUpgrade(u.id)) return;
     choices.forEach((_, j) => {

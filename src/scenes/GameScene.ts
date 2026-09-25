@@ -15,7 +15,8 @@ import type { AreaTheme } from '../data/areas';
 import { hazardBounds, hazardType, type Hazard } from '../data/hazards';
 import { TerrainWatch } from '../dev/TerrainWatch';
 import { SPEED_PROFILES } from '../data/speedProfiles';
-import { PlayerArtPreview } from '../dev/PlayerArtPreview';
+import { PlayerArt } from '../render/PlayerArt';
+import { NIMUSHI_ART, nimushiArtPlacement, nimushiArtShade } from '../render/NimushiArt';
 export interface GameBridge {
   direction: number; firing: boolean; active: boolean;
   /**
@@ -39,8 +40,11 @@ interface Particle { x: number; y: number; vx: number; vy: number; life: number;
 export class GameScene extends Phaser.Scene {
   model = new GameModel();
   private graphics!: Phaser.GameObjects.Graphics;
-  private playerArt?: PlayerArtPreview;
+  private playerArt?: PlayerArt;
   private artForeground?: Phaser.GameObjects.Graphics;
+  /** NIMUSHI's image, and the layer everything drawn after the body goes on so it stays above it. */
+  private bossArt?: Phaser.GameObjects.Image;
+  private afterBoss?: Phaser.GameObjects.Graphics;
   private keys!: Record<string, Phaser.Input.Keyboard.Key>;
   private particles: Particle[] = [];
   /**
@@ -59,7 +63,10 @@ export class GameScene extends Phaser.Scene {
   private damageTime = 0;
   private labels: { text: Phaser.GameObjects.Text; y: number; life: number }[] = [];
   constructor(private bridge: GameBridge) { super('Game'); }
-  preload() { if (import.meta.env.DEV) PlayerArtPreview.preload(this); }
+  preload() {
+    PlayerArt.preload(this);
+    this.load.image('nimushi-art', NIMUSHI_ART.url);
+  }
   create() {
     // Expose the recorder so a human who sees the terrain misbehave can dump the history at once.
     // DEV only; in a production build `terrainWatch` is null and this never runs.
@@ -88,11 +95,15 @@ export class GameScene extends Phaser.Scene {
       };
     }
     this.graphics = this.add.graphics();
-    if (import.meta.env.DEV) {
-      this.playerArt = new PlayerArtPreview(this, () => this.draw());
-      // Preserve ordering: world -> body -> particles/damage flash/scanlines.
-      this.artForeground = this.add.graphics();
+    // Ordering: world -> NIMUSHI's image -> everything drawn after its body -> the player's image ->
+    // particles, damage flash and scanlines. Created in that order, so Phaser draws them in it.
+    if (this.textures.exists('nimushi-art')) {
+      this.textures.get('nimushi-art').setFilter(Phaser.Textures.FilterMode.NEAREST);
+      this.bossArt = this.add.image(0, 0, 'nimushi-art').setOrigin(0).setVisible(false);
     }
+    this.afterBoss = this.add.graphics();
+    this.playerArt = new PlayerArt(this, () => this.draw());
+    this.artForeground = this.add.graphics();
     this.keys = this.input.keyboard!.addKeys({ left: 'LEFT', right: 'RIGHT', a: 'A', d: 'D', space: 'SPACE' }) as Record<string, Phaser.Input.Keyboard.Key>;
     this.applyCapture();
     this.input.keyboard!.on('keydown-SPACE', () => this.requestShot());
@@ -294,6 +305,8 @@ export class GameScene extends Phaser.Scene {
     // inside a SIDE CAVE. One setPosition rather than an offset threaded through every draw call:
     // the cave is the only thing that ever leaves the shaft, and the shaft is drawn in world x.
     g.clear(); g.setPosition((this.shake && !this.reducedMotion ? (Math.random() - 0.5) * this.shake : 0) - m.cameraX, 0);
+    this.bossArt?.setVisible(false);
+    this.afterBoss?.clear().setPosition(g.x, g.y);
     const theme = m.stage.config.theme;
     // Wide enough to still cover the view when it has slid sideways into a cave.
     this.rect(m.cameraX - 8, 0, 466 + Math.abs(m.cameraX) * 2, 800, 0x10191c);
@@ -1180,9 +1193,19 @@ export class GameScene extends Phaser.Scene {
         pearl(cx + Math.cos(a) * TAPIOCA_BARRIER.radiusX * out, cy + Math.sin(a) * TAPIOCA_BARRIER.radiusY * out + fall, TAPIOCA_BARRIER.pearlSize * (1 - t * 0.5), 1 - t);
       }
     }
-    // Exposed: a gold rim that breathes for as long as the window lasts.
+    // Exposed: gold that breathes for as long as the window lasts. Over NIMUSHI's image a full box
+    // would sit across the face, so there it is four lock-on corners instead -- the same gold, the same
+    // beat, framing the body rather than covering it.
     const beat = 0.35 + Math.abs(Math.sin(this.model.elapsed * 5)) * 0.4;
-    this.graphics.lineStyle(3, 0xffd66b, beat).strokeRect(body.x - 8, body.y - cam - 8, body.width + 16, body.height + 16);
+    const bx = body.x - 8, by = body.y - cam - 8, bw = body.width + 16, bh = body.height + 16;
+    if (this.bossArt?.visible) {
+      const arm = 22;
+      this.graphics.lineStyle(4, 0xffd66b, beat);
+      for (const [cx, cy, dx, dy] of [[bx, by, 1, 1], [bx + bw, by, -1, 1], [bx, by + bh, 1, -1], [bx + bw, by + bh, -1, -1]]) {
+        this.graphics.lineBetween(cx, cy, cx + dx * arm, cy);
+        this.graphics.lineBetween(cx, cy, cx, cy + dy * arm);
+      }
+    } else this.graphics.lineStyle(3, 0xffd66b, beat).strokeRect(bx, by, bw, bh);
   }
   /** TRIPLE SHOT's three lines, and the rings a SUMMON is about to come through. */
   private bossTells(cam: number) {
@@ -1208,6 +1231,16 @@ export class GameScene extends Phaser.Scene {
     const m = this.model, fight = m.boss;
     const body = fight.body, y = body.y - cam;
     if (y > 860 || y + body.height < -220) return;
+    if (this.bossArt && this.afterBoss) {
+      // NIMUSHI's approved image, on the body the model reports. Everything drawn from here on --
+      // the barrier, the tells, enemies, the player -- goes on the layer above it.
+      const at = nimushiArtPlacement(body, cam);
+      const shade = nimushiArtShade(fight);
+      this.bossArt.setPosition(at.x + this.graphics.x, at.y + this.graphics.y).setAlpha(shade.alpha).setVisible(true);
+      if (shade.fill) this.bossArt.setTintFill(shade.tint); else this.bossArt.setTint(shade.tint);
+      this.graphics = this.afterBoss;
+      return;
+    }
     const pose = fight.pose;
     const dead = pose === 'dead';
     const rage = pose === 'rage' || fight.rageActive;

@@ -206,3 +206,5 @@
 /* EXTERNAL TEST BUILD: the subtitle under DEEP DROP, and the build tag -- small, in the corner, title screen only. */
 .title-sub{font-family:'Barlow Condensed','Arial Narrow',Impact,sans-serif;font-weight:800;font-size:26px;letter-spacing:6px;color:#e8c98a;margin-top:12px;line-height:1}.build-tag{position:absolute;top:10px;right:12px;font-size:8px;letter-spacing:1px;color:#6f8179;opacity:.85;pointer-events:none}
 @media(max-width:650px){.title-sub{font-size:20px;letter-spacing:5px;margin-top:9px}}
+/* EXTERNAL TEST BUILD: the upgrade choice is ICON / NAME / one line, and the chosen card is unmistakable. */
+.upgrade-card .upgrade-text small{font-size:10px;color:#c9d8bd;margin-top:4px}.upgrade-icon img{width:32px;height:32px;image-rendering:pixelated}.upgrade-card[aria-pressed="true"]{border-color:var(--lime);background:#2f4a2a;box-shadow:inset 4px 0 0 var(--lime)}.upgrade-card[aria-pressed="true"] .upgrade-arrow{color:var(--lime)}
