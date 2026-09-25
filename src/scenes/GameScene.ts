@@ -16,7 +16,7 @@ import { hazardBounds, hazardType, type Hazard } from '../data/hazards';
 import { TerrainWatch } from '../dev/TerrainWatch';
 import { SPEED_PROFILES } from '../data/speedProfiles';
 import { PlayerArt } from '../render/PlayerArt';
-import { NIMUSHI_ART, nimushiArtPlacement, nimushiArtShade } from '../render/NimushiArt';
+import { NIMUSHI_ART, nimushiArtBarrierOrbit, nimushiArtPlacement, nimushiArtShade } from '../render/NimushiArt';
 export interface GameBridge {
   direction: number; firing: boolean; active: boolean;
   /**
@@ -1165,7 +1165,13 @@ export class GameScene extends Phaser.Scene {
   private bossBarrier(cam: number) {
     const fight = this.model.boss;
     if (!fight.started || fight.defeated) return;
-    const body = fight.body, cx = fight.x, cy = body.y + body.height / 2 - cam;
+    const body = fight.body;
+    // Around the DRAWING when NIMUSHI's image is up -- its silhouette's centre, not the collision box
+    // high on the hood -- and around the body only for the procedural fallback.
+    const orbit = this.bossArt?.visible
+      ? nimushiArtBarrierOrbit(body, cam, TAPIOCA_BARRIER)
+      : { x: fight.x, y: body.y + body.height / 2 - cam, radiusX: TAPIOCA_BARRIER.radiusX, radiusY: TAPIOCA_BARRIER.radiusY };
+    const cx = orbit.x, cy = orbit.y, rx = orbit.radiusX, ry = orbit.radiusY;
     const n = TAPIOCA_BARRIER.pearls, spin = this.reducedMotion ? 0 : this.model.elapsed * TAPIOCA_BARRIER.spin;
     const pearl = (x: number, y: number, r: number, alpha: number) => {
       this.graphics.fillStyle(0x1b1016, 0.95 * alpha).fillCircle(x, y, r);
@@ -1176,10 +1182,10 @@ export class GameScene extends Phaser.Scene {
       const t = Math.min(1, fight.barrierAge / TAPIOCA_BARRIER.form);
       const spread = 1 + (1 - t) * 1.3;
       // A faint shell joining them, so the ring reads as one closed thing rather than loose pearls.
-      this.graphics.lineStyle(3, 0x3a2418, 0.35 * t).strokeEllipse(cx, cy, TAPIOCA_BARRIER.radiusX * 2, TAPIOCA_BARRIER.radiusY * 2);
+      this.graphics.lineStyle(3, 0x3a2418, 0.35 * t).strokeEllipse(cx, cy, rx * 2, ry * 2);
       for (let i = 0; i < n; i++) {
         const a = spin + (i / n) * Math.PI * 2;
-        pearl(cx + Math.cos(a) * TAPIOCA_BARRIER.radiusX * spread, cy + Math.sin(a) * TAPIOCA_BARRIER.radiusY * spread, TAPIOCA_BARRIER.pearlSize, t);
+        pearl(cx + Math.cos(a) * rx * spread, cy + Math.sin(a) * ry * spread, TAPIOCA_BARRIER.pearlSize, t);
       }
       return;
     }
@@ -1190,7 +1196,7 @@ export class GameScene extends Phaser.Scene {
       for (let i = 0; i < n; i++) {
         const a = spin + (i / n) * Math.PI * 2;
         const out = 1 + t * 1.6, fall = t * t * 90;
-        pearl(cx + Math.cos(a) * TAPIOCA_BARRIER.radiusX * out, cy + Math.sin(a) * TAPIOCA_BARRIER.radiusY * out + fall, TAPIOCA_BARRIER.pearlSize * (1 - t * 0.5), 1 - t);
+        pearl(cx + Math.cos(a) * rx * out, cy + Math.sin(a) * ry * out + fall, TAPIOCA_BARRIER.pearlSize * (1 - t * 0.5), 1 - t);
       }
     }
     // Exposed: gold that breathes for as long as the window lasts. Over NIMUSHI's image a full box

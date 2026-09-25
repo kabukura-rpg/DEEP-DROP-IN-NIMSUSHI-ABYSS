@@ -6,6 +6,8 @@ import animationMapUrl from '../../output/player-sprites-v1/animation-map.json?u
 import sharedSheetUrl from '../../output/player-sprites-v1/sheets/player_shared_v1.png?url';
 import normalSheetUrl from '../../output/player-sprites-v1/sheets/player_normal_v1.png?url';
 import bossSheetUrl from '../../output/player-sprites-v1/sheets/player_boss_v1.png?url';
+// PLAYER BOSS CONTACT REBOUND v1 (ART LOCKED 2026-09-23): one 48px frame, its own one-cell sheet.
+import contactSheetUrl from '../../output/player-boss-contact-rebound-v1/boss_contact_rebound_00.png?url';
 
 export interface ArtFrame { anchor: { x: number; y: number }; group: string; index: number }
 export interface ArtMap { frames: Record<string, ArtFrame> }
@@ -23,7 +25,7 @@ export interface ArtMap { frames: Record<string, ArtFrame> }
  */
 export const PLAYER_ART_ASSETS = {
   map: animationMapUrl,
-  sheets: { shared: sharedSheetUrl, normal: normalSheetUrl, boss: bossSheetUrl },
+  sheets: { shared: sharedSheetUrl, normal: normalSheetUrl, boss: bossSheetUrl, contact: contactSheetUrl },
   cell: 48,
 } as const;
 

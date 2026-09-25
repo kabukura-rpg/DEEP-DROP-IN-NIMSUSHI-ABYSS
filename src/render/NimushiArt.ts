@@ -20,6 +20,12 @@ export const NIMUSHI_ART = {
   pivot: { x: 128, y: 40 },
   /** GAMEPLAY ALIGNMENT B (HUMAN APPROVED): the drawing sits sixteen logical pixels higher. */
   renderOffsetY: -16,
+  /**
+   * Where NIMUSHI actually is inside the 256x224 cell: the sprite's alpha bounds, (16,16)-(232,208),
+   * from its manifest (resolution-review-v1/manifest.json, `alphaBounds`). The pivot is the BODY'S
+   * anchor, high on the hood; this is the silhouette, and its centre is what the eye reads as NIMUSHI.
+   */
+  silhouette: { x: 16, y: 16, width: 216, height: 192 },
 } as const;
 
 /** Where the image's top-left goes on screen, from the body the model reports (recoil included). */
@@ -27,6 +33,36 @@ export function nimushiArtPlacement(body: { x: number; y: number; width: number;
   return {
     x: body.x + body.width / 2 - NIMUSHI_ART.pivot.x,
     y: body.y + body.height / 2 - cameraY - NIMUSHI_ART.pivot.y + NIMUSHI_ART.renderOffsetY,
+  };
+}
+
+/**
+ * The centre of NIMUSHI as drawn -- the middle of the silhouette -- in screen coordinates, from the
+ * same placement the image uses. With the pivot (128,40), alignment B's -16 and the silhouette's
+ * centre at (124,112), that lands 4px left of and 56px below the body's centre: the body is the
+ * collision box high on the hood, the drawing hangs below it.
+ */
+export function nimushiArtVisualCenter(body: { x: number; y: number; width: number; height: number }, cameraY: number) {
+  const at = nimushiArtPlacement(body, cameraY);
+  return {
+    x: at.x + NIMUSHI_ART.silhouette.x + NIMUSHI_ART.silhouette.width / 2,
+    y: at.y + NIMUSHI_ART.silhouette.y + NIMUSHI_ART.silhouette.height / 2,
+  };
+}
+
+/**
+ * The TAPIOCA BARRIER's orbit around the drawing: centred on the silhouette, and never tighter than
+ * the silhouette plus a pearl's clearance, so the ring goes AROUND NIMUSHI rather than across it.
+ * The barrier's own radii stay the floor; only the drawing can widen them.
+ */
+export function nimushiArtBarrierOrbit(body: { x: number; y: number; width: number; height: number }, cameraY: number,
+  barrier: { radiusX: number; radiusY: number; pearlSize: number }) {
+  const centre = nimushiArtVisualCenter(body, cameraY);
+  const clear = barrier.pearlSize;
+  return {
+    x: centre.x, y: centre.y,
+    radiusX: Math.max(barrier.radiusX, NIMUSHI_ART.silhouette.width / 2 + clear),
+    radiusY: Math.max(barrier.radiusY, NIMUSHI_ART.silhouette.height / 2 + clear),
   };
 }
 

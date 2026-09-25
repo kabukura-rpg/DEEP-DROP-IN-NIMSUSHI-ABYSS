@@ -5,7 +5,16 @@ export const PLAYER_ANIMATIONS = {
   gunboots_fire: [2, 12, false], gunboots_brake: [2, 16, true],
   landing: [2, 12, false], wall_contact: [1, 6, true], wall_kick: [2, 12, false],
   boss_ascend: [3, 6, true], boss_brake: [2, 16, true], boss_hover: [2, 16, true], boss_damage: [2, 12, false],
+  // PLAYER BOSS CONTACT REBOUND v1 (ART LOCKED): one still frame, held for BOSS_CONTACT_REBOUND_SECONDS.
+  boss_contact_rebound: [1, 1, false],
 } as const;
+/**
+ * How long the rebound frame shows after a SURVIVED body contact with NIMUSHI: the length of the
+ * rebound itself. The contact throws the player off at `BALANCE.bounce` (210px/s) against the boss
+ * arena's 900px/s^2 pull, so the throw is spent in 210/900 = 0.23s -- the frame lasts as long as the
+ * movement it depicts, and hands back to the ordinary poses as the player turns round.
+ */
+export const BOSS_CONTACT_REBOUND_SECONDS = 0.23;
 export type PlayerAnimation = keyof typeof PLAYER_ANIMATIONS;
 export interface AnimationInput {
   readonly elapsed: number; readonly hp: number; readonly state: string;
@@ -17,8 +26,11 @@ export class PlayerAnimationState {
   private hurt = -Infinity;
   private land = -Infinity;
   private wall = -Infinity;
-  reset() { this.shot = this.hurt = this.land = this.wall = -Infinity; }
-  event(e: {readonly type: string; readonly stomp?: boolean}, m: AnimationInput) {
+  private rebound = -Infinity;
+  reset() { this.shot = this.hurt = this.land = this.wall = this.rebound = -Infinity; }
+  event(e: {readonly type: string; readonly stomp?: boolean; readonly cause?: string}, m: AnimationInput) {
+    // Only a SURVIVED body contact with NIMUSHI: a killing blow is a death, and a stomp is not a hurt.
+    if (e.type === 'hurt' && e.cause === 'bossContact' && m.hp > 0) this.rebound = m.elapsed;
     if (e.type === 'shot' && m.player.grounded === -1 && (!m.inBossArena || m.player.vy <= 0)) this.shot = m.elapsed;
     if (e.type === 'hurt') this.hurt = m.elapsed;
     if (e.type === 'land') this.land = m.elapsed;
@@ -28,6 +40,7 @@ export class PlayerAnimationState {
   pose(m: AnimationInput): PlayerAnimation | null {
     if (m.hp <= 0 && m.state === 'over') return 'death';
     if (!['playing','boss'].includes(m.state)) return null;
+    if (m.hp > 0 && m.elapsed-this.rebound < BOSS_CONTACT_REBOUND_SECONDS) return 'boss_contact_rebound';
     if (m.elapsed-this.hurt < 2/12) return m.inBossArena ? 'boss_damage' : 'damage';
     if (m.player.grounded !== -1) return m.elapsed-this.land < 2/12 ? 'landing' : Math.abs(m.player.vx)>5 ? 'run' : 'idle';
     if (m.inBossArena) {

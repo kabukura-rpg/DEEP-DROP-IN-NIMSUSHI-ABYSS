@@ -34,7 +34,7 @@ import { CHASE_STEP, GHOST_RULES, inSight, stepChaser, type ChaseState } from '.
 import { BONE, dwellerMayHit, dwellerShot, stepDweller, type DwellerState } from '../data/dwellers';
 import { defaultTuning, sanitizeTuning, type PhysicsTuning } from './PhysicsTuning';
 export type GameEvent = { type: 'shot' | 'empty' | 'land' | 'kill' | 'hurt' | 'upgrade' | 'over' | 'heal' | 'boss' | 'clear' | 'oxygen' | 'section' | 'ice' | 'vent' | 'crack' | 'collapse' | 'bossHit' | 'bossTelegraph' | 'bossFire' | 'bossPhase' | 'bossDown' | 'gunModule' | 'coin' | 'shopOpen' | 'shopBuy' | 'exitReady' | 'exit' | 'containerBreak' | 'blockCrack' | 'blockBreak' | 'jump' | 'wallJump' | 'comboSettle' | 'doodad' | 'timeVoid' | 'coinVein' | 'coinHigh' | 'spikePlatform' | 'explosion' | 'corpse' | 'balloon' | 'jetpack' | 'gravityFlip' | 'bossEye' | 'bossRage' | 'bossStart' | 'tomato' | 'bossLine' | 'seal' | 'abyss'
-  | 'ghostWake' | 'ghostFade' | 'skullWarn' | 'skullCharge'; x: number; y: number; value?: number; stomp?: boolean; lifeUps?: number; overflow?: number; combo?: number; stage?: string; areaCleared?: string | null; bonus?: 'heart' | 'charge'; source?: { id: number; kind: Enemy['kind']; x: number; y: number } };
+  | 'ghostWake' | 'ghostFade' | 'skullWarn' | 'skullCharge'; x: number; y: number; value?: number; stomp?: boolean; lifeUps?: number; overflow?: number; combo?: number; stage?: string; areaCleared?: string | null; bonus?: 'heart' | 'charge'; source?: { id: number; kind: Enemy['kind']; x: number; y: number }; cause?: DamageCause };
 /**
  * Who fired a round.
  *
@@ -2404,7 +2404,7 @@ export class GameModel {
     // arena exactly as in the shaft -- a pearl, a spike and a slime all behave the same way here.
     // NIMUSHI's BODY is the one exception and it is handled at its own call site in `tickNimushi`,
     // where it can be tied to this function having returned true.
-    this.events.push({ type: 'hurt', x: this.player.x, y: this.player.y, source: source ? { id: source.id, kind: source.kind, x: source.x, y: source.y } : undefined });
+    this.events.push({ type: 'hurt', x: this.player.x, y: this.player.y, cause, source: source ? { id: source.id, kind: source.kind, x: source.x, y: source.y } : undefined });
     return true;
   }
   killInstantly(cause: DamageCause) { return this.health.killInstantly(cause); }
