@@ -32,6 +32,12 @@ const BACKGROUND_URLS = {
 // BACKGROUND MIX (tester request): AREA1 and BOSS on the v2 A paintings, AREA2-4 on the B ones. Each
 // alpha holds its art to about the contrast the v1 set was approved at, so the playfield stays
 // foremost; AREA4 sits lowest so its lit rubble never reads as a ledge.
+/**
+ * The AREA 1 surface crust (GameScene.surfaceCrust). World pixels below the ground line at y 196:
+ * the collapse's lips sit either side of the start platform (x 155-295) and open out by `spread`
+ * per pixel of depth; the crust is solid for `solid` px, then fades out by `depth`.
+ */
+const SURFACE_CRUST = { depth: 150, row: 6, lipLeft: 132, lipRight: 318, spread: 0.45, solid: 54 } as const;
 const BACKGROUND_ALPHA = { 1: 0.4, 2: 0.45, 3: 0.45, 4: 0.35, boss: 0.62 } as const;
 export interface GameBridge {
   direction: number; firing: boolean; active: boolean;
@@ -720,13 +726,94 @@ export class GameScene extends Phaser.Scene {
   private surface(theme: { sky?: number; horizon?: number; grass?: number }, cam: number) {
     if (theme.sky === undefined) return;
     const ground = 196 - cam;
-    if (ground < -60) return;
-    this.rect(-8, 0, 466, Math.min(800, ground + 60), theme.sky);
+    if (ground < -SURFACE_CRUST.depth) return;
+    // The sky stops at the ground line: below it is the crust and, through the collapse, the ruins.
+    if (ground > 0) this.rect(-8, 0, 466, Math.min(800, ground), theme.sky);
     this.rect(-8, Math.max(0, ground - 74), 466, 40, theme.horizon!, 0.35);
     for (let i = 0; i < 9; i++) this.rect(24 + i * 48, ground - 46 - (i % 3) * 14, 26, 46 + (i % 3) * 14, theme.horizon!, 0.5);
-    this.rect(-8, ground, 466, 14, theme.grass!);
-    this.rect(-8, ground + 12, 466, 48, 0x3c4a30);
-    for (let i = 0; i < 40; i++) this.rect(-4 + i * 12, ground - 5 + (i % 3), 2, 6, theme.grass!);
+    this.surfaceCrust(ground);
+  }
+  /**
+   * THE SURFACE CRUST -- drawing only. It used to be a flat bar of grass green across the whole
+   * shaft, which read as a placeholder collision box. It is now a cut through the ground the run
+   * starts on: a thin line of moss on top, dark soil, rock and the courses of an old wall below,
+   * roots and vines hanging into a collapse in the middle, fading out into the ruins underneath.
+   *
+   * None of it is solid. What the player stands on is the start platform, which sits in the
+   * collapse and is drawn like every other ledge; the crust only has to never look like one, so it
+   * carries no bright top anywhere a player could expect to land.
+   */
+  private surfaceCrust(ground: number) {
+    const { depth, row, lipLeft, lipRight, spread, solid } = SURFACE_CRUST;
+    const hash = (n: number) => { n = Math.imul(n ^ 0x5bd1e995, 0x27d4eb2d); n ^= n >>> 15; return (n >>> 0) % 1000 / 1000; };
+    // Where the collapse's edge is at depth dy: narrow at the surface, opening out as it goes down.
+    const edge = (dy: number, side: -1 | 1, i: number) => {
+      const lip = side < 0 ? lipLeft : lipRight;
+      return lip + side * dy * spread + Math.round((hash(i * 7 + (side < 0 ? 1 : 2)) - 0.5) * 10);
+    };
+    for (let i = 0, dy = 0; dy < depth; i++, dy += row) {
+      const y = ground + dy;
+      if (y > 800) break;
+      const fade = dy < solid ? 1 : Math.max(0, 1 - (dy - solid) / (depth - solid));
+      const l = edge(dy, -1, i), r = edge(dy, 1, i);
+      // Soil darkens toward the ruins' own blue-black as it goes down, then fades into them.
+      const t = Math.min(1, dy / depth), mix = (a: number, b: number) => Math.round(a + (b - a) * t);
+      const soil = (mix(0x22, 0x16) << 16) | (mix(0x1e, 0x1f) << 8) | mix(0x18, 0x22);
+      for (const [x0, x1, side] of [[-8, l, -1], [r, 458, 1]] as const) {
+        const w = x1 - x0;
+        if (w <= 0) continue;
+        this.rect(x0, y, w, row, soil, 0.96 * fade);
+        for (let x = x0 + (i % 2) * 5; x < x1 - 3;) {
+          const h = hash(i * 131 + Math.floor(x) * 7);
+          // An old wall survives here and there in the upper band: courses of worked stone.
+          const wall = dy >= 12 && dy < 48 && hash(Math.floor((x + 400) / 56) * 977 + side * 13) < 0.5;
+          if (wall) {
+            const bw = Math.min(10, x1 - x - 1);
+            this.rect(x, y + 1, bw, row - 2, h < 0.5 ? 0x3d382e : 0x34302a, fade);
+            this.rect(x, y + 1, bw, 1, 0x4f493c, 0.75 * fade);
+            if (h > 0.9) this.rect(x + 2, y + 2, 3, 2, 0x4a6536, 0.8 * fade); // moss in a joint
+            x += 11;
+            continue;
+          }
+          // Otherwise rock: blocks of every size and a few tones, with the odd pale fleck.
+          const bw = Math.min(4 + Math.floor(h * 13), x1 - x - 1);
+          if (h < 0.5 && bw > 2) {
+            const tone = h < 0.16 ? 0x2b2822 : h < 0.33 ? 0x322e27 : 0x3a352c;
+            this.rect(x, y + (h < 0.25 ? 0 : 1), bw, row - 1, tone, fade);
+            if (h < 0.2) this.rect(x + 1, y, Math.max(1, bw - 2), 1, 0x48433a, 0.6 * fade);
+          } else if (h > 0.9) this.rect(x + 1, y + 2, 1, 1, 0x5d5646, 0.8 * fade);
+          x += bw + 1 + Math.floor(h * 5);
+        }
+      }
+      // The broken lip of the collapse: loose stones where the ground gave way.
+      for (const [x, side] of [[l, -1], [r, 1]] as const) {
+        const h = hash(i * 17 + side);
+        if (dy < solid + 12) this.rect(x - (side < 0 ? 6 : 0), y + 1, 6, row - 1, h < 0.5 ? 0x413c31 : 0x2c2923, fade);
+      }
+    }
+    // Roots and vines hanging off the lip into the collapse.
+    for (let k = 0; k < 7; k++) {
+      const side = k % 2 === 0 ? -1 : 1;
+      const at = 4 + Math.floor(hash(k * 29) * 18);
+      const x = edge(at, side, Math.floor(at / row)) + (side < 0 ? -2 - (k % 3) * 3 : 1 + (k % 3) * 3);
+      const len = 14 + Math.floor(hash(k * 53) * 34);
+      const vine = k % 3 === 1;
+      for (let j = 0; j < len; j += 2) {
+        const sway = Math.round(Math.sin(j * 0.35 + k) * 1.5);
+        this.rect(x + sway, ground + at + j, vine ? 1 : 2, 2, vine ? 0x3f5f31 : 0x3a2d22, 0.9);
+        if (vine && j % 6 === 4) this.rect(x + sway + side * -2, ground + at + j, 2, 2, 0x5a7a44, 0.85);
+      }
+    }
+    // Moss along the top of the ground only -- a thin, muted line, never a bright bar.
+    for (const [x0, x1] of [[-8, lipLeft], [lipRight, 458]] as const) {
+      this.rect(x0, ground - 1, x1 - x0, 3, 0x4d6a38);
+      this.rect(x0, ground - 1, x1 - x0, 1, 0x6f8f52, 0.9);
+      for (let x = x0 + 3; x < x1 - 2; x += 7) {
+        const h = hash(Math.floor(x) * 3);
+        if (h < 0.55) this.rect(x, ground - 3 - Math.round(h * 3), 1, 2 + Math.round(h * 3), 0x5f804a);
+        if (h > 0.8) this.rect(x + 1, ground + 2, 2, 2 + Math.round(h * 4), 0x3f5f31, 0.9);
+      }
+    }
   }
   /** Tint, surface light and weed for a submerged area. Areas without water skip it entirely. */
   private submerged(theme: { water?: { tint: number; light: number; weed: number } }, cam: number) {
