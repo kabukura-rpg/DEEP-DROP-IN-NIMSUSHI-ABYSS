@@ -19,18 +19,19 @@ import { PlayerArt } from '../render/PlayerArt';
 import { NIMUSHI_ART, nimushiArtBarrierOrbit, nimushiArtPlacement, nimushiArtShade } from '../render/NimushiArt';
 import { TOMATO_REVEAL_SKIP_DISTANCE, tomatoRevealFrame } from '../render/tomatoReveal';
 import type { Pickup } from '../data/pickups';
-import area1BackgroundUrl from '../../output/game-backgrounds-v1/area1.png?url';
-import area2BackgroundUrl from '../../output/game-backgrounds-v1/area2.png?url';
-import area3BackgroundUrl from '../../output/game-backgrounds-v1/area3.png?url';
-import area4BackgroundUrl from '../../output/game-backgrounds-v1/area4.png?url';
-import bossBackgroundUrl from '../../output/game-backgrounds-v1/boss.png?url';
+import area1BackgroundUrl from '../../output/game-backgrounds-v2/area1-a.png?url';
+import area2BackgroundUrl from '../../output/game-backgrounds-v2/area2-a.png?url';
+import area3BackgroundUrl from '../../output/game-backgrounds-v2/area3-a.png?url';
+import area4BackgroundUrl from '../../output/game-backgrounds-v2/area4-a.png?url';
+import bossBackgroundUrl from '../../output/game-backgrounds-v2/boss-a.png?url';
 
 const BACKGROUND_URLS = {
   1: area1BackgroundUrl, 2: area2BackgroundUrl, 3: area3BackgroundUrl,
   4: area4BackgroundUrl, boss: bossBackgroundUrl,
 } as const;
-// AREA4 sits lower than its neighbours: its drawn rock shelves read as ledges at full strength.
-const BACKGROUND_ALPHA = { 1: 0.77, 2: 0.72, 3: 0.68, 4: 0.52, boss: 0.62 } as const;
+// BACKGROUND ART v2 (A set). Each alpha holds its art to about the contrast the v1 set was approved
+// at, so the playfield stays foremost: AREA1 and AREA3 are far brighter paintings and sit lowest.
+const BACKGROUND_ALPHA = { 1: 0.4, 2: 0.62, 3: 0.5, 4: 0.52, boss: 0.62 } as const;
 export interface GameBridge {
   direction: number; firing: boolean; active: boolean;
   /**
