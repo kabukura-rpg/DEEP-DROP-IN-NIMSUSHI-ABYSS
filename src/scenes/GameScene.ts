@@ -17,6 +17,8 @@ import { TerrainWatch } from '../dev/TerrainWatch';
 import { SPEED_PROFILES } from '../data/speedProfiles';
 import { PlayerArt } from '../render/PlayerArt';
 import { NIMUSHI_ART, nimushiArtBarrierOrbit, nimushiArtPlacement, nimushiArtShade } from '../render/NimushiArt';
+import { TOMATO_REVEAL_SKIP_DISTANCE, tomatoRevealFrame } from '../render/tomatoReveal';
+import type { Pickup } from '../data/pickups';
 import area1BackgroundUrl from '../../output/game-backgrounds-v1/area1.png?url';
 import area2BackgroundUrl from '../../output/game-backgrounds-v1/area2.png?url';
 import area3BackgroundUrl from '../../output/game-backgrounds-v1/area3.png?url';
@@ -73,6 +75,8 @@ export class GameScene extends Phaser.Scene {
   private shake = 0;
   private inputBuffer = new InputBuffer();
   private reducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+  /** When each TOMATO's entrance began (model seconds); -Infinity once skipped. Keyed by the pickup itself. */
+  private tomatoSeen = new WeakMap<Pickup, number>();
   private damageSource?: GameEvent['source'];
   private damageTime = 0;
   private labels: { text: Phaser.GameObjects.Text; y: number; life: number }[] = [];
@@ -315,6 +319,62 @@ export class GameScene extends Phaser.Scene {
     for (let i = 0; i < 3; i++) this.rect(cx - 5 + i * 4, y + 6, 2, 4, 0x241c24);
   }
   private rect(x: number, y: number, w: number, h: number, color: number, alpha = 1) { this.graphics.fillStyle(color, alpha).fillRect(Math.round(x), Math.round(y), w, h); }
+  /** The heart silhouette, which the TOMATO shares at a larger size with a stalk instead of a glint. */
+  private heartShape(x: number, y: number, r: number, color: number, tomato: boolean) {
+    this.graphics.fillStyle(color, 0.95).fillCircle(x - r * 0.45, y - r * 0.2, r * 0.7);
+    this.graphics.fillStyle(color, 0.95).fillCircle(x + r * 0.45, y - r * 0.2, r * 0.7);
+    this.graphics.fillStyle(color, 0.95).fillTriangle(x - r, y, x + r, y, x, y + r * 1.2);
+    if (tomato) {
+      const k = r / 15;
+      this.rect(x - 3 * k, y - r - 6 * k, Math.max(2, 6 * k), Math.max(2, 8 * k), 0x6fbf5f);
+      this.rect(x - 10 * k, y - r - 3 * k, Math.max(3, 20 * k), Math.max(2, 4 * k), 0x6fbf5f);
+    } else this.rect(x - r * 0.5, y - r * 0.5, 4, 4, 0xffffff, 0.85);
+  }
+  /**
+   * The TOMATO, with its entrance: out of the staging chamber's back wall the first time it is on
+   * screen (see render/tomatoReveal). Drawing only -- the pickup has been where it rests, and
+   * takeable, since the room was built; a player who comes near first simply sees it whole.
+   */
+  private tomato(item: Pickup, x: number, y: number, color: number) {
+    const m = this.model, p = m.player;
+    const zone = m.safeZones.find(z => item.x >= z.x && item.x <= z.x + z.width && item.y >= z.y && item.y <= z.y + z.height);
+    const near = Math.hypot(p.x - item.x, p.y - item.y) < TOMATO_REVEAL_SKIP_DISTANCE;
+    let start = this.tomatoSeen.get(item);
+    if (start === undefined) { start = !zone || this.reducedMotion || near ? -Infinity : m.elapsed; this.tomatoSeen.set(item, start); }
+    else if (near && start !== -Infinity) { start = -Infinity; this.tomatoSeen.set(item, start); }
+    const frame = tomatoRevealFrame(m.elapsed - start);
+    if (frame.done || !zone) { this.heartShape(x, y, 15, color, true); return; }
+    // The back of the recess, just inside the far end of the cut (which is the canvas edge): the
+    // portal and its glow stay whole on screen rather than being sliced by the edge.
+    const right = zone.side !== -1;
+    const cx = right ? zone.x + zone.width + 28 - 22 : 22;
+    const flicker = 0.75 + 0.25 * Math.sin(m.elapsed * 40);
+    if (frame.omen > 0) {
+      const a = frame.omen * flicker;
+      this.rect(cx - 12, y - 38, 24, 76, 0xff2d3a, 0.14 * a);
+      // Cracks out of the portal's centre, up and down the wall and a little into the recess.
+      for (const [dx, dy, len, dir] of [[0, -4, 36, -1], [0, 4, 34, 1], [-5, -12, 16, -1], [-5, 12, 18, 1], [5, -8, 14, -1], [5, 8, 12, 1]] as const) {
+        for (let i = 0; i < len * frame.omen; i += 3) {
+          const jag = ((i / 3) % 2 === 0 ? 1 : -1) * (right ? -1 : 1);
+          this.rect(cx + dx + jag, y + dy + dir * i, 3, 3, 0xff7a7a, 0.9 * a);
+        }
+      }
+    }
+    if (frame.portal > 0) {
+      const rx = 10 * frame.portal, ry = 26 * frame.portal;
+      this.graphics.fillStyle(0xff2d3a, 0.22 * frame.portal).fillEllipse(cx, y, rx * 2 + 8, ry * 2 + 10);
+      this.graphics.fillStyle(0x05020a, 0.96).fillEllipse(cx, y, rx * 2, ry * 2);
+      this.graphics.fillStyle(0x3a0d2a, 0.9).fillEllipse(cx, y, rx, ry * 1.2);
+      this.graphics.lineStyle(2, 0xff6f6f, 0.9 * frame.portal).strokeEllipse(cx, y, rx * 2, ry * 2);
+    }
+    if (frame.emerge !== null) {
+      const e = frame.emerge;
+      const tx = cx + (x - cx) * e;
+      this.heartShape(tx, y, 15 * (0.35 + 0.65 * e), color, true);
+      // Crumbs of the wall thrown out with it.
+      if (e < 1) for (let i = 0; i < 4; i++) this.rect(cx + (tx - cx) * (0.3 + i * 0.15) + (right ? -1 : 1) * i * 2, y - 14 + i * 9, 3, 3, 0xff6f6f, 0.7 * (1 - e));
+    }
+  }
   private draw() {
     const g = this.graphics, m = this.model, cam = m.cameraY;
     // The whole scene slides with the camera's horizontal offset, which is zero everywhere except
@@ -473,16 +533,8 @@ export class GameScene extends Phaser.Scene {
         this.label2(x, y + bob, label);
         continue;
       }
-      if (type.silhouette === 'heart' || type.silhouette === 'tomato') {
-        const big = type.silhouette === 'tomato';
-        const r = big ? 15 : 11;
-        this.graphics.fillStyle(type.color, 0.95).fillCircle(x - r * 0.45, y + bob - r * 0.2, r * 0.7);
-        this.graphics.fillStyle(type.color, 0.95).fillCircle(x + r * 0.45, y + bob - r * 0.2, r * 0.7);
-        this.graphics.fillStyle(type.color, 0.95).fillTriangle(x - r, y + bob, x + r, y + bob, x, y + bob + r * 1.2);
-        if (big) { this.rect(x - 3, y + bob - r - 6, 6, 8, 0x6fbf5f); this.rect(x - 10, y + bob - r - 3, 20, 4, 0x6fbf5f); }
-        else this.rect(x - r * 0.5, y + bob - r * 0.5, 4, 4, 0xffffff, 0.85);
-        continue;
-      }
+      if (type.silhouette === 'tomato') { this.tomato(item, x, y + bob, type.color); continue; }
+      if (type.silhouette === 'heart') { this.heartShape(x, y + bob, 11, type.color, false); continue; }
       if (type.silhouette === 'shard') {
         this.graphics.fillStyle(type.color, 0.95).fillTriangle(x, y + bob - 15, x - 10, y + bob + 4, x + 10, y + bob + 4);
         this.graphics.fillStyle(0xe8fbff, 0.95).fillTriangle(x, y + bob - 8, x - 5, y + bob + 3, x + 5, y + bob + 3);
