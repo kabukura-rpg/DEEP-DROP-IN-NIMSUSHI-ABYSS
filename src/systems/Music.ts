@@ -20,7 +20,7 @@ export const AREA_MUSIC: Record<AreaTrack, string> = {
   1: mossyMonolithUrl, 2: stoneVaultUrl, 3: sunkenMeridianUrl, 4: cavernousDriftUrl,
 };
 /** How loud the music sits under the effects, and how long an AREA change takes each way. */
-export const MUSIC = { volume: 0.25, fadeOut: 0.35, fadeIn: 0.5 } as const;
+export const MUSIC = { volume: 0.07, fadeOut: 0.35, fadeIn: 0.5 } as const;
 
 /**
  * Which track the screen asks for, or null for silence. PAUSE, the rest point, the shop and the
