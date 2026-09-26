@@ -17,6 +17,18 @@ import { TerrainWatch } from '../dev/TerrainWatch';
 import { SPEED_PROFILES } from '../data/speedProfiles';
 import { PlayerArt } from '../render/PlayerArt';
 import { NIMUSHI_ART, nimushiArtBarrierOrbit, nimushiArtPlacement, nimushiArtShade } from '../render/NimushiArt';
+import area1BackgroundUrl from '../../output/game-backgrounds-v1/area1.png?url';
+import area2BackgroundUrl from '../../output/game-backgrounds-v1/area2.png?url';
+import area3BackgroundUrl from '../../output/game-backgrounds-v1/area3.png?url';
+import area4BackgroundUrl from '../../output/game-backgrounds-v1/area4.png?url';
+import bossBackgroundUrl from '../../output/game-backgrounds-v1/boss.png?url';
+
+const BACKGROUND_URLS = {
+  1: area1BackgroundUrl, 2: area2BackgroundUrl, 3: area3BackgroundUrl,
+  4: area4BackgroundUrl, boss: bossBackgroundUrl,
+} as const;
+// AREA4 sits lower than its neighbours: its drawn rock shelves read as ledges at full strength.
+const BACKGROUND_ALPHA = { 1: 0.77, 2: 0.72, 3: 0.68, 4: 0.52, boss: 0.62 } as const;
 export interface GameBridge {
   direction: number; firing: boolean; active: boolean;
   /**
@@ -40,6 +52,8 @@ interface Particle { x: number; y: number; vx: number; vy: number; life: number;
 export class GameScene extends Phaser.Scene {
   model = new GameModel();
   private graphics!: Phaser.GameObjects.Graphics;
+  private backgroundArt!: Phaser.GameObjects.Image;
+  private backgroundId: keyof typeof BACKGROUND_URLS = 1;
   private playerArt?: PlayerArt;
   private artForeground?: Phaser.GameObjects.Graphics;
   /** NIMUSHI's image, and the layer everything drawn after the body goes on so it stays above it. */
@@ -64,6 +78,7 @@ export class GameScene extends Phaser.Scene {
   private labels: { text: Phaser.GameObjects.Text; y: number; life: number }[] = [];
   constructor(private bridge: GameBridge) { super('Game'); }
   preload() {
+    for (const [id, url] of Object.entries(BACKGROUND_URLS)) this.load.image(`background-${id}`, url);
     PlayerArt.preload(this);
     this.load.image('nimushi-art', NIMUSHI_ART.url);
   }
@@ -94,6 +109,7 @@ export class GameScene extends Phaser.Scene {
           + ` ${profile.jumpImpulseForSameArc} would restore the original arc)`;
       };
     }
+    this.backgroundArt = this.add.image(225, 400, 'background-1').setAlpha(BACKGROUND_ALPHA[1]).setDepth(-1);
     this.graphics = this.add.graphics();
     // Ordering: world -> NIMUSHI's image -> everything drawn after its body -> the player's image ->
     // particles, damage flash and scanlines. Created in that order, so Phaser draws them in it.
@@ -304,26 +320,22 @@ export class GameScene extends Phaser.Scene {
     // The whole scene slides with the camera's horizontal offset, which is zero everywhere except
     // inside a SIDE CAVE. One setPosition rather than an offset threaded through every draw call:
     // the cave is the only thing that ever leaves the shaft, and the shaft is drawn in world x.
+    const backgroundId = m.inBossArena ? 'boss' : m.stage.config.id;
+    if (backgroundId !== this.backgroundId) {
+      this.backgroundId = backgroundId;
+      this.backgroundArt.setTexture(`background-${backgroundId}`).setAlpha(BACKGROUND_ALPHA[backgroundId]);
+    }
     g.clear(); g.setPosition((this.shake && !this.reducedMotion ? (Math.random() - 0.5) * this.shake : 0) - m.cameraX, 0);
     this.bossArt?.setVisible(false);
     this.afterBoss?.clear().setPosition(g.x, g.y);
     const theme = m.stage.config.theme;
     // Wide enough to still cover the view when it has slid sideways into a cave.
-    this.rect(m.cameraX - 8, 0, 466 + Math.abs(m.cameraX) * 2, 800, 0x10191c);
+    // Keep the authored distance layer subdued so collision surfaces and attack tells stay foremost.
+    this.rect(m.cameraX - 8, 0, 466 + Math.abs(m.cameraX) * 2, 800, 0x10191c, 0.16);
     this.surface(theme, cam);
     this.submerged(theme, cam);
     this.volcanic(theme, cam);
     this.collapsed(theme, cam);
-    // Ancient pillars drift more slowly than the playable walls.
-    for (let i = 0; i < 10; i++) {
-      const y = ((i * 112 - cam * 0.24) % 1120 + 1120) % 1120 - 112;
-      this.rect(55, y, 340, 1, theme.pillar, 0.42);
-      for (const x of [86, 196, 306]) {
-        this.rect(x, y, 1, 112, theme.pillar, 0.35);
-        this.rect(x - 7, y + 6, 15, 4, theme.pillar, 0.3);
-        this.rect(x - 5, y + 74, 11, 3, theme.pillar, 0.22);
-      }
-    }
     // The brickwork, extended outward far enough to back whatever the camera can see: in a cave the
     // view is outside the shaft, and the rock a cave is cut from has to be there behind it.
     const reach = Math.ceil(Math.abs(m.cameraX)) + 40;
