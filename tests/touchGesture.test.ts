@@ -20,6 +20,18 @@ describe('browser gestures in the play area', () => {
     }
   });
 
+  it('keeps every Safari tap behaviour off the hidden LEVEL SELECT arrow', () => {
+    const arrow = css.split('\n').find((l: string) => l.startsWith('.title-symbol{'))!;
+    expect(arrow).toBeDefined();
+    for (const declaration of ['touch-action:none', 'user-select:none', '-webkit-user-select:none', '-webkit-touch-callout:none', '-webkit-tap-highlight-color:transparent']) {
+      expect(arrow, declaration).toContain(declaration);
+    }
+    // Counted on pointerup by ui/touchGuards, not on pointerdown or click.
+    expect(main).toContain('installLevelSelectGesture(arrow, revealLevelSelect, LEVEL_SELECT_GESTURE)');
+    expect(main).not.toMatch(/arrow\?\.addEventListener\('pointerdown'/);
+    expect(main).toContain("installGameAreaZoomGuard($('game-frame'),");
+  });
+
   it('leaves the page itself zoomable', () => {
     const viewport = html.match(/<meta name="viewport" content="([^"]*)"/)![1];
     expect(viewport).not.toMatch(/user-scalable|maximum-scale/);

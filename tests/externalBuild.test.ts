@@ -37,6 +37,7 @@ describe('an external tester', () => {
   it('keeps the hidden LEVEL SELECT exactly as it was: five taps on the arrow, all 13 destinations', () => {
     expect(LEVEL_SELECT_GESTURE).toEqual({ taps: 5, windowMs: 2500 });
     expect(LEVEL_SELECT_DESTINATIONS).toHaveLength(13);
-    expect(mainSource).toContain("arrow?.addEventListener('pointerdown'");
+    // Counted on pointerup since the iOS touch fix (tests/touchGuards pins the counting itself).
+    expect(mainSource).toContain('installLevelSelectGesture(arrow, revealLevelSelect, LEVEL_SELECT_GESTURE)');
   });
 });

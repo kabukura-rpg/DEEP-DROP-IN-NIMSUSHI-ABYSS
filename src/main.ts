@@ -19,6 +19,7 @@ import { setTerrainMode, getTerrainMode, type TerrainMode } from './data/rhythm'
 import { setSideRoomMode, getSideRoomMode, setCaveFrequency, getCaveFrequency, type SideRoomMode, type CaveFrequency } from './data/safeZone';
 import { previewSideCave, SIDE_CAVE_FIXTURES } from './dev/sideCavePreview';
 import { installMenuKeys } from './ui/menuKeys';
+import { installGameAreaZoomGuard, installLevelSelectGesture } from './ui/touchGuards';
 
 const app = document.querySelector<HTMLDivElement>('#app')!;
 app.innerHTML = `
@@ -332,13 +333,10 @@ function showTitle() {
     $('practice').insertAdjacentElement('afterend', button);
   };
   if (new URLSearchParams(location.search).has('levels')) revealLevelSelect();
-  let taps: number[] = [];
+  // Counted on pointerup, one per tap, and never on a click: iOS Safari's synthesised click is late
+  // or missing on a plain element, and a quick second tap there is otherwise a zoom (ui/touchGuards).
   const arrow = $('overlay').querySelector<HTMLElement>('.title-symbol');
-  arrow?.addEventListener('pointerdown', () => {
-    const now = performance.now();
-    taps = [...taps.filter(t => now - t < LEVEL_SELECT_GESTURE.windowMs), now];
-    if (taps.length >= LEVEL_SELECT_GESTURE.taps) revealLevelSelect();
-  });
+  if (arrow) installLevelSelectGesture(arrow, revealLevelSelect, LEVEL_SELECT_GESTURE);
   // DEV only: a BOSS TEST button beside the ordinary ones. The markup is added here rather than in
   // the title template so that a production build has no trace of it at all.
   if (import.meta.env.DEV) {
@@ -764,6 +762,8 @@ for (const pad of [movePad, $('fire-pad')]) {
   pad.addEventListener('touchstart', holdGesture, { passive: false });
   pad.addEventListener('touchend', holdGesture, { passive: false });
 }
+/** Safari's pinch and double-tap zoom, kept out of the game area only (ui/touchGuards). */
+installGameAreaZoomGuard($('game-frame'), target => target instanceof Element && !!target.closest('button, a, input, select, textarea, label, [role=button]'));
 
 /**
  * The playfield itself is no longer a control on touch. A MOUSE click still fires, because that is
