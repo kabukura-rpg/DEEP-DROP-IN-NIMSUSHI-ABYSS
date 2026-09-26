@@ -20,6 +20,7 @@ import { setSideRoomMode, getSideRoomMode, setCaveFrequency, getCaveFrequency, t
 import { previewSideCave, SIDE_CAVE_FIXTURES } from './dev/sideCavePreview';
 import { installMenuKeys } from './ui/menuKeys';
 import { installGameAreaZoomGuard, installLevelSelectGesture } from './ui/touchGuards';
+import { AreaMusic, musicTrack } from './systems/Music';
 
 const app = document.querySelector<HTMLDivElement>('#app')!;
 app.innerHTML = `
@@ -42,6 +43,12 @@ app.innerHTML = `
 
 const $ = <T extends HTMLElement = HTMLElement>(id: string) => document.getElementById(id) as T;
 export const audio = new GameAudio();
+/**
+ * AREA BGM. Kept off the game loop on purpose: it is polled on its own short timer, so it follows
+ * PAUSE, the menus and the ♪ switch without the simulation ever knowing it exists.
+ */
+const music = new AreaMusic();
+audio.onUnlock = context => music.unlock(context);
 let best = 0;
 /**
  * True while the run was started from TEST LEVEL SELECT. Such a run never writes PERSONAL BEST: its
@@ -648,6 +655,9 @@ installMenuKeys({
 });
 window.addEventListener('blur', () => { if (inPlay()) pause(); });
 document.addEventListener('visibilitychange', () => { if (document.hidden && inPlay()) pause(); });
+// AREA BGM: the track the current screen asks for, and silence while the page is in the background.
+window.setInterval(() => music.sync(musicTrack({ mode, area: scene.model.stage.config.id, muted: audio.muted })), 100);
+document.addEventListener('visibilitychange', () => music.setHidden(document.hidden));
 
 /**
  * TOUCH CONTROLS: three explicit buttons, and nothing else on screen that moves or shoots.

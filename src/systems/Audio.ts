@@ -54,9 +54,13 @@ export const eventSound = (type: GameEvent['type']): SoundId | null => EVENT_SOU
 export class GameAudio {
   private context?: AudioContext;
   muted = false;
+  /** Told the context the first time a user gesture unlocks it -- the AREA BGM rides the same one. */
+  onUnlock?: (context: AudioContext) => void;
   unlock() {
+    const first = !this.context;
     this.context ??= new AudioContext();
     if (this.context.state === 'suspended') void this.context.resume();
+    if (first) this.onUnlock?.(this.context);
   }
   play(kind: SoundId, combo = 0, stomp = false) {
     if (this.muted || !this.context || this.context.state !== 'running') return;
