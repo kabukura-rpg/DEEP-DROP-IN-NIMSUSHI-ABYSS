@@ -24,6 +24,8 @@ import area2BackgroundUrl from '../../output/game-backgrounds-v2/area2-b.png?url
 import area3BackgroundUrl from '../../output/game-backgrounds-v2/area3-b.png?url';
 import area4BackgroundUrl from '../../output/game-backgrounds-v2/area4-b.png?url';
 import bossBackgroundUrl from '../../output/game-backgrounds-v2/boss-a.png?url';
+import area1SurfaceUrl from '../../output/game-backgrounds-v1/area1-surface-a.png?url';
+import { surfaceLayerAlphas, surfaceWeight } from '../render/surfaceBlend';
 
 const BACKGROUND_URLS = {
   1: area1BackgroundUrl, 2: area2BackgroundUrl, 3: area3BackgroundUrl,
@@ -63,6 +65,8 @@ export class GameScene extends Phaser.Scene {
   model = new GameModel();
   private graphics!: Phaser.GameObjects.Graphics;
   private backgroundArt!: Phaser.GameObjects.Image;
+  /** AREA 1's surface backdrop, over the underground one and faded out by depth (render/surfaceBlend). */
+  private surfaceArt!: Phaser.GameObjects.Image;
   private backgroundId: keyof typeof BACKGROUND_URLS = 1;
   private playerArt?: PlayerArt;
   private artForeground?: Phaser.GameObjects.Graphics;
@@ -91,6 +95,7 @@ export class GameScene extends Phaser.Scene {
   constructor(private bridge: GameBridge) { super('Game'); }
   preload() {
     for (const [id, url] of Object.entries(BACKGROUND_URLS)) this.load.image(`background-${id}`, url);
+    this.load.image('background-area1-surface', area1SurfaceUrl);
     PlayerArt.preload(this);
     this.load.image('nimushi-art', NIMUSHI_ART.url);
   }
@@ -122,6 +127,7 @@ export class GameScene extends Phaser.Scene {
       };
     }
     this.backgroundArt = this.add.image(225, 400, 'background-1').setAlpha(BACKGROUND_ALPHA[1]).setDepth(-1);
+    this.surfaceArt = this.add.image(225, 400, 'background-area1-surface').setDisplaySize(450, 800).setDepth(-0.5);
     this.graphics = this.add.graphics();
     // Ordering: world -> NIMUSHI's image -> everything drawn after its body -> the player's image ->
     // particles, damage flash and scanlines. Created in that order, so Phaser draws them in it.
@@ -391,8 +397,13 @@ export class GameScene extends Phaser.Scene {
     const backgroundId = m.inBossArena ? 'boss' : m.stage.config.id;
     if (backgroundId !== this.backgroundId) {
       this.backgroundId = backgroundId;
-      this.backgroundArt.setTexture(`background-${backgroundId}`).setAlpha(BACKGROUND_ALPHA[backgroundId]);
+      this.backgroundArt.setTexture(`background-${backgroundId}`);
     }
+    // AREA 1 opens on the surface: its sky-and-ruins backdrop holds to 120m of the run, crossfades
+    // into the underground painting by 220m, and never comes back on a SECTION change.
+    const layers = surfaceLayerAlphas(surfaceWeight(m.totalDepth, backgroundId), BACKGROUND_ALPHA[backgroundId]);
+    this.surfaceArt.setVisible(layers.surface > 0).setAlpha(layers.surface);
+    this.backgroundArt.setAlpha(layers.underground);
     g.clear(); g.setPosition((this.shake && !this.reducedMotion ? (Math.random() - 0.5) * this.shake : 0) - m.cameraX, 0);
     this.bossArt?.setVisible(false);
     this.afterBoss?.clear().setPosition(g.x, g.y);
@@ -722,15 +733,14 @@ export class GameScene extends Phaser.Scene {
     for (let y = 0; y < WORLD.height; y += 4) this.rect(0, y, 450, 1, 0x050b0d, 0.13);
     this.graphics = g;
   }
-  /** Sky, horizon and grass above the AREA 1 entrance; other areas simply omit the colours. */
-  private surface(theme: { sky?: number; horizon?: number; grass?: number }, cam: number) {
+  /**
+   * The ground the AREA 1 run starts on. The sky, horizon and ruins above it are the surface
+   * backdrop image (render/surfaceBlend); this draws only the crust in front of it.
+   */
+  private surface(theme: { sky?: number }, cam: number) {
     if (theme.sky === undefined) return;
     const ground = 196 - cam;
     if (ground < -SURFACE_CRUST.depth) return;
-    // The sky stops at the ground line: below it is the crust and, through the collapse, the ruins.
-    if (ground > 0) this.rect(-8, 0, 466, Math.min(800, ground), theme.sky);
-    this.rect(-8, Math.max(0, ground - 74), 466, 40, theme.horizon!, 0.35);
-    for (let i = 0; i < 9; i++) this.rect(24 + i * 48, ground - 46 - (i % 3) * 14, 26, 46 + (i % 3) * 14, theme.horizon!, 0.5);
     this.surfaceCrust(ground);
   }
   /**
