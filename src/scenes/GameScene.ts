@@ -26,6 +26,7 @@ import area4BackgroundUrl from '../../output/game-backgrounds-v2/area4-b.png?url
 import bossBackgroundUrl from '../../output/game-backgrounds-v2/boss-a.png?url';
 import area1SurfaceUrl from '../../output/game-backgrounds-v1/area1-surface-a.png?url';
 import { surfaceLayerAlphas, surfaceWeight } from '../render/surfaceBlend';
+import { ENVIRONMENT_ART, ENVIRONMENT_GEOMETRY, environmentKeys, platformSlices, usesPlatformArt, wallTileX, wallTileY } from '../render/environmentArt';
 
 const BACKGROUND_URLS = {
   1: area1BackgroundUrl, 2: area2BackgroundUrl, 3: area3BackgroundUrl,
@@ -87,6 +88,19 @@ export class GameScene extends Phaser.Scene {
   private shake = 0;
   private inputBuffer = new InputBuffer();
   private reducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+  /**
+   * ENVIRONMENT ART layers (render/environmentArt). The world is drawn back to front across three
+   * Graphics with the image layers between them, so an image-based AREA keeps the procedural
+   * ordering exactly: behind-the-wall -> WALL IMAGES -> caves, chambers, fixtures -> LEDGE IMAGES ->
+   * ledges, hazards, pickups, enemies and on (`graphics`). An AREA without images draws nothing in
+   * the image layers and the same calls in the same order as before.
+   */
+  private worldBack!: Phaser.GameObjects.Graphics;
+  private worldMid!: Phaser.GameObjects.Graphics;
+  private wallLayer!: Phaser.GameObjects.Container;
+  private platformLayer!: Phaser.GameObjects.Container;
+  private walls: Phaser.GameObjects.TileSprite[] = [];
+  private ledgePool: { left: Phaser.GameObjects.Image; center: Phaser.GameObjects.TileSprite; right: Phaser.GameObjects.Image }[] = [];
   /** When each TOMATO's entrance began (model seconds); -Infinity once skipped. Keyed by the pickup itself. */
   private tomatoSeen = new WeakMap<Pickup, number>();
   private damageSource?: GameEvent['source'];
@@ -96,6 +110,12 @@ export class GameScene extends Phaser.Scene {
   preload() {
     for (const [id, url] of Object.entries(BACKGROUND_URLS)) this.load.image(`background-${id}`, url);
     this.load.image('background-area1-surface', area1SurfaceUrl);
+    for (const [area, set] of Object.entries(ENVIRONMENT_ART)) {
+      if (!set) continue;
+      const keys = environmentKeys(Number(area));
+      this.load.image(keys.left, set.platform.left); this.load.image(keys.center, set.platform.center); this.load.image(keys.right, set.platform.right);
+      this.load.image(keys.fill, set.wall.fill); this.load.image(keys.edge, set.wall.edge);
+    }
     PlayerArt.preload(this);
     this.load.image('nimushi-art', NIMUSHI_ART.url);
   }
@@ -128,6 +148,10 @@ export class GameScene extends Phaser.Scene {
     }
     this.backgroundArt = this.add.image(225, 400, 'background-1').setAlpha(BACKGROUND_ALPHA[1]).setDepth(-1);
     this.surfaceArt = this.add.image(225, 400, 'background-area1-surface').setDisplaySize(450, 800).setDepth(-0.5);
+    this.worldBack = this.add.graphics();
+    this.wallLayer = this.add.container(0, 0);
+    this.worldMid = this.add.graphics();
+    this.platformLayer = this.add.container(0, 0);
     this.graphics = this.add.graphics();
     // Ordering: world -> NIMUSHI's image -> everything drawn after its body -> the player's image ->
     // particles, damage flash and scanlines. Created in that order, so Phaser draws them in it.
@@ -407,7 +431,12 @@ export class GameScene extends Phaser.Scene {
     g.clear(); g.setPosition((this.shake && !this.reducedMotion ? (Math.random() - 0.5) * this.shake : 0) - m.cameraX, 0);
     this.bossArt?.setVisible(false);
     this.afterBoss?.clear().setPosition(g.x, g.y);
+    this.worldBack.clear().setPosition(g.x, g.y); this.worldMid.clear().setPosition(g.x, g.y);
+    this.graphics = this.worldBack;
     const theme = m.stage.config.theme;
+    // The AREA's image set, if it has one and it loaded; otherwise the procedural look below.
+    const artArea = m.state === 'boss' ? 0 : m.stage.config.id;
+    const envArt = ENVIRONMENT_ART[artArea] && this.textures.exists(environmentKeys(artArea).fill) ? environmentKeys(artArea) : null;
     // Wide enough to still cover the view when it has slid sideways into a cave.
     // Keep the authored distance layer subdued so collision surfaces and attack tells stay foremost.
     this.rect(m.cameraX - 8, 0, 466 + Math.abs(m.cameraX) * 2, 800, 0x10191c, 0.16);
@@ -418,12 +447,16 @@ export class GameScene extends Phaser.Scene {
     // The brickwork, extended outward far enough to back whatever the camera can see: in a cave the
     // view is outside the shaft, and the rock a cave is cut from has to be there behind it.
     const reach = Math.ceil(Math.abs(m.cameraX)) + 40;
-    this.rect(-reach, 0, 28 + reach, 800, theme.wall); this.rect(422, 0, 28 + reach, 800, theme.wall);
+    this.wallArt(envArt, reach, cam, g.x);
+    if (!envArt) { this.rect(-reach, 0, 28 + reach, 800, theme.wall); this.rect(422, 0, 28 + reach, 800, theme.wall); }
+    this.graphics = this.worldMid;
     this.sideCaves(m, cam, theme);
-    this.rect(27, 0, 2, 800, theme.wallEdge); this.rect(421, 0, 2, 800, theme.wallEdge);
-    for (let i = 0; i < 19; i++) {
-      const y = i * 48 - (cam % 48);
-      for (const x of [0, 423]) { this.rect(x, y, 27, 2, theme.brick); this.rect(x + (i % 2 ? 8 : 19), y, 2, 48, theme.brick, 0.75); }
+    if (!envArt) {
+      this.rect(27, 0, 2, 800, theme.wallEdge); this.rect(421, 0, 2, 800, theme.wallEdge);
+      for (let i = 0; i < 19; i++) {
+        const y = i * 48 - (cam % 48);
+        for (const x of [0, 423]) { this.rect(x, y, 27, 2, theme.brick); this.rect(x + (i % 2 ? 8 : 19), y, 2, 48, theme.brick, 0.75); }
+      }
     }
     for (let i = 0; i < 7; i++) {
       const y = ((i * 157 - cam * 0.65) % 1099 + 1099) % 1099 - 40;
@@ -497,6 +530,8 @@ export class GameScene extends Phaser.Scene {
         for (let i = 4; i < d.width - 3; i += 10) this.rect(d.x + i, dy + 4, 5, d.height - 6, 0x2b271d);
       }
     }
+    this.graphics = g;
+    let ledges = 0;
     // DEVELOPMENT ONLY: record what this frame is about to draw, so the "blocks sometimes all
     // change" report has evidence the next time it happens. The guard is a compile-time constant,
     // so the watcher and this block are dropped entirely from a production build.
@@ -511,6 +546,7 @@ export class GameScene extends Phaser.Scene {
       if (y < -20 || y > 820) continue;
       if (f.breakBlock) { this.breakBlock(f.x, y, f.width, f.breakBlock.hits, f.breakBlock.durability, f.breakBlock.reward); continue; }
       if (f.limboHazard) { this.limboHazard(f.x, y, f.width); continue; }
+      if (envArt && usesPlatformArt(f)) { this.ledgeArt(ledges++, envArt, f.x, y, f.width, g.x); continue; }
       const cracking = f.state === 'cracking', critical = f.state === 'critical';
       // Shape carries the warning: a doomed ledge loses its top rail and splits into shards.
       const top = critical ? 0xf0a0b4 : cracking ? 0xe8d48a : f.breakable ? 0x9ad6c0 : 0xb9ef70;
@@ -535,6 +571,7 @@ export class GameScene extends Phaser.Scene {
       if (f.spikePlatform) this.spikePlatform(f.x, y, f.width, f.spikePlatform);
       if (f.conveyor) this.conveyor(f.x, y, f.width, f.conveyor);
     }
+    for (let i = ledges; i < this.ledgePool.length; i++) { const p = this.ledgePool[i]; p.left.setVisible(false); p.center.setVisible(false); p.right.setVisible(false); }
     for (const hazard of m.hazards) this.hazard(hazard, cam);
     for (const item of m.pickups) {
       if (item.taken) continue;
@@ -880,6 +917,51 @@ export class GameScene extends Phaser.Scene {
       const x = 24 + (i * 173) % 402, y = ((i * 131 - this.model.elapsed * 90 - cam * 0.4) % 820 + 820) % 820;
       this.rect(x, y, 2, 3, 0xffb066, alpha * 2.2);
     }
+  }
+  /**
+   * The shaft walls from an AREA's images (render/environmentArt): the rock fill tiled across each
+   * wall -- out past the shaft as far as the view reaches into a side cave -- and down it with the
+   * world, never stretched; the 28px wall shows the fill's inner 28 columns. The inner-edge strip
+   * sits on the wall side of the boundary (x 24-28 and 422-426). The right wall is the left mirrored.
+   * With no images, the tiles are hidden and the procedural wall is drawn instead.
+   */
+  private wallArt(art: ReturnType<typeof environmentKeys> | null, reach: number, cam: number, offsetX: number) {
+    if (!this.walls.length && art) {
+      for (let i = 0; i < 4; i++) {
+        const tile = this.add.tileSprite(0, 0, 4, 800, art.fill).setOrigin(0);
+        this.wallLayer.add(tile); this.walls.push(tile);
+      }
+    }
+    this.wallLayer.setVisible(!!art);
+    if (!art) return;
+    const { shaftLeft, shaftRight, edgeWidth } = ENVIRONMENT_GEOMETRY.wall;
+    const width = shaftLeft + reach, ty = wallTileY(cam), tx = wallTileX(width);
+    const [leftFill, rightFill, leftEdge, rightEdge] = this.walls;
+    leftFill.setTexture(art.fill).setPosition(offsetX - reach, 0).setSize(width, 800).setTilePosition(tx, ty).setFlipX(false);
+    rightFill.setTexture(art.fill).setPosition(offsetX + shaftRight, 0).setSize(width, 800).setTilePosition(tx, ty).setFlipX(true);
+    leftEdge.setTexture(art.edge).setPosition(offsetX + shaftLeft - edgeWidth, 0).setSize(edgeWidth, 800).setTilePosition(0, ty).setFlipX(false);
+    rightEdge.setTexture(art.edge).setPosition(offsetX + shaftRight, 0).setSize(edgeWidth, 800).setTilePosition(0, ty).setFlipX(true);
+  }
+  /**
+   * One ordinary ledge from an AREA's 3-slice (render/environmentArt): caps at each end, the center
+   * repeated between them and cropped at the last one, nothing stretched. Placed so the image's
+   * surface row is the ledge's landing line `y` -- the collision is untouched and still the model's.
+   */
+  private ledgeArt(index: number, art: ReturnType<typeof environmentKeys>, x: number, y: number, width: number, offsetX: number) {
+    let piece = this.ledgePool[index];
+    if (!piece) {
+      piece = {
+        left: this.add.image(0, 0, art.left).setOrigin(0),
+        center: this.add.tileSprite(0, 0, ENVIRONMENT_GEOMETRY.platform.center, ENVIRONMENT_GEOMETRY.platform.height, art.center).setOrigin(0),
+        right: this.add.image(0, 0, art.right).setOrigin(0),
+      };
+      this.platformLayer.add([piece.left, piece.center, piece.right]);
+      this.ledgePool[index] = piece;
+    }
+    const at = platformSlices(Math.round(x), Math.round(y), width), top = at.top, h = ENVIRONMENT_GEOMETRY.platform.height;
+    piece.left.setTexture(art.left).setPosition(offsetX + at.left.x, top).setVisible(true);
+    piece.center.setTexture(art.center).setPosition(offsetX + at.center.x, top).setSize(at.center.width, h).setTilePosition(0, 0).setVisible(at.center.width > 0);
+    piece.right.setTexture(art.right).setPosition(offsetX + at.right.x, top).setVisible(true);
   }
   /**
    * One BREAK BLOCK. The row reads as masonry rather than as a ledge -- separate stones with a
