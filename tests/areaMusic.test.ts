@@ -12,7 +12,7 @@ describe('the AREA tracks', () => {
       expect(url, file).toContain(file.replace('.mp3', ''));
       expect(url, file).not.toContain('dist/');
     }
-    expect(new Set(Object.values(AREA_MUSIC)).size).toBe(4);
+    expect(new Set([1, 2, 3, 4].map(a => AREA_MUSIC[a as 1 | 2 | 3 | 4])).size).toBe(4);
   });
 
   it('fades each way in well under a second', () => {
@@ -62,5 +62,41 @@ describe('the unlock that starts it', () => {
     expect(seen).toHaveLength(0); // nothing plays on load
     audio.unlock(); audio.unlock(); audio.unlock();
     expect(seen).toHaveLength(1);
+  });
+});
+
+describe('the FINAL BOSS track', () => {
+  const at = (screen: { mode: string; abyss?: boolean; bossStarted?: boolean; muted?: boolean }) =>
+    musicTrack({ area: 4, muted: false, ...screen });
+
+  it('is pressure_in_the_deep, shipped from src/assets/audio like the AREA tracks', () => {
+    expect(AREA_MUSIC.boss).toContain('pressure_in_the_deep');
+    expect(AREA_MUSIC.boss).not.toContain('dist/');
+    expect(new Set(Object.values(AREA_MUSIC)).size).toBe(5);
+  });
+
+  it('keeps THE ABYSS silent until the fight starts, then plays only the boss track', () => {
+    // Staging room and the approach: in THE ABYSS, NIMUSHI not yet awake.
+    expect(at({ mode: 'boss', abyss: true, bossStarted: false })).toBeNull();
+    // The encounter has begun.
+    expect(at({ mode: 'boss', abyss: true, bossStarted: true })).toBe('boss');
+  });
+
+  it('holds the boss track (or the silence) through PAUSE in THE ABYSS -- never AREA 4\'s', () => {
+    expect(at({ mode: 'paused', abyss: true, bossStarted: true })).toBe('boss');
+    expect(at({ mode: 'paused', abyss: true, bossStarted: false })).toBeNull();
+  });
+
+  it('stops for GAME CLEAR, GAME OVER and the title, and stays silent with ♪ off', () => {
+    for (const mode of ['clear', 'over', 'title']) expect(at({ mode, abyss: true, bossStarted: true }), mode).toBeNull();
+    expect(at({ mode: 'boss', abyss: true, bossStarted: true, muted: true })).toBeNull();
+  });
+
+  it('starts with the model\'s own encounter flag, not with NIMUSHI coming into view', () => {
+    const game = new GameModel();
+    game.jumpToBoss();
+    expect(game.state).toBe('boss');
+    expect(game.boss.started).toBe(false);
+    expect(musicTrack({ mode: 'boss', area: game.stage.config.id, muted: false, abyss: true, bossStarted: game.boss.started })).toBeNull();
   });
 });

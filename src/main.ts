@@ -99,7 +99,7 @@ const bridge: GameBridge = {
     // The one beat the fight holds. The banner is screen-space and stays the right way up, which
     // is the whole point of inverting the physics rather than rotating the view.
     if (event.type === 'gravityFlip' && event.value) showToast('GRAVITY REVERSED', '重力が反転した');
-    if (event.type === 'bossStart') showToast('BOSS TIME', String(event.stage));
+    if (event.type === 'bossStart') { music.cue('boss'); showToast('BOSS TIME', String(event.stage)); }
     if (event.type === 'bossRage') showToast('FINAL RAGE', 'NIMUSHI が本気になった');
     if (event.type === 'tomato') showToast('TOMATO', `MAX HP +10 / MAX CHARGE +${event.value}`);
     if (event.type === 'upgrade') showSectionClear(model, event.stage || model.stage.label, event.areaCleared || null);
@@ -656,7 +656,10 @@ installMenuKeys({
 window.addEventListener('blur', () => { if (inPlay()) pause(); });
 document.addEventListener('visibilitychange', () => { if (document.hidden && inPlay()) pause(); });
 // AREA BGM: the track the current screen asks for, and silence while the page is in the background.
-window.setInterval(() => music.sync(musicTrack({ mode, area: scene.model.stage.config.id, muted: audio.muted })), 100);
+window.setInterval(() => music.sync(musicTrack({
+  mode, area: scene.model.stage.config.id, muted: audio.muted,
+  abyss: scene.model.state === 'boss', bossStarted: scene.model.boss.enabled && scene.model.boss.started,
+})), 100);
 document.addEventListener('visibilitychange', () => music.setHidden(document.hidden));
 
 /**
