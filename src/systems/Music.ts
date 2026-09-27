@@ -23,6 +23,11 @@ export const AREA_MUSIC: Record<AreaTrack, string> = {
 };
 /** How loud the music sits under the effects, and how long an AREA change takes each way. */
 export const MUSIC = { volume: 0.07, fadeOut: 0.35, fadeIn: 0.5 } as const;
+/**
+ * Per-track trim on top of MUSIC.volume. pressure_in_the_deep's loud passages sit ~1.6 dB above the
+ * AREA tracks', which left the shot only ~1.4 dB over it in the fight; 0.8 (~-1.9 dB) makes it 0.056.
+ */
+export const TRACK_GAIN: Record<AreaTrack, number> = { 1: 1, 2: 1, 3: 1, 4: 1, boss: 0.8 };
 
 /**
  * Which track the screen asks for, or null for silence. PAUSE, the rest point, the shop and the
@@ -112,6 +117,6 @@ export class AreaMusic {
     gain.cancelScheduledValues(ctx.currentTime);
     gain.setValueAtTime(0, ctx.currentTime);
     try { await element.play(); } catch { this.playing = null; return; }
-    gain.linearRampToValueAtTime(MUSIC.volume, ctx.currentTime + MUSIC.fadeIn);
+    gain.linearRampToValueAtTime(MUSIC.volume * TRACK_GAIN[want], ctx.currentTime + MUSIC.fadeIn);
   }
 }

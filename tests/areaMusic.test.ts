@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it } from 'vitest';
-import { AREA_MUSIC, MUSIC, musicTrack } from '../src/systems/Music';
+import { AREA_MUSIC, MUSIC, TRACK_GAIN, musicTrack } from '../src/systems/Music';
 import { GameAudio } from '../src/systems/Audio';
 import { GameModel } from '../src/systems/GameModel';
 
@@ -98,5 +98,14 @@ describe('the FINAL BOSS track', () => {
     expect(game.state).toBe('boss');
     expect(game.boss.started).toBe(false);
     expect(musicTrack({ mode: 'boss', area: game.stage.config.id, muted: false, abyss: true, bossStarted: game.boss.started })).toBeNull();
+  });
+});
+
+describe('per-track gain', () => {
+  it('trims only pressure_in_the_deep, to 0.8 of the shared volume', () => {
+    expect(MUSIC.volume).toBe(0.07);
+    for (const area of [1, 2, 3, 4] as const) expect(TRACK_GAIN[area], String(area)).toBe(1);
+    expect(TRACK_GAIN.boss).toBe(0.8);
+    expect(MUSIC.volume * TRACK_GAIN.boss).toBeCloseTo(0.056, 6);
   });
 });
