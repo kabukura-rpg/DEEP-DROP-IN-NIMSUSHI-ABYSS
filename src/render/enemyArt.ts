@@ -3,7 +3,7 @@
  * position, collision, stompability or AI: each image is placed on the enemy's own (x, y), centred
  * (origin 0.5, 0.5; the art's pivot is (32, 32) of a 64x64 canvas) at scale 1.
  *
- * An enemy KIND listed here draws from its image; any other kind -- AREA 4's, the boss's own --
+ * An enemy KIND listed here draws from its image; any other kind -- the boss's own --
  * keeps the procedural look in GameScene.enemy(). A kind whose state has no image, or whose texture
  * did not load, falls back to the procedural look as well.
  *
@@ -46,6 +46,11 @@ import squidDive from '../assets/enemies/area3/squid-dive.png?url';
 import shellSwimmerIdle from '../assets/enemies/area3/shell-swimmer-idle.png?url';
 import riserJellyIdle from '../assets/enemies/area3/riser-jelly-idle.png?url';
 import biterIdle from '../assets/enemies/area3/biter-idle.png?url';
+import shadeOrbArea4Idle from '../assets/enemies/area4/shade-orb-idle.png?url';
+import voidWispIdle from '../assets/enemies/area4/void-wisp-idle.png?url';
+import hollowShadeIdle from '../assets/enemies/area4/hollow-shade-idle.png?url';
+import voidShardIdle from '../assets/enemies/area4/void-shard-idle.png?url';
+import angryOrbIdle from '../assets/enemies/area4/angry-orb-idle.png?url';
 import type { Enemy } from '../systems/StageGenerator';
 import { WORLD } from '../data/balance';
 
@@ -68,6 +73,11 @@ export const ENEMY_ART_URLS: Record<string, string> = {
   'enemy-shell-swimmer-idle': shellSwimmerIdle,
   'enemy-riser-jelly-idle': riserJellyIdle,
   'enemy-biter-idle': biterIdle,
+  'enemy-shade-orb-area4-idle': shadeOrbArea4Idle,
+  'enemy-void-wisp-idle': voidWispIdle,
+  'enemy-hollow-shade-idle': hollowShadeIdle,
+  'enemy-void-shard-idle': voidShardIdle,
+  'enemy-angry-orb-idle': angryOrbIdle,
 };
 
 /** The AREA 1 roster the images cover. */
@@ -79,12 +89,18 @@ export const ENEMY_ART_KINDS_AREA2 = ['ghost', 'boneHopper', 'boneThrower', 'fly
  * phase summons the biter and riser jelly, the same kinds, so they show the same images there.
  */
 export const ENEMY_ART_KINDS_AREA3 = ['squid', 'shellSwimmer', 'riserJelly', 'biter'] as const;
+/**
+ * The AREA 4 roster the images cover -- its readability v2 set, lifted for LIMBO's dark violet. The
+ * FINAL BOSS's LIMBO phase summons the void wisp, hollow shade and angry orb, the same kinds, so they
+ * show the same images there.
+ */
+export const ENEMY_ART_KINDS_AREA4 = ['voidWisp', 'hollowShade', 'voidShard', 'shadeOrb', 'angryOrb'] as const;
 
 /**
  * Where an enemy is being drawn: the AREA's id, or 'boss' in the FINAL BOSS's arena. Only the SHADE
- * ORB reads it -- it is the one AREA 2 kind that AREA 4 also rolls, and AREA 4 is not given its image
- * here (it stays procedural; a later AREA 4 pass may give it its own). The FINAL BOSS summons shade
- * orbs only in its AREA 2 phase, so there it shows the AREA 2 image.
+ * ORB reads it -- AREA 2 and AREA 4 both roll it, and each shows its own image: AREA 2's, and AREA 4's
+ * readability v2. The FINAL BOSS summons shade orbs only in its AREA 2 (CATACOMB) phase -- LIMBO's
+ * summon pool has none, and the arena's rows lay only bounce tapioca -- so there it shows AREA 2's.
  */
 export type EnemyArtWhere = number | 'boss';
 
@@ -122,7 +138,7 @@ export function enemyArtKey(e: Pick<Enemy, 'kind' | 'ai'>, where?: EnemyArtWhere
       if (e.ai?.kind !== 'wander') return null;
       return e.ai.state === 'calm' ? 'enemy-flying-skull-calm' : e.ai.state === 'angry' ? 'enemy-flying-skull-angry' : null;
     case 'shadeOrb':
-      return where === 2 || where === 'boss' ? 'enemy-shade-orb-idle' : null;
+      return where === 2 || where === 'boss' ? 'enemy-shade-orb-idle' : where === 4 ? 'enemy-shade-orb-area4-idle' : null;
     case 'squid':
       // The image follows the state; stompability is the model's (it clears it as the dive starts).
       if (e.ai?.kind !== 'squid') return null;
@@ -130,6 +146,10 @@ export function enemyArtKey(e: Pick<Enemy, 'kind' | 'ai'>, where?: EnemyArtWhere
     case 'shellSwimmer': return 'enemy-shell-swimmer-idle';
     case 'riserJelly': return 'enemy-riser-jelly-idle';
     case 'biter': return 'enemy-biter-idle';
+    case 'voidWisp': return 'enemy-void-wisp-idle';
+    case 'hollowShade': return 'enemy-hollow-shade-idle';
+    case 'voidShard': return 'enemy-void-shard-idle';
+    case 'angryOrb': return 'enemy-angry-orb-idle';
     default: return null;
   }
 }
