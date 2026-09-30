@@ -26,7 +26,7 @@ import area4BackgroundUrl from '../../output/game-backgrounds-v2/area4-b.png?url
 import bossBackgroundUrl from '../../output/game-backgrounds-v2/boss-a.png?url';
 import area1SurfaceUrl from '../../output/game-backgrounds-v1/area1-surface-a.png?url';
 import { surfaceLayerAlphas, surfaceWeight } from '../render/surfaceBlend';
-import { ENEMY_ART_PLACEMENT, ENEMY_ART_URLS, enemyArtFlipX, enemyArtKey } from '../render/enemyArt';
+import { ENEMY_ART_PLACEMENT, ENEMY_ART_URLS, enemyArtFlipX, enemyArtKey, enemyArtLook, type EnemyArtLook } from '../render/enemyArt';
 import { ENVIRONMENT_ART, ENVIRONMENT_GEOMETRY, environmentKeys, platformSlices, usesPlatformArt, wallTileX, wallTileY } from '../render/environmentArt';
 
 const BACKGROUND_URLS = {
@@ -327,13 +327,7 @@ export class GameScene extends Phaser.Scene {
     }
     // WAKING: for its first half second it tears out of the wall in a burst, so the moment it comes
     // for the player is the moment the player sees it.
-    if (e.ai?.kind === 'ghost' && e.ai.t < 0.5) {
-      const k = e.ai.t / 0.5;
-      for (let i = 0; i < 8; i++) {
-        const a = i * Math.PI / 4, r = 10 + k * 26;
-        this.rect(x + Math.cos(a) * r - 2, y + Math.sin(a) * r - 2, 4, 4, 0xdfe8ff, 0.8 * (1 - k));
-      }
-    }
+    if (e.ai?.kind === 'ghost' && e.ai.t < 0.5) this.ghostBurst(x, y, e.ai.t);
     const colour = hurt ? 0xffffff : 0xdfe8ff, alpha = hurt ? 0.9 : 0.62;
     const sway = Math.sin(t * 3 + e.phase) * 2;
     this.rect(x - 9 + sway, y - 16, 18, 4, colour, alpha);
@@ -344,6 +338,13 @@ export class GameScene extends Phaser.Scene {
     this.rect(x - 2 + sway, y + 1, 4, 3, 0x1a1624, 0.8);
     // A trail it leaves behind while it hunts.
     for (let i = 1; i <= 3; i++) this.rect(x - 3 + sway, y - 16 - i * 7, 6, 4, colour, alpha * (0.3 - i * 0.07));
+  }
+  private ghostBurst(x: number, y: number, t: number) {
+    const k = t / 0.5;
+    for (let i = 0; i < 8; i++) {
+      const a = i * Math.PI / 4, r = 10 + k * 26;
+      this.rect(x + Math.cos(a) * r - 2, y + Math.sin(a) * r - 2, 4, 4, 0xdfe8ff, 0.8 * (1 - k));
+    }
   }
   /**
    * FLYING SKULL. Bone white, jaw and sockets. At rest it bobs; when it notices the player the sockets
@@ -1566,8 +1567,9 @@ export class GameScene extends Phaser.Scene {
   /**
    * One enemy from its image, on the enemy's own (x, y): centred, scale 1, the same hit flash the
    * procedural body shows (the whole silhouette white). Pooled; the loop hides what is left over.
+   * `look` (render/enemyArt) is a visual nudge, alpha or crop -- the dormant ghost's face, say.
    */
-  private enemyImage(key: string, x: number, y: number, hurt: boolean, flip: boolean) {
+  private enemyImage(key: string, x: number, y: number, hurt: boolean, flip: boolean, look?: EnemyArtLook) {
     let image = this.enemyImages[this.enemyImagesUsed];
     if (!image) {
       image = this.add.image(0, 0, key);
@@ -1577,7 +1579,9 @@ export class GameScene extends Phaser.Scene {
     this.enemyImagesUsed++;
     const { originX, originY, scale, offsetX, offsetY } = ENEMY_ART_PLACEMENT;
     image.setTexture(key).setOrigin(originX, originY).setScale(scale).setFlipX(flip)
-      .setPosition(this.graphics.x + x + offsetX, this.graphics.y + y + offsetY).setVisible(true);
+      .setPosition(this.graphics.x + x + offsetX + (look?.offsetX ?? 0), this.graphics.y + y + offsetY + (look?.offsetY ?? 0))
+      .setAlpha(look?.alpha ?? 1).setVisible(true);
+    if (look?.crop) image.setCrop(...look.crop); else image.setCrop();
     if (hurt) image.setTintFill(0xffffff); else image.clearTint();
   }
   private enemy(e: Enemy, cam: number) {
@@ -1587,8 +1591,13 @@ export class GameScene extends Phaser.Scene {
     const hurt = e.flash || (e.hurtFlash || 0) > 0.08;
     // ENEMY ART: this kind in this state has an image and it loaded -> draw that and nothing else.
     // Otherwise, the procedural body below, exactly as before.
-    const artKey = enemyArtKey(e);
-    if (artKey && this.textures.exists(artKey)) { this.enemyImage(artKey, x, y, !!hurt, enemyArtFlipX(e)); return; }
+    const artKey = enemyArtKey(e, this.model.inBossArena ? 'boss' : this.model.stage.config.id);
+    if (artKey && this.textures.exists(artKey)) {
+      // A waking GHOST keeps the procedural burst out of the wall; the body is the image.
+      if (e.ai?.kind === 'ghost' && e.ai.state === 'hunt' && e.ai.t < 0.5) this.ghostBurst(x, y, e.ai.t);
+      this.enemyImage(artKey, x, y, !!hurt, enemyArtFlipX(e), enemyArtLook(e, artKey, this.model.elapsed, !!hurt));
+      return;
+    }
     // Stompable enemies are soft and round; armoured ones carry a shell you can see from above.
     const color = hurt ? 0xffffff : type.stompable ? 0xf497ab : type.silhouette === 'brute' ? 0xc0a7ed : 0xd8b48c;
     const width = type.bodyWidth;
