@@ -3,7 +3,7 @@
  * position, collision, stompability or AI: each image is placed on the enemy's own (x, y), centred
  * (origin 0.5, 0.5; the art's pivot is (32, 32) of a 64x64 canvas) at scale 1.
  *
- * An enemy KIND listed here draws from its image; any other kind -- AREA 3-4's, the boss's own --
+ * An enemy KIND listed here draws from its image; any other kind -- AREA 4's, the boss's own --
  * keeps the procedural look in GameScene.enemy(). A kind whose state has no image, or whose texture
  * did not load, falls back to the procedural look as well.
  *
@@ -15,6 +15,7 @@
  *   boneHopper   hop.state     sit  | windup | air     (role 'groundSkull'; its windup is 0s today)
  *   boneThrower  throw.windup  0 = idle, > 0 = windup  (the bone still leaves from (x, y - 14))
  *   flyingSkull  wander.state  calm | angry
+ *   squid        squid.state   rise | poise | dive     (the model makes it unstompable as it dives)
  * Everything else has one idle image.
  */
 import slimeIdle from '../assets/enemies/area1/slime-idle.png?url';
@@ -39,6 +40,12 @@ import boneThrowerWindup from '../assets/enemies/area2/bone-thrower-windup.png?u
 import flyingSkullCalm from '../assets/enemies/area2/flying-skull-calm.png?url';
 import flyingSkullAngry from '../assets/enemies/area2/flying-skull-angry.png?url';
 import shadeOrbIdle from '../assets/enemies/area2/shade-orb-idle.png?url';
+import squidRise from '../assets/enemies/area3/squid-rise.png?url';
+import squidPoise from '../assets/enemies/area3/squid-poise.png?url';
+import squidDive from '../assets/enemies/area3/squid-dive.png?url';
+import shellSwimmerIdle from '../assets/enemies/area3/shell-swimmer-idle.png?url';
+import riserJellyIdle from '../assets/enemies/area3/riser-jelly-idle.png?url';
+import biterIdle from '../assets/enemies/area3/biter-idle.png?url';
 import type { Enemy } from '../systems/StageGenerator';
 import { WORLD } from '../data/balance';
 
@@ -57,12 +64,21 @@ export const ENEMY_ART_URLS: Record<string, string> = {
   'enemy-bone-thrower-idle': boneThrowerIdle, 'enemy-bone-thrower-windup': boneThrowerWindup,
   'enemy-flying-skull-calm': flyingSkullCalm, 'enemy-flying-skull-angry': flyingSkullAngry,
   'enemy-shade-orb-idle': shadeOrbIdle,
+  'enemy-squid-rise': squidRise, 'enemy-squid-poise': squidPoise, 'enemy-squid-dive': squidDive,
+  'enemy-shell-swimmer-idle': shellSwimmerIdle,
+  'enemy-riser-jelly-idle': riserJellyIdle,
+  'enemy-biter-idle': biterIdle,
 };
 
 /** The AREA 1 roster the images cover. */
 export const ENEMY_ART_KINDS = ['slime', 'caveBat', 'spore', 'toad', 'armoredSlime', 'shellback', 'creeper', 'watcher'] as const;
 /** The AREA 2 roster the images cover: its roll's pool plus the ghosts laid by its schedule. */
 export const ENEMY_ART_KINDS_AREA2 = ['ghost', 'boneHopper', 'boneThrower', 'flyingSkull', 'shadeOrb'] as const;
+/**
+ * The AREA 3 roster the images cover. None of these is rolled anywhere else; the FINAL BOSS's AREA 3
+ * phase summons the biter and riser jelly, the same kinds, so they show the same images there.
+ */
+export const ENEMY_ART_KINDS_AREA3 = ['squid', 'shellSwimmer', 'riserJelly', 'biter'] as const;
 
 /**
  * Where an enemy is being drawn: the AREA's id, or 'boss' in the FINAL BOSS's arena. Only the SHADE
@@ -107,6 +123,13 @@ export function enemyArtKey(e: Pick<Enemy, 'kind' | 'ai'>, where?: EnemyArtWhere
       return e.ai.state === 'calm' ? 'enemy-flying-skull-calm' : e.ai.state === 'angry' ? 'enemy-flying-skull-angry' : null;
     case 'shadeOrb':
       return where === 2 || where === 'boss' ? 'enemy-shade-orb-idle' : null;
+    case 'squid':
+      // The image follows the state; stompability is the model's (it clears it as the dive starts).
+      if (e.ai?.kind !== 'squid') return null;
+      return e.ai.state === 'rise' ? 'enemy-squid-rise' : e.ai.state === 'poise' ? 'enemy-squid-poise' : e.ai.state === 'dive' ? 'enemy-squid-dive' : null;
+    case 'shellSwimmer': return 'enemy-shell-swimmer-idle';
+    case 'riserJelly': return 'enemy-riser-jelly-idle';
+    case 'biter': return 'enemy-biter-idle';
     default: return null;
   }
 }
@@ -114,8 +137,11 @@ export function enemyArtKey(e: Pick<Enemy, 'kind' | 'ai'>, where?: EnemyArtWhere
 /**
  * Mirror the image, never the enemy. The CREEPER art clings to a LEFT wall (claws to the wall); on
  * the right wall -- the model puts it on whichever is nearer -- it is shown mirrored.
+ * The BITER art faces RIGHT; it is mirrored while its chase velocity (eye.vx, role 'piranha') points
+ * left -- the same test the procedural biter's jaws use, so before it has moved it faces right.
  */
-export function enemyArtFlipX(e: Pick<Enemy, 'kind' | 'x'>) {
+export function enemyArtFlipX(e: Pick<Enemy, 'kind' | 'x'> & Partial<Pick<Enemy, 'ai'>>) {
+  if (e.kind === 'biter') return e.ai?.kind === 'eye' && e.ai.vx < 0;
   return e.kind === 'creeper' && e.x > WORLD.width / 2;
 }
 

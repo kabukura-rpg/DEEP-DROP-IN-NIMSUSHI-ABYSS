@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { BONE_THROWER_OFFSET_Y, ENEMY_ART_KINDS, ENEMY_ART_KINDS_AREA2, ENEMY_ART_PLACEMENT, ENEMY_ART_URLS, GHOST_DORMANT_LOOK, GHOST_HUNT_ALPHA, enemyArtFlipX, enemyArtKey, enemyArtLook } from '../src/render/enemyArt';
+import { BONE_THROWER_OFFSET_Y, ENEMY_ART_KINDS, ENEMY_ART_KINDS_AREA2, ENEMY_ART_KINDS_AREA3, ENEMY_ART_PLACEMENT, ENEMY_ART_URLS, GHOST_DORMANT_LOOK, GHOST_HUNT_ALPHA, enemyArtFlipX, enemyArtKey, enemyArtLook } from '../src/render/enemyArt';
 import { ENEMY_TYPES, spawnEnemy, type Enemy, type EnemyKind } from '../src/data/enemies';
 import { DWELLER_RULES, dwellerShot, stepDweller, type DwellerState } from '../src/data/dwellers';
 import { dormantGhost, GHOST_RULES } from '../src/data/chasers';
@@ -18,13 +18,14 @@ const pngSize = (file: string, dir = 'area1') => {
 const at = (kind: EnemyKind, ai?: unknown) => enemyArtKey({ kind, ai } as never);
 const AREA2_KEYS = ['enemy-ghost-dormant', 'enemy-ghost-hunt', 'enemy-bone-hopper-sit', 'enemy-bone-hopper-windup', 'enemy-bone-hopper-air',
   'enemy-bone-thrower-idle', 'enemy-bone-thrower-windup', 'enemy-flying-skull-calm', 'enemy-flying-skull-angry', 'enemy-shade-orb-idle'];
+const AREA3_KEYS = ['enemy-squid-rise', 'enemy-squid-poise', 'enemy-squid-dive', 'enemy-shell-swimmer-idle', 'enemy-riser-jelly-idle', 'enemy-biter-idle'];
 
 /** AREA 1 ENEMY ART: images for the AREA 1 roster, on the enemies the model already has. */
 describe('the images', () => {
   it('cover exactly AREA 1\'s roster, twelve 64x64 files from src/assets', () => {
     const area1 = AREAS.find(a => a.id === 1)!;
     expect([...ENEMY_ART_KINDS].sort()).toEqual([...area1.enemyPool].sort());
-    const area1Keys = Object.keys(ENEMY_ART_URLS).filter(key => !AREA2_KEYS.includes(key));
+    const area1Keys = Object.keys(ENEMY_ART_URLS).filter(key => !AREA2_KEYS.includes(key) && !AREA3_KEYS.includes(key));
     expect(area1Keys).toHaveLength(12);
     for (const key of area1Keys) {
       const url = ENEMY_ART_URLS[key];
@@ -58,8 +59,8 @@ describe('the images', () => {
     expect(at('toad')).toBeNull();
   });
 
-  it('leaves every other kind -- AREA 3-4 and the boss\'s own -- to the procedural look', () => {
-    const imaged = [...ENEMY_ART_KINDS, ...ENEMY_ART_KINDS_AREA2] as readonly string[];
+  it('leaves every other kind -- AREA 4 and the boss\'s own -- to the procedural look', () => {
+    const imaged = [...ENEMY_ART_KINDS, ...ENEMY_ART_KINDS_AREA2, ...ENEMY_ART_KINDS_AREA3] as readonly string[];
     const others = (Object.keys(ENEMY_TYPES) as EnemyKind[]).filter(k => !imaged.includes(k));
     expect(others.length).toBeGreaterThan(20);
     for (const kind of others) for (const where of [1, 2, 3, 4, 'boss'] as const) expect(enemyArtKey({ kind, ai: { kind: 'bat', state: 'hang' } } as never, where), kind).toBeNull();
@@ -116,7 +117,7 @@ const area2 = AREAS.find(a => a.id === 2)!;
 describe('AREA 2 images', () => {
   it('cover exactly AREA 2\'s roster -- its pool and the ghost -- ten 64x64 files from src/assets', () => {
     expect([...ENEMY_ART_KINDS_AREA2].sort()).toEqual([...area2.enemyPool, 'ghost'].sort());
-    expect(Object.keys(ENEMY_ART_URLS)).toHaveLength(22);
+    expect(Object.keys(ENEMY_ART_URLS).filter(key => !AREA3_KEYS.includes(key))).toHaveLength(22);
     for (const key of AREA2_KEYS) {
       expect(ENEMY_ART_URLS[key], key).toBeTruthy();
       expect(ENEMY_ART_URLS[key], key).not.toMatch(/(^|\/)(output|dist)\//);
@@ -243,5 +244,130 @@ describe('AREA 2 gameplay is untouched', () => {
   it('still summons the same kinds in every FINAL BOSS phase', () => {
     expect(ABYSS_PHASES.map(p => p.summonPool)).toEqual([['caveBat', 'spore', 'watcher'], ['flyingSkull', 'shadeOrb'], ['biter', 'riserJelly'], ['voidWisp', 'hollowShade', 'angryOrb']]);
     expect(ABYSS_PHASES.map(p => p.clonePool)).toEqual([['nimushiClone'], ['nimushiClone'], ['nimushiClone'], ['nimushiShade']]);
+  });
+});
+
+const area3 = AREAS.find(a => a.id === 3)!;
+
+/** AREA 3 ENEMY ART: images for AREA 3's pool, on the same model; the boss's AREA 3 summons share them. */
+describe('AREA 3 images', () => {
+  it('cover exactly AREA 3\'s pool, six 64x64 files from src/assets', () => {
+    expect([...ENEMY_ART_KINDS_AREA3].sort()).toEqual([...area3.enemyPool].sort());
+    expect(Object.keys(ENEMY_ART_URLS)).toHaveLength(28);
+    for (const key of AREA3_KEYS) {
+      expect(ENEMY_ART_URLS[key], key).toBeTruthy();
+      expect(ENEMY_ART_URLS[key], key).not.toMatch(/(^|\/)(output|dist)\//);
+      expect(pngSize(`${key.replace(/^enemy-/, '')}.png`, 'area3'), key).toEqual([64, 64]);
+    }
+    expect(ENEMY_ART_PLACEMENT).toEqual({ size: 64, originX: 0.5, originY: 0.5, scale: 1, offsetX: 0, offsetY: 0 });
+  });
+
+  it('maps each AREA 3 kind to its texture, placed plainly', () => {
+    const squid = spawnEnemy('squid', 1, 200, 300, 0, 0, 'open');
+    expect(enemyArtKey(squid, 3)).toBe('enemy-squid-rise');
+    expect(enemyArtKey(spawnEnemy('shellSwimmer', 1, 200, 300, 0, 0, 'open'), 3)).toBe('enemy-shell-swimmer-idle');
+    expect(enemyArtKey(spawnEnemy('riserJelly', 1, 200, 300, 0, 0, 'open'), 3)).toBe('enemy-riser-jelly-idle');
+    expect(enemyArtKey(spawnEnemy('biter', 1, 200, 300, 0, 0, 'open'), 3)).toBe('enemy-biter-idle');
+    for (const key of AREA3_KEYS) expect(enemyArtLook(squid, key, 1, true), key).toEqual({ offsetX: 0, offsetY: 0, alpha: 1, crop: null });
+    // No squid AI, no state to show: the procedural body draws it.
+    expect(at('squid')).toBeNull();
+    expect(at('squid', { kind: 'bat', state: 'hang' })).toBeNull();
+  });
+
+  it('SQUID: rise, poise, dive follow its own state; it turns unstompable exactly as the dive starts -- the image follows, never leads', () => {
+    for (const state of ['rise', 'poise', 'dive'] as const) expect(at('squid', { kind: 'squid', state, t: 0 }), state).toBe(`enemy-squid-${state}`);
+    expect(DWELLER_RULES.squid).toEqual({ rise: 55, dive: 390, turnLine: 250, poise: 0.3 });
+    const squid = spawnEnemy('squid', 1, 200, 600, 0, 0, 'open');
+    expect(squid.stompable).toBe(true);
+    const seen: { key: string; stompable: boolean }[] = [];
+    let poiseSteps = 0;
+    for (let i = 0; i < 1200; i++) {
+      stepDweller(squid, squid.ai as DwellerState, player(200, 700), 1 / 120, view);
+      const key = enemyArtKey(squid, 3)!;
+      if (key === 'enemy-squid-poise') poiseSteps++;
+      if (seen.at(-1)?.key !== key) seen.push({ key, stompable: squid.stompable });
+      // Every frame: the image and the model agree -- dive image iff unstompable.
+      expect(key === 'enemy-squid-dive', `${i}`).toBe(!squid.stompable);
+    }
+    expect(seen).toEqual([
+      { key: 'enemy-squid-rise', stompable: true },
+      { key: 'enemy-squid-poise', stompable: true },
+      { key: 'enemy-squid-dive', stompable: false },
+    ]);
+    expect(poiseSteps * (1 / 120)).toBeCloseTo(DWELLER_RULES.squid.poise, 1);
+  });
+
+  it('SHELL SWIMMER: one image; still stompable and still immune to shots', () => {
+    const swimmer = spawnEnemy('shellSwimmer', 1, 200, 300, 0, 1, 'open');
+    expect(swimmer.ai).toMatchObject({ kind: 'bounce', vy: 0 });
+    expect(swimmer.stompable).toBe(true);
+    expect(swimmer.shootable).toBe(false);
+    expect(enemyArtFlipX(swimmer)).toBe(false);
+  });
+
+  it('RISER JELLY: one image through its pause and its rise', () => {
+    const jelly = spawnEnemy('riserJelly', 1, 200, 500, 0, 0, 'open');
+    const keys = new Set<string>();
+    for (let i = 0; i < 300; i++) { stepDweller(jelly, jelly.ai as DwellerState, player(200, 700), 1 / 60, view); keys.add(enemyArtKey(jelly, 3)!); }
+    expect(jelly.y).toBeLessThan(500);
+    expect([...keys]).toEqual(['enemy-riser-jelly-idle']);
+    expect(DWELLER_RULES.jelly).toEqual({ pause: 0.5, move: 0.7, dx: 46, dy: 64 });
+  });
+
+  it('BITER: art faces right, mirrored while its chase velocity points left -- never moved by it', () => {
+    expect(enemyArtFlipX({ kind: 'biter', x: 200, ai: { kind: 'eye', role: 'piranha', vx: 130, vy: 0, t: 0, seen: 0 } })).toBe(false);
+    expect(enemyArtFlipX({ kind: 'biter', x: 200, ai: { kind: 'eye', role: 'piranha', vx: -130, vy: 0, t: 0, seen: 0 } })).toBe(true);
+    const biter = spawnEnemy('biter', 1, 250, 400, 0, 0, 'open');
+    expect(biter.ai).toMatchObject({ kind: 'eye', role: 'piranha', vx: 0 });
+    expect(enemyArtFlipX(biter)).toBe(false); // not moved yet: faces right, as the procedural jaws did
+    for (let i = 0; i < 20; i++) stepDweller(biter, biter.ai as DwellerState, player(100, 400), 1 / 60, view);
+    expect(biter.x).toBeLessThan(250);
+    expect(enemyArtFlipX(biter)).toBe(true);
+    const x = biter.x;
+    for (let i = 0; i < 40; i++) stepDweller(biter, biter.ai as DwellerState, player(400, 400), 1 / 60, view);
+    expect(biter.x).toBeGreaterThan(x);
+    expect(enemyArtFlipX(biter)).toBe(false);
+    // Only the biter and creeper are ever mirrored.
+    for (const kind of ['squid', 'shellSwimmer', 'riserJelly'] as const) expect(enemyArtFlipX({ kind, x: 400, ai: { kind: 'eye', role: 'piranha', vx: -1, vy: 0, t: 0, seen: 0 } }), kind).toBe(false);
+    expect(DWELLER_RULES.piranha).toEqual({ speed: 130, wobble: 0, wobbleRate: 0 });
+  });
+
+  it('keeps AREA 1 and AREA 2 exactly as they were, and AREA 4 procedural', () => {
+    expect(enemyArtKey({ kind: 'slime' } as never, 3)).toBe('enemy-slime-idle');
+    expect(enemyArtKey({ kind: 'caveBat', ai: { kind: 'bat', state: 'chase' } } as never, 3)).toBe('enemy-cave-bat-chase');
+    expect(enemyArtKey(spawnEnemy('flyingSkull', 1, 200, 300, 0, 0, 'open'), 2)).toBe('enemy-flying-skull-calm');
+    expect(enemyArtKey(spawnEnemy('shadeOrb', 1, 200, 300, 0, 0, 'open'), 2)).toBe('enemy-shade-orb-idle');
+    expect(enemyArtKey(spawnEnemy('shadeOrb', 1, 200, 300, 0, 0, 'open'), 3)).toBeNull();
+    expect(enemyArtKey(spawnEnemy('shadeOrb', 1, 200, 300, 0, 0, 'open'), 4)).toBeNull();
+    expect(enemyArtFlipX({ kind: 'creeper', x: WORLD.width - WORLD.wall - 13 })).toBe(true);
+    const area4 = AREAS.find(a => a.id === 4)!;
+    for (const kind of area4.enemyPool) {
+      if (kind === 'shadeOrb') continue;
+      expect(enemyArtKey(spawnEnemy(kind, 1, 200, 300, 0, 0, 'open'), 4), kind).toBeNull();
+    }
+    for (const kind of ENEMY_ART_KINDS_AREA3) expect(area4.enemyPool as readonly string[]).not.toContain(kind);
+  });
+
+  it('shows the same images for the FINAL BOSS\'s AREA 3 summons; its own kinds stay procedural', () => {
+    expect(ABYSS_PHASES[2].summonPool).toEqual(['biter', 'riserJelly']);
+    expect(enemyArtKey(spawnEnemy('biter', -1, 200, 300, 34, 1, 'open'), 'boss')).toBe('enemy-biter-idle');
+    expect(enemyArtKey(spawnEnemy('riserJelly', -1, 200, 300, 34, 1, 'open'), 'boss')).toBe('enemy-riser-jelly-idle');
+    for (const kind of ['nimushiClone', 'nimushiShade', 'bounceTapioca'] as EnemyKind[]) expect(enemyArtKey(spawnEnemy(kind, 1, 200, 300), 'boss'), kind).toBeNull();
+  });
+});
+
+describe('AREA 3 gameplay is untouched', () => {
+  it('keeps every AREA 3 kind\'s rules exactly: stompability, shooting, HP, size, damage, weight', () => {
+    const rules = Object.fromEntries(ENEMY_ART_KINDS_AREA3.map(k => {
+      const t = ENEMY_TYPES[k];
+      return [k, { stompable: t.stompable, shootable: t.shootable, hp: t.hp, bodyWidth: t.bodyWidth, damageCause: t.damageCause, flying: t.flying, spawnWeight: t.spawnWeight, behaviour: t.behaviour }];
+    }));
+    expect(rules).toEqual({
+      squid: { stompable: true, shootable: true, hp: 1, bodyWidth: 22, damageCause: 'enemy', flying: true, spawnWeight: 1, behaviour: 'squid' },
+      shellSwimmer: { stompable: true, shootable: false, hp: 1, bodyWidth: 30, damageCause: 'enemy', flying: true, spawnWeight: 0.7, behaviour: 'swim' },
+      riserJelly: { stompable: false, shootable: true, hp: 3, bodyWidth: 24, damageCause: 'spike', flying: true, spawnWeight: 1, behaviour: 'rise' },
+      biter: { stompable: false, shootable: true, hp: 2, bodyWidth: 24, damageCause: 'spike', flying: true, spawnWeight: 0.5, behaviour: 'piranha' },
+    });
+    expect(area3.enemyPool).toEqual(['squid', 'shellSwimmer', 'riserJelly', 'biter']);
   });
 });
