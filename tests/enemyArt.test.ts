@@ -302,7 +302,33 @@ describe('AREA 3 images', () => {
     expect(swimmer.ai).toMatchObject({ kind: 'bounce', vy: 0 });
     expect(swimmer.stompable).toBe(true);
     expect(swimmer.shootable).toBe(false);
-    expect(enemyArtFlipX(swimmer)).toBe(false);
+  });
+
+  it('SHELL SWIMMER: art faces left, mirrored while it swims right -- turning at the wall, never moved by it', () => {
+    const at = (vx: number) => enemyArtFlipX({ kind: 'shellSwimmer', x: 200, ai: { kind: 'bounce', vx, vy: 0, top: 300, bottom: 300, seen: 0 } });
+    expect(at(-DWELLER_RULES.swim.speed)).toBe(false);
+    expect(at(DWELLER_RULES.swim.speed)).toBe(true);
+    expect(enemyArtFlipX({ kind: 'shellSwimmer', x: 200 })).toBe(false); // no AI: unmirrored
+    // Swims right into the right wall, turns, swims left: the image follows vx every step.
+    const swimmer = spawnEnemy('shellSwimmer', 1, WORLD.width - WORLD.wall - 60, 300, 0, 0, 'open'); // phase 0 -> starts right
+    expect(swimmer.ai).toMatchObject({ kind: 'bounce', vx: DWELLER_RULES.swim.speed, vy: 0 });
+    const seen: boolean[] = [];
+    let lastX = swimmer.x;
+    for (let i = 0; i < 180; i++) {
+      stepDweller(swimmer, swimmer.ai as DwellerState, player(100, 300), 1 / 60, view);
+      const flip = enemyArtFlipX(swimmer);
+      // Facing is the model's vx, every step; on the step it meets the wall it has already turned.
+      expect(flip, `${i}`).toBe((swimmer.ai as { vx: number }).vx > 0);
+      const turning = swimmer.x === WORLD.width - WORLD.wall - 12;
+      if (swimmer.x !== lastX && !turning) expect(flip, `${i}`).toBe(swimmer.x > lastX);
+      if (seen.at(-1) !== flip) seen.push(flip);
+      lastX = swimmer.x;
+    }
+    expect(seen).toEqual([true, false]);
+    expect(swimmer.y).toBe(300);
+    // Visual only: still stompable, still immune to shots, same speed.
+    expect(swimmer.stompable).toBe(true); expect(swimmer.shootable).toBe(false);
+    expect(DWELLER_RULES.swim).toEqual({ speed: 62 });
   });
 
   it('RISER JELLY: one image through its pause and its rise', () => {
@@ -327,7 +353,7 @@ describe('AREA 3 images', () => {
     for (let i = 0; i < 40; i++) stepDweller(biter, biter.ai as DwellerState, player(400, 400), 1 / 60, view);
     expect(biter.x).toBeGreaterThan(x);
     expect(enemyArtFlipX(biter)).toBe(false);
-    // Only the biter and creeper are ever mirrored.
+    // Only the biter, the shell swimmer and the creeper are ever mirrored -- each by its own state.
     for (const kind of ['squid', 'shellSwimmer', 'riserJelly'] as const) expect(enemyArtFlipX({ kind, x: 400, ai: { kind: 'eye', role: 'piranha', vx: -1, vy: 0, t: 0, seen: 0 } }), kind).toBe(false);
     expect(DWELLER_RULES.piranha).toEqual({ speed: 130, wobble: 0, wobbleRate: 0 });
   });

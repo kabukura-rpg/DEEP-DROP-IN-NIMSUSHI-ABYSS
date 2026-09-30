@@ -139,9 +139,12 @@ export function enemyArtKey(e: Pick<Enemy, 'kind' | 'ai'>, where?: EnemyArtWhere
  * the right wall -- the model puts it on whichever is nearer -- it is shown mirrored.
  * The BITER art faces RIGHT; it is mirrored while its chase velocity (eye.vx, role 'piranha') points
  * left -- the same test the procedural biter's jaws use, so before it has moved it faces right.
+ * The SHELL SWIMMER art faces LEFT; it is mirrored while its swim velocity (bounce.vx, which the
+ * shaft walls turn round) points right.
  */
 export function enemyArtFlipX(e: Pick<Enemy, 'kind' | 'x'> & Partial<Pick<Enemy, 'ai'>>) {
   if (e.kind === 'biter') return e.ai?.kind === 'eye' && e.ai.vx < 0;
+  if (e.kind === 'shellSwimmer') return e.ai?.kind === 'bounce' && e.ai.vx > 0;
   return e.kind === 'creeper' && e.x > WORLD.width / 2;
 }
 
