@@ -26,6 +26,7 @@ import area4BackgroundUrl from '../../output/game-backgrounds-v2/area4-b.png?url
 import bossBackgroundUrl from '../../output/game-backgrounds-v2/boss-a.png?url';
 import area1SurfaceUrl from '../../output/game-backgrounds-v1/area1-surface-a.png?url';
 import { surfaceLayerAlphas, surfaceWeight } from '../render/surfaceBlend';
+import { ENEMY_ART_PLACEMENT, ENEMY_ART_URLS, enemyArtFlipX, enemyArtKey } from '../render/enemyArt';
 import { ENVIRONMENT_ART, ENVIRONMENT_GEOMETRY, environmentKeys, platformSlices, usesPlatformArt, wallTileX, wallTileY } from '../render/environmentArt';
 
 const BACKGROUND_URLS = {
@@ -100,6 +101,16 @@ export class GameScene extends Phaser.Scene {
   private wallLayer!: Phaser.GameObjects.Container;
   private platformLayer!: Phaser.GameObjects.Container;
   private walls: Phaser.GameObjects.TileSprite[] = [];
+  /**
+   * ENEMY ART (render/enemyArt): image enemies go on their own layer above everything the world has
+   * drawn up to the enemies (the ledges, and NIMUSHI's image in the fight), and what used to follow
+   * the enemies -- bones, rounds, the player's halo layers -- goes on `afterEnemies` above it, so the
+   * order enemies -> rounds -> player is what it has always been.
+   */
+  private enemyLayer!: Phaser.GameObjects.Container;
+  private afterEnemies!: Phaser.GameObjects.Graphics;
+  private enemyImages: Phaser.GameObjects.Image[] = [];
+  private enemyImagesUsed = 0;
   private ledgePool: { left: Phaser.GameObjects.Image; center: Phaser.GameObjects.TileSprite; right: Phaser.GameObjects.Image }[] = [];
   /** When each TOMATO's entrance began (model seconds); -Infinity once skipped. Keyed by the pickup itself. */
   private tomatoSeen = new WeakMap<Pickup, number>();
@@ -110,6 +121,7 @@ export class GameScene extends Phaser.Scene {
   preload() {
     for (const [id, url] of Object.entries(BACKGROUND_URLS)) this.load.image(`background-${id}`, url);
     this.load.image('background-area1-surface', area1SurfaceUrl);
+    for (const [key, url] of Object.entries(ENEMY_ART_URLS)) this.load.image(key, url);
     for (const [area, set] of Object.entries(ENVIRONMENT_ART)) {
       if (!set) continue;
       const keys = environmentKeys(Number(area));
@@ -160,6 +172,8 @@ export class GameScene extends Phaser.Scene {
       this.bossArt = this.add.image(0, 0, 'nimushi-art').setOrigin(0).setVisible(false);
     }
     this.afterBoss = this.add.graphics();
+    this.enemyLayer = this.add.container(0, 0);
+    this.afterEnemies = this.add.graphics();
     this.playerArt = new PlayerArt(this, () => this.draw());
     this.artForeground = this.add.graphics();
     this.keys = this.input.keyboard!.addKeys({ left: 'LEFT', right: 'RIGHT', a: 'A', d: 'D', space: 'SPACE' }) as Record<string, Phaser.Input.Keyboard.Key>;
@@ -431,6 +445,7 @@ export class GameScene extends Phaser.Scene {
     g.clear(); g.setPosition((this.shake && !this.reducedMotion ? (Math.random() - 0.5) * this.shake : 0) - m.cameraX, 0);
     this.bossArt?.setVisible(false);
     this.afterBoss?.clear().setPosition(g.x, g.y);
+    this.afterEnemies.clear().setPosition(g.x, g.y);
     this.worldBack.clear().setPosition(g.x, g.y); this.worldMid.clear().setPosition(g.x, g.y);
     this.graphics = this.worldBack;
     const theme = m.stage.config.theme;
@@ -686,7 +701,10 @@ export class GameScene extends Phaser.Scene {
       this.rect(corpse.x - 3, cy - 9, 6, 3, 0xd8c8d4, fade * 0.8);
     }
     this.boss(cam);
+    this.enemyImagesUsed = 0;
     for (const enemy of m.enemies) if (enemy.alive) this.enemy(enemy, cam);
+    for (let i = this.enemyImagesUsed; i < this.enemyImages.length; i++) this.enemyImages[i].setVisible(false);
+    this.graphics = this.afterEnemies;
     // BONES: a short spinning shaft with a knob at each end.
     for (const bone of m.bones) {
       const a = m.elapsed * 14 + bone.id, bx = bone.x, by = bone.y - cam, dx = Math.cos(a) * 8, dy = Math.sin(a) * 8;
@@ -1545,11 +1563,32 @@ export class GameScene extends Phaser.Scene {
 
   }
 
+  /**
+   * One enemy from its image, on the enemy's own (x, y): centred, scale 1, the same hit flash the
+   * procedural body shows (the whole silhouette white). Pooled; the loop hides what is left over.
+   */
+  private enemyImage(key: string, x: number, y: number, hurt: boolean, flip: boolean) {
+    let image = this.enemyImages[this.enemyImagesUsed];
+    if (!image) {
+      image = this.add.image(0, 0, key);
+      this.enemyLayer.add(image);
+      this.enemyImages.push(image);
+    }
+    this.enemyImagesUsed++;
+    const { originX, originY, scale, offsetX, offsetY } = ENEMY_ART_PLACEMENT;
+    image.setTexture(key).setOrigin(originX, originY).setScale(scale).setFlipX(flip)
+      .setPosition(this.graphics.x + x + offsetX, this.graphics.y + y + offsetY).setVisible(true);
+    if (hurt) image.setTintFill(0xffffff); else image.clearTint();
+  }
   private enemy(e: Enemy, cam: number) {
     const x = Math.round(e.x), y = Math.round(e.y - cam);
     if (y < -30 || y > 830) return;
     const type = enemyType(e.kind);
     const hurt = e.flash || (e.hurtFlash || 0) > 0.08;
+    // ENEMY ART: this kind in this state has an image and it loaded -> draw that and nothing else.
+    // Otherwise, the procedural body below, exactly as before.
+    const artKey = enemyArtKey(e);
+    if (artKey && this.textures.exists(artKey)) { this.enemyImage(artKey, x, y, !!hurt, enemyArtFlipX(e)); return; }
     // Stompable enemies are soft and round; armoured ones carry a shell you can see from above.
     const color = hurt ? 0xffffff : type.stompable ? 0xf497ab : type.silhouette === 'brute' ? 0xc0a7ed : 0xd8b48c;
     const width = type.bodyWidth;
