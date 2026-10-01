@@ -1,7 +1,7 @@
 import Phaser from 'phaser';
 import { LEVEL_SELECT_DESTINATIONS, LEVEL_SELECT_GESTURE, type LevelDestination } from './data/levelSelect';
 import { approachExtra, BOSS_APPROACH } from './data/nimushi';
-import { TITLE, buildIdentifier } from './ui/branding';
+import { soundLabel, titleMarkup, watchTitleLogo } from './ui/titleScreen';
 import { upgradeCardHtml } from './ui/upgradeCard';
 import './style.css';
 import { GameScene, type GameBridge } from './scenes/GameScene';
@@ -240,6 +240,8 @@ function setOverlay(content: string) {
   $('overlay').innerHTML = content;
   $('overlay').hidden = !content;
   $('overlay').classList.toggle('rest-overlay', mode === 'upgrade');
+  // The Concept C title look is the title's alone: any other screen (and the run) clears it.
+  $('overlay').classList.remove('title-overlay'); $('game-frame').classList.remove('title-screen');
   $('game-frame').classList.toggle('in-play', inPlay());
   $('pause').toggleAttribute('disabled', !inPlay());
   $('touch-controls').hidden = !!content;
@@ -292,6 +294,7 @@ function start(practice = false) {
   mode = 'playing'; resumeInput();
   comboAnimation?.cancel();
   if (practice) physicsPanel?.startPractice();
+  if ($('overlay').classList.contains('title-overlay')) fadeOutTitle();
   setOverlay(''); lastHud = ''; updateHud(scene.model);
   $('run-status').textContent = practice ? 'CONTROL LAB / NO RISK' : 'DESCENT IN PROGRESS';
   $('practice-label').hidden = !practice;
@@ -319,6 +322,24 @@ function bossTest(request: BossTestTarget | BossTestRequest = 'phase1') {
   return report;
 }
 
+/** How long the ruins take to give way to AREA 1 after START, in ms. Purely a look. */
+const TITLE_FADE_MS = 420;
+/**
+ * START -> AREA 1, Concept C. The run has already begun underneath -- same frame, same input, same
+ * BGM -- and a copy of the ruins is laid over it and faded out, so the descent reads as going down
+ * into what the title showed. It never takes a pointer, and reduced motion skips it.
+ */
+function fadeOutTitle() {
+  if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) return;
+  const screen = $('overlay').querySelector<HTMLElement>('.title-screen');
+  if (!screen) return;
+  const veil = document.createElement('div');
+  veil.className = 'title-fade';
+  veil.style.cssText = screen.style.cssText;
+  $('game-frame').appendChild(veil);
+  const fade = veil.animate([{ opacity: 1 }, { opacity: 0 }], { duration: TITLE_FADE_MS, easing: 'ease-in' });
+  fade.onfinish = fade.oncancel = () => veil.remove();
+}
 function showTitle() {
   mode = 'title'; bridge.active = false;
   if (ready) { clearInput(); scene.startRun(); lastHud = ''; updateHud(scene.model); }
@@ -326,18 +347,23 @@ function showTitle() {
   $('practice-label').hidden = true;
   $('run-status').textContent = 'READY TO DESCEND';
   $('touch-controls').classList.remove('visible');
-  setOverlay(`<div class="title-content"><div class="pill"><span></span> 4 AREAS · 12 SECTIONS</div><div class="title-symbol">↓</div><h2>DEEP<br><span>DROP</span></h2><div class="title-sub">${TITLE.sub}</div><p>深く潜れ。弾が尽きる、その前に。</p><button id="start" class="primary-button">潜降開始 <span>↘</span></button><button id="practice" class="text-button">操作を試す <span>CONTROL LAB →</span></button><div class="title-hint desktop-hint">MOVE <b>← →</b><span>·</span> SHOOT <b>SPACE</b></div><div class="title-hint mobile-hint">左右をホールドで移動 · タップで射撃<br>FIREボタン長押しで連射</div></div><span class="overlay-bottom">6 BULLETS. ONE WAY DOWN.</span><span class="build-tag" id="build-tag">${buildIdentifier()}</span>`);
+  setOverlay(titleMarkup(audio.muted));
+  // Concept C: the overlay carries the whole title composition, and the HUD of the run waiting
+  // behind it is hidden for as long as the title is up. Visual only -- no value in the run changes.
+  $('overlay').classList.add('title-overlay'); $('game-frame').classList.add('title-screen');
+  watchTitleLogo($('overlay'));
+  $('title-sound').onclick = toggleSound;
   $('start').onclick = () => start(); $('practice').onclick = () => start(true);
   // TEST LEVEL SELECT: hidden from the ordinary title. Tap the arrow above the logo five times, or
-  // open the page with `?levels`, and a LEVEL SELECT button appears under CONTROL LAB. Works the
+  // open the page with `?levels`, and a LEVEL SELECT button appears above CONTROL LAB. Works the
   // same with a mouse and a finger, and in the published build, because Human Review happens there.
   const revealLevelSelect = () => {
     if (document.getElementById('level-select')) return;
     const button = document.createElement('button');
-    button.id = 'level-select'; button.className = 'text-button';
-    button.innerHTML = 'LEVEL SELECT <span>TEST →</span>';
+    button.id = 'level-select'; button.className = 'title-button';
+    button.innerHTML = 'LEVEL SELECT<span>TEST</span>';
     button.onclick = showLevelSelect;
-    $('practice').insertAdjacentElement('afterend', button);
+    $('practice').insertAdjacentElement('beforebegin', button);
   };
   if (new URLSearchParams(location.search).has('levels')) revealLevelSelect();
   // Counted on pointerup, one per tap, and never on a click: iOS Safari's synthesised click is late
@@ -634,7 +660,12 @@ function updateHud(model: GameModel) {
 }
 
 $('pause').onclick = pause;
-$('sound').onclick = () => { audio.unlock(); audio.muted = !audio.muted; $('sound').textContent = audio.muted ? '♪̸' : '♪'; $('sound').setAttribute('aria-label', audio.muted ? 'サウンドをオンにする' : 'サウンドをオフにする'); $('sound').setAttribute('aria-pressed', String(audio.muted)); };
+function toggleSound() {
+  audio.unlock(); audio.muted = !audio.muted; $('sound').textContent = audio.muted ? '♪̸' : '♪'; $('sound').setAttribute('aria-label', audio.muted ? 'サウンドをオンにする' : 'サウンドをオフにする'); $('sound').setAttribute('aria-pressed', String(audio.muted));
+  const titleSound = document.getElementById('title-sound');
+  if (titleSound) { titleSound.textContent = soundLabel(audio.muted); titleSound.setAttribute('aria-pressed', String(audio.muted)); }
+}
+$('sound').onclick = toggleSound;
 window.addEventListener('keydown', e => { if (inPlay() && ['Space', 'ArrowLeft', 'ArrowRight'].includes(e.code)) e.preventDefault(); if (e.code === 'Escape') { e.preventDefault(); if (inPlay()) pause(); else if (mode === 'paused') resume(); } });
 /**
  * The menu keys. One install for every overlay, because every overlay is a list of real buttons --

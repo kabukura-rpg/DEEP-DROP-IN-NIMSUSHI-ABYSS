@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import indexHtml from '../index.html?raw';
 import mainSource from '../src/main.ts?raw';
+import titleSource from '../src/ui/titleScreen.ts?raw';
 import { BUILD, TITLE, buildIdentifier } from '../src/ui/branding';
 import { LEVEL_SELECT_DESTINATIONS, LEVEL_SELECT_GESTURE } from '../src/data/levelSelect';
 
@@ -13,8 +14,9 @@ describe('title and build tag', () => {
   it('names the game DEEP DROP: NIMUSHI ABYSS, in the document and on the title screen', () => {
     expect(TITLE).toEqual({ main: 'DEEP DROP', sub: 'NIMUSHI ABYSS', document: 'DEEP DROP: NIMUSHI ABYSS' });
     expect(indexHtml).toContain(`<title>${TITLE.document}</title>`);
-    // Two tiers: the DEEP / DROP logo, then the subtitle on its own line.
-    expect(mainSource).toContain('<h2>DEEP<br><span>DROP</span></h2><div class="title-sub">${TITLE.sub}</div>');
+    // Concept C: the DEEP / DROP + NIMUSHI ABYSS logo image, with the same words as its text.
+    expect(titleSource).toContain('<h2 class="title-logo"><img src="${TITLE_ASSETS.logo}" alt="" draggable="false"><span>${TITLE.main}<small>${TITLE.sub}</small></span></h2>');
+    expect(mainSource).toContain('setOverlay(titleMarkup(audio.muted));');
   });
 
   it('tags the build as a TEST BUILD with its version and commit', () => {
@@ -22,7 +24,8 @@ describe('title and build tag', () => {
     expect(BUILD.version).toBe('v0.1');
     expect(BUILD.hash).toMatch(/^([0-9a-f]{7,}|local)$/);
     expect(buildIdentifier({ label: 'TEST BUILD', version: 'v0.1', hash: 'abc1234' })).toBe('TEST BUILD v0.1 • abc1234');
-    expect(mainSource).toContain('<span class="build-tag" id="build-tag">${buildIdentifier()}</span>');
+    expect(titleSource).toContain('<span class="build-tag" id="build-tag">${buildIdentifier(build)}</span>');
+    expect(titleSource).toContain('export function titleMarkup(muted: boolean, build = BUILD)');
   });
 });
 
