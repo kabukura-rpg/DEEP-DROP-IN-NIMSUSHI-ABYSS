@@ -1,22 +1,49 @@
 import { describe, expect, it } from 'vitest';
-import { ENVIRONMENT_ART, ENVIRONMENT_GEOMETRY, platformSlices, usesPlatformArt, wallTileX, wallTileY } from '../src/render/environmentArt';
-import { PLATFORM_THICKNESS } from '../src/data/structures';
+import {
+  BLOCK_DROP_FROM, ENVIRONMENT_ART, ENVIRONMENT_GEOMETRY, beltLayout, breakBlockFrame, breakBlockSlices, environmentKeys, environmentLoads,
+  environmentParts, platformSlices, spikeFrame, spikeLayout, usesPlatformArt, wallTileX, wallTileY,
+} from '../src/render/environmentArt';
+import { BREAK_BLOCK_RULES, CONVEYOR_RULES, PLATFORM_THICKNESS, SPIKE_PLATFORM_RULES, breakBlockWidth, conveyorDirFor } from '../src/data/structures';
+import { StageGenerator } from '../src/systems/StageGenerator';
+import { entered, generationSignature, replaySignature } from './regressionSignature';
 import { WORLD } from '../src/data/balance';
 import { AREAS } from '../src/data/areas';
 import { GameModel } from '../src/systems/GameModel';
 
 // PNG headers read straight off disk: Vitest serves image imports as URLs, not bytes. (No Node types here.)
 const { readFileSync } = await import(/* @vite-ignore */ 'node:' + 'fs') as { readFileSync: (path: URL) => Uint8Array };
-const pngSize = (file: string) => {
-  const b = readFileSync(new URL(`../src/assets/environment/area1/${file}`, import.meta.url));
+const { createHash } = await import(/* @vite-ignore */ 'node:' + 'crypto') as { createHash: (a: string) => { update: (b: Uint8Array) => { digest: (e: string) => string } } };
+const pngSize = (file: string, area = 1) => {
+  const b = readFileSync(new URL(`../src/assets/environment/area${area}/${file}`, import.meta.url));
   const u32 = (o: number) => ((b[o] << 24) | (b[o + 1] << 16) | (b[o + 2] << 8) | b[o + 3]) >>> 0;
   return [u32(16), u32(20)];
 };
+/** Width, height, bit depth and colour type (6 = RGBA) of an AREA 2 image, and its SHA-256. */
+const area2Png = (file: string) => {
+  const b = readFileSync(new URL(`../src/assets/environment/area2/${file}`, import.meta.url));
+  const u32 = (o: number) => ((b[o] << 24) | (b[o + 1] << 16) | (b[o + 2] << 8) | b[o + 3]) >>> 0;
+  return { size: [u32(16), u32(20)], depth: b[24], colour: b[25], sha256: createHash('sha256').update(b).digest('hex') };
+};
+const seeded = (s: number) => () => { s = (Math.imul(s, 1664525) + 1013904223) >>> 0; return s / 4294967296; };
 
 /** ENVIRONMENT ART: AREA 1's ledges and walls from images, on the geometry the model already has. */
 describe('the image sets', () => {
-  it('lists AREA 1 only -- AREA 2-4 and the boss keep the procedural look', () => {
-    expect(Object.keys(ENVIRONMENT_ART)).toEqual(['1']);
+  it('lists AREA 1 and AREA 2 only -- AREA 3, AREA 4 and the boss keep the procedural look', () => {
+    expect(Object.keys(ENVIRONMENT_ART)).toEqual(['1', '2']);
+    for (const area of [0, 3, 4]) expect(ENVIRONMENT_ART[area]).toBeUndefined();
+  });
+
+  it('keeps AREA 1 exactly as it was: five images, no special surfaces', () => {
+    const set = ENVIRONMENT_ART[1]!;
+    expect(set.platform.left).toMatch(/area1\/platform-left-cap\.png/);
+    expect(set.platform.center).toMatch(/area1\/platform-center\.png/);
+    expect(set.platform.right).toMatch(/area1\/platform-right-cap\.png/);
+    expect(set.wall.fill).toMatch(/area1\/wall-fill\.png/);
+    expect(set.wall.edge).toMatch(/area1\/wall-inner-edge\.png/);
+    expect(set.breakBlock).toBeUndefined();
+    expect(set.spike).toBeUndefined();
+    expect(set.conveyor).toBeUndefined();
+    expect(environmentLoads(1, set).map(([key]) => key)).toEqual(['env-1-platform-left', 'env-1-platform-center', 'env-1-platform-right', 'env-1-wall-fill', 'env-1-wall-edge']);
   });
 
   it('ships the five AREA 1 images at the audited sizes, from src/assets', () => {
@@ -28,6 +55,103 @@ describe('the image sets', () => {
     for (const url of Object.values(ENVIRONMENT_ART[1]!.platform).concat(Object.values(ENVIRONMENT_ART[1]!.wall))) {
       expect(url).not.toMatch(/(^|\/)(output|dist)\//);
     }
+  });
+
+  it('ships the eighteen AREA 2 images, byte for byte the reviewed ones, from src/assets', () => {
+    // Sizes and hashes of output/environment-art-area2-v1 as delivered (review/validation.json: 18 RGBA).
+    const expected: Record<string, [number, number, string]> = {
+      'area2-platform-left-cap.png': [8, 24, '004c2e2dd54978e4c4839f16a9a68f07598df6a98d4ac97a5fda155ebc31975a'],
+      'area2-platform-center.png': [16, 24, 'f190f7d7618ea7c8206e89d0ab5dbc53a13a66e34a4e41ede24accec44da8eff'],
+      'area2-platform-right-cap.png': [8, 24, '4cb2a91797c44eca299627980d6d19d046621ed5f6de701e014c7dcf0e0393b4'],
+      'area2-wall-fill.png': [32, 96, '6ee69fa0a7ef2ef5e9ed1f32ae247c02b5ba29143d6b53bd20077a56960f8592'],
+      'area2-wall-inner-edge.png': [4, 96, 'b2af3dc85f2099bef02ea35fff49dd60b6812e8db00cf6a5e4ab3ca5a8af3e0f'],
+      'area2-break-block-normal.png': [80, 16, '4aa80eca79f18fb01839949978a74bda911d363cbf25134368724cc0c28db6eb'],
+      'area2-break-block-reward.png': [80, 16, '22c5043843b54b48c3d197dec8251bc7e0459011fc39a9e85abd4b8d70d29ad0'],
+      'area2-break-block-crack-1.png': [80, 16, '5bef9eb4b5f6551758454641314a2ba87854317b4228f4ffb92d77423ff9f45f'],
+      'area2-break-block-crack-2.png': [80, 16, 'eb061aab0f4999ce9743e443eb1265d1acc2f2cd6d21c520b53a408153520134'],
+      'area2-conveyor-tile.png': [14, 8, '33f60ca302c143116b14fcf2745bf883c91fab415a7afe506eeaf09d1cdf72f7'],
+      'area2-conveyor-arrow.png': [10, 12, 'd8627de29fd882baa4df75f39a45a2ef71fa5fe073e6fe54e80b74019481e1fd'],
+      'area2-spike-socket.png': [17, 8, '622415812d99cf7ce4cda376aac600c4019974e6f48ce8478c4e83006ac9f94b'],
+      'area2-spike-warning-1.png': [9, 18, 'aef66c5a1393ca45ef0b4d0884e526005eacbdfe98bc5daaadd5c6fa1a6bf5a1'],
+      'area2-spike-warning-2.png': [9, 18, '069091db9133e347c0ef2d554ca6bd5552f0462a32b21163d09be5d63ea94f8f'],
+      'area2-spike-warning-3.png': [9, 18, '912c3f42b9260a4946232ed75df7fe168f68759fb4b0adb5dd63c5927b4ede7c'],
+      'area2-spike-warning-4.png': [9, 18, '0fc12e71a89f1dafed28b260107578c92a148280dfec197f136657ca5740124a'],
+      'area2-spike-active.png': [9, 18, '16b68d10941c182d0fad678f15ace223816e1ea1484bc3265c5708e11a53b902'],
+      'area2-spike-edge-mark.png': [6, 8, '5e16f9cf54835b4b8e6838b31076cd5f580a094a3ebd837f35248ed737528187'],
+    };
+    for (const [file, [w, h, sha256]] of Object.entries(expected)) {
+      expect({ file, ...area2Png(file) }).toEqual({ file, size: [w, h], depth: 8, colour: 6, sha256 });
+    }
+    // Every one is loaded, under its own key, and none is read from output/ or dist/.
+    const loads = environmentLoads(2, ENVIRONMENT_ART[2]!);
+    expect(loads).toHaveLength(18);
+    expect(new Set(loads.map(([key]) => key)).size).toBe(18);
+    for (const [key, url] of loads) {
+      expect(key).toMatch(/^env-2-/);
+      expect(url).toMatch(/area2\/area2-[a-z0-9-]+\.png/);
+      expect(url).not.toMatch(/(^|\/)(output|dist)\//);
+    }
+    const files = loads.map(([, url]) => url.match(/area2-[a-z0-9-]+\.png/)![0]).sort();
+    expect(files).toEqual(Object.keys(expected).sort());
+  });
+
+  it('maps each AREA 2 image to its part', () => {
+    const set = ENVIRONMENT_ART[2]!;
+    expect(set.platform.left).toMatch(/area2-platform-left-cap\.png/);
+    expect(set.platform.center).toMatch(/area2-platform-center\.png/);
+    expect(set.platform.right).toMatch(/area2-platform-right-cap\.png/);
+    expect(set.wall.fill).toMatch(/area2-wall-fill\.png/);
+    expect(set.wall.edge).toMatch(/area2-wall-inner-edge\.png/);
+    expect(set.breakBlock!.normal).toMatch(/area2-break-block-normal\.png/);
+    expect(set.breakBlock!.reward).toMatch(/area2-break-block-reward\.png/);
+    expect(set.breakBlock!.crack1).toMatch(/area2-break-block-crack-1\.png/);
+    expect(set.breakBlock!.crack2).toMatch(/area2-break-block-crack-2\.png/);
+    expect(set.conveyor!.tile).toMatch(/area2-conveyor-tile\.png/);
+    expect(set.conveyor!.arrow).toMatch(/area2-conveyor-arrow\.png/);
+    expect(set.spike!.socket).toMatch(/area2-spike-socket\.png/);
+    for (const n of [1, 2, 3, 4] as const) expect(set.spike![`warning${n}`]).toMatch(new RegExp(`area2-spike-warning-${n}\\.png`));
+    expect(set.spike!.active).toMatch(/area2-spike-active\.png/);
+    expect(set.spike!.edge).toMatch(/area2-spike-edge-mark\.png/);
+  });
+});
+
+describe('which parts draw from images', () => {
+  const all = () => true;
+  it('AREA 1: ledges and walls only; AREA 2: every part; AREA 3, AREA 4 and the boss (0): nothing', () => {
+    const pick = (area: number) => { const { keys: _k, ...rest } = environmentParts(area, all); return rest; };
+    expect(pick(1)).toEqual({ wall: true, platform: true, breakBlock: false, spike: false, conveyor: false });
+    expect(pick(2)).toEqual({ wall: true, platform: true, breakBlock: true, spike: true, conveyor: true });
+    for (const area of [0, 3, 4]) expect(pick(area)).toEqual({ wall: false, platform: false, breakBlock: false, spike: false, conveyor: false });
+  });
+
+  it('falls back to procedural, part by part, when an image is missing or failed to load', () => {
+    const keys = environmentKeys(2);
+    const without = (...missing: string[]) => { const { keys: _k, ...rest } = environmentParts(2, key => !missing.includes(key)); return rest; };
+    expect(without(keys.fill)).toMatchObject({ wall: false, platform: true });
+    expect(without(keys.edge)).toMatchObject({ wall: false, platform: true });
+    expect(without(keys.block.crack2)).toMatchObject({ breakBlock: false, platform: true, spike: true });
+    expect(without(keys.spike.warning3)).toMatchObject({ spike: false, platform: true, conveyor: true });
+    expect(without(keys.belt.arrow)).toMatchObject({ conveyor: false, spike: true });
+    // A spike floor or a belt sits on the 3-slice: no ledge images, no spike or belt images either.
+    expect(without(keys.center)).toEqual({ wall: true, platform: false, breakBlock: true, spike: false, conveyor: false });
+    expect(without()).toEqual({ wall: true, platform: true, breakBlock: true, spike: true, conveyor: true });
+    // Nothing loaded at all: everything procedural.
+    const { keys: _k, ...none } = environmentParts(2, () => false);
+    expect(none).toEqual({ wall: false, platform: false, breakBlock: false, spike: false, conveyor: false });
+  });
+
+  it('a spike floor or belt whose images are missing is not drawn as a plain image ledge', () => {
+    const spiked = { width: 180, spikePlatform: { state: 'safe' as const, timer: 0, warning: 0.5 } };
+    const belted = { ...spiked, conveyor: { dir: 1 as const, speed: 70 } };
+    expect(usesPlatformArt(spiked, { spike: true, conveyor: true })).toBe(true);
+    expect(usesPlatformArt(spiked, { spike: false, conveyor: true })).toBe(false);
+    expect(usesPlatformArt(belted, { spike: true, conveyor: true })).toBe(true);
+    expect(usesPlatformArt(belted, { spike: true, conveyor: false })).toBe(false);
+    // The ABYSS arena's spike floors (no warning of their own) are never drawn from AREA 2's images.
+    expect(usesPlatformArt({ width: 180, spikePlatform: { state: 'safe', timer: 0 } }, { spike: true, conveyor: true })).toBe(false);
+    // Without parts (AREA 1, which has none) every special surface stays procedural, exactly as before.
+    expect(usesPlatformArt(spiked)).toBe(false);
+    expect(usesPlatformArt(belted)).toBe(false);
   });
 });
 
@@ -112,5 +236,248 @@ describe('gameplay', () => {
     for (let i = 0; i < 240 && game.player.grounded === -1; i++) game.step(1 / 120, 0, false);
     expect(game.player.grounded).toBe(-2);
     expect(game.player.y + 15).toBe(start.y);
+  });
+});
+
+describe('AREA 2 ledges', () => {
+  const { cap, surfaceRow } = ENVIRONMENT_GEOMETRY.platform;
+
+  it('uses the same 3-slice at every AREA 2 width: row 3 on the landing line, caps fixed, the center repeated', () => {
+    const widths = new Set<number>();
+    for (const plan of AREAS.find(a => a.id === 2)!.plans ?? []) { const [lo, hi] = plan.platformWidth; for (let w = lo; w <= hi; w++) widths.add(w); }
+    expect(Math.min(...widths)).toBe(148);
+    expect(Math.max(...widths)).toBe(198);
+    for (const w of widths) for (const y of [465, 821, 4667]) {
+      const at = platformSlices(28, y, w);
+      expect(at.top + surfaceRow).toBe(y);
+      expect(at.left).toEqual({ x: 28, width: cap });
+      expect(at.right).toEqual({ x: 28 + w - cap, width: cap });
+      expect(at.center).toEqual({ x: 28 + cap, width: w - cap * 2 });
+    }
+  });
+
+  it('takes the image look on ordinary ledges, CATACOMB spike floors and belts; never on a BREAK BLOCK', () => {
+    const parts = environmentParts(2, () => true);
+    expect(usesPlatformArt({ width: 180 }, parts)).toBe(true);
+    expect(usesPlatformArt({ width: 180, spikePlatform: { state: 'warning', timer: 0.2, warning: 0.5 } }, parts)).toBe(true);
+    expect(usesPlatformArt({ width: 180, spikePlatform: { state: 'safe', timer: 0, warning: 0.5 }, conveyor: { dir: -1, speed: 90 } }, parts)).toBe(true);
+    expect(usesPlatformArt({ width: 79, breakBlock: { hits: 0, durability: 2, slot: 0, reward: false } }, parts)).toBe(false);
+    expect(usesPlatformArt({ width: 180, limboHazard: true }, parts)).toBe(false);
+  });
+});
+
+describe('AREA 2 walls', () => {
+  it('reuse AREA 1\'s wall geometry: 28px walls, the inner edge on the wall side of x 28 and x 422', () => {
+    const { fillWidth, fillHeight, edgeWidth, shaftLeft, shaftRight } = ENVIRONMENT_GEOMETRY.wall;
+    expect([fillWidth, fillHeight, edgeWidth]).toEqual([32, 96, 4]);
+    expect(pngSize('area2-wall-fill.png', 2)).toEqual([fillWidth, fillHeight]);
+    expect(pngSize('area2-wall-inner-edge.png', 2)).toEqual([edgeWidth, fillHeight]);
+    expect([shaftLeft, shaftRight]).toEqual([WORLD.wall, WORLD.width - WORLD.wall]);
+    expect(WORLD.wall).toBe(28);
+    expect(WORLD.width - WORLD.wall * 2).toBe(394);
+  });
+});
+
+describe('AREA 2 BREAK BLOCK', () => {
+  it('shows the stone it was built as, and one crack overlay per round taken', () => {
+    expect(breakBlockFrame(0, false)).toEqual({ base: 'normal', crack: null });
+    expect(breakBlockFrame(0, true)).toEqual({ base: 'reward', crack: null });
+    expect(breakBlockFrame(1, false)).toEqual({ base: 'normal', crack: 'crack1' });
+    expect(breakBlockFrame(1, true)).toEqual({ base: 'reward', crack: 'crack1' });
+    expect(breakBlockFrame(2, false)).toEqual({ base: 'normal', crack: 'crack2' });
+    expect(breakBlockFrame(3, true)).toEqual({ base: 'reward', crack: 'crack2' });
+  });
+
+  it('fits the 80px image to the block\'s own span, top row on the block\'s top, without moving the block', () => {
+    expect(ENVIRONMENT_GEOMETRY.block).toEqual({ width: 80, height: BREAK_BLOCK_RULES.thickness });
+    const slot = breakBlockWidth();
+    expect(slot).toBeCloseTo(78.8, 6);
+    // Both the fractional rows (x = 28 + i * 78.8) and the whole-pixel rows AREA 2 generates (79/78).
+    const rows = [[0, 1, 2, 3, 4].map(i => [28 + i * slot, slot]), [[28, 79], [107, 79], [186, 78], [264, 79], [343, 79]]];
+    for (const row of rows) {
+      let previousEnd = WORLD.wall;
+      for (const [x, w] of row) {
+        const at = breakBlockSlices(x, w)!;
+        expect(at.x).toBe(Math.round(x));
+        expect(at.x + at.width).toBe(Math.round(x + w));
+        expect(at.x).toBe(previousEnd); // neighbours meet, no gap and no overlap
+        previousEnd = at.x + at.width;
+        expect([78, 79]).toContain(at.width);
+        expect(at.left).toEqual({ x: at.x, srcX: 0, width: BLOCK_DROP_FROM });
+        expect(at.right.x).toBe(at.x + BLOCK_DROP_FROM);
+        expect(at.right.srcX + at.right.width).toBe(80);
+        expect(at.left.width + at.right.width).toBe(at.width);
+        // Only columns 71 and/or 72 are left out -- the inside of a flat run, never an end.
+        expect(at.right.srcX).toBeGreaterThanOrEqual(72);
+        expect(at.right.srcX).toBeLessThanOrEqual(73);
+      }
+      expect(previousEnd).toBe(WORLD.width - WORLD.wall);
+    }
+    // A span the crop cannot fit is drawn procedurally instead.
+    expect(breakBlockSlices(28, 81)).toBeNull();
+    expect(breakBlockSlices(28, 70)).toBeNull();
+  });
+
+  it('leaves the BREAK BLOCK rules as they were', () => {
+    expect(BREAK_BLOCK_RULES).toEqual({ count: 5, thickness: 16, durability: 2, rewardChance: 0.25, rewardCoins: 1, rewardDenomination: 'large' });
+    for (const plan of AREAS.find(a => a.id === 2)!.plans ?? []) expect([plan.breakBlockRows, plan.breakBlockDurability]).toEqual([2, 2]);
+  });
+
+  it('breaks on the same rounds and pays the same REWARD', () => {
+    const game = new GameModel(false, seeded(11));
+    game.jumpToStage(2, 1);
+    const block = { id: 99001, x: 28, y: game.player.y + 400, width: 79, breakBlock: { hits: 0, durability: 2, slot: 0, reward: true } };
+    game.platforms.push(block as never);
+    const hit = (game as unknown as { hitBreakBlock: (b: unknown) => void }).hitBreakBlock.bind(game);
+    hit(block);
+    expect([block.breakBlock.hits, (block as { state?: string }).state]).toEqual([1, undefined]);
+    expect(breakBlockFrame(block.breakBlock.hits, block.breakBlock.reward)).toEqual({ base: 'reward', crack: 'crack1' });
+    const coins = game.coins.coins.length;
+    hit(block);
+    expect((block as { state?: string }).state).toBe('broken');
+    expect(game.coins.coins.length).toBe(coins + BREAK_BLOCK_RULES.rewardCoins);
+  });
+});
+
+describe('AREA 2 spike floor', () => {
+  const W = 0.5;
+  it('shows the socket alone while safe or cooling down, warning 1-4 across the one warning, and the active tooth', () => {
+    expect(spikeFrame({ state: 'safe', timer: 0, warning: W }, SPIKE_PLATFORM_RULES.warning)).toBeNull();
+    expect(spikeFrame({ state: 'cooldown', timer: 1, warning: W }, SPIKE_PLATFORM_RULES.warning)).toBeNull();
+    expect(spikeFrame({ state: 'active', timer: 0.5, warning: W }, SPIKE_PLATFORM_RULES.warning)).toBe('active');
+    const at = (left: number) => spikeFrame({ state: 'warning', timer: W * left, warning: W }, SPIKE_PLATFORM_RULES.warning);
+    expect([1, 0.9, 0.76].map(at)).toEqual(['warning1', 'warning1', 'warning1']);
+    expect([0.75, 0.6, 0.51].map(at)).toEqual(['warning2', 'warning2', 'warning2']);
+    expect([0.5, 0.3, 0.26].map(at)).toEqual(['warning3', 'warning3', 'warning3']);
+    expect([0.25, 0.1, 0, -0.01].map(at)).toEqual(['warning4', 'warning4', 'warning4', 'warning4']);
+    // A ledge's own (longer) warning is split the same way; the global one only where it has none.
+    expect(spikeFrame({ state: 'warning', timer: 0.45, warning: 0.9 }, SPIKE_PLATFORM_RULES.warning)).toBe('warning3');
+    expect(spikeFrame({ state: 'warning', timer: SPIKE_PLATFORM_RULES.warning * 0.8 }, SPIKE_PLATFORM_RULES.warning)).toBe('warning1');
+  });
+
+  it('puts a socket and tooth at every procedural tooth position, the tooth standing exactly the collision reach', () => {
+    const { toothHeight, socketWidth } = ENVIRONMENT_GEOMETRY.spike;
+    for (const width of [148, 160, 178, 190, 198, 231, 254]) {
+      const x = 28, y = 500, at = spikeLayout(x, y, width);
+      const procedural: number[] = [];
+      for (let i = x + 9; i < x + width - 8; i += 17) procedural.push(i);
+      expect(at.teeth.map(t => t.tooth.x + 1)).toEqual(procedural);
+      for (const t of at.teeth) {
+        // The tooth's centre column (4) is the procedural tooth's centre, i + 3.5, to the pixel.
+        expect(t.tooth.x + 4).toBe(t.tooth.x + 1 + 3);
+        // The socket's recess (columns 4-12) is under the tooth (columns 0-8).
+        expect(t.socket.x + 4).toBe(t.tooth.x);
+        expect(t.socket.x + t.socket.cropX).toBeGreaterThanOrEqual(x);
+        expect(t.socket.x + t.socket.cropX + t.socket.width).toBeLessThanOrEqual(x + width);
+        expect(t.socket.width).toBeLessThanOrEqual(socketWidth);
+      }
+      // Bottom row (17) at y + 1: the visible 16px (rows 2-17) reach y - 14 = y + 2 - reach.
+      expect(at.toothTop + toothHeight - 1).toBe(y + 1);
+      expect(at.toothTop + 2).toBe(y + 2 - SPIKE_PLATFORM_RULES.reach);
+      expect(at.socketTop).toBe(y);
+      expect(at.edges).toEqual([{ x, flip: false }, { x: x + width - 6, flip: true }]);
+    }
+  });
+
+  it('leaves the spike rules and AREA 2\'s warnings as they were', () => {
+    expect(SPIKE_PLATFORM_RULES).toEqual({ warning: 0.65, active: 0.9, cooldown: 1.2, damage: 1, reach: 16 });
+    for (const plan of AREAS.find(a => a.id === 2)!.plans ?? []) expect([plan.spikePlatformChance, plan.spikeWarning]).toEqual([1, 0.5]);
+  });
+
+  it('arms on landing, warns for the ledge\'s own warning, bites for 0.9s and costs exactly one heart', () => {
+    const game = new GameModel(false, seeded(7));
+    game.jumpToStage(2, 1);
+    const ledge = game.platforms.filter(f => f.spikePlatform && f.id >= 0).sort((a, b) => a.y - b.y)[0];
+    const start = game.platforms.find(f => f.id === -2)!;
+    game.player.x = ledge.x + 20 > start.x - 10 && ledge.x + 20 < start.x + start.width + 10 ? ledge.x + ledge.width - 20 : ledge.x + 20;
+    const s = ledge.spikePlatform!;
+    const seen: [string, number][] = [];
+    let t = 0, prev = s.state as string;
+    const hp = game.hp;
+    for (let i = 0; i < 120 * 6 && seen.length < 3; i++) {
+      game.step(1 / 120, 0, false); t += 1 / 120;
+      if (s.state !== prev) { seen.push([s.state, t]); prev = s.state; }
+      if (s.state === 'warning' && seen.length === 1) expect(game.player.y + 15).toBe(ledge.y);
+    }
+    expect(seen.map(([state]) => state)).toEqual(['warning', 'active', 'cooldown']);
+    expect(seen[1][1] - seen[0][1]).toBeCloseTo(s.warning!, 1);
+    expect(s.warning!).toBeGreaterThanOrEqual(0.5);
+    expect(seen[2][1] - seen[1][1]).toBeCloseTo(SPIKE_PLATFORM_RULES.active, 1);
+    expect(hp - game.hp).toBe(SPIKE_PLATFORM_RULES.damage);
+  });
+});
+
+describe('AREA 2 belt', () => {
+  it('runs the tile along the center under the sockets, the arrow at the end it carries toward', () => {
+    const { cap } = ENVIRONMENT_GEOMETRY.platform;
+    const right = beltLayout(100, 500, 180, 1, 0, 70, false), left = beltLayout(100, 500, 180, -1, 0, 70, false);
+    expect(right.belt).toEqual({ x: 100 + cap, y: 508, width: 180 - cap * 2, tileX: 0 });
+    expect(right.arrow).toEqual({ x: 100 + 180 - cap - 10, y: 506 });
+    expect(right.flip).toBe(false);
+    expect(left.arrow).toEqual({ x: 100 + cap, y: 506 });
+    expect(left.flip).toBe(true);
+    // Below the sockets (y .. y+7), inside the ledge's 16px body.
+    expect(right.belt.y).toBe(500 + ENVIRONMENT_GEOMETRY.spike.socketHeight);
+    expect(right.belt.y + ENVIRONMENT_GEOMETRY.belt.tileHeight - 1).toBeLessThan(500 + PLATFORM_THICKNESS);
+  });
+
+  it('scrolls at the belt\'s own speed, in whole pixels, and holds still under reduced motion', () => {
+    const at = (elapsed: number, speed = 70, still = false) => beltLayout(0, 0, 180, 1, elapsed, speed, still).belt.tileX;
+    expect(at(0)).toBe(0);
+    expect(at(1 / 70)).toBe(-1);
+    expect(at(5 / 70)).toBe(-5);
+    expect(at(14 / 70)).toBe(0);
+    expect(at(3 / 110 + 1e-9, 110)).toBe(-3);
+    expect(at(10, 70, true)).toBe(0);
+    for (const e of [0.13, 1.7, 9.99]) expect(Number.isInteger(at(e))).toBe(true);
+  });
+
+  it('carries the player the same way, at the same speed, as before', () => {
+    expect(CONVEYOR_RULES).toEqual({ edgeStop: 10, halfBody: 9, dropGap: 26, react: 0.15 });
+    expect(AREAS.find(a => a.id === 2)!.plans!.map(p => [p.conveyorChance, p.conveyorSpeed])).toEqual([[0.45, 70], [0.7, 90], [0.95, 110]]);
+    expect(conveyorDirFor(40, 150, 28, 422)).toBe(-1);
+    expect(conveyorDirFor(260, 150, 28, 422)).toBe(1);
+    for (const dir of [1, -1] as const) {
+      const game = new GameModel(false, seeded(3));
+      game.jumpToStage(2, 3);
+      const f = game.platforms.find(q => q.id === -2)!;
+      Object.assign(f, { conveyor: { dir, speed: 110 } });
+      game.player.x = f.x + f.width / 2;
+      for (let i = 0; i < 240 && game.player.grounded !== f.id; i++) game.step(1 / 120, 0, false);
+      expect(game.player.grounded).toBe(f.id);
+      const x0 = game.player.x;
+      for (let i = 0; i < 24; i++) game.step(1 / 120, 0, false);
+      expect(game.player.x - x0).toBeCloseTo(dir * 110 * 0.2, 6);
+      // ...and the arrow and the scroll point the same way.
+      const look = beltLayout(f.x, f.y, f.width, dir, 0, 110, false);
+      expect(look.flip).toBe(dir === -1);
+      expect(look.arrow.x > f.x + f.width / 2).toBe(dir === 1);
+    }
+  });
+});
+
+describe('AREA 2 gameplay', () => {
+  it('generates exactly what it did before the images: every ledge, width, BREAK BLOCK, spike warning and belt', () => {
+    const area = AREAS.find(a => a.id === 2)!;
+    const rows: string[] = [];
+    for (let n = 1; n <= 3; n++) for (let s = 1; s <= 8; s++) {
+      const g = new StageGenerator(seeded(s * 31 + n), { plan: area.plans?.[n - 1], enemyPool: area.enemyPool, sectionLength: area.sectionLength });
+      for (let c = 0; c < 12; c++) for (const p of g.chunk(c).platforms) {
+        rows.push(`${p.x}|${p.y}|${p.width}|${p.breakBlock ? p.breakBlock.durability + ':' + p.breakBlock.reward : ''}|${p.spikePlatform ? p.spikePlatform.warning : ''}|${p.conveyor ? p.conveyor.dir + ':' + p.conveyor.speed : ''}`);
+      }
+    }
+    let h = 0x811c9dc5;
+    for (const ch of rows.join(';')) h = Math.imul(h ^ ch.charCodeAt(0), 0x01000193) >>> 0;
+    // Golden values from e344c3c (src/systems and src/data are untouched by this change).
+    expect({ rows: rows.length, hash: h.toString(16) }).toEqual({ rows: 1256, hash: 'b9c19da6' });
+    expect(rows.filter(r => r.split('|')[5]).length).toBe(125);
+    expect(rows.filter(r => r.split('|')[3]).length).toBe(240);
+    expect(rows.filter(r => r.split('|')[4]).length).toBe(893);
+    expect(generationSignature(2)).toBe('55c8866f29f3d7527c3b513d');
+  });
+
+  it('plays exactly as it did before the images', () => {
+    expect(replaySignature(entered(g => g.jumpToStage(2, 1)))).toBe('95ebcdc29407d78501ec1a47');
+    expect(replaySignature(entered(g => g.jumpToStage(2, 3)))).toBe('e5f4c74110599c23f5ad5b62');
   });
 });

@@ -27,7 +27,7 @@ import bossBackgroundUrl from '../../output/game-backgrounds-v2/boss-a.png?url';
 import area1SurfaceUrl from '../../output/game-backgrounds-v1/area1-surface-a.png?url';
 import { surfaceLayerAlphas, surfaceWeight } from '../render/surfaceBlend';
 import { ENEMY_ART_PLACEMENT, ENEMY_ART_URLS, enemyArtFlipX, enemyArtKey, enemyArtLook, type EnemyArtLook } from '../render/enemyArt';
-import { ENVIRONMENT_ART, ENVIRONMENT_GEOMETRY, environmentKeys, platformSlices, usesPlatformArt, wallTileX, wallTileY } from '../render/environmentArt';
+import { ENVIRONMENT_ART, ENVIRONMENT_GEOMETRY, beltLayout, breakBlockFrame, breakBlockSlices, environmentKeys, environmentLoads, environmentParts, platformSlices, spikeFrame, spikeLayout, usesPlatformArt, wallTileX, wallTileY, type EnvironmentKeys } from '../render/environmentArt';
 
 const BACKGROUND_URLS = {
   1: area1BackgroundUrl, 2: area2BackgroundUrl, 3: area3BackgroundUrl,
@@ -100,6 +100,13 @@ export class GameScene extends Phaser.Scene {
   private worldMid!: Phaser.GameObjects.Graphics;
   private wallLayer!: Phaser.GameObjects.Container;
   private platformLayer!: Phaser.GameObjects.Container;
+  /**
+   * What an image set draws ON its ledges and blocks, in this order bottom to top: spike sockets,
+   * teeth, the spike floor's end marks, belts, belt arrows, BREAK BLOCK cracks. One container per
+   * kind, made once in that order, so pooled images never trade places when a pool grows.
+   */
+  private platformOverlay: Record<'socket' | 'tooth' | 'edge' | 'belt' | 'arrow' | 'crack', Phaser.GameObjects.Container> = {} as never;
+  private overlayPool = new Map<string, { items: (Phaser.GameObjects.Image | Phaser.GameObjects.TileSprite)[]; used: number }>();
   private walls: Phaser.GameObjects.TileSprite[] = [];
   /**
    * ENEMY ART (render/enemyArt): image enemies go on their own layer above everything the world has
@@ -124,9 +131,7 @@ export class GameScene extends Phaser.Scene {
     for (const [key, url] of Object.entries(ENEMY_ART_URLS)) this.load.image(key, url);
     for (const [area, set] of Object.entries(ENVIRONMENT_ART)) {
       if (!set) continue;
-      const keys = environmentKeys(Number(area));
-      this.load.image(keys.left, set.platform.left); this.load.image(keys.center, set.platform.center); this.load.image(keys.right, set.platform.right);
-      this.load.image(keys.fill, set.wall.fill); this.load.image(keys.edge, set.wall.edge);
+      for (const [key, url] of environmentLoads(Number(area), set)) this.load.image(key, url);
     }
     PlayerArt.preload(this);
     this.load.image('nimushi-art', NIMUSHI_ART.url);
@@ -164,6 +169,7 @@ export class GameScene extends Phaser.Scene {
     this.wallLayer = this.add.container(0, 0);
     this.worldMid = this.add.graphics();
     this.platformLayer = this.add.container(0, 0);
+    for (const kind of ['socket', 'tooth', 'edge', 'belt', 'arrow', 'crack'] as const) this.platformOverlay[kind] = this.add.container(0, 0);
     this.graphics = this.add.graphics();
     // Ordering: world -> NIMUSHI's image -> everything drawn after its body -> the player's image ->
     // particles, damage flash and scanlines. Created in that order, so Phaser draws them in it.
@@ -456,7 +462,9 @@ export class GameScene extends Phaser.Scene {
     const theme = m.stage.config.theme;
     // The AREA's image set, if it has one and it loaded; otherwise the procedural look below.
     const artArea = m.state === 'boss' ? 0 : m.stage.config.id;
-    const envArt = ENVIRONMENT_ART[artArea] && this.textures.exists(environmentKeys(artArea).fill) ? environmentKeys(artArea) : null;
+    const parts = environmentParts(artArea, key => this.textures.exists(key));
+    const envArt = parts.wall ? parts.keys : null;
+    const ledgeArt = parts.platform ? parts.keys : null;
     // Wide enough to still cover the view when it has slid sideways into a cave.
     // Keep the authored distance layer subdued so collision surfaces and attack tells stay foremost.
     this.rect(m.cameraX - 8, 0, 466 + Math.abs(m.cameraX) * 2, 800, 0x10191c, 0.16);
@@ -552,6 +560,7 @@ export class GameScene extends Phaser.Scene {
     }
     this.graphics = g;
     let ledges = 0;
+    for (const pool of this.overlayPool.values()) pool.used = 0;
     // DEVELOPMENT ONLY: record what this frame is about to draw, so the "blocks sometimes all
     // change" report has evidence the next time it happens. The guard is a compile-time constant,
     // so the watcher and this block are dropped entirely from a production build.
@@ -564,9 +573,19 @@ export class GameScene extends Phaser.Scene {
     for (const f of m.platforms) {
       const y = f.y - cam;
       if (y < -20 || y > 820) continue;
-      if (f.breakBlock) { this.breakBlock(f.x, y, f.width, f.breakBlock.hits, f.breakBlock.durability, f.breakBlock.reward); continue; }
+      if (f.breakBlock) {
+        if (!(parts.breakBlock && this.breakBlockArt(parts.keys, f.x, y, f.width, f.breakBlock.hits, f.breakBlock.reward, g.x))) {
+          this.breakBlock(f.x, y, f.width, f.breakBlock.hits, f.breakBlock.durability, f.breakBlock.reward);
+        }
+        continue;
+      }
       if (f.limboHazard) { this.limboHazard(f.x, y, f.width); continue; }
-      if (envArt && usesPlatformArt(f)) { this.ledgeArt(ledges++, envArt, f.x, y, f.width, g.x); continue; }
+      if (ledgeArt && usesPlatformArt(f, parts)) {
+        this.ledgeArt(ledges++, ledgeArt, f.x, y, f.width, g.x);
+        if (f.spikePlatform) this.spikeArt(ledgeArt, Math.round(f.x), Math.round(y), f.width, f.spikePlatform, g.x);
+        if (f.conveyor) this.beltArt(ledgeArt, Math.round(f.x), Math.round(y), f.width, f.conveyor, g.x);
+        continue;
+      }
       const cracking = f.state === 'cracking', critical = f.state === 'critical';
       // Shape carries the warning: a doomed ledge loses its top rail and splits into shards.
       const top = critical ? 0xf0a0b4 : cracking ? 0xe8d48a : f.breakable ? 0x9ad6c0 : 0xb9ef70;
@@ -592,6 +611,7 @@ export class GameScene extends Phaser.Scene {
       if (f.conveyor) this.conveyor(f.x, y, f.width, f.conveyor);
     }
     for (let i = ledges; i < this.ledgePool.length; i++) { const p = this.ledgePool[i]; p.left.setVisible(false); p.center.setVisible(false); p.right.setVisible(false); }
+    for (const pool of this.overlayPool.values()) for (let i = pool.used; i < pool.items.length; i++) pool.items[i].setVisible(false);
     for (const hazard of m.hazards) this.hazard(hazard, cam);
     for (const item of m.pickups) {
       if (item.taken) continue;
@@ -986,6 +1006,85 @@ export class GameScene extends Phaser.Scene {
     piece.center.setTexture(art.center).setPosition(offsetX + at.center.x, top).setSize(at.center.width, h).setTilePosition(0, 0).setVisible(at.center.width > 0);
     piece.right.setTexture(art.right).setPosition(offsetX + at.right.x, top).setVisible(true);
   }
+  /** The next free image (or tile strip) of one overlay pool, made on the kind's own layer when the pool runs out. */
+  private overlayImage(kind: keyof GameScene['platformOverlay'], texture: string): Phaser.GameObjects.Image;
+  private overlayImage(kind: keyof GameScene['platformOverlay'], texture: string, tiled: true): Phaser.GameObjects.TileSprite;
+  private overlayImage(kind: keyof GameScene['platformOverlay'], texture: string, tiled = false) {
+    const name = `${kind}${tiled ? ':tiled' : ''}`;
+    let pool = this.overlayPool.get(name);
+    if (!pool) { pool = { items: [], used: 0 }; this.overlayPool.set(name, pool); }
+    let item = pool.items[pool.used];
+    if (!item) {
+      item = tiled ? this.add.tileSprite(0, 0, 1, 1, texture).setOrigin(0) : this.add.image(0, 0, texture).setOrigin(0);
+      this.platformOverlay[kind].add(item); pool.items.push(item);
+    }
+    pool.used++;
+    item.setTexture(texture).setVisible(true).setFlipX(false);
+    if (item instanceof Phaser.GameObjects.Image) item.setCrop();
+    return item;
+  }
+  /**
+   * One BREAK BLOCK from the AREA's images (render/environmentArt): the stone it was built as,
+   * fitted to its own collision span with the image's top row on the block's top, and the crack
+   * overlay for the rounds it has taken. Returns false -- and draws nothing -- when the span cannot
+   * be fitted, so the caller draws the procedural block instead. HP, REWARD and breaking are the
+   * model's; the break burst and OPEN! label still come from the 'blockBreak' event.
+   */
+  private breakBlockArt(art: EnvironmentKeys, x: number, y: number, width: number, hits: number, reward: boolean, offsetX: number) {
+    const at = breakBlockSlices(x, width);
+    if (!at) return false;
+    const top = Math.round(y), h = ENVIRONMENT_GEOMETRY.block.height;
+    const frame = breakBlockFrame(hits, reward);
+    // Two crops of one image each: columns 0..BLOCK_DROP_FROM-1 at the left, the image's last ones at the right.
+    const stone = (layer: 'base' | 'crack', texture: string) => {
+      for (const slice of [at.left, at.right]) {
+        const img = layer === 'base' ? this.blockImage(texture) : this.overlayImage('crack', texture);
+        img.setPosition(offsetX + slice.x - slice.srcX, top).setCrop(slice.srcX, 0, slice.width, h);
+      }
+    };
+    stone('base', art.block[frame.base]);
+    if (frame.crack) stone('crack', art.block[frame.crack]);
+    return true;
+  }
+  /** The BREAK BLOCK stone images live on the ledge layer, with the ledges (pooled like the overlays). */
+  private blockImage(texture: string) {
+    let pool = this.overlayPool.get('block');
+    if (!pool) { pool = { items: [], used: 0 }; this.overlayPool.set('block', pool); }
+    let item = pool.items[pool.used] as Phaser.GameObjects.Image | undefined;
+    if (!item) { item = this.add.image(0, 0, texture).setOrigin(0); this.platformLayer.add(item); pool.items.push(item); }
+    pool.used++;
+    return item.setTexture(texture).setVisible(true).setFlipX(false).setCrop();
+  }
+  /**
+   * A CATACOMB spike floor's images over its ledge (render/environmentArt): a socket per tooth, the
+   * tooth for the current state -- none while safe or cooling down, warning 1-4 through the one
+   * gameplay warning, active while it bites -- and the hazard marks at each end. The drain bar is
+   * the procedural one, unchanged. Paint only: the hit is GameModel.tickSpikePlatforms, unchanged.
+   */
+  private spikeArt(art: EnvironmentKeys, x: number, y: number, width: number, spikes: NonNullable<Platform['spikePlatform']>, offsetX: number) {
+    const at = spikeLayout(x, y, width), { socketHeight } = ENVIRONMENT_GEOMETRY.spike;
+    const frame = spikeFrame(spikes, SPIKE_PLATFORM_RULES.warning);
+    for (const t of at.teeth) {
+      this.overlayImage('socket', art.spike.socket).setPosition(offsetX + t.socket.x, at.socketTop).setCrop(t.socket.cropX, 0, t.socket.width, socketHeight);
+      if (frame) this.overlayImage('tooth', art.spike[frame]).setPosition(offsetX + t.tooth.x, at.toothTop);
+    }
+    for (const e of at.edges) this.overlayImage('edge', art.spike.edge).setPosition(offsetX + e.x, at.edgeTop).setFlipX(e.flip);
+    if (spikes.state === 'warning') this.spikeWarningBar(x, y, width, spikes.timer, spikes.warning ?? SPIKE_PLATFORM_RULES.warning);
+  }
+  /**
+   * A belt's images over its ledge (render/environmentArt): the tile scrolled the way it carries at
+   * the speed it carries, and the arrow at the end it carries toward. Paint only: the push is
+   * GameModel.beltPush, unchanged.
+   */
+  private beltArt(art: EnvironmentKeys, x: number, y: number, width: number, belt: NonNullable<Platform['conveyor']>, offsetX: number) {
+    const at = beltLayout(x, y, width, belt.dir, this.model.elapsed, belt.speed, this.reducedMotion);
+    const { tileHeight } = ENVIRONMENT_GEOMETRY.belt;
+    if (at.belt.width > 0) {
+      this.overlayImage('belt', art.belt.tile, true).setPosition(offsetX + at.belt.x, at.belt.y)
+        .setSize(at.belt.width, tileHeight).setTilePosition(at.belt.tileX, 0).setFlipX(at.flip);
+    }
+    this.overlayImage('arrow', art.belt.arrow).setPosition(offsetX + at.arrow.x, at.arrow.y).setFlipX(at.flip);
+  }
   /**
    * One BREAK BLOCK. The row reads as masonry rather than as a ledge -- separate stones with a
    * visible seam between them, so it is obvious that they come apart one at a time and that a
@@ -1121,12 +1220,13 @@ export class GameScene extends Phaser.Scene {
       this.graphics.fillStyle(body, warning ? 0.85 : 1).fillTriangle(cx - 4.5, y + 2, cx + 4.5, y + 2, cx, y + 2 - reach);
       this.graphics.fillStyle(tip, warning ? 0.7 : 1).fillTriangle(cx - 1.6, y + 2, cx + 1.6, y + 2, cx, y + 2 - reach);
     }
-    if (warning) {
-      // A bar that drains across the ledge: how long is left, not just that something is coming.
-      const left = Math.max(0, Math.min(1, timer / warningTime));
-      this.rect(x, y - 2, width, 2, 0x4a3a20, 0.9);
-      this.rect(x, y - 2, width * left, 2, 0xffe6ae);
-    }
+    if (warning) this.spikeWarningBar(x, y, width, timer, warningTime);
+  }
+  /** A bar that drains across the ledge: how long is left, not just that something is coming. */
+  private spikeWarningBar(x: number, y: number, width: number, timer: number, warningTime: number) {
+    const left = Math.max(0, Math.min(1, timer / warningTime));
+    this.rect(x, y - 2, width, 2, 0x4a3a20, 0.9);
+    this.rect(x, y - 2, width * left, 2, 0xffe6ae);
   }
   /**
    * TIMEVOID. Standing in a chamber stops the shaft outside it, and the player has to be able to
