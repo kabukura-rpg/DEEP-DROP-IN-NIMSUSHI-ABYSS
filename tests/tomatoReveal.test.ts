@@ -145,6 +145,46 @@ describe('once begun, the entrance plays to the end', () => {
     expect(tomato.revealUntil).toBe(until);
   });
 
+  it('keeps a touch made during the entrance, and pays it at the end even if the player has gone', () => {
+    const game = staging();
+    const tomato = game.pickups.find(p => p.kind === 'tomato')!;
+    const zone = game.safeZones[0];
+    game.holdTomatoForReveal(tomato, TOMATO_REVEAL_SECONDS);
+    const hp = game.health.maxHp, ammo = game.stats.maxAmmo;
+    const until = tomato.revealUntil!;
+    // Stand on it for a moment: held, not taken, and the player is never stopped.
+    game.player.x = tomato.x; game.player.y = tomato.y; game.player.vy = 0;
+    game.step(STEP, 0, false);
+    expect(tomato.taken).toBe(false);
+    // Then walk out of the chamber at the run's speed until well clear of it.
+    let x = game.player.x;
+    while (game.elapsed < until - 0.1) {
+      game.step(STEP, -1, false);
+      if (game.player.x > zone.x - 30) { expect(x - game.player.x).toBeCloseTo(350 * STEP, 5); }
+      x = game.player.x;
+    }
+    expect(tomato.taken).toBe(false);
+    const far = () => Math.hypot(game.player.x - tomato.x, game.player.y - tomato.y);
+    expect(far()).toBeGreaterThan(TOMATO_REVEAL_SKIP_DISTANCE);
+    expect(game.timeFrozen).toBe(false);
+    // The entrance completes with the player out of reach: it is taken there and then, once.
+    while (game.elapsed < until) game.step(STEP, 0, false);
+    expect(far()).toBeGreaterThan(TOMATO_REVEAL_SKIP_DISTANCE);
+    expect(tomato.taken).toBe(true);
+    expect(tomato.x).toBe(Math.round(zone.x + zone.width / 2));
+    expect(game.health.maxHp).toBe(hp + 10);
+    expect(game.stats.maxAmmo).toBe(ammo + 10);
+    expect(game.events.filter(e => e.type === 'tomato')).toHaveLength(1);
+  });
+
+  it('never pays a TOMATO the player did not touch during its entrance', () => {
+    const game = staging();
+    const tomato = game.pickups.find(p => p.kind === 'tomato')!;
+    game.holdTomatoForReveal(tomato, TOMATO_REVEAL_SECONDS);
+    while (game.elapsed < tomato.revealUntil! + 0.2) game.step(STEP, 0, false);
+    expect(tomato.taken).toBe(false);
+  });
+
   it('is takeable at once when no entrance was ever begun', () => {
     const game = staging();
     const tomato = game.pickups.find(p => p.kind === 'tomato')!;

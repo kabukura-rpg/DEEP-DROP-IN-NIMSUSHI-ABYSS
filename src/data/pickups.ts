@@ -49,6 +49,8 @@ export interface Pickup {
   rerolled?: boolean;
   /** Model time before which it cannot be taken: the TOMATO while its entrance is still playing. */
   revealUntil?: number;
+  /** Touched while `revealUntil` was holding it: taken when the hold ends, wherever the player is. */
+  revealTouched?: boolean;
 }
 export function spawnPickup(kind: PickupKind, id: number, x: number, y: number, phase = 0, drifting = false): Pickup {
   return { id, kind, x, y, phase, taken: false, drifting };

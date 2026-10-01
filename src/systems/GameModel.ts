@@ -1327,7 +1327,8 @@ export class GameModel {
     // A GHOST comes from behind the view on purpose, and one still waiting in the wall may be waiting
     // for a turn, so neither is retired for being behind the camera.
     this.enemies = this.enemies.filter(e => e.alive && (e.ai?.kind === 'ghost' || !this.behindCamera(e.y, 180)));
-    this.pickups = this.pickups.filter(item => !item.taken && !this.behindCamera(item.y, 180));
+    // A TOMATO touched during its entrance is owed to the player, so it is kept until it is paid.
+    this.pickups = this.pickups.filter(item => !item.taken && (item.revealTouched || !this.behindCamera(item.y, 180)));
     this.hazards = this.hazards.filter(h => !this.behindCamera(this.trailingEdge(h.y, h.height), 180));
     this.doodads = this.doodads.filter(d => !this.behindCamera(this.trailingEdge(d.y, d.height), 180));
     this.safeZones = this.safeZones.filter(z => !this.behindCamera(this.trailingEdge(z.y, z.height), 240));
@@ -1973,10 +1974,12 @@ export class GameModel {
     const p = this.player;
     for (const item of this.pickups) {
       if (item.taken) continue;
-      // Still coming out of the wall: the player passes through it and takes it once it is out.
-      if (item.revealUntil !== undefined && this.elapsed < item.revealUntil) continue;
       const type = pickupType(item.kind);
-      if (Math.abs(item.x - p.x) > type.radius + 12 || Math.abs(item.y - p.y) > type.radius + 17) continue;
+      const touching = Math.abs(item.x - p.x) <= type.radius + 12 && Math.abs(item.y - p.y) <= type.radius + 17;
+      // Still coming out of the wall: the player passes through it, and a touch is remembered and
+      // paid once it is out -- wherever the player has gone by then.
+      if (item.revealUntil !== undefined && this.elapsed < item.revealUntil) { if (touching) item.revealTouched = true; continue; }
+      if (!touching && !item.revealTouched) continue;
       // An AREA's own pickup only exists while that gimmick is on. Gun modules are run-wide, so
       // they are never gated by which AREA the player happens to be in.
       if (type.category === 'environment' && (type.effect === 'oxygen' ? !this.oxygen.enabled : !this.heat.enabled)) continue;
