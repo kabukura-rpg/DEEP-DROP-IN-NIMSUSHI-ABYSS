@@ -326,8 +326,9 @@ function bossTest(request: BossTestTarget | BossTestRequest = 'phase1') {
 const TITLE_FADE_MS = 420;
 /**
  * START -> AREA 1, Concept C. The run has already begun underneath -- same frame, same input, same
- * BGM -- and a copy of the ruins is laid over it and faded out, so the descent reads as going down
- * into what the title showed. It never takes a pointer, and reduced motion skips it.
+ * BGM -- and the whole title layer (ruins, logo, PLAYER, buttons, footer) is copied over it and faded
+ * out as one, so nothing on the title vanishes before the rest. The HUD stays out of sight until the
+ * fade is done. The copy is inert and never takes a pointer, and reduced motion skips it.
  */
 function fadeOutTitle() {
   if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) return;
@@ -335,10 +336,15 @@ function fadeOutTitle() {
   if (!screen) return;
   const veil = document.createElement('div');
   veil.className = 'title-fade';
-  veil.style.cssText = screen.style.cssText;
+  veil.inert = true; veil.setAttribute('aria-hidden', 'true');
+  const copy = screen.cloneNode(true) as HTMLElement;
+  // The live title still owns these ids until setOverlay clears it.
+  copy.querySelectorAll('[id]').forEach(el => el.removeAttribute('id'));
+  veil.appendChild(copy);
   $('game-frame').appendChild(veil);
+  $('game-frame').classList.add('title-fading');
   const fade = veil.animate([{ opacity: 1 }, { opacity: 0 }], { duration: TITLE_FADE_MS, easing: 'ease-in' });
-  fade.onfinish = fade.oncancel = () => veil.remove();
+  fade.onfinish = fade.oncancel = () => { veil.remove(); if (!document.querySelector('.title-fade')) $('game-frame').classList.remove('title-fading'); };
 }
 function showTitle() {
   mode = 'title'; bridge.active = false;

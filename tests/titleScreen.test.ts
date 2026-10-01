@@ -140,4 +140,20 @@ describe('what the title does is unchanged', () => {
     }
     expect(css).toContain('.title-fade{position:absolute;inset:0;z-index:1;pointer-events:none;');
   });
+
+  it('START -> AREA 1: the whole title layer fades as one, and the HUD waits for it', () => {
+    const fade = fn('fadeOutTitle');
+    // Background, logo, PLAYER, buttons and footer: one copy of the whole .title-screen, not just the ruins.
+    expect(fade).toContain('const copy = screen.cloneNode(true) as HTMLElement;');
+    expect(fade).toContain("copy.querySelectorAll('[id]').forEach(el => el.removeAttribute('id'));");
+    expect(fade).toContain('veil.inert = true;');
+    expect(fade).toContain("{ duration: TITLE_FADE_MS, easing: 'ease-in' }");
+    expect(mainSource).toContain('const TITLE_FADE_MS = 420;');
+    // The copy lays itself out in the same 450x800 units as the live title.
+    expect(css).toContain('.title-fade{position:absolute;inset:0;z-index:1;pointer-events:none;container-type:size}');
+    // HUD hidden from the first frame of the fade until it ends (or is cancelled).
+    expect(fade).toContain("$('game-frame').classList.add('title-fading');");
+    expect(fade).toContain("fade.onfinish = fade.oncancel = () => { veil.remove(); if (!document.querySelector('.title-fade')) $('game-frame').classList.remove('title-fading'); };");
+    expect(css).toContain('#game-frame.title-fading .hud{visibility:hidden}');
+  });
 });
