@@ -1,10 +1,11 @@
 import { describe, expect, it } from 'vitest';
-import { BONE_THROWER_OFFSET_Y, ENEMY_ART_KINDS, ENEMY_ART_KINDS_AREA2, ENEMY_ART_KINDS_AREA3, ENEMY_ART_KINDS_AREA4, ENEMY_ART_PLACEMENT, ENEMY_ART_URLS, GHOST_DORMANT_LOOK, GHOST_HUNT_ALPHA, enemyArtFlipX, enemyArtKey, enemyArtLook } from '../src/render/enemyArt';
+import { BONE_THROWER_OFFSET_Y, ENEMY_ART_KINDS, ENEMY_ART_KINDS_AREA2, ENEMY_ART_KINDS_AREA3, ENEMY_ART_KINDS_AREA4, ENEMY_ART_KINDS_BOSS, ENEMY_ART_PLACEMENT, ENEMY_ART_URLS, BOUNCE_TAPIOCA_BOB, GHOST_DORMANT_LOOK, GHOST_HUNT_ALPHA, NIMUSHI_MINION_BOB, enemyArtFlipX, enemyArtKey, enemyArtLook } from '../src/render/enemyArt';
 import { ENEMY_TYPES, spawnEnemy, type Enemy, type EnemyKind } from '../src/data/enemies';
 import { DWELLER_RULES, dwellerShot, stepDweller, type DwellerState } from '../src/data/dwellers';
 import { dormantGhost, GHOST_RULES } from '../src/data/chasers';
 import { AREAS } from '../src/data/areas';
 import { ABYSS_PHASES } from '../src/data/abyss';
+import { TAPIOCA_BARRIER } from '../src/data/nimushi';
 import { WORLD } from '../src/data/balance';
 
 // Files read straight off disk: Vitest serves image imports as URLs, not bytes. (No Node types here.)
@@ -20,13 +21,14 @@ const AREA2_KEYS = ['enemy-ghost-dormant', 'enemy-ghost-hunt', 'enemy-bone-hoppe
   'enemy-bone-thrower-idle', 'enemy-bone-thrower-windup', 'enemy-flying-skull-calm', 'enemy-flying-skull-angry', 'enemy-shade-orb-idle'];
 const AREA3_KEYS = ['enemy-squid-rise', 'enemy-squid-poise', 'enemy-squid-dive', 'enemy-shell-swimmer-idle', 'enemy-riser-jelly-idle', 'enemy-biter-idle'];
 const AREA4_KEYS = ['enemy-shade-orb-area4-idle', 'enemy-void-wisp-idle', 'enemy-hollow-shade-idle', 'enemy-void-shard-idle', 'enemy-angry-orb-idle'];
+const BOSS_KEYS = ['enemy-nimushi-clone-idle', 'enemy-nimushi-shade-idle', 'enemy-bounce-tapioca-idle'];
 
 /** AREA 1 ENEMY ART: images for the AREA 1 roster, on the enemies the model already has. */
 describe('the images', () => {
   it('cover exactly AREA 1\'s roster, twelve 64x64 files from src/assets', () => {
     const area1 = AREAS.find(a => a.id === 1)!;
     expect([...ENEMY_ART_KINDS].sort()).toEqual([...area1.enemyPool].sort());
-    const area1Keys = Object.keys(ENEMY_ART_URLS).filter(key => !AREA2_KEYS.includes(key) && !AREA3_KEYS.includes(key) && !AREA4_KEYS.includes(key));
+    const area1Keys = Object.keys(ENEMY_ART_URLS).filter(key => !AREA2_KEYS.includes(key) && !AREA3_KEYS.includes(key) && !AREA4_KEYS.includes(key) && !BOSS_KEYS.includes(key));
     expect(area1Keys).toHaveLength(12);
     for (const key of area1Keys) {
       const url = ENEMY_ART_URLS[key];
@@ -60,16 +62,16 @@ describe('the images', () => {
     expect(at('toad')).toBeNull();
   });
 
-  it('leaves every other kind -- the boss\'s own -- to the procedural look', () => {
-    const imaged = [...ENEMY_ART_KINDS, ...ENEMY_ART_KINDS_AREA2, ...ENEMY_ART_KINDS_AREA3, ...ENEMY_ART_KINDS_AREA4] as readonly string[];
+  it('leaves every other kind -- none of which any AREA or the FINAL BOSS spawns -- to the procedural look', () => {
+    const imaged = [...ENEMY_ART_KINDS, ...ENEMY_ART_KINDS_AREA2, ...ENEMY_ART_KINDS_AREA3, ...ENEMY_ART_KINDS_AREA4, ...ENEMY_ART_KINDS_BOSS] as readonly string[];
     const others = (Object.keys(ENEMY_TYPES) as EnemyKind[]).filter(k => !imaged.includes(k));
-    expect(others).toHaveLength(19); // 23 before AREA 4's four new kinds
-    expect(others).toEqual(expect.arrayContaining(['nimushiClone', 'nimushiShade', 'bounceTapioca']));
+    expect(others).toHaveLength(16); // 23 before AREA 4's four new kinds, 19 before the boss's three
+    for (const kind of ENEMY_ART_KINDS_BOSS) expect(others).not.toContain(kind);
     for (const kind of others) for (const where of [1, 2, 3, 4, 'boss'] as const) expect(enemyArtKey({ kind, ai: { kind: 'bat', state: 'hang' } } as never, where), kind).toBeNull();
     // Every kind any AREA rolls now has an image; the shade orb only where an AREA gives it one.
     for (const area of AREAS) for (const kind of area.enemyPool) expect(imaged, `${area.id}:${kind}`).toContain(kind);
     for (const where of [1, 3] as const) expect(enemyArtKey(spawnEnemy('shadeOrb', 1, 200, 300), where), `${where}`).toBeNull();
-    for (const kind of ['nimushiClone', 'nimushiShade', 'bounceTapioca'] as EnemyKind[]) expect(enemyArtKey(spawnEnemy(kind, 1, 200, 300), 'boss'), kind).toBeNull();
+    for (const kind of ENEMY_ART_KINDS_BOSS) expect(enemyArtKey(spawnEnemy(kind, 1, 200, 300), 'boss'), kind).toBe(`enemy-${kind === 'nimushiClone' ? 'nimushi-clone' : kind === 'nimushiShade' ? 'nimushi-shade' : 'bounce-tapioca'}-idle`);
   });
 
   it('falls back to the procedural body when a texture is missing', () => {
@@ -118,7 +120,7 @@ const area2 = AREAS.find(a => a.id === 2)!;
 describe('AREA 2 images', () => {
   it('cover exactly AREA 2\'s roster -- its pool and the ghost -- ten 64x64 files from src/assets', () => {
     expect([...ENEMY_ART_KINDS_AREA2].sort()).toEqual([...area2.enemyPool, 'ghost'].sort());
-    expect(Object.keys(ENEMY_ART_URLS).filter(key => !AREA3_KEYS.includes(key) && !AREA4_KEYS.includes(key))).toHaveLength(22);
+    expect(Object.keys(ENEMY_ART_URLS).filter(key => !AREA3_KEYS.includes(key) && !AREA4_KEYS.includes(key) && !BOSS_KEYS.includes(key))).toHaveLength(22);
     for (const key of AREA2_KEYS) {
       expect(ENEMY_ART_URLS[key], key).toBeTruthy();
       expect(ENEMY_ART_URLS[key], key).not.toMatch(/(^|\/)(output|dist)\//);
@@ -254,7 +256,7 @@ const area3 = AREAS.find(a => a.id === 3)!;
 describe('AREA 3 images', () => {
   it('cover exactly AREA 3\'s pool, six 64x64 files from src/assets', () => {
     expect([...ENEMY_ART_KINDS_AREA3].sort()).toEqual([...area3.enemyPool].sort());
-    expect(Object.keys(ENEMY_ART_URLS).filter(key => !AREA4_KEYS.includes(key))).toHaveLength(28);
+    expect(Object.keys(ENEMY_ART_URLS).filter(key => !AREA4_KEYS.includes(key) && !BOSS_KEYS.includes(key))).toHaveLength(28);
     for (const key of AREA3_KEYS) {
       expect(ENEMY_ART_URLS[key], key).toBeTruthy();
       expect(ENEMY_ART_URLS[key], key).not.toMatch(/(^|\/)(output|dist)\//);
@@ -372,11 +374,11 @@ describe('AREA 3 images', () => {
     for (const kind of ENEMY_ART_KINDS_AREA3) expect(area4.enemyPool as readonly string[]).not.toContain(kind);
   });
 
-  it('shows the same images for the FINAL BOSS\'s AREA 3 summons; its own kinds stay procedural', () => {
+  it('shows the same images for the FINAL BOSS\'s AREA 3 summons; its own kinds have their own', () => {
     expect(ABYSS_PHASES[2].summonPool).toEqual(['biter', 'riserJelly']);
     expect(enemyArtKey(spawnEnemy('biter', -1, 200, 300, 34, 1, 'open'), 'boss')).toBe('enemy-biter-idle');
     expect(enemyArtKey(spawnEnemy('riserJelly', -1, 200, 300, 34, 1, 'open'), 'boss')).toBe('enemy-riser-jelly-idle');
-    for (const kind of ['nimushiClone', 'nimushiShade', 'bounceTapioca'] as EnemyKind[]) expect(enemyArtKey(spawnEnemy(kind, 1, 200, 300), 'boss'), kind).toBeNull();
+    for (const kind of ENEMY_ART_KINDS_BOSS) expect(BOSS_KEYS, kind).toContain(enemyArtKey(spawnEnemy(kind, 1, 200, 300), 'boss'));
   });
 });
 
@@ -403,7 +405,7 @@ const pngBytes = (file: string, dir: string) => read(`../src/assets/enemies/${di
 describe('AREA 4 images', () => {
   it('cover exactly AREA 4\'s pool, five 64x64 files from src/assets/enemies/area4', () => {
     expect([...ENEMY_ART_KINDS_AREA4].sort()).toEqual([...area4.enemyPool].sort());
-    expect(Object.keys(ENEMY_ART_URLS)).toHaveLength(33);
+    expect(Object.keys(ENEMY_ART_URLS).filter(key => !BOSS_KEYS.includes(key))).toHaveLength(33);
     for (const key of AREA4_KEYS) {
       expect(ENEMY_ART_URLS[key], key).toBeTruthy();
       expect(ENEMY_ART_URLS[key], key).not.toMatch(/(^|\/)(output|dist)\//);
@@ -458,13 +460,13 @@ describe('AREA 4 images', () => {
     expect(ABYSS_PHASES.filter(p => p.summonPool.includes('shadeOrb')).map(p => p.role)).toEqual(['catacomb']);
   });
 
-  it('shows the same images for the FINAL BOSS\'s LIMBO summons; its own kinds stay procedural', () => {
+  it('shows the same images for the FINAL BOSS\'s LIMBO summons; its own kinds have their own', () => {
     expect(ABYSS_PHASES[3].summonPool).toEqual(['voidWisp', 'hollowShade', 'angryOrb']);
     expect(ABYSS_PHASES.flatMap(p => p.summonPool)).not.toContain('voidShard');
     expect(enemyArtKey(spawnEnemy('voidWisp', -1, 200, 300, 34, 1, 'open'), 'boss')).toBe('enemy-void-wisp-idle');
     expect(enemyArtKey(spawnEnemy('hollowShade', -1, 200, 300, 34, 1, 'open'), 'boss')).toBe('enemy-hollow-shade-idle');
     expect(enemyArtKey(spawnEnemy('angryOrb', -1, 200, 300, 34, 1, 'open'), 'boss')).toBe('enemy-angry-orb-idle');
-    for (const kind of ['nimushiClone', 'nimushiShade', 'bounceTapioca'] as EnemyKind[]) expect(enemyArtKey(spawnEnemy(kind, 1, 200, 300), 'boss'), kind).toBeNull();
+    for (const kind of ENEMY_ART_KINDS_BOSS) expect(BOSS_KEYS, kind).toContain(enemyArtKey(spawnEnemy(kind, 1, 200, 300), 'boss'));
     expect(ABYSS_PHASES.map(p => p.clonePool)).toEqual([['nimushiClone'], ['nimushiClone'], ['nimushiClone'], ['nimushiShade']]);
   });
 
@@ -504,5 +506,110 @@ describe('AREA 4 gameplay is untouched', () => {
       expect(e.stompable, kind).toBe(false); expect(e.hp, kind).toBe(2);
     }
     expect(area4.enemyPool).toEqual(['voidWisp', 'hollowShade', 'voidShard', 'shadeOrb', 'angryOrb']);
+  });
+});
+
+/** FINAL BOSS ENEMY ART: images for the boss's own three kinds; the barrier and its summons untouched. */
+describe('FINAL BOSS images', () => {
+  const BOSS_FILE = { nimushiClone: 'nimushi-clone-idle.png', nimushiShade: 'nimushi-shade-idle.png', bounceTapioca: 'bounce-tapioca-idle.png' } as const;
+  const BOSS_KEY = { nimushiClone: 'enemy-nimushi-clone-idle', nimushiShade: 'enemy-nimushi-shade-idle', bounceTapioca: 'enemy-bounce-tapioca-idle' } as const;
+
+  it('cover exactly the boss\'s own three kinds, three 64x64 files from src/assets/enemies/boss', () => {
+    expect([...ENEMY_ART_KINDS_BOSS].sort()).toEqual(['bounceTapioca', 'nimushiClone', 'nimushiShade']);
+    expect(Object.keys(ENEMY_ART_URLS)).toHaveLength(36);
+    for (const kind of ENEMY_ART_KINDS_BOSS) {
+      const url = ENEMY_ART_URLS[BOSS_KEY[kind]];
+      expect(url, kind).toBeTruthy();
+      expect(url, kind).not.toMatch(/(^|\/)(output|dist)\//);
+      expect(url, kind).toMatch(/boss\//);
+      expect(pngSize(BOSS_FILE[kind], 'boss'), kind).toEqual([64, 64]);
+    }
+    expect(ENEMY_ART_PLACEMENT).toEqual({ size: 64, originX: 0.5, originY: 0.5, scale: 1, offsetX: 0, offsetY: 0 });
+  });
+
+  it('maps each kind to its one image, in every context, never mirrored', () => {
+    for (const kind of ENEMY_ART_KINDS_BOSS) {
+      const e = spawnEnemy(kind, -1, 200, 300, 34, 1, 'open');
+      for (const where of ['boss', 1, 2, 3, 4, undefined] as const) expect(enemyArtKey(e, where), `${kind}@${where}`).toBe(BOSS_KEY[kind]);
+      for (const x of [WORLD.wall + 20, WORLD.width - WORLD.wall - 20]) expect(enemyArtFlipX({ ...e, x }), kind).toBe(false);
+    }
+  });
+
+  it('carries the procedural bob over as a visual offset only -- the clones\' and the tapioca\'s own', () => {
+    expect(NIMUSHI_MINION_BOB).toEqual({ rate: 4, amplitude: 3 });
+    expect(BOUNCE_TAPIOCA_BOB).toEqual({ rate: 2.2, amplitude: 2 });
+    for (const kind of ENEMY_ART_KINDS_BOSS) {
+      const e = spawnEnemy(kind, -1, 200, 300, 34, 1.3, 'open');
+      const b = kind === 'bounceTapioca' ? BOUNCE_TAPIOCA_BOB : NIMUSHI_MINION_BOB;
+      for (const t of [0, 0.37, 1.2, 5.9]) {
+        const look = enemyArtLook(e, BOSS_KEY[kind], t, false);
+        expect(look.offsetY, `${kind}@${t}`).toBeCloseTo(Math.sin(t * b.rate + e.phase) * b.amplitude, 10);
+        expect({ ...look, offsetY: 0 }, kind).toEqual({ offsetX: 0, offsetY: 0, alpha: 1, crop: null });
+        expect(enemyArtLook(e, BOSS_KEY[kind], t, true), kind).toEqual(look); // the white flash is the tint, not a new look
+      }
+      expect(e.x).toBe(200); expect(e.y).toBe(300); // reading the look never moves the enemy
+    }
+    // The same numbers the procedural bodies still draw with.
+    const scene = String(read('../src/scenes/GameScene.ts'));
+    expect(scene).toContain("const bob = Math.sin(this.model.elapsed * 4 + e.phase) * 3;");
+    expect(scene).toContain("const bob = Math.sin(this.model.elapsed * 2.2 + e.phase) * 2;");
+    // ...and the sideways sway is the model's own x, at the type's sway speed.
+    expect(ENEMY_TYPES.nimushiClone.swaySpeed).toBe(1.35);
+    expect(ENEMY_TYPES.nimushiShade.swaySpeed).toBe(0.9);
+    expect(ENEMY_TYPES.bounceTapioca.swaySpeed).toBe(0.5);
+  });
+
+  it('falls back to the procedural clone, shade and tapioca when a texture is missing', () => {
+    const scene = String(read('../src/scenes/GameScene.ts'));
+    expect(scene).toContain('if (artKey && this.textures.exists(artKey)) {');
+    expect(scene).toContain("type.silhouette === 'bouncePearl'");
+    expect(scene).toContain("type.silhouette === 'nimushi' || type.silhouette === 'nimushiBarbed'");
+  });
+
+  it('never touches the TAPIOCA BARRIER: drawn by the fight, not as an enemy', () => {
+    const scene = String(read('../src/scenes/GameScene.ts'));
+    const bossDraw = scene.slice(scene.indexOf('  private boss(cam: number) {'), scene.indexOf('  private bossBody(cam: number) {'));
+    expect(bossDraw).toContain('if (fight.barrier) {');
+    expect(bossDraw).toContain('pearl(cx + Math.cos(a) * rx * spread, cy + Math.sin(a) * ry * spread, TAPIOCA_BARRIER.pearlSize, t);');
+    expect(bossDraw).not.toContain('enemyImage(');
+    expect(bossDraw).not.toContain('enemyArt');
+    expect(TAPIOCA_BARRIER).toEqual({ pearls: 12, radiusX: 118, radiusY: 88, spin: 1.6, pearlSize: 10, form: 0.45, burst: 0.55 });
+    // The barrier pearls are not an enemy kind, so nothing can map them to the bounce tapioca's image.
+    expect(Object.keys(ENEMY_TYPES)).not.toContain('tapiocaBarrier');
+    expect(Object.keys(ENEMY_ART_URLS).filter(key => /tapioca/.test(key))).toEqual(['enemy-bounce-tapioca-idle']);
+  });
+
+  it('keeps every earlier mapping and the shade orb\'s context exactly as they were', () => {
+    expect(enemyArtKey({ kind: 'slime' } as never, 'boss')).toBe('enemy-slime-idle');
+    expect(enemyArtKey(spawnEnemy('caveBat', -1, 200, 300, 34, 1, 'open'), 'boss')).toBe('enemy-cave-bat-hang');
+    expect(enemyArtKey(spawnEnemy('spore', -1, 200, 300, 34, 1, 'open'), 'boss')).toBe('enemy-spore-idle');
+    expect(enemyArtKey(spawnEnemy('watcher', -1, 200, 300, 34, 1, 'open'), 'boss')).toBe('enemy-watcher-idle');
+    expect(enemyArtKey(spawnEnemy('flyingSkull', -1, 200, 300, 34, 1, 'open'), 'boss')).toBe('enemy-flying-skull-calm');
+    expect(enemyArtKey(spawnEnemy('biter', -1, 200, 300, 34, 1, 'open'), 'boss')).toBe('enemy-biter-idle');
+    expect(enemyArtKey(spawnEnemy('riserJelly', -1, 200, 300, 34, 1, 'open'), 'boss')).toBe('enemy-riser-jelly-idle');
+    for (const [kind, key] of [['voidWisp', 'enemy-void-wisp-idle'], ['hollowShade', 'enemy-hollow-shade-idle'], ['angryOrb', 'enemy-angry-orb-idle']] as const) expect(enemyArtKey(spawnEnemy(kind, -1, 200, 300, 34, 1, 'open'), 'boss'), kind).toBe(key);
+    const orb = spawnEnemy('shadeOrb', -1, 200, 300, 34, 1, 'open');
+    expect([enemyArtKey(orb, 2), enemyArtKey(orb, 4), enemyArtKey(orb, 'boss'), enemyArtKey(orb, 3)]).toEqual(['enemy-shade-orb-idle', 'enemy-shade-orb-area4-idle', 'enemy-shade-orb-idle', null]);
+    expect(ABYSS_PHASES.map(p => p.summonPool)).toEqual([['caveBat', 'spore', 'watcher'], ['flyingSkull', 'shadeOrb'], ['biter', 'riserJelly'], ['voidWisp', 'hollowShade', 'angryOrb']]);
+    expect(ABYSS_PHASES.map(p => p.clonePool)).toEqual([['nimushiClone'], ['nimushiClone'], ['nimushiClone'], ['nimushiShade']]);
+  });
+});
+
+describe('FINAL BOSS gameplay is untouched', () => {
+  it('keeps the boss\'s own kinds\' rules exactly: the clone and the tapioca can be stood on, the shade cannot', () => {
+    const rules = Object.fromEntries(ENEMY_ART_KINDS_BOSS.map(k => {
+      const t = ENEMY_TYPES[k];
+      return [k, { stompable: t.stompable, shootable: t.shootable, hp: t.hp, bodyWidth: t.bodyWidth, damageCause: t.damageCause, flying: t.flying, threat: t.threat, swaySpeed: t.swaySpeed, behaviour: t.behaviour, leavesCorpse: t.leavesCorpse }];
+    }));
+    expect(rules).toEqual({
+      nimushiClone: { stompable: true, shootable: true, hp: 1, bodyWidth: 26, damageCause: 'enemy', flying: true, threat: 'basic', swaySpeed: 1.35, behaviour: undefined, leavesCorpse: true },
+      nimushiShade: { stompable: false, shootable: true, hp: 1, bodyWidth: 26, damageCause: 'spike', flying: true, threat: 'armored', swaySpeed: 0.9, behaviour: undefined, leavesCorpse: true },
+      bounceTapioca: { stompable: true, shootable: true, hp: 1, bodyWidth: 30, damageCause: 'enemy', flying: true, threat: 'basic', swaySpeed: 0.5, behaviour: undefined, leavesCorpse: false },
+    });
+    for (const kind of ENEMY_ART_KINDS_BOSS) {
+      const e = spawnEnemy(kind, -1, 200, 300, 34, 1, 'open');
+      enemyArtKey(e, 'boss'); enemyArtLook(e, enemyArtKey(e, 'boss')!, 2, true); enemyArtFlipX(e);
+      expect([e.stompable, e.hp, e.ai, e.x, e.y], kind).toEqual([ENEMY_TYPES[kind].stompable, 1, undefined, 200, 300]);
+    }
   });
 });

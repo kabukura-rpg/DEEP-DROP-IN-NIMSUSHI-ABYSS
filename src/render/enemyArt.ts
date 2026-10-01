@@ -3,9 +3,10 @@
  * position, collision, stompability or AI: each image is placed on the enemy's own (x, y), centred
  * (origin 0.5, 0.5; the art's pivot is (32, 32) of a 64x64 canvas) at scale 1.
  *
- * An enemy KIND listed here draws from its image; any other kind -- the boss's own --
- * keeps the procedural look in GameScene.enemy(). A kind whose state has no image, or whose texture
- * did not load, falls back to the procedural look as well.
+ * An enemy KIND listed here draws from its image; any other kind keeps the procedural look in
+ * GameScene.enemy(). A kind whose state has no image, or whose texture did not load, falls back to
+ * the procedural look as well. The FINAL BOSS's own three kinds have images too; its TAPIOCA BARRIER
+ * is not an enemy (GameScene.boss() draws it from the fight) and never reads anything here.
  *
  * States are read from the AI the model already runs (data/dwellers.ts, data/chasers.ts), never
  * invented here:
@@ -51,6 +52,9 @@ import voidWispIdle from '../assets/enemies/area4/void-wisp-idle.png?url';
 import hollowShadeIdle from '../assets/enemies/area4/hollow-shade-idle.png?url';
 import voidShardIdle from '../assets/enemies/area4/void-shard-idle.png?url';
 import angryOrbIdle from '../assets/enemies/area4/angry-orb-idle.png?url';
+import nimushiCloneIdle from '../assets/enemies/boss/nimushi-clone-idle.png?url';
+import nimushiShadeIdle from '../assets/enemies/boss/nimushi-shade-idle.png?url';
+import bounceTapiocaIdle from '../assets/enemies/boss/bounce-tapioca-idle.png?url';
 import type { Enemy } from '../systems/StageGenerator';
 import { WORLD } from '../data/balance';
 
@@ -78,6 +82,9 @@ export const ENEMY_ART_URLS: Record<string, string> = {
   'enemy-hollow-shade-idle': hollowShadeIdle,
   'enemy-void-shard-idle': voidShardIdle,
   'enemy-angry-orb-idle': angryOrbIdle,
+  'enemy-nimushi-clone-idle': nimushiCloneIdle,
+  'enemy-nimushi-shade-idle': nimushiShadeIdle,
+  'enemy-bounce-tapioca-idle': bounceTapiocaIdle,
 };
 
 /** The AREA 1 roster the images cover. */
@@ -95,6 +102,12 @@ export const ENEMY_ART_KINDS_AREA3 = ['squid', 'shellSwimmer', 'riserJelly', 'bi
  * show the same images there.
  */
 export const ENEMY_ART_KINDS_AREA4 = ['voidWisp', 'hollowShade', 'voidShard', 'shadeOrb', 'angryOrb'] as const;
+/**
+ * The FINAL BOSS's own kinds: the clones NIMUSHI splits into (summonClones; nimushiShade is LIMBO's,
+ * the unstompable one) and the BOUNCE TAPIOCA laid on every arena row (layBounceTarget). Nothing
+ * else spawns them, so they need no context.
+ */
+export const ENEMY_ART_KINDS_BOSS = ['nimushiClone', 'nimushiShade', 'bounceTapioca'] as const;
 
 /**
  * Where an enemy is being drawn: the AREA's id, or 'boss' in the FINAL BOSS's arena. Only the SHADE
@@ -150,6 +163,9 @@ export function enemyArtKey(e: Pick<Enemy, 'kind' | 'ai'>, where?: EnemyArtWhere
     case 'hollowShade': return 'enemy-hollow-shade-idle';
     case 'voidShard': return 'enemy-void-shard-idle';
     case 'angryOrb': return 'enemy-angry-orb-idle';
+    case 'nimushiClone': return 'enemy-nimushi-clone-idle';
+    case 'nimushiShade': return 'enemy-nimushi-shade-idle';
+    case 'bounceTapioca': return 'enemy-bounce-tapioca-idle';
     default: return null;
   }
 }
@@ -188,6 +204,15 @@ export const GHOST_HUNT_ALPHA = { normal: 0.62, hurt: 0.9 } as const;
  * skeleton's feet did. The bone's release point is the model's and does not move.
  */
 export const BONE_THROWER_OFFSET_Y = -7;
+/**
+ * The bob the procedural bodies draw on top of the model's position (GameScene.enemy()): drawn only,
+ * never moved. The clones bob `sin(elapsed * 4 + phase) * 3` -- the shade too -- and the bounce
+ * tapioca `sin(elapsed * 2.2 + phase) * 2`. Their sideways sway is the model's own x and needs
+ * nothing here.
+ */
+export const NIMUSHI_MINION_BOB = { rate: 4, amplitude: 3 } as const;
+export const BOUNCE_TAPIOCA_BOB = { rate: 2.2, amplitude: 2 } as const;
+const bob = (e: Pick<Enemy, 'phase'>, elapsed: number, b: { rate: number; amplitude: number }) => Math.sin(elapsed * b.rate + e.phase) * b.amplitude;
 
 export function enemyArtLook(e: Pick<Enemy, 'kind' | 'phase'>, key: string, elapsed: number, hurt: boolean): EnemyArtLook {
   switch (key) {
@@ -197,6 +222,10 @@ export function enemyArtLook(e: Pick<Enemy, 'kind' | 'phase'>, key: string, elap
       return { ...PLAIN, alpha: hurt ? GHOST_HUNT_ALPHA.hurt : GHOST_HUNT_ALPHA.normal };
     case 'enemy-bone-thrower-idle': case 'enemy-bone-thrower-windup':
       return { ...PLAIN, offsetY: BONE_THROWER_OFFSET_Y };
+    case 'enemy-nimushi-clone-idle': case 'enemy-nimushi-shade-idle':
+      return { ...PLAIN, offsetY: bob(e, elapsed, NIMUSHI_MINION_BOB) };
+    case 'enemy-bounce-tapioca-idle':
+      return { ...PLAIN, offsetY: bob(e, elapsed, BOUNCE_TAPIOCA_BOB) };
     default: return PLAIN;
   }
 }
