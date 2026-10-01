@@ -66,7 +66,7 @@ export const BOSS_PHYSICS: BattlePhysics = {
  *
  * DOWNWELL NORMAL GAMEPLAY CLONE re-measured the machine gun's interval (0.16s -> 0.10s) and every
  * module's recoil (x510/190) for the twelve SECTIONs. The FINAL BOSS is not part of that clone and is
- * not being rebalanced, so from the moment THE ABYSS opens -- staging room, inversion, arena -- the gunboots keep exactly the numbers the fight was built
+ * not being rebalanced, so from the reversal on -- inversion and arena; the staging room is ordinary play -- the gunboots keep exactly the numbers the fight was built
  * and approved with: the machine gun at its old interval, and every module's recoil back at its old
  * strength.
  */

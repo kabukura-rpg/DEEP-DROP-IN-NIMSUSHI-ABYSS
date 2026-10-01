@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { GameModel } from '../src/systems/GameModel';
 import { BALANCE } from '../src/data/balance';
-import { BOSS_PHYSICS, GRAVITY_DIRECTION } from '../src/data/bossPhysics';
+import { BOSS_GUNBOOTS, BOSS_PHYSICS, GRAVITY_DIRECTION } from '../src/data/bossPhysics';
 import { atNimushi, fighting, intoTheAbyss, STEP, tick, shootEye, defeatNimushi } from './nimushi';
 import { GUN_MODULES, GUN_MODULE_IDS, STARTING_GUN_MODULE, type GunModuleId } from '../src/data/gunModules';
 import { enterBossTest } from '../src/dev/bossTest';
@@ -35,17 +35,18 @@ describe('separation', () => {
     expect(g.physics.moveSpeed).not.toBe(BALANCE.moveSpeed);
   });
 
-  it('entering THE ABYSS switches the context, before the inversion', () => {
+  it('entering THE ABYSS switches the context, but the physics only at the inversion', () => {
     const g = new GameModel(false);
     expect(g.inBossMode).toBe(false);
     g.jumpToStage(4, 3);
     expect(g.inBossMode).toBe(false);
     (g as unknown as { startAbyss(): boolean }).startAbyss();
-    // The staging room is already NIMUSHI's ground, and gravity has not turned over yet -- so the
-    // switch is the ABYSS, not the flip.
+    // The staging room is THE ABYSS, but it is an ordinary descent: the run's own physics, gravity
+    // still pointing down. NIMUSHI's numbers arrive with the reversal.
     expect(g.abyssStage).toBe('staging');
     expect(g.inBossMode).toBe(true);
-    expect(g.physics).toBe(BOSS_PHYSICS);
+    expect(g.bossPhysicsActive).toBe(false);
+    expect(g.physics).toBe(g.stats);
     expect(g.gravitySign).toBe(GRAVITY_DIRECTION.normal);
   });
 
@@ -156,15 +157,99 @@ describe('the fight works again', () => {
   });
 });
 
-describe('the staging room runs on boss physics too', () => {
-  it('reaches the broken seal without normal-run speeds leaking in', () => {
+describe('the staging room runs on the run\'s physics; the reversal hands over to the fight\'s', () => {
+  const staging = () => {
     const g = new GameModel(false);
     g.jumpToStage(4, 3);
     (g as unknown as { startAbyss(): boolean }).startAbyss();
-    expect(g.physics).toBe(BOSS_PHYSICS);
+    return g;
+  };
+  const section = () => {
+    const g = new GameModel(false);
+    g.jumpToStage(4, 3);
+    return g;
+  };
+  const intervalOf = (g: GameModel) =>
+    (g as unknown as { fireIntervalOf(def: { id: string; fireInterval: number }): number }).fireIntervalOf(g.gun.module);
+  /** Open air: nothing to land on, stomp or be hurt by, so only the physics under test acts. */
+  const openAir = (g: GameModel) => {
+    g.platforms = []; g.enemies = []; g.hazards = []; g.doodads = []; g.containers = [];
+    g.safeZones = []; g.caves = []; g.pickups = []; g.exit = null; g.player.invincible = 5;
+  };
+  /** Falls to terminal speed, then fires one MACHINE round from a full magazine: velocity it took off. */
+  const oneShotKick = (g: GameModel) => {
+    openAir(g);
+    const p = g.player;
+    p.x = 225; p.y = g.cameraY + 200; p.vy = 0; p.grounded = -1;
+    for (let i = 0; i < 1 / STEP; i++) { g.step(STEP, 0, false); openAir(g); }
+    expect(Math.abs(p.vy)).toBe(g.physics.maxFallSpeed);
+    g.ammo = g.stats.maxAmmo; (g as unknown as { lastAirShot: number }).lastAirShot = -Infinity;
+    const before = p.vy * g.gravitySign;
+    g.step(STEP, 0, true);
+    return before - p.vy * g.gravitySign;
+  };
+  /** Holds RIGHT for one second in the air from the left edge of the shaft: pixels covered. */
+  const oneSecondRight = (g: GameModel) => {
+    openAir(g);
+    const p = g.player;
+    p.x = 40; p.y = g.cameraY + 300; p.grounded = -1;
+    for (let i = 0; i < 1 / STEP; i++) { p.vy = 0; g.step(STEP, 1, false); openAir(g); }
+    return p.x - 40;
+  };
+
+  it('uses the normal values in the staging room', () => {
+    const g = staging();
+    expect(g.abyssStage).toBe('staging');
+    expect(g.physics).toBe(g.stats);
+    expect(g.physics.moveSpeed).toBe(350);
+    expect(g.physics.gravity).toBe(1680);
+    expect(g.physics.maxFallSpeed).toBe(930);
+    expect(intervalOf(g)).toBe(GUN_MODULES.machine.fireInterval);
+    expect(intervalOf(g)).toBe(0.10);
+  });
+
+  it('moves, falls and kicks exactly as a 4-3 SECTION does', () => {
+    expect(oneSecondRight(staging())).toBeCloseTo(oneSecondRight(section()), 5);
+    expect(oneSecondRight(staging())).toBeCloseTo(350, 5);
+    const kick = oneShotKick(staging());
+    expect(kick).toBeCloseTo(oneShotKick(section()), 5);
+    expect(kick).toBeCloseTo(BALANCE.shotRecoil * (GUN_MODULES.machine.recoil / BALANCE.shotRecoil), 5);
+  });
+
+  it('switches to BOSS physics the moment the world starts to turn over', () => {
+    const g = staging();
     intoTheAbyss(g);
-    expect(g.abyssStage).not.toBe('staging');
+    expect(g.abyssStage).toBe('inverting');
+    expect(g.bossPhysicsActive).toBe(true);
     expect(g.physics).toBe(BOSS_PHYSICS);
+    expect(intervalOf(g)).toBe(BOSS_GUNBOOTS.machineInterval);
+  });
+
+  it('keeps the fight\'s own numbers in the arena: BOSS_PHYSICS, the old interval and the old recoil', () => {
+    expect(BOSS_PHYSICS).toEqual({ gravity: 900, maxFallSpeed: 520, moveSpeed: 180 });
+    expect(BOSS_GUNBOOTS).toEqual({ machineInterval: 0.16, recoilScale: 190 / 510 });
+    const g = fighting(12);
+    expect(g.abyssStage).toBe('fight');
+    expect(g.physics).toBe(BOSS_PHYSICS);
+    expect(intervalOf(g)).toBe(0.16);
+    expect(oneShotKick(g)).toBeCloseTo(GUN_MODULES.machine.recoil * BOSS_GUNBOOTS.recoilScale, 5);
+  });
+
+  it('keeps the TOMATO room free of TIMEVOID on normal physics, and the SHOP room stopped', () => {
+    const g = staging();
+    const zone = g.safeZones[0];
+    expect(zone.stopsTime).toBe(false);
+    g.player.x = zone.x + 30; g.player.y = zone.y + zone.height - 20; g.player.vy = 0;
+    g.step(STEP, 0, false);
+    expect(g.safeZone).toBe(zone);
+    expect(g.timeFrozen).toBe(false);
+    const shop = new GameModel(false);
+    shop.safeZoneVisitCount = 1;
+    shop.jumpToBoss();
+    const room = shop.safeZones[0];
+    shop.player.x = room.x + 30; shop.player.y = room.y + room.height - 20; shop.player.vy = 0;
+    shop.step(STEP, 0, false);
+    expect(shop.timeFrozen).toBe(true);
   });
 });
 

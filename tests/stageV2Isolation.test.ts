@@ -34,6 +34,10 @@ const C9A0A63: Record<string, string> = {
 const UNCHANGED_AREAS = [] as const;
 /** The FINAL BOSS's replay as the BOSS PARITY PASS left it (approach, barrier, triple shot, summon). */
 const BOSS_PARITY_PASS = '47f4f796c2f3b2c98507455f';
+/** The arena replayed from its own entry (`jumpToNimushi`), taken on 40b88e2. */
+const FIGHT_AT_40B88E2 = '26ccd33dc5a34ba1e36f989c';
+/** `jumpToBoss` once the staging room runs on the run's own physics. */
+const STAGING_NORMAL_PHYSICS = '8e287a848cb425a8029c5f2c';
 
 describe('STAGE GENERATION v2 leaves every AREA it has not rebuilt, and the boss, exactly as c9a0a63', () => {
   it('generates the untouched AREAs identically', () => {
@@ -47,8 +51,16 @@ describe('STAGE GENERATION v2 leaves every AREA it has not rebuilt, and the boss
   // WAS: identical to c9a0a63's boss, which every pass up to 5de724e kept. The BOSS PARITY PASS is
   // the one pass allowed to change the fight, so the boss is pinned to THAT pass's own replay from
   // here on: the same guarantee -- nothing else moves the FINAL BOSS -- against the new baseline.
+  //
+  // WAS (to 40b88e2): the replay from `jumpToBoss` matched BOSS_PARITY_PASS. That replay starts in the
+  // staging room, and the staging room moved onto the run's own physics (approved: it ran on the
+  // fight's legacy numbers and read as slow motion), so it is re-pinned. The FIGHT is pinned on its
+  // own, from the arena's entry, to the replay taken on 40b88e2 -- where the staging replay still
+  // matched BOSS_PARITY_PASS -- and that one must not move.
   it('plays the FINAL BOSS identically to the BOSS PARITY PASS', () => {
     expect(C9A0A63.boss).toBe('3b6bd54d9a118f15a17a5a58');
-    expect(replaySignature(entered(g => g.jumpToBoss()))).toBe(BOSS_PARITY_PASS);
+    expect(BOSS_PARITY_PASS).toBe('47f4f796c2f3b2c98507455f');
+    expect(replaySignature(entered(g => { g.jumpToNimushi(); }))).toBe(FIGHT_AT_40B88E2);
+    expect(replaySignature(entered(g => g.jumpToBoss()))).toBe(STAGING_NORMAL_PHYSICS);
   });
 });

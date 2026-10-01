@@ -150,8 +150,8 @@ export class GameModel {
   readonly collapse = new BreakablePlatformSystem();
   readonly boss = new NimushiBossSystem();
   readonly gun = new GunModuleSystem();
-  /** The gunboots' interval for a module here: THE ABYSS -- staging room, inversion and arena -- keeps the fight's own (BOSS_GUNBOOTS). */
-  private fireIntervalOf(def: { id: string; fireInterval: number }) { return this.abyssStage !== 'none' && def.id === 'machine' ? BOSS_GUNBOOTS.machineInterval : def.fireInterval; }
+  /** The gunboots' interval for a module here: the inversion and the arena keep the fight's own (BOSS_GUNBOOTS). */
+  private fireIntervalOf(def: { id: string; fireInterval: number }) { return this.bossPhysicsActive && def.id === 'machine' ? BOSS_GUNBOOTS.machineInterval : def.fireInterval; }
   readonly coins = new CoinSystem();
   readonly shop = new ShopSystem();
   /**
@@ -285,19 +285,25 @@ export class GameModel {
    * The physics the PLAYER obeys right now: the run's, or NIMUSHI's.
    *
    * Controls are shared and identical in both modes; only the response differs. The switch is the
-   * ABYSS itself -- from the moment the staging room opens, the player is on NIMUSHI's terms -- so
-   * nothing about a normal SECTION can reach the fight and nothing about the fight can reach a
-   * SECTION. A new run starts at `abyssStage: 'none'` and is therefore on normal physics with no
-   * reset step to forget.
+   * REVERSAL: the staging room is an ordinary descent on the run's own physics, and the player is
+   * on NIMUSHI's terms from `inverting` onward -- so nothing about a normal SECTION can reach the
+   * fight and nothing about the fight can reach a SECTION. A new run starts at `abyssStage: 'none'`
+   * and is therefore on normal physics with no reset step to forget.
    *
    * `stats` remains the run's own, because upgrades and gun modules are carried into the fight and
    * keep working: only the three movement numbers are mode-specific.
    */
   get physics(): BattlePhysics {
-    return this.inBossMode ? BOSS_PHYSICS : this.stats;
+    return this.bossPhysicsActive ? BOSS_PHYSICS : this.stats;
   }
   /** True from the moment THE ABYSS opens, through the inversion, to the end of the fight. */
   get inBossMode() { return this.abyssStage !== 'none' || this.state === 'boss'; }
+  /**
+   * True from the reversal to the end of the fight: when BOSS_PHYSICS and BOSS_GUNBOOTS apply.
+   * The staging room is NOT included -- it ran on the fight's legacy numbers once, and read as slow
+   * motion next to the run's measured ones.
+   */
+  get bossPhysicsActive() { return this.abyssStage === 'inverting' || this.abyssStage === 'fight'; }
   /**
    * True only inside the ARENA itself -- past the seal, with gravity turned over.
    *
@@ -652,7 +658,7 @@ export class GameModel {
     const def = this.gun.module;
     this.ammo = Math.max(0, this.ammo - cost);
     const recovery = Math.max(0.65, Math.min(1, 0.65 + (this.elapsed - this.lastAirShot - this.fireIntervalOf(def)) / 0.18 * 0.35));
-    const kick = volleyRecoil(def, this.stats) * recovery * (this.abyssStage !== 'none' ? BOSS_GUNBOOTS.recoilScale : 1);
+    const kick = volleyRecoil(def, this.stats) * recovery * (this.bossPhysicsActive ? BOSS_GUNBOOTS.recoilScale : 1);
     /**
      * RECOIL IS A BRAKE, NEVER A THRUSTER.
      *

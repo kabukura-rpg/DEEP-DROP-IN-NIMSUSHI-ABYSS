@@ -135,7 +135,11 @@ describe('isolation from 7e958e7', () => {
       expect(replaySignature(entered(g => g.jumpToStage(a, s))), `${a}-${s}`).toBe(AT_7E958E7[`${a}-${s}`]);
     }
   });
+  // WAS: `jumpToBoss` replayed to AT_7E958E7.boss. That replay starts in the staging room, which now
+  // runs on the run's own physics (approved), so the FIGHT is held from the arena's own entry instead,
+  // to the replay taken on 40b88e2 -- where the staging replay still matched AT_7E958E7.boss.
   it('plays the FINAL BOSS exactly as 7e958e7 did', () => {
-    expect(replaySignature(entered(g => g.jumpToBoss()))).toBe(AT_7E958E7.boss);
+    expect(AT_7E958E7.boss).toBe('47f4f796c2f3b2c98507455f');
+    expect(replaySignature(entered(g => { g.jumpToNimushi(); }))).toBe('26ccd33dc5a34ba1e36f989c');
   });
 });
