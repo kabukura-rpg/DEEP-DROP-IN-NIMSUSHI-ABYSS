@@ -17,7 +17,7 @@ import { TerrainWatch } from '../dev/TerrainWatch';
 import { SPEED_PROFILES } from '../data/speedProfiles';
 import { PlayerArt } from '../render/PlayerArt';
 import { NIMUSHI_ART, nimushiArtBarrierOrbit, nimushiArtPlacement, nimushiArtShade } from '../render/NimushiArt';
-import { TOMATO_REVEAL_SKIP_DISTANCE, tomatoRevealFrame } from '../render/tomatoReveal';
+import { TOMATO_REVEAL_SECONDS, tomatoRevealFrame, tomatoRevealStart } from '../render/tomatoReveal';
 import type { Pickup } from '../data/pickups';
 import area1BackgroundUrl from '../../output/game-backgrounds-v2/area1-a.png?url';
 import area2BackgroundUrl from '../../output/game-backgrounds-v2/area2-b.png?url';
@@ -385,16 +385,20 @@ export class GameScene extends Phaser.Scene {
   }
   /**
    * The TOMATO, with its entrance: out of the staging chamber's back wall the first time it is on
-   * screen (see render/tomatoReveal). Drawing only -- the pickup has been where it rests, and
-   * takeable, since the room was built; a player who comes near first simply sees it whole.
+   * screen (see render/tomatoReveal). The pickup has been where it rests since the room was built;
+   * a player who is already near when it is first seen simply sees it whole. Once the entrance has
+   * begun it plays to the end however close the player comes, and the model holds the pickup until
+   * then (`holdTomatoForReveal`), so it is never taken while it is still in the wall.
    */
   private tomato(item: Pickup, x: number, y: number, color: number) {
     const m = this.model, p = m.player;
     const zone = m.safeZones.find(z => item.x >= z.x && item.x <= z.x + z.width && item.y >= z.y && item.y <= z.y + z.height);
-    const near = Math.hypot(p.x - item.x, p.y - item.y) < TOMATO_REVEAL_SKIP_DISTANCE;
-    let start = this.tomatoSeen.get(item);
-    if (start === undefined) { start = !zone || this.reducedMotion || near ? -Infinity : m.elapsed; this.tomatoSeen.set(item, start); }
-    else if (near && start !== -Infinity) { start = -Infinity; this.tomatoSeen.set(item, start); }
+    const decided = this.tomatoSeen.get(item);
+    const start = tomatoRevealStart(decided, { inChamber: !!zone, reducedMotion: this.reducedMotion, distance: Math.hypot(p.x - item.x, p.y - item.y), now: m.elapsed });
+    if (decided === undefined) {
+      this.tomatoSeen.set(item, start);
+      if (start !== -Infinity) m.holdTomatoForReveal(item, TOMATO_REVEAL_SECONDS);
+    }
     const frame = tomatoRevealFrame(m.elapsed - start);
     if (frame.done || !zone) { this.heartShape(x, y, 15, color, true); return; }
     // The back of the recess, just inside the far end of the cut (which is the canvas edge): the

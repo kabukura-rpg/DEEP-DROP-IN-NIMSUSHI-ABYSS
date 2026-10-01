@@ -1973,6 +1973,8 @@ export class GameModel {
     const p = this.player;
     for (const item of this.pickups) {
       if (item.taken) continue;
+      // Still coming out of the wall: the player passes through it and takes it once it is out.
+      if (item.revealUntil !== undefined && this.elapsed < item.revealUntil) continue;
       const type = pickupType(item.kind);
       if (Math.abs(item.x - p.x) > type.radius + 12 || Math.abs(item.y - p.y) > type.radius + 17) continue;
       // An AREA's own pickup only exists while that gimmick is on. Gun modules are run-wide, so
@@ -2110,6 +2112,14 @@ export class GameModel {
     this.health.lifeUp(TOMATO.maxHp);
     this.growMaxCharge(TOMATO.maxCharge);
     this.events.push({ type: 'tomato', x, y, value: TOMATO.maxCharge, lifeUps: this.health.maxHp - before });
+  }
+  /**
+   * The TOMATO's entrance has begun (render/tomatoReveal): it cannot be taken until it has finished
+   * coming out of the wall. Only the first call counts, so the entrance is never lengthened.
+   */
+  holdTomatoForReveal(item: Pickup, seconds: number) {
+    if (item.kind !== 'tomato' || item.taken || item.revealUntil !== undefined) return;
+    item.revealUntil = this.elapsed + seconds;
   }
   /** Falling far enough past the broken seal is what turns the world over. */
   private tickSeal() {
