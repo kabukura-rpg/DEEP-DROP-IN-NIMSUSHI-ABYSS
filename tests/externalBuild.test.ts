@@ -37,10 +37,10 @@ describe('an external tester', () => {
     expect(mainSource).toContain("if (new URLSearchParams(location.search).has('levels')) revealLevelSelect();");
   });
 
-  it('keeps the hidden LEVEL SELECT exactly as it was: five taps on the arrow, all 13 destinations', () => {
+  it('keeps the hidden LEVEL SELECT exactly as it was: five taps (now on the title PLAYER), all 13 destinations', () => {
     expect(LEVEL_SELECT_GESTURE).toEqual({ taps: 5, windowMs: 2500 });
     expect(LEVEL_SELECT_DESTINATIONS).toHaveLength(13);
     // Counted on pointerup since the iOS touch fix (tests/touchGuards pins the counting itself).
-    expect(mainSource).toContain('installLevelSelectGesture(arrow, revealLevelSelect, LEVEL_SELECT_GESTURE)');
+    expect(mainSource).toContain('installLevelSelectGesture(player, revealLevelSelect, LEVEL_SELECT_GESTURE)');
   });
 });

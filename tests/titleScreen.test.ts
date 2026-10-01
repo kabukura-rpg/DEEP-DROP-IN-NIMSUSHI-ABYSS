@@ -4,6 +4,8 @@ import animationMap from '../output/player-sprites-v1/animation-map.json';
 import { PLAYER_ART_ASSETS } from '../src/render/playerArtAssets';
 import { BUILD, buildIdentifier } from '../src/ui/branding';
 import { TITLE_ASSETS, TITLE_PLAYER, soundLabel, titleMarkup, watchTitleLogo } from '../src/ui/titleScreen';
+import { installLevelSelectGesture } from '../src/ui/touchGuards';
+import { LEVEL_SELECT_GESTURE } from '../src/data/levelSelect';
 // Read as files: Vitest hands a CSS import back empty, whatever the query. (No Node types here.)
 const fs = await import(/* @vite-ignore */ 'node:' + 'fs') as {
   readFileSync: { (path: URL, encoding: 'utf8'): string; (path: URL): Uint8Array };
@@ -96,13 +98,18 @@ describe('what the title does is unchanged', () => {
     expect(html).toContain('<button id="practice"');
   });
 
-  it('LEVEL SELECT stays hidden until the five-tap arrow or ?levels, and then sits above CONTROL LAB', () => {
+  it('LEVEL SELECT stays hidden until five taps on the title PLAYER or ?levels, and then sits above CONTROL LAB', () => {
     const html = titleMarkup(false);
     expect(html).not.toContain('level-select');
-    expect(html).toContain('<div class="title-symbol" aria-hidden="true">↓</div>');
+    // The old arrow is gone entirely.
+    expect(html).not.toContain('title-symbol');
+    expect(html).not.toContain('↓');
+    expect(css).not.toContain('.title-symbol');
+    expect(html).toContain('<div class="title-player-hit" aria-hidden="true"></div>');
     expect(mainSource).toContain("if (new URLSearchParams(location.search).has('levels')) revealLevelSelect();");
-    expect(mainSource).toContain("const arrow = $('overlay').querySelector<HTMLElement>('.title-symbol');");
-    expect(mainSource).toContain('installLevelSelectGesture(arrow, revealLevelSelect, LEVEL_SELECT_GESTURE)');
+    expect(mainSource).toContain("const player = $('overlay').querySelector<HTMLElement>('.title-player-hit');");
+    expect(mainSource).toContain('installLevelSelectGesture(player, revealLevelSelect, LEVEL_SELECT_GESTURE)');
+    expect(mainSource).toContain("if (document.getElementById('level-select')) return;");
     expect(mainSource).toContain('button.onclick = showLevelSelect;');
     expect(mainSource).toContain("$('practice').insertAdjacentElement('beforebegin', button);");
   });
@@ -167,5 +174,63 @@ describe('what the title does is unchanged', () => {
     for (const touched of ['touch-controls', 'movementPointers', 'firePointers', 'syncPointers', 'touchAccepted']) {
       expect(fn('fadeOutTitle'), touched).not.toContain(touched);
     }
+  });
+});
+
+describe('hidden LEVEL SELECT on the title PLAYER', () => {
+  const event = (type: string, extra: Record<string, unknown> = {}) => {
+    const e = new Event(type, { cancelable: true, bubbles: true });
+    for (const [k, v] of Object.entries(extra)) Object.defineProperty(e, k, { value: v });
+    return e;
+  };
+  const setup = () => {
+    let clock = 0, revealed = 0;
+    const player = new EventTarget();
+    installLevelSelectGesture(player, () => { revealed++; }, LEVEL_SELECT_GESTURE, () => clock);
+    const mouse = (id: number) => {
+      player.dispatchEvent(event('pointerdown', { pointerId: id, pointerType: 'mouse' }));
+      player.dispatchEvent(event('pointerup', { pointerId: id, pointerType: 'mouse' }));
+      player.dispatchEvent(event('click'));
+      clock += 200;
+    };
+    const touch = (id: number) => {
+      player.dispatchEvent(event('pointerdown', { pointerId: id, pointerType: 'touch' }));
+      player.dispatchEvent(event('touchstart'));
+      player.dispatchEvent(event('pointerup', { pointerId: id, pointerType: 'touch' }));
+      player.dispatchEvent(event('touchend'));
+      clock += 200;
+    };
+    return { mouse, touch, revealed: () => revealed };
+  };
+
+  it('opens on the fifth mouse click, and not on the first four', () => {
+    const g = setup();
+    for (let i = 0; i < 4; i++) g.mouse(1);
+    expect(g.revealed()).toBe(0);
+    g.mouse(1);
+    expect(g.revealed()).toBe(1);
+  });
+
+  it('opens on the fifth touch tap, and not on the first four', () => {
+    const g = setup();
+    for (let i = 1; i <= 4; i++) g.touch(i);
+    expect(g.revealed()).toBe(0);
+    g.touch(5);
+    expect(g.revealed()).toBe(1);
+  });
+
+  it('is an invisible target over the PLAYER, which itself looks exactly as before', () => {
+    const rule = css.split('\n').find(l => l.startsWith('.title-player-hit{position'))!;
+    // 68 logical px square, centred on the PLAYER at (135,392).
+    expect(rule).toContain('left:calc(var(--u) * 101);top:calc(var(--u) * 358);width:calc(var(--u) * 68);height:calc(var(--u) * 68)');
+    expect(rule).toContain('background:transparent;cursor:default');
+    expect(css).not.toMatch(/\.title-player-hit:(hover|focus|active)/);
+    expect(rule).not.toMatch(/border|outline|shadow|opacity/);
+    expect(titleMarkup(false)).toContain('<div class="title-player" aria-hidden="true"></div>');
+    expect(css).toContain('pointer-events:none}');
+    expect(titleMarkup(false)).not.toMatch(/title-player-hit[^>]*title=/);
+    // Not a button, so menu keys and START never see it; and it lies clear of every button.
+    expect(titleMarkup(false)).not.toMatch(/<button[^>]*title-player-hit/);
+    expect(358 + 68).toBeLessThan(551);
   });
 });

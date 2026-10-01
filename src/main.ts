@@ -360,7 +360,7 @@ function showTitle() {
   watchTitleLogo($('overlay'));
   $('title-sound').onclick = toggleSound;
   $('start').onclick = () => start(); $('practice').onclick = () => start(true);
-  // TEST LEVEL SELECT: hidden from the ordinary title. Tap the arrow above the logo five times, or
+  // TEST LEVEL SELECT: hidden from the ordinary title. Tap the PLAYER on the ledge five times, or
   // open the page with `?levels`, and a LEVEL SELECT button appears above CONTROL LAB. Works the
   // same with a mouse and a finger, and in the published build, because Human Review happens there.
   const revealLevelSelect = () => {
@@ -374,8 +374,8 @@ function showTitle() {
   if (new URLSearchParams(location.search).has('levels')) revealLevelSelect();
   // Counted on pointerup, one per tap, and never on a click: iOS Safari's synthesised click is late
   // or missing on a plain element, and a quick second tap there is otherwise a zoom (ui/touchGuards).
-  const arrow = $('overlay').querySelector<HTMLElement>('.title-symbol');
-  if (arrow) installLevelSelectGesture(arrow, revealLevelSelect, LEVEL_SELECT_GESTURE);
+  const player = $('overlay').querySelector<HTMLElement>('.title-player-hit');
+  if (player) installLevelSelectGesture(player, revealLevelSelect, LEVEL_SELECT_GESTURE);
   // DEV only: a BOSS TEST button beside the ordinary ones. The markup is added here rather than in
   // the title template so that a production build has no trace of it at all.
   if (import.meta.env.DEV) {

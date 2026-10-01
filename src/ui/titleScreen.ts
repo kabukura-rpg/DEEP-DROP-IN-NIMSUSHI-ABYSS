@@ -38,15 +38,16 @@ export const soundLabel = (muted: boolean) => muted ? '♪ OFF' : '♪ ON';
 
 /**
  * The title's markup. The ids are the ones the rest of main.ts already answers to (`start`,
- * `practice`, `build-tag`, and `.title-symbol` for the hidden LEVEL SELECT gesture), so every
+ * `practice`, `build-tag`, and `.title-player-hit` for the hidden LEVEL SELECT gesture), so every
  * existing handler attaches unchanged. LEVEL SELECT is not here: it is only ever added by
- * `revealLevelSelect` (five taps on the arrow, or `?levels`).
+ * `revealLevelSelect` (five taps on the title PLAYER, or `?levels`).
  */
 export function titleMarkup(muted: boolean, build = BUILD) {
   return `<div class="title-screen" style="--title-bg:url('${TITLE_ASSETS.background}');--title-player:url('${TITLE_PLAYER.sheet}')">`
-    + `<div class="title-symbol" aria-hidden="true">↓</div>`
     + `<h2 class="title-logo"><img src="${TITLE_ASSETS.logo}" alt="" draggable="false"><span>${TITLE.main}<small>${TITLE.sub}</small></span></h2>`
     + `<div class="title-player" aria-hidden="true"></div>`
+    // The hidden LEVEL SELECT gesture's target: invisible, a little larger than the 48px PLAYER cell.
+    + `<div class="title-player-hit" aria-hidden="true"></div>`
     + `<div class="title-menu"><button id="start" class="title-button title-primary">START<span>潜降開始</span></button><button id="practice" class="title-button">CONTROL LAB<span>操作を試す</span></button></div>`
     + `<div class="title-footer"><button id="title-sound" class="title-sound" aria-pressed="${muted}">${soundLabel(muted)}</button><span class="build-tag" id="build-tag">${buildIdentifier(build)}</span></div>`
     + `</div>`;
