@@ -156,4 +156,16 @@ describe('what the title does is unchanged', () => {
     expect(fade).toContain("fade.onfinish = fade.oncancel = () => { veil.remove(); if (!document.querySelector('.title-fade')) $('game-frame').classList.remove('title-fading'); };");
     expect(css).toContain('#game-frame.title-fading .hud{visibility:hidden}');
   });
+
+  it('START -> AREA 1: the touch controls are see-through during the fade, and still take touches', () => {
+    // Opacity only: visibility or display would stop a touch landing on them during the fade.
+    expect(css).toContain('#game-frame.title-fading #touch-controls{opacity:0}');
+    expect(css).not.toMatch(/title-fading #touch-controls\{[^}]*(visibility|display|pointer-events)/);
+    // Back on the same frame the HUD is: when the fade ends or is cancelled.
+    expect(fn('fadeOutTitle')).toContain("$('game-frame').classList.remove('title-fading')");
+    // Purely a look: the controls, and the pointers they track, are never touched by the fade.
+    for (const touched of ['touch-controls', 'movementPointers', 'firePointers', 'syncPointers', 'touchAccepted']) {
+      expect(fn('fadeOutTitle'), touched).not.toContain(touched);
+    }
+  });
 });

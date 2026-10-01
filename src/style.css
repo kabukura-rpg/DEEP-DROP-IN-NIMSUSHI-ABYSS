@@ -223,6 +223,9 @@
 .title-screen{position:absolute;inset:0;--u:calc(100cqw / 450);background:#0b1418 var(--title-bg) center/cover no-repeat;image-rendering:pixelated;font-family:'IBM Plex Mono',monospace}
 .title-fade{position:absolute;inset:0;z-index:1;pointer-events:none;container-type:size}
 #game-frame.title-fading .hud{visibility:hidden}
+/* ...and the touch controls are see-through for the same span. Opacity, not visibility or display:
+   they stay laid out and keep taking touches, so input is exactly what it was. */
+#game-frame.title-fading #touch-controls{opacity:0}
 .title-screen .title-symbol{position:absolute;top:calc(var(--u) * 4);left:calc(var(--u) * 203);width:calc(var(--u) * 44);height:calc(var(--u) * 32);line-height:calc(var(--u) * 32);text-align:center;font-size:calc(var(--u) * 16);color:#8fa877;opacity:.55;cursor:default}
 .title-logo{position:absolute;left:0;top:0;width:calc(var(--u) * 450);height:calc(var(--u) * 224);margin:0;pointer-events:none}
 .title-logo img{display:block;width:100%;height:100%;image-rendering:pixelated;-webkit-user-drag:none}
