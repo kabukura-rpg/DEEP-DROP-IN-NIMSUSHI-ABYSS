@@ -1132,7 +1132,7 @@ export class GameScene extends Phaser.Scene {
    */
   private timeVoid(m: GameModel, cam: number) {
     const zone = m.safeZone;
-    if (!zone) return;
+    if (!zone || zone.stopsTime === false) return;
     const top = zone.y - cam, bottom = top + zone.height;
     const bandTop = Math.max(0, Math.min(800, top)), bandBottom = Math.max(0, Math.min(800, bottom));
     const bandHeight = Math.max(0, bandBottom - bandTop);

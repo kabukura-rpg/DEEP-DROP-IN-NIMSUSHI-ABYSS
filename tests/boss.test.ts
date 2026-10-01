@@ -226,6 +226,36 @@ describe('TOMATO: what a run that never took shelter gets instead', () => {
     expect(game.safeZoneVisitCount).toBe(1);
   });
 
+  it('lays its chamber as a plain room: no TIMEVOID before the fight', () => {
+    const game = new GameModel(false, seeded(7));
+    game.jumpToBoss();
+    game.events = [];
+    const zone = game.safeZones[0];
+    expect(zone.stopsTime).toBe(false);
+    // Standing on the chamber floor, inside the room.
+    game.player.x = zone.x + 30; game.player.y = zone.y + zone.height - 20; game.player.vy = 0;
+    game.step(STEP, 0, false);
+    expect(game.safeZone).toBe(zone);
+    expect(game.timeFrozen).toBe(false);
+    expect(game.events.some(e => e.type === 'timeVoid')).toBe(false);
+    expect(game.abyssStage).toBe('staging');
+    // The room keeps its roof: a hard upward kick inside it does not leave through the ceiling.
+    game.player.y = zone.y + 10; game.player.vy = -900;
+    game.step(STEP, 0, false);
+    expect(game.player.y).toBeGreaterThanOrEqual(zone.y + 6);
+  });
+
+  it('still stops time in the SHOP chamber a sheltering run is given', () => {
+    const game = new GameModel(false, seeded(7));
+    game.safeZoneVisitCount = 1;
+    game.jumpToBoss();
+    const zone = game.safeZones[0];
+    expect(zone.stopsTime).toBeUndefined();
+    game.player.x = zone.x + 30; game.player.y = zone.y + zone.height - 20; game.player.vy = 0;
+    game.step(STEP, 0, false);
+    expect(game.timeFrozen).toBe(true);
+  });
+
   it('pays +10 MAX HP and +10 MAX CHARGE through the existing systems', () => {
     const game = new GameModel(false, seeded(9));
     game.jumpToBoss();

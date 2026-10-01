@@ -28,6 +28,11 @@ export interface SafeZone {
   content: SafeZoneContent | null;
   /** True once the content has been used up; a SHOP is never "taken" and stays usable. */
   taken: boolean;
+  /**
+   * False for a chamber that is a room and nothing more: no TIMEVOID, so the world outside keeps
+   * running and nothing announces stopped time. Only the ABYSS's TOMATO chamber is cut this way.
+   */
+  stopsTime?: false;
 }
 
 export const SAFE_ZONE_RULES = {

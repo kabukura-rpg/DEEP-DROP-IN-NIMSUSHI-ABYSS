@@ -223,7 +223,7 @@ export class GameModel {
    */
   get frozenRegion(): { contains: (x: number, y: number) => boolean } | null {
     const p = this.player;
-    const zone = this.safeZones.find(z => insideSafeZone(z, p.x, p.y));
+    const zone = this.safeZones.find(z => z.stopsTime !== false && insideSafeZone(z, p.x, p.y));
     if (zone) return { contains: (x, y) => insideSafeZone(zone, x, y) };
     // A SIDE CAVE stops the world too, but only once the player is PAST THE THROAT. Standing in the
     // mouth looking in is still the shaft: the decision to go in has not been made yet, and a hole
@@ -926,7 +926,8 @@ export class GameModel {
     p.y += p.vy * dt;
     // `frozen` is sampled before the vertical move, which is exactly the question the roof asks:
     // someone already in the chamber is held under it, someone still falling toward it is not.
-    this.holdInsideSafeZone(frozen);
+    // A chamber that does not stop time still has its roof, so `sheltering` asks it too.
+    this.holdInsideSafeZone(frozen || sheltering);
     // Where each enemy that MOVED this step stood before it moved, for the stomp test below. Only
     // movers are recorded: an enemy whose y did not change is not in here, and the stomp test then
     // reads the same single crown it always has -- the same numbers, the same comparisons.
@@ -2060,11 +2061,14 @@ export class GameModel {
     }
     // The chamber. A SAFE ZONE like any other, so its floor reloads without banking a chain and
     // the world outside it stops while the player is deciding what to spend their last COIN on.
+    // The TOMATO's chamber does NOT stop time: there is nothing to decide in it, and a TIMEVOID
+    // there was only a held, veiled beat on the way down to the fight.
     const width = SAFE_ZONE_RULES.width, height = SAFE_ZONE_RULES.height;
     const zoneY = top + ABYSS.shopDepth;
     const zone: SafeZone = {
       id: this.nextAbyssId--, side: 1, x: WORLD.width - WORLD.wall - width,
       y: zoneY, width, height, content: null, taken: false,
+      ...(this.safeZoneVisitCount > 0 ? {} : { stopsTime: false as const }),
     };
     this.safeZones.push(zone);
     const floor = zoneY + height;
