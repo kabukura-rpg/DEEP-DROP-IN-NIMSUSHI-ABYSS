@@ -21,12 +21,13 @@ import { previewSideCave, SIDE_CAVE_FIXTURES } from './dev/sideCavePreview';
 import { installMenuKeys } from './ui/menuKeys';
 import { installGameAreaZoomGuard, installLevelSelectGesture } from './ui/touchGuards';
 import { AreaMusic, musicTrack } from './systems/Music';
+import { notesMarkup, recordMarkup, ruinsMarkup, shellMark } from './ui/desktopShell';
 
 const app = document.querySelector<HTMLDivElement>('#app')!;
 app.innerHTML = `
-<header class="site-header"><a class="wordmark" href="./" aria-label="Deep Drop ホーム"><span class="brand-icon">↓</span> DEEP DROP<span class="version">/ 01</span></a><div class="header-right"><span class="status-dot"></span><span>EXPERIMENTAL ARCADE</span><button id="sound" class="icon-button" aria-label="サウンドをオフにする" title="サウンド切り替え">♪</button></div></header>
+<header class="site-header"><a class="wordmark" href="./" aria-label="Deep Drop ホーム"><span class="brand-icon">↓</span>${shellMark()} DEEP DROP<span class="version">/ 01</span></a><div class="header-right"><button id="sound" class="icon-button" aria-label="サウンドをオフにする" aria-pressed="false" title="サウンド切り替え">♪</button></div></header>
 <main class="layout">
-  <aside class="intro"><div class="eyebrow"><span></span> A DESCENT INTO THE UNKNOWN</div><h1>THE ONLY<br>WAY IS<br><em>DOWN.</em><span class="heading-arrow">↘</span></h1><p class="tagline">撃って、落ちて、<br>もっと深く。</p><p class="intro-copy">一発の反動が、次の一歩になる。<br>残弾と重力を味方につけて、<br>まだ見ぬ深さへ。</p><div class="best-card"><span>PERSONAL BEST</span><div><span id="side-best">000</span><small>m</small><span class="best-arrow">↘</span></div></div><div class="intro-bottom"><span>NO JUMP.<br>JUST DROP.</span><span class="crosshair">✳</span></div></aside>
+  ${recordMarkup()}
   <section class="game-column" aria-label="Deep Drop ゲーム">
     <div class="cabinet-top"><span><i></i> SHAFT_01</span><span id="zone">SURFACE ZONE</span></div>
     <div id="game-frame">
@@ -35,11 +36,12 @@ app.innerHTML = `
       <div id="overlay" class="overlay"></div>
       <div id="touch-controls"><div id="move-pad"><button id="left-control" aria-label="左移動">←</button><button id="right-control" aria-label="右移動">→</button></div><div id="fire-pad"><button id="fire-control" aria-label="射撃">FIRE<span>◎</span></button></div></div>
     </div>
-    <div class="cabinet-bottom"><span><span class="live-dot"></span> <span id="run-status">READY TO DESCEND</span></span><span>↓ 4 AREAS · 12 SECTIONS</span></div>
+    <div class="cabinet-bottom">${shellMark()}<span id="run-status">READY TO DESCEND</span></div>
     <section id="physics-tuning" class="physics-tuning" aria-label="練習用の物理調整" hidden></section>
   </section>
-  <aside class="guide"><div class="guide-title"><span>FIELD GUIDE</span><span>01—03</span></div><section class="guide-item"><span class="guide-index">01</span><h2>落ちる。狙う。</h2><p>左右に動いて、ルートを選ぶ。<br>地上でACTION＝ジャンプ。</p><div class="key-row"><kbd>A</kbd><kbd>D</kbd><span>or</span><kbd>←</kbd><kbd>→</kbd></div></section><section class="guide-item"><span class="guide-index">02</span><h2>撃って、ブレーキ。</h2><p>空中でACTION＝真下へ射撃。<br>反動で減速。CHARGEは8。</p><div class="key-row"><kbd class="space-key">SPACE</kbd><span>地上=跳ぶ / 空中=撃つ</span></div></section><section class="guide-item"><span class="guide-index">03</span><h2>着地で、もう一度。</h2><p>着地でCHARGE全回復。<br>踏みつけでも全回復、コンボは続く。</p><div class="reload-demo"><span>▰ ▰ ▰ ▰ ▰ ▰ ▰ ▰</span><small>FULL RELOAD ↺</small></div></section><div class="tip"><span>↳ KEEP IN MIND</span><p>トゲのある敵は踏まないこと。<br>休憩地点で強化を1つ選ぶ。<br>コンボは着地で精算：8/15/25。</p></div><div class="guide-footer"><kbd>ESC</kbd><span>ひと休みする</span></div></aside>
-</main><footer class="site-footer"><span>DEEP DROP <span class="footer-slash">/</span> A SMALL GAME ABOUT GOING DEEPER.</span><span>PROTOTYPE V0.1 <span class="footer-dot">●</span></span></footer>`;
+  ${notesMarkup()}
+  ${ruinsMarkup()}
+</main>`;
 
 const $ = <T extends HTMLElement = HTMLElement>(id: string) => document.getElementById(id) as T;
 export const audio = new GameAudio();
