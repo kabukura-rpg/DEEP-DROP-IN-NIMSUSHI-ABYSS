@@ -3,11 +3,11 @@
  * changes collision; every piece is placed on the geometry the model already has.
  *
  * An AREA listed in ENVIRONMENT_ART draws its ordinary ledges and its shaft walls from these images;
- * an AREA that is not listed keeps the procedural look it has always had. AREA 1, AREA 2 and AREA 3
- * are listed, and so is THE ABYSS's staging room ('staging': from the room's opening until the arena
+ * an AREA that is not listed keeps the procedural look it has always had. AREA 1, AREA 2, AREA 3 and
+ * AREA 4 are listed, and so is THE ABYSS's staging room ('staging': from the room's opening until the arena
  * takes over), which has ledges and walls only -- the seal and the arena itself stay procedural. A set may also carry the AREA's special surfaces (AREA 2: BREAK BLOCK, spike floor, belt);
  * a piece it does not carry, or whose images did not load, keeps its procedural drawing. AREA 3
- * carries its barbed reef (reefBarb).
+ * carries its barbed reef (reefBarb); AREA 4 its LIMBO barbs (limboHazard).
  *
  *   platform  a 3-slice, 24px tall: left cap 8, center 16 (repeated, the last one cropped), right cap
  *             8. The image's row 3 is the ledge's landing line `y` (SURFACE_ROW).
@@ -26,6 +26,9 @@
  *             patch's bottom; an 18x9 barb every other 9px down a wall patch over a 4x9 base strip
  *             along its whole height, against the wall. The right wall is mirrored. Every image is
  *             cropped to the patch's collision box: nothing is drawn outside it.
+ *   limbo     a 13x24 barb repeated at the procedural barbs' 13px pitch, as many whole ones as fit the
+ *             row's width, centred; row 14 (the dark seam) on y+1, so the opaque rows run y-13..y+9,
+ *             inside the hit band y-14..y+12. Nothing is cropped and nothing reaches past the row.
  */
 import area1PlatformLeftUrl from '../assets/environment/area1/platform-left-cap.png?url';
 import area1PlatformCenterUrl from '../assets/environment/area1/platform-center.png?url';
@@ -58,6 +61,12 @@ import area3WallEdgeUrl from '../assets/environment/area3/area3-wall-inner-edge.
 import area3ReefUpUrl from '../assets/environment/area3/area3-reef-up.png?url';
 import area3ReefSideUrl from '../assets/environment/area3/area3-reef-side.png?url';
 import area3ReefBaseUrl from '../assets/environment/area3/area3-reef-base.png?url';
+import area4PlatformLeftUrl from '../assets/environment/area4/area4-platform-left-cap.png?url';
+import area4PlatformCenterUrl from '../assets/environment/area4/area4-platform-center.png?url';
+import area4PlatformRightUrl from '../assets/environment/area4/area4-platform-right-cap.png?url';
+import area4WallFillUrl from '../assets/environment/area4/area4-wall-fill.png?url';
+import area4WallEdgeUrl from '../assets/environment/area4/area4-wall-inner-edge.png?url';
+import area4LimboBarbUrl from '../assets/environment/area4/area4-limbo-hazard.png?url';
 import stagingPlatformLeftUrl from '../assets/environment/staging/area4-platform-left-cap.png?url';
 import stagingPlatformCenterUrl from '../assets/environment/staging/area4-platform-center.png?url';
 import stagingPlatformRightUrl from '../assets/environment/staging/area4-platform-right-cap.png?url';
@@ -74,6 +83,7 @@ export interface EnvironmentArtSet {
   spike?: { socket: string; warning1: string; warning2: string; warning3: string; warning4: string; active: string; edge: string };
   conveyor?: { tile: string; arrow: string };
   reef?: { up: string; side: string; base: string };
+  limbo?: { barb: string };
 }
 /** An AREA's number, or THE ABYSS's staging room. */
 export type EnvironmentArtId = number | 'staging';
@@ -99,6 +109,13 @@ export const ENVIRONMENT_ART: Partial<Record<EnvironmentArtId, EnvironmentArtSet
     wall: { fill: area3WallFillUrl, edge: area3WallEdgeUrl },
     reef: { up: area3ReefUpUrl, side: area3ReefSideUrl, base: area3ReefBaseUrl },
   },
+  // AREA 4's own copies of the fractured masonry. THE ABYSS's staging room keeps its separate set
+  // below, so nothing about AREA 4 can change the room.
+  4: {
+    platform: { left: area4PlatformLeftUrl, center: area4PlatformCenterUrl, right: area4PlatformRightUrl },
+    wall: { fill: area4WallFillUrl, edge: area4WallEdgeUrl },
+    limbo: { barb: area4LimboBarbUrl },
+  },
   // The last room before NIMUSHI: the ABYSS's vertical seal stone for the walls (the BOSS set) and
   // AREA 4's fractured masonry for the ledges, which is the ledge the BOSS set was drawn to go with.
   staging: {
@@ -115,6 +132,7 @@ export const ENVIRONMENT_GEOMETRY = {
   spike: { socketWidth: 17, socketHeight: 8, toothWidth: 9, toothHeight: 18, edgeWidth: 6, edgeHeight: 8 },
   belt: { tileWidth: 14, tileHeight: 8, arrowWidth: 10, arrowHeight: 12 },
   reef: { step: 9, upWidth: 9, upHeight: 12, sideWidth: 18, sideHeight: 9, baseWidth: 4 },
+  limbo: { width: 13, height: 24, pitch: 13, seamRow: 14 },
 } as const;
 
 /** Texture keys for an AREA's set. */
@@ -132,6 +150,7 @@ export const environmentKeys = (area: EnvironmentArtId) => ({
   },
   belt: { tile: `env-${area}-belt-tile`, arrow: `env-${area}-belt-arrow` },
   reef: { up: `env-${area}-reef-up`, side: `env-${area}-reef-side`, base: `env-${area}-reef-base` },
+  limbo: { barb: `env-${area}-limbo-barb` },
 });
 export type EnvironmentKeys = ReturnType<typeof environmentKeys>;
 
@@ -146,12 +165,13 @@ export function environmentLoads(area: EnvironmentArtId, set: EnvironmentArtSet)
   if (set.spike) for (const k of ['socket', 'warning1', 'warning2', 'warning3', 'warning4', 'active', 'edge'] as const) loads.push([keys.spike[k], set.spike[k]]);
   if (set.conveyor) loads.push([keys.belt.tile, set.conveyor.tile], [keys.belt.arrow, set.conveyor.arrow]);
   if (set.reef) for (const k of ['up', 'side', 'base'] as const) loads.push([keys.reef[k], set.reef[k]]);
+  if (set.limbo) loads.push([keys.limbo.barb, set.limbo.barb]);
   return loads;
 }
 
 /**
  * Which parts of an AREA's set can be drawn from images this frame: a part is used only when its
- * set carries it AND every one of its textures loaded. Anything else -- no set (AREA 4, the boss
+ * set carries it AND every one of its textures loaded. Anything else -- no set (the boss
  * arena), a part the set does not carry, an image that failed to load -- is procedural.
  */
 export function environmentParts(area: EnvironmentArtId, exists: (key: string) => boolean) {
@@ -221,6 +241,25 @@ export function reefArt(area: EnvironmentArtId, exists: (key: string) => boolean
   return ENVIRONMENT_ART[area]?.reef && Object.values(keys).every(exists) ? keys : null;
 }
 export type ReefKeys = NonNullable<ReturnType<typeof reefArt>>;
+
+/** The LIMBO barb's texture key when this set carries it and it loaded; otherwise null (procedural). */
+export function limboArt(area: EnvironmentArtId, exists: (key: string) => boolean) {
+  const key = environmentKeys(area).limbo.barb;
+  return ENVIRONMENT_ART[area]?.limbo && exists(key) ? key : null;
+}
+
+/**
+ * Where a LIMBO row's barbs go: as many whole 13px barbs as fit `width`, at the procedural 13px
+ * pitch, centred in the row, with the image's seam row on y+1. Every barb lies inside the row's
+ * collision (x..x+width, y-14..y+12). Null for a row narrower than one barb: drawn procedurally.
+ */
+export function limboLayout(x: number, y: number, width: number) {
+  const { width: w, pitch, seamRow } = ENVIRONMENT_GEOMETRY.limbo;
+  const count = Math.floor((width - w) / pitch) + 1;
+  if (width < w || count < 1) return null;
+  const left = x + Math.floor((width - (count - 1) * pitch - w) / 2);
+  return { top: y + 1 - seamRow, xs: Array.from({ length: count }, (_, i) => left + i * pitch) };
+}
 
 /**
  * Where a reef patch's images go, read off its collision box and never past it.

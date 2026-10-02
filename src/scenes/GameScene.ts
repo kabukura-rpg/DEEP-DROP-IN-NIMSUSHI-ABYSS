@@ -27,7 +27,7 @@ import bossBackgroundUrl from '../../output/game-backgrounds-v2/boss-a.png?url';
 import area1SurfaceUrl from '../../output/game-backgrounds-v1/area1-surface-a.png?url';
 import { surfaceLayerAlphas, surfaceWeight } from '../render/surfaceBlend';
 import { ENEMY_ART_PLACEMENT, ENEMY_ART_URLS, enemyArtFlipX, enemyArtKey, enemyArtLook, type EnemyArtLook } from '../render/enemyArt';
-import { ENVIRONMENT_ART, ENVIRONMENT_GEOMETRY, environmentArtId, chamberDrawn, beltLayout, breakBlockFrame, breakBlockSlices, environmentKeys, environmentLoads, environmentParts, reefArt, reefLayout, type ReefKeys, platformSlices, spikeFrame, spikeLayout, usesPlatformArt, wallTileX, wallTileY, type EnvironmentKeys } from '../render/environmentArt';
+import { ENVIRONMENT_ART, ENVIRONMENT_GEOMETRY, environmentArtId, chamberDrawn, beltLayout, breakBlockFrame, breakBlockSlices, environmentKeys, environmentLoads, environmentParts, limboArt, limboLayout, reefArt, reefLayout, type ReefKeys, platformSlices, spikeFrame, spikeLayout, usesPlatformArt, wallTileX, wallTileY, type EnvironmentKeys } from '../render/environmentArt';
 
 const BACKGROUND_URLS = {
   1: area1BackgroundUrl, 2: area2BackgroundUrl, 3: area3BackgroundUrl,
@@ -467,6 +467,7 @@ export class GameScene extends Phaser.Scene {
     const envArt = parts.wall ? parts.keys : null;
     const ledgeArt = parts.platform ? parts.keys : null;
     const reef = reefArt(artArea, key => this.textures.exists(key));
+    const limbo = limboArt(artArea, key => this.textures.exists(key));
     // Wide enough to still cover the view when it has slid sideways into a cave.
     // Keep the authored distance layer subdued so collision surfaces and attack tells stay foremost.
     this.rect(m.cameraX - 8, 0, 466 + Math.abs(m.cameraX) * 2, 800, 0x10191c, 0.16);
@@ -587,7 +588,7 @@ export class GameScene extends Phaser.Scene {
         }
         continue;
       }
-      if (f.limboHazard) { this.limboHazard(f.x, y, f.width); continue; }
+      if (f.limboHazard) { if (!(limbo && this.limboArt(limbo, f.x, y, f.width, g.x))) this.limboHazard(f.x, y, f.width); continue; }
       if (ledgeArt && usesPlatformArt(f, parts)) {
         this.ledgeArt(ledges++, ledgeArt, f.x, y, f.width, g.x);
         if (f.spikePlatform) this.spikeArt(ledgeArt, Math.round(f.x), Math.round(y), f.width, f.spikePlatform, g.x);
@@ -1455,6 +1456,18 @@ export class GameScene extends Phaser.Scene {
     const { sideWidth, baseWidth } = ENVIRONMENT_GEOMETRY.reef;
     this.overlayImage('tooth', art.base, true).setPosition(x(at.base.x), at.base.y).setSize(baseWidth, at.base.height).setTilePosition(0, 0).setFlipX(at.flip);
     for (const barb of at.barbs) this.overlayImage('tooth', art.side).setPosition(x(barb.x), barb.y).setCrop(0, 0, sideWidth, barb.height).setFlipX(at.flip);
+    return true;
+  }
+  /**
+   * A LIMBO row from the AREA's barb image (render/environmentArt): whole barbs at the procedural
+   * pitch, centred in the row, seam on y+1 -- inside the hit band, nothing past the row's ends. They go
+   * on the spike-tooth overlay layer, like the reef. Returns false -- and draws nothing -- for a row
+   * too narrow for one barb, so the caller draws the procedural barbs. The hit is the model's.
+   */
+  private limboArt(texture: string, x: number, y: number, width: number, offsetX: number) {
+    const at = limboLayout(Math.round(x), Math.round(y), width);
+    if (!at) return false;
+    for (const bx of at.xs) this.overlayImage('tooth', texture).setPosition(offsetX + bx, at.top);
     return true;
   }
   /** Void below, drifting rubble and a cracked sky for the collapsing realm. */

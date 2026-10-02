@@ -1,13 +1,13 @@
 import { describe, expect, it } from 'vitest';
 import {
   BLOCK_DROP_FROM, ENVIRONMENT_ART, ENVIRONMENT_GEOMETRY, beltLayout, breakBlockFrame, breakBlockSlices, environmentKeys, environmentLoads,
-  environmentParts, platformSlices, reefArt, reefLayout, spikeFrame, spikeLayout, usesPlatformArt, wallTileX, wallTileY,
+  environmentParts, limboArt, limboLayout, platformSlices, reefArt, reefLayout, spikeFrame, spikeLayout, usesPlatformArt, wallTileX, wallTileY,
 } from '../src/render/environmentArt';
 import { HAZARD_TYPES, spawnHazard } from '../src/data/hazards';
 import { AIR_CONTAINER_RULES } from '../src/data/structures';
 import { REEF_RULES } from '../src/systems/StageGenerator';
 import sceneSource from '../src/scenes/GameScene.ts?raw';
-import { BREAK_BLOCK_RULES, CONVEYOR_RULES, PLATFORM_THICKNESS, SPIKE_PLATFORM_RULES, breakBlockWidth, conveyorDirFor } from '../src/data/structures';
+import { BREAK_BLOCK_RULES, CONVEYOR_RULES, LIMBO_HAZARD_RULES, PLATFORM_THICKNESS, SPIKE_PLATFORM_RULES, breakBlockWidth, conveyorDirFor } from '../src/data/structures';
 import { StageGenerator } from '../src/systems/StageGenerator';
 import { entered, generationSignature, replaySignature } from './regressionSignature';
 import { WORLD } from '../src/data/balance';
@@ -32,9 +32,9 @@ const seeded = (s: number) => () => { s = (Math.imul(s, 1664525) + 1013904223) >
 
 /** ENVIRONMENT ART: AREA 1's ledges and walls from images, on the geometry the model already has. */
 describe('the image sets', () => {
-  it('lists AREA 1, AREA 2, AREA 3 and THE ABYSS staging room only -- AREA 4 and the boss arena keep the procedural look', () => {
-    expect(Object.keys(ENVIRONMENT_ART)).toEqual(['1', '2', '3', 'staging']);
-    for (const area of [0, 4]) expect(ENVIRONMENT_ART[area]).toBeUndefined();
+  it('lists AREA 1, AREA 2, AREA 3, AREA 4 and THE ABYSS staging room only -- the boss arena keeps the procedural look', () => {
+    expect(Object.keys(ENVIRONMENT_ART)).toEqual(['1', '2', '3', '4', 'staging']);
+    expect(ENVIRONMENT_ART[0]).toBeUndefined();
   });
 
   it('keeps AREA 1 exactly as it was: five images, no special surfaces', () => {
@@ -121,12 +121,13 @@ describe('the image sets', () => {
 
 describe('which parts draw from images', () => {
   const all = () => true;
-  it('AREA 1 and AREA 3: ledges and walls only; AREA 2: every part; AREA 4 and the boss (0): nothing', () => {
+  it('AREA 1, AREA 3 and AREA 4: ledges and walls only; AREA 2: every part; the boss (0): nothing', () => {
     const pick = (area: number) => { const { keys: _k, ...rest } = environmentParts(area, all); return rest; };
     expect(pick(1)).toEqual({ wall: true, platform: true, breakBlock: false, spike: false, conveyor: false });
     expect(pick(2)).toEqual({ wall: true, platform: true, breakBlock: true, spike: true, conveyor: true });
     expect(pick(3)).toEqual({ wall: true, platform: true, breakBlock: false, spike: false, conveyor: false });
-    for (const area of [0, 4]) expect(pick(area)).toEqual({ wall: false, platform: false, breakBlock: false, spike: false, conveyor: false });
+    expect(pick(4)).toEqual({ wall: true, platform: true, breakBlock: false, spike: false, conveyor: false });
+    expect(pick(0)).toEqual({ wall: false, platform: false, breakBlock: false, spike: false, conveyor: false });
   });
 
   it('falls back to procedural, part by part, when an image is missing or failed to load', () => {
@@ -697,12 +698,12 @@ describe('AREA 3 gameplay', () => {
 });
 
 describe('outside AREA 3', () => {
-  it('AREA 4 and the BOSS fight stay procedural, and play as they did', () => {
-    for (const area of [4, 0] as const) {
-      const { keys: _k, ...parts } = environmentParts(area, () => true);
-      expect(parts).toEqual({ wall: false, platform: false, breakBlock: false, spike: false, conveyor: false });
-      expect(reefArt(area, () => true)).toBeNull();
-    }
+  it('AREA 4 carries no reef, the BOSS fight stays procedural, and both play as they did', () => {
+    expect(reefArt(4, () => true)).toBeNull();
+    const { keys: _k, ...parts } = environmentParts(0, () => true);
+    expect(parts).toEqual({ wall: false, platform: false, breakBlock: false, spike: false, conveyor: false });
+    expect(reefArt(0, () => true)).toBeNull();
+    expect(limboArt(0, () => true)).toBeNull();
     expect(generationSignature(4)).toBe('f65a6d908865b5097e3fd899');
     expect(replaySignature(entered(g => g.jumpToBoss()))).toBe('8e287a848cb425a8029c5f2c');
   });
@@ -725,5 +726,153 @@ describe('outside AREA 3', () => {
     expect(parts).toEqual({ wall: true, platform: true, breakBlock: false, spike: false, conveyor: false });
     expect(reefArt('staging', () => true)).toBeNull();
     expect(sceneSource).toContain("const artArea = m.state !== 'boss' ? m.stage.config.id : m.inBossArena ? 0 : 'staging';");
+  });
+});
+
+describe('AREA 4 images', () => {
+  it('ships the six reviewed images byte for byte, from src/assets/environment/area4, and nothing from output/', () => {
+    // Sizes and hashes of output/environment-art-area4-v1 as delivered (review/validation.json: 6 RGBA).
+    const expected: Record<string, [number, number, string]> = {
+      'area4-platform-left-cap.png': [8, 24, '5886a4066858d1fa673795373a081d28ca75610a0c8056c6476ef4f0e01dacac'],
+      'area4-platform-center.png': [16, 24, '3988b35d328cf465927b3d4068bb98fc42926301cdf03d9ad478d031c3c3ff06'],
+      'area4-platform-right-cap.png': [8, 24, 'd3098a669ba87df7427343179e20eb016f83f327f8e2edd54dc1ddbd791381b7'],
+      'area4-wall-fill.png': [32, 96, '24ce2eeeee2580e830d348b8edf1f1de9dbaf029284700b2dc87e1da5bf0c49f'],
+      'area4-wall-inner-edge.png': [4, 96, 'fe118732d403974fdda4d183116a02dbcc62a8db152be70a5eb55d89a6ed53c6'],
+      'area4-limbo-hazard.png': [13, 24, '64483a3d5eaa9ccc26f47475e579a40a318c0a050e48d0be565e996b80d46e01'],
+    };
+    for (const [file, [w, h, sha256]] of Object.entries(expected)) {
+      expect({ file, ...envPng('area4', file) }).toEqual({ file, size: [w, h], depth: 8, colour: 6, sha256 });
+    }
+    const loads = environmentLoads(4, ENVIRONMENT_ART[4]!);
+    expect(loads.map(([key]) => key)).toEqual([
+      'env-4-platform-left', 'env-4-platform-center', 'env-4-platform-right', 'env-4-wall-fill', 'env-4-wall-edge', 'env-4-limbo-barb',
+    ]);
+    for (const [, url] of loads) expect(url).not.toMatch(/(^|\/)(output|dist)\//);
+  });
+
+  it('maps each image to its part, and carries no BREAK BLOCK, spike, belt, reef or crumble', () => {
+    const set = ENVIRONMENT_ART[4]!;
+    expect(Object.keys(set).sort()).toEqual(['limbo', 'platform', 'wall']);
+    expect(set.platform.left).toMatch(/area4-platform-left-cap\.png/);
+    expect(set.platform.center).toMatch(/area4-platform-center\.png/);
+    expect(set.platform.right).toMatch(/area4-platform-right-cap\.png/);
+    expect(set.wall.fill).toMatch(/area4-wall-fill\.png/);
+    expect(set.wall.edge).toMatch(/area4-wall-inner-edge\.png/);
+    expect(set.limbo!.barb).toMatch(/area4-limbo-hazard\.png/);
+    // AREA 4's own copies: the staging room's files are separate, so the room cannot follow AREA 4.
+    for (const url of [set.platform.left, set.platform.center, set.platform.right]) expect(url).toMatch(/environment\/area4\//);
+    expect(environmentKeys(4).left).not.toBe(environmentKeys('staging').left);
+  });
+});
+
+describe('AREA 4 ledges and walls', () => {
+  it('lays the 3-slice on every AREA 4 ledge with row 3 on the landing line, the collision untouched', () => {
+    const { cap, surfaceRow } = ENVIRONMENT_GEOMETRY.platform;
+    let ledges = 0;
+    for (const section of [1, 2, 3] as const) for (let seed = 1; seed <= 6; seed++) {
+      const g = new GameModel(false, seeded(seed * 53)); g.jumpToStage(4, section);
+      for (const p of g.platforms.filter(f => usesPlatformArt(f))) {
+        const before = { x: p.x, y: p.y, width: p.width };
+        const at = platformSlices(p.x, p.y, p.width);
+        expect(at.top + surfaceRow).toBe(p.y);
+        expect(at.left.x).toBe(p.x);
+        expect(at.right.x + cap).toBe(p.x + p.width);
+        expect(at.center.width).toBe(p.width - cap * 2);
+        expect({ x: p.x, y: p.y, width: p.width }).toEqual(before);
+        ledges++;
+      }
+      // A LIMBO row is never a 3-slice ledge: it keeps its own drawing.
+      for (const p of g.platforms.filter(f => f.limboHazard)) expect(usesPlatformArt(p)).toBe(false);
+    }
+    expect(ledges).toBeGreaterThan(50);
+  });
+
+  it('keeps the shaft boundaries at x 28 and x 422, with the same tile offsets as every other AREA', () => {
+    expect(ENVIRONMENT_GEOMETRY.wall).toEqual({ fillWidth: 32, fillHeight: 96, edgeWidth: 4, shaftLeft: 28, shaftRight: 422 });
+    expect(WORLD.wall).toBe(28);
+    expect(WORLD.width - WORLD.wall).toBe(422);
+    const { keys: _k, ...parts } = environmentParts(4, () => true);
+    expect(parts).toEqual({ wall: true, platform: true, breakBlock: false, spike: false, conveyor: false });
+  });
+});
+
+describe('AREA 4 LIMBO barbs', () => {
+  it('reuses the procedural 13px pitch: whole barbs, centred, the seam on y+1', () => {
+    expect(ENVIRONMENT_GEOMETRY.limbo).toEqual({ width: 13, height: 24, pitch: 13, seamRow: 14 });
+    expect(limboLayout(100, 500, 64)).toEqual({ top: 487, xs: [106, 119, 132, 145] });
+    expect(limboLayout(100, 500, 90)).toEqual({ top: 487, xs: [106, 119, 132, 145, 158, 171] });
+    expect(limboLayout(100, 500, 13)).toEqual({ top: 487, xs: [100] });
+    expect(limboLayout(100, 500, 12)).toBeNull();
+  });
+
+  it('keeps every barb inside the row\'s collision rectangle, on every generated AREA 4 LIMBO row', () => {
+    const { width, height } = ENVIRONMENT_GEOMETRY.limbo;
+    let rows = 0;
+    for (const section of [1, 2, 3] as const) for (let seed = 1; seed <= 40; seed++) {
+      const gen = new StageGenerator(seeded(seed * 211), { plan: AREAS[3].plans![section - 1], enemyPool: AREAS[3].enemyPool, sectionLength: AREAS[3].sectionLength, breakable: false });
+      for (let chunk = 0; chunk < 4; chunk++) for (const p of gen.chunk(chunk).platforms.filter(f => f.limboHazard)) {
+        const at = limboLayout(p.x, p.y, p.width)!;
+        expect(at).not.toBeNull();
+        // GameModel.tickLimboHazards: x..x+width across, y - reach .. y + 12 down (normal gravity).
+        expect(at.top).toBeGreaterThanOrEqual(p.y - LIMBO_HAZARD_RULES.reach);
+        expect(at.top + height).toBeLessThanOrEqual(p.y + 12);
+        expect(Math.min(...at.xs)).toBeGreaterThanOrEqual(p.x);
+        expect(Math.max(...at.xs) + width).toBeLessThanOrEqual(p.x + p.width);
+        expect(at.xs.length).toBe(Math.floor(p.width / width));
+        rows++;
+      }
+    }
+    expect(rows).toBeGreaterThan(100);
+  });
+
+  it('leaves LIMBO\'s rules as they were: one heart, 14px reach', () => {
+    expect(LIMBO_HAZARD_RULES).toEqual({ damage: 1, reach: 14 });
+    const g = new GameModel(false, seeded(41)); g.jumpToStage(4, 1);
+    g.platforms = [{ id: 900, x: WORLD.wall, y: g.player.y + 90, width: WORLD.width - WORLD.wall * 2, limboHazard: true }];
+    g.enemies = []; g.hazards = []; g.doodads = []; g.pickups = [];
+    g.player.x = 225; g.player.vy = 260; g.player.grounded = -1; g.player.invincible = 0;
+    const hp = g.hp;
+    for (let i = 0; i < 400 && g.hp === hp; i++) g.step(1 / 120, 0, false);
+    expect(g.hp).toBe(hp - 1);
+  });
+
+  it('falls back to the procedural barbs, part by part, when an image is missing', () => {
+    expect(limboArt(4, () => true)).toBe('env-4-limbo-barb');
+    expect(limboArt(4, key => key !== 'env-4-limbo-barb')).toBeNull();
+    // Ledges and walls do not depend on the barb, nor the barb on them.
+    const { keys: _k, ...parts } = environmentParts(4, key => key !== 'env-4-limbo-barb');
+    expect(parts).toEqual({ wall: true, platform: true, breakBlock: false, spike: false, conveyor: false });
+    expect(limboArt(4, key => !key.includes('platform'))).toBe('env-4-limbo-barb');
+    // No other set carries the barb: AREA 1-3, the staging room and the arena stay as they were.
+    for (const area of [1, 2, 3, 'staging', 0] as const) expect(limboArt(area, () => true)).toBeNull();
+    expect(sceneSource).toContain('if (f.limboHazard) { if (!(limbo && this.limboArt(limbo, f.x, y, f.width, g.x))) this.limboHazard(f.x, y, f.width); continue; }');
+  });
+});
+
+describe('AREA 4 gameplay', () => {
+  it('generates and plays exactly as it did before the images', () => {
+    expect(generationSignature(4)).toBe('f65a6d908865b5097e3fd899');
+    expect(replaySignature(entered(g => g.jumpToStage(4, 1)))).toBe('9e7c6b738ad3bd3514afd646');
+    expect(replaySignature(entered(g => g.jumpToStage(4, 2)))).toBe('516e68ff1ffddfa04e93b75f');
+    expect(replaySignature(entered(g => g.jumpToStage(4, 3)))).toBe('2ebcb752cd22d061e39e6733');
+  });
+
+  it('leaves AREA 3 generating and playing as it did', () => {
+    expect(generationSignature(3)).toBe('d748a265cf1731ae185f93cb');
+    expect(replaySignature(entered(g => g.jumpToStage(3, 1)))).toBe('d813e6aa01f3d20ed9e034a4');
+    expect(replaySignature(entered(g => g.jumpToStage(3, 2)))).toBe('27a110a2880f9aaaafae8a08');
+    expect(replaySignature(entered(g => g.jumpToStage(3, 3)))).toBe('b1c14c441b457f2baa84336f');
+  });
+
+  it('never hands THE ABYSS AREA 4\'s set: the staging room keeps its own, the arena stays procedural', () => {
+    // During the staging room the run's AREA is still 4 -- which is exactly why the scene asks for
+    // 'staging' whenever the state is 'boss', before it ever reads the AREA.
+    const g = new GameModel(); g.jumpToBoss();
+    expect(g.state).toBe('boss');
+    expect(g.stage.config.id).toBe(4);
+    expect(sceneSource).toContain("const artArea = m.state !== 'boss' ? m.stage.config.id : m.inBossArena ? 0 : 'staging';");
+    expect(Object.keys(ENVIRONMENT_ART.staging!).sort()).toEqual(['platform', 'wall']);
+    expect(limboArt('staging', () => true)).toBeNull();
+    expect(replaySignature(entered(game => game.jumpToBoss()))).toBe('8e287a848cb425a8029c5f2c');
   });
 });
