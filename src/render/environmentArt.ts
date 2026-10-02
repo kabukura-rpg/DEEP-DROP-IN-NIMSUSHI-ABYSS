@@ -4,7 +4,8 @@
  *
  * An AREA listed in ENVIRONMENT_ART draws its ordinary ledges and its shaft walls from these images;
  * an AREA that is not listed keeps the procedural look it has always had. AREA 1 and AREA 2 are
- * listed. A set may also carry the AREA's special surfaces (AREA 2: BREAK BLOCK, spike floor, belt);
+ * listed, and so is THE ABYSS's staging room ('staging': from the room's opening until the arena
+ * takes over), which has ledges and walls only -- the seal and the arena itself stay procedural. A set may also carry the AREA's special surfaces (AREA 2: BREAK BLOCK, spike floor, belt);
  * a piece it does not carry, or whose images did not load, keeps its procedural drawing.
  *
  *   platform  a 3-slice, 24px tall: left cap 8, center 16 (repeated, the last one cropped), right cap
@@ -44,6 +45,11 @@ import area2SpikeWarning3Url from '../assets/environment/area2/area2-spike-warni
 import area2SpikeWarning4Url from '../assets/environment/area2/area2-spike-warning-4.png?url';
 import area2SpikeActiveUrl from '../assets/environment/area2/area2-spike-active.png?url';
 import area2SpikeEdgeUrl from '../assets/environment/area2/area2-spike-edge-mark.png?url';
+import stagingPlatformLeftUrl from '../assets/environment/staging/area4-platform-left-cap.png?url';
+import stagingPlatformCenterUrl from '../assets/environment/staging/area4-platform-center.png?url';
+import stagingPlatformRightUrl from '../assets/environment/staging/area4-platform-right-cap.png?url';
+import stagingWallFillUrl from '../assets/environment/staging/boss-wall-fill.png?url';
+import stagingWallEdgeUrl from '../assets/environment/staging/boss-wall-inner-edge.png?url';
 import type { Platform } from '../systems/StageGenerator';
 import type { SpikePlatform } from '../data/structures';
 
@@ -54,7 +60,11 @@ export interface EnvironmentArtSet {
   spike?: { socket: string; warning1: string; warning2: string; warning3: string; warning4: string; active: string; edge: string };
   conveyor?: { tile: string; arrow: string };
 }
-export const ENVIRONMENT_ART: Partial<Record<number, EnvironmentArtSet>> = {
+/** An AREA's number, or THE ABYSS's staging room. */
+export type EnvironmentArtId = number | 'staging';
+/** The id of an ENVIRONMENT_ART entry, from its object key. */
+export const environmentArtId = (key: string): EnvironmentArtId => key === 'staging' ? 'staging' : Number(key);
+export const ENVIRONMENT_ART: Partial<Record<EnvironmentArtId, EnvironmentArtSet>> = {
   1: {
     platform: { left: area1PlatformLeftUrl, center: area1PlatformCenterUrl, right: area1PlatformRightUrl },
     wall: { fill: area1WallFillUrl, edge: area1WallEdgeUrl },
@@ -69,6 +79,12 @@ export const ENVIRONMENT_ART: Partial<Record<number, EnvironmentArtSet>> = {
     },
     conveyor: { tile: area2BeltTileUrl, arrow: area2BeltArrowUrl },
   },
+  // The last room before NIMUSHI: the ABYSS's vertical seal stone for the walls (the BOSS set) and
+  // AREA 4's fractured masonry for the ledges, which is the ledge the BOSS set was drawn to go with.
+  staging: {
+    platform: { left: stagingPlatformLeftUrl, center: stagingPlatformCenterUrl, right: stagingPlatformRightUrl },
+    wall: { fill: stagingWallFillUrl, edge: stagingWallEdgeUrl },
+  },
 };
 
 /** The fixed geometry every AREA's set is drawn to (ENVIRONMENT ART ASSET AUDIT). */
@@ -81,7 +97,7 @@ export const ENVIRONMENT_GEOMETRY = {
 } as const;
 
 /** Texture keys for an AREA's set. */
-export const environmentKeys = (area: number) => ({
+export const environmentKeys = (area: EnvironmentArtId) => ({
   left: `env-${area}-platform-left`, center: `env-${area}-platform-center`, right: `env-${area}-platform-right`,
   fill: `env-${area}-wall-fill`, edge: `env-${area}-wall-edge`,
   block: {
@@ -98,7 +114,7 @@ export const environmentKeys = (area: number) => ({
 export type EnvironmentKeys = ReturnType<typeof environmentKeys>;
 
 /** Every [texture key, url] an AREA's set loads. */
-export function environmentLoads(area: number, set: EnvironmentArtSet): [string, string][] {
+export function environmentLoads(area: EnvironmentArtId, set: EnvironmentArtSet): [string, string][] {
   const keys = environmentKeys(area);
   const loads: [string, string][] = [
     [keys.left, set.platform.left], [keys.center, set.platform.center], [keys.right, set.platform.right],
@@ -113,9 +129,9 @@ export function environmentLoads(area: number, set: EnvironmentArtSet): [string,
 /**
  * Which parts of an AREA's set can be drawn from images this frame: a part is used only when its
  * set carries it AND every one of its textures loaded. Anything else -- no set (AREA 3, AREA 4, the
- * boss), a part the set does not carry, an image that failed to load -- is procedural.
+ * boss arena), a part the set does not carry, an image that failed to load -- is procedural.
  */
-export function environmentParts(area: number, exists: (key: string) => boolean) {
+export function environmentParts(area: EnvironmentArtId, exists: (key: string) => boolean) {
   const set = ENVIRONMENT_ART[area];
   const keys = environmentKeys(area);
   const all = (list: string[]) => list.every(exists);
@@ -257,3 +273,11 @@ export function beltLayout(x: number, surface: number, width: number, dir: -1 | 
     flip: dir === -1,
   };
 }
+
+/**
+ * Whether a SAFE ZONE chamber is drawn -- its recess cut through the wall, the lit frame and the
+ * light out of its mouth. Every chamber in the descent is; THE ABYSS's (the run's 'boss' state, where
+ * the staging room's TOMATO chamber is the only one) is not. Drawing only: the room's containment is
+ * the model's and does not depend on this.
+ */
+export const chamberDrawn = (state: string) => state !== 'boss';

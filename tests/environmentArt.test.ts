@@ -28,8 +28,8 @@ const seeded = (s: number) => () => { s = (Math.imul(s, 1664525) + 1013904223) >
 
 /** ENVIRONMENT ART: AREA 1's ledges and walls from images, on the geometry the model already has. */
 describe('the image sets', () => {
-  it('lists AREA 1 and AREA 2 only -- AREA 3, AREA 4 and the boss keep the procedural look', () => {
-    expect(Object.keys(ENVIRONMENT_ART)).toEqual(['1', '2']);
+  it('lists AREA 1, AREA 2 and THE ABYSS staging room only -- AREA 3, AREA 4 and the boss arena keep the procedural look', () => {
+    expect(Object.keys(ENVIRONMENT_ART)).toEqual(['1', '2', 'staging']);
     for (const area of [0, 3, 4]) expect(ENVIRONMENT_ART[area]).toBeUndefined();
   });
 
