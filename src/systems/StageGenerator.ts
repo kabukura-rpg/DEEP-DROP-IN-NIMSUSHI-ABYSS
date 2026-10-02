@@ -371,7 +371,9 @@ export class StageGenerator {
         maxOxygenGap: plan.maxOxygenGap ?? Infinity, bubbleOffside: plan.bubbleOffside ?? 0,
         lavaPoolChance: quiet ? 0 : plan.lavaPoolChance ?? 0, lavaWallChance: quiet ? 0 : plan.lavaWallChance ?? 0,
         ventChance: quiet ? 0 : plan.ventChance ?? 0, iceChance: plan.iceChance ?? 0, iceOffside: plan.iceOffside ?? 0,
-        breakableChance: quiet ? 0 : plan.breakableChance ?? 0, maxBreakableRun: plan.maxBreakableRun ?? Infinity,
+        // A SECTION where EVERY ledge collapses (chance 1, AREA 4) is not eased in by the grace: the
+        // opening rows give way like the rest, because there is no stable ground for them to be.
+        breakableChance: quiet && (plan.breakableChance ?? 0) < 1 ? 0 : plan.breakableChance ?? 0, maxBreakableRun: plan.maxBreakableRun ?? Infinity,
         // SPIKE is instant death, so the opening grace period holds it back like everything lethal.
         spikeChance: quiet ? 0 : plan.spikeChance ?? 0, spikeKinds: plan.spikeKinds ?? [],
         // A SPIKE PLATFORM only ever deals ordinary damage, but the grace period still holds it
@@ -517,6 +519,15 @@ export class StageGenerator {
       return { route, others: [other] };
     }
     return null;
+  }
+
+  /**
+   * True where the SECTION asks for ALL of its ledges to collapse rather than a share of them. Only
+   * row ledges are meant: a gate row, a chamber or cave floor, the exit floor and the opening slab
+   * are laid elsewhere and stay the stable surfaces the SECTION's flow is built on.
+   */
+  private everyLedgeBreaks(tuning: RowTuning) {
+    return this.context.breakable === true && tuning.breakableChance >= 1 && !Number.isFinite(tuning.maxBreakableRun);
   }
 
   /** A spike platform for this ledge, with its own warning when the SECTION asks for one. */
@@ -726,7 +737,13 @@ export class StageGenerator {
       if (this.rowsSinceWall >= 3 && wallGap <= 8) { this.rowsSinceWall = 0; this.wallToCover = this.wallToCover === -1 ? 1 : -1; }
       this.id++;
       }
-      if (this.context.breakable) {
+      // COLLAPSED REALM: every ledge goes. Decided without a draw, so the shaft -- every x, y, width,
+      // barb, doodad and cave -- is exactly the one the same seed lays with no collapse at all.
+      const everyLedge = this.everyLedgeBreaks(tuning);
+      if (everyLedge) {
+        platform.breakable = true;
+        platform.state = 'stable';
+      } else if (this.context.breakable) {
         // The run cap is the safety net: however unlucky the rolls, a stable ledge always arrives.
         const forced = this.breakableRun >= tuning.maxBreakableRun;
         const breakable = !forced && this.random() < tuning.breakableChance;
@@ -762,6 +779,9 @@ export class StageGenerator {
           if (!covers && !onTheWayIn && near >= LIMBO_BARB_CLEARANCE) other.limboHazard = true;
         }
       }
+      // The rest of the band goes too: landable debris beside the route is ground like the route.
+      // A barb is not ground -- it is never landed on -- so it is left exactly as it was.
+      if (everyLedge) for (const other of extras) if (!other.limboHazard) { other.breakable = true; other.state = 'stable'; }
       if (y >= start) platforms.push(...extras);
 
       let guard: Enemy | undefined;

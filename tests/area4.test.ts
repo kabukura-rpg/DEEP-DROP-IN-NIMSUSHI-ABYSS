@@ -1,6 +1,8 @@
 import { describe, expect, it } from 'vitest';
 import { GameModel } from '../src/systems/GameModel';
-import { StageGenerator, canReachPlatform, type Platform, type RoutePlatform } from '../src/systems/StageGenerator';
+import { StageGenerator, START_PLATFORM, canReachPlatform, type Platform, type RoutePlatform } from '../src/systems/StageGenerator';
+import { BREAK_RULES } from '../src/systems/BreakablePlatformSystem';
+import { reachExit } from './exitHelper';
 import { ENEMY_TYPES, spawnEnemy } from '../src/data/enemies';
 import { AREAS, areaConfig, type SectionId } from '../src/data/areas';
 import { horizontalReach } from '../src/data/difficulty';
@@ -100,16 +102,15 @@ describe('COLLAPSED REALM is broken rubble to land on', () => {
     }
   });
 
-  // WAS: ledges collapse through the BREAK system, more of them deeper. The original's limbo has no
-  // blocks of any kind -- no breakables, no traps (reference spec) -- so the clone lays neither: what
-  // turns the rubble dangerous is the barbs on it, not the rubble giving way.
-  it('lays no collapsing ledge and no spike trap, as the original has neither', () => {
-    expect(area4.gimmicks?.breakablePlatforms ?? false).toBe(false);
+  // WAS: "lays no collapsing ledge and no spike trap, as the original has neither" -- every ledge was
+  // asserted NOT breakable. Human review: COLLAPSED REALM is meant to be crossed on collapsing ledges
+  // alone, so that half is now the opposite guarantee, held in 'COLLAPSED REALM: every ledge gives
+  // way' below. The spike-trap half is unchanged.
+  it('lays no spike trap', () => {
     for (const sectionId of SECTIONS) {
-      expect(plan(sectionId).breakableChance ?? 0).toBe(0);
       expect(plan(sectionId).spikePlatformChance ?? 0).toBe(0);
       for (let seed = 1; seed <= SEEDS; seed++) {
-        for (const p of section(sectionId, seed * 409).ledges) expect({ sectionId, seed, breakable: !!p.breakable, trap: !!p.spikePlatform }).toEqual({ sectionId, seed, breakable: false, trap: false });
+        for (const p of section(sectionId, seed * 409).ledges) expect({ sectionId, seed, trap: !!p.spikePlatform }).toEqual({ sectionId, seed, trap: false });
       }
     }
   });
@@ -599,6 +600,214 @@ describe('COLLAPSED REALM: STAGE GENERATION v2 guarantees', () => {
       for (const p of section(sectionId, seed * 311).ledges.filter(q => q.spikePlatform)) {
         expect(p.spikePlatform!.warning).toBeGreaterThanOrEqual((p.width + 18) / BALANCE.moveSpeed + 0.35 - 1e-9);
       }
+    }
+  });
+});
+
+/**
+ * AREA 4 COLLAPSING PLATFORMS RESTORED. COLLAPSED REALM is crossed on collapsing ledges alone: every
+ * ledge a fall can land on -- the route ledge of each band and the landable debris beside it -- gives
+ * way on the shared BREAK timing. What stays stable is only what is not a ledge of the route: the
+ * opening slab the SECTION starts on, the floors of caves and chambers, and the exit floor the gate
+ * stands on. Barbs are not ground at all and are left as they were.
+ */
+describe('COLLAPSED REALM: every ledge gives way', () => {
+  /** The same SECTION laid with its collapse switched off, for proving the collapse moved nothing. */
+  function withoutCollapse(sectionId: SectionId, seed: number) {
+    return new StageGenerator(seeded(seed), {
+      plan: { ...plan(sectionId), breakableChance: undefined }, enemyPool: area4.enemyPool, sectionLength: area4.sectionLength, breakable: false,
+    });
+  }
+  const strip = (chunk: ReturnType<StageGenerator['chunk']>) => JSON.stringify(chunk, (key, value) => key === 'breakable' || key === 'state' ? undefined : value);
+
+  it('asks for all of them on the shared BREAK timing, with no run cap and no delay of its own', () => {
+    expect(area4.gimmicks?.breakablePlatforms).toBe(true);
+    expect(BREAK_RULES).toEqual({ delay: 0.65, criticalAt: 0.55, shatterRadius: 190 });
+    for (const sectionId of SECTIONS) {
+      expect(plan(sectionId).breakableChance).toBe(1);
+      expect(plan(sectionId).breakDelay).toBeUndefined();
+      expect(plan(sectionId).maxBreakableRun).toBeUndefined();
+      const game = new GameModel(false, seeded(5));
+      game.jumpToStage(4, sectionId);
+      expect(game.collapse.delay).toBe(BREAK_RULES.delay);
+    }
+  });
+
+  for (const sectionId of SECTIONS) {
+    it(`4-${sectionId}: every landable ledge collapses on every seed, and no stable one is left on the route`, () => {
+      let collapsing = 0;
+      for (let seed = 1; seed <= SEEDS; seed++) {
+        const shaft = section(sectionId, seed * 409);
+        const landable = shaft.ledges.filter(p => !p.limboHazard);
+        const stable = landable.filter(p => p.breakable !== true || p.state !== 'stable');
+        expect({ sectionId, seed, stable: stable.length }).toEqual({ sectionId, seed, stable: 0 });
+        // A barb is never landed on, so it has nothing to give way under.
+        for (const p of shaft.ledges.filter(q => q.limboHazard)) expect({ sectionId, seed, barbBreaks: !!p.breakable }).toEqual({ sectionId, seed, barbBreaks: false });
+        collapsing += landable.length;
+      }
+      expect(collapsing / SEEDS).toBeGreaterThan(20);
+    });
+  }
+
+  it('moves nothing: the shaft is the one the same seed lays with no collapse, position for position', () => {
+    for (const sectionId of SECTIONS) for (let seed = 1; seed <= 30; seed++) {
+      const on = new StageGenerator(seeded(seed * 61), { plan: plan(sectionId), enemyPool: area4.enemyPool, sectionLength: area4.sectionLength, breakable: true });
+      const off = withoutCollapse(sectionId, seed * 61);
+      for (let chunk = 0; chunk < CHUNKS; chunk++) expect({ sectionId, seed, chunk, same: strip(on.chunk(chunk)) === strip(off.chunk(chunk)) }).toEqual({ sectionId, seed, chunk, same: true });
+    }
+  });
+
+  it('keeps stable only the surfaces the SECTION stands on: the opening slab, cave and chamber floors, the exit floor', () => {
+    // Everything the generator lays down the whole SECTION: a stable surface is a cave or chamber floor.
+    for (const sectionId of SECTIONS) for (let seed = 1; seed <= SEEDS; seed++) {
+      for (const p of section(sectionId, seed * 409).platforms.filter(f => !f.breakable && !f.limboHazard)) {
+        expect({ sectionId, seed, sheltered: p.safeZone !== undefined }).toEqual({ sectionId, seed, sheltered: true });
+      }
+    }
+    for (const sectionId of SECTIONS) for (let seed = 1; seed <= 12; seed++) {
+      const game = new GameModel(false, seeded(seed * 29));
+      game.jumpToStage(4, sectionId);
+      for (const p of game.platforms.filter(f => !f.breakable && !f.limboHazard)) {
+        expect({ sectionId, seed, ok: p.id === START_PLATFORM.id || p.safeZone !== undefined }).toEqual({ sectionId, seed, ok: true });
+      }
+      const gate = reachExit(game);
+      const floor = game.platforms.find(f => f.y === gate.y + gate.height && f.width === WORLD.width - WORLD.wall * 2);
+      expect(floor).toBeDefined();
+      expect(floor!.breakable ?? false).toBe(false);
+    }
+  });
+
+  it('runs stable -> cracking -> critical -> broken from the landing, then takes the collision away', () => {
+    const game = bare();
+    const ledge: Platform = { id: 700, x: game.player.x - 50, y: game.player.y + 60, width: 100, breakable: true, state: 'stable' };
+    game.platforms = [ledge];
+    game.player.vy = 200; game.player.grounded = -1; game.player.invincible = 99;
+    for (let i = 0; i < 240 && game.player.grounded !== ledge.id; i++) game.step(1 / 120, 0, false);
+    expect(game.player.grounded).toBe(ledge.id);
+    expect(ledge.state).toBe('cracking');
+    expect(game.events.some(e => e.type === 'crack')).toBe(true);
+    const seen: string[] = [];
+    let t = 0;
+    while (game.platforms.includes(ledge) && t < 2) {
+      game.player.invincible = 99;
+      game.step(1 / 120, 0, false); t += 1 / 120;
+      if (seen[seen.length - 1] !== ledge.state) seen.push(ledge.state!);
+    }
+    expect(seen).toEqual(['cracking', 'critical', 'broken']);
+    // Gone on the BREAK timing, measured from the landing, to the frame.
+    expect(Math.abs(t - BREAK_RULES.delay)).toBeLessThanOrEqual(1 / 120 + 1e-9);
+    expect(game.platforms).not.toContain(ledge);
+    // Nothing under the player any more: the fall goes on through where the ledge was.
+    expect(game.player.grounded).toBe(-1);
+    const y = game.player.y;
+    for (let i = 0; i < 30; i++) game.step(1 / 120, 0, false);
+    expect(game.player.y).toBeGreaterThan(ledge.y + 10);
+    expect(game.player.y).toBeGreaterThan(y);
+  });
+
+  it('never asks for more than the ledge allows: the whole width walks off well inside the delay', () => {
+    let worst = 0;
+    for (const sectionId of SECTIONS) for (let seed = 1; seed <= SEEDS; seed++) {
+      for (const p of section(sectionId, seed * 409).ledges.filter(q => q.breakable)) worst = Math.max(worst, p.width);
+    }
+    // From the far end to beyond the near one: the width, a body, and the 12px the exit lies out.
+    const walk = (worst + 9 + 12) / BALANCE.moveSpeed;
+    expect(walk).toBeLessThan(BREAK_RULES.delay);
+  });
+
+  /**
+   * A player who does nothing at all on a ledge: never walks off it, only steers in the air. Every
+   * ledge drops them on, so the SECTION still ends -- standing still is never a soft-lock -- and no
+   * landing ever holds them past the delay.
+   */
+  function standStill(sectionId: SectionId, seed: number, setup?: (game: GameModel) => void) {
+    const game = new GameModel(false, seeded(seed));
+    game.jumpToStage(4, sectionId);
+    setup?.(game);
+    let longest = 0, held = 0, last = -99, stableRoute = 0, sheltered = 0;
+    for (let i = 0; i < 240 * 120; i++) {
+      game.player.invincible = 99;
+      if (game.state !== 'playing') return { reached: true, longest, stableRoute, sheltered };
+      const p = game.player;
+      const ground = game.platforms.find(f => f.id === p.grounded);
+      held = ground && ground.id === last ? held + 1 / 120 : 0;
+      last = ground ? ground.id : -99;
+      let dir = 0;
+      if (ground && game.exit) dir = Math.sign(game.exit.x + game.exit.width / 2 - p.x);
+      else if (ground && !ground.breakable) {
+        // Only a stable surface is walked off: the opening slab, or a cave or chamber floor.
+        if (ground.id !== START_PLATFORM.id && ground.safeZone === undefined) stableRoute++;
+        // Out of a cave or chamber towards the shaft; off the opening slab one fixed way.
+        dir = ground.safeZone === undefined ? 1 : ground.x + ground.width / 2 < WORLD.width / 2 ? 1 : -1;
+      }
+      if (ground?.breakable) longest = Math.max(longest, held);
+      if (ground?.safeZone !== undefined) sheltered++;
+      game.step(1 / 120, dir, false);
+    }
+    return { reached: false, longest, stableRoute, sheltered };
+  }
+
+  it('ends every SECTION for a player who never walks off a ledge, and holds nobody past the delay', () => {
+    for (const sectionId of SECTIONS) for (let seed = 1; seed <= 20; seed++) {
+      const run = standStill(sectionId, seed * 4111);
+      expect({ sectionId, seed, reached: run.reached, stableRoute: run.stableRoute }).toEqual({ sectionId, seed, reached: true, stableRoute: 0 });
+      expect(run.longest).toBeLessThanOrEqual(BREAK_RULES.delay + 2 / 120);
+    }
+  });
+
+  it('lets a cave be left the way it was entered: its floor holds, and the collapsing shaft below still ends', () => {
+    let caves = 0;
+    for (const sectionId of SECTIONS) for (let seed = 1; seed <= 10; seed++) {
+      const run = standStill(sectionId, seed * 4111, game => {
+        // Generate down to the first cave, then put the player on its floor as if they had walked in.
+        for (let i = 0; i < 40 && !game.platforms.some(f => f.safeZone !== undefined); i++) { game.player.y += 300; game.player.invincible = 99; game.step(1 / 120, 0, false); }
+        const floor = game.platforms.find(f => f.safeZone !== undefined)!;
+        game.player.x = floor.x + floor.width / 2; game.player.y = floor.y - 30; game.player.vy = 0; game.player.grounded = -1;
+        caves++;
+      });
+      expect({ sectionId, seed, reached: run.reached, entered: run.sheltered > 0 }).toEqual({ sectionId, seed, reached: true, entered: true });
+    }
+    expect(caves).toBe(30);
+  });
+
+  it('starts every SECTION over with every ledge whole and no timer running', () => {
+    for (const sectionId of SECTIONS) {
+      const game = new GameModel(false, seeded(77));
+      game.jumpToStage(4, sectionId);
+      const ledge = game.platforms.find(f => f.breakable)!;
+      expect(game.collapse.land(ledge)).toBe(true);
+      game.step(1 / 120, 0, false);
+      expect(game.collapse.counting).toBe(1);
+      // Re-entering the SECTION (a level-select restart) and moving on to the next both start clean.
+      for (const next of [sectionId, sectionId === 3 ? 1 : sectionId + 1] as SectionId[]) {
+        game.jumpToStage(4, next);
+        expect(game.collapse.counting).toBe(0);
+        expect(game.platforms.filter(f => f.state !== undefined && f.state !== 'stable')).toEqual([]);
+        expect(game.platforms.some(f => f.breakable)).toBe(true);
+      }
+    }
+  });
+
+  it('leaves AREA 1-3 with no collapsing ledge, and never hands the collapse to the STAGING room or the BOSS', () => {
+    for (const area of [1, 2, 3] as const) {
+      expect(areaConfig(area).gimmicks?.breakablePlatforms ?? false).toBe(false);
+      for (const sectionId of SECTIONS) for (let seed = 1; seed <= 6; seed++) {
+        const game = new GameModel(false, seeded(seed * 13));
+        game.jumpToStage(area, sectionId);
+        for (let i = 0; i < 600; i++) game.step(1 / 120, 0, false);
+        expect({ area, sectionId, seed, any: game.platforms.some(f => f.breakable) }).toEqual({ area, sectionId, seed, any: false });
+      }
+    }
+    // The staging room and the fight still report AREA 4 as their config: the guard is what keeps
+    // its collapse out of them, so it is asserted directly as well as through the replays.
+    for (const go of [(g: GameModel) => g.jumpToBoss(), (g: GameModel) => g.jumpToNimushi()]) {
+      const game = new GameModel(false, seeded(3));
+      go(game);
+      expect(game.stage.config.id).toBe(4);
+      expect((game as unknown as { generator: { context: { breakable?: boolean } } }).generator.context.breakable).toBe(false);
+      for (let i = 0; i < 1200; i++) { game.player.invincible = 99; game.step(1 / 120, 0, false); }
+      expect(game.platforms.some(f => f.breakable)).toBe(false);
+      expect(game.collapse.counting).toBe(0);
     }
   });
 });

@@ -432,20 +432,26 @@ export const AREAS: readonly AreaConfig[] = [
     // this AREA carried are gone, barbed rubble becomes the common case beside the route, the long void
     // drops (where a chain is built on shots and doodad bounces) come more often, and nothing guards a
     // ledge. Depth stays 570m (~19.9 original screens; original median 18.8, D 20-23).
+    // COLLAPSING PLATFORMS RESTORED (human review): COLLAPSED REALM is an AREA where every ledge the
+    // route lands on gives way -- not a share of them. `breakableChance: 1` lays every row ledge and
+    // every landable piece of debris as a BREAK ledge on the shared timing (BREAK_RULES, 0.65s), with
+    // no draw spent on it, so the layout is the one above unchanged. Barbs, cave and chamber floors,
+    // the opening slab and the exit floor are not ledges of the route and stay as they were.
     id: 4, name: 'COLLAPSED REALM', sections: 3, sectionLength: 570,
+    gimmicks: { breakablePlatforms: true },
     enemyPool: ['voidWisp', 'hollowShade', 'voidShard', 'shadeOrb', 'angryOrb'],
     theme: { wall: 0x241f2e, wallEdge: 0x3c3350, pillar: 0x2d2740, brick: 0x171422, accent: 0xc0a7ed, dust: 0x8c82a5, rift: { glow: 0x9d7bd8, void: 0x0b0710, debris: 0x4a3f63 },
       cave: { style: 'rubble', hollow: 0x07050b, lining: 0x2a2238, frame: 0x4a3f63, light: 0xc0a7ed } },
     plans: [
       // 4-1 THE WAY IN. Rubble to land on, barbed debris beside it, the first void drops and swarms.
       { platformWidth: [92, 112], gap: 232, pieces: AREA4_RUBBLE, enemyChance: 0, flyChance: 0.55, swarm: 0.3, toughChance: 0.3, heavyChance: 0, comboBias: 0, graceDepth: 20,
-        flow: { pathFlyers: 0.4, landingGuards: 0 }, doodadChance: 0.95, laneDoodadBand: 420, safeZoneCount: 2, sideRooms: 2 },
+        flow: { pathFlyers: 0.4, landingGuards: 0 }, doodadChance: 0.95, laneDoodadBand: 420, safeZoneCount: 2, sideRooms: 2, breakableChance: 1 },
       // 4-2 THE FALLING CITY. More barbed rubble, longer and more frequent void drops.
       { platformWidth: [84, 102], gap: 238, pieces: AREA4_RUINFALL, enemyChance: 0, flyChance: 0.6, swarm: 0.45, toughChance: 0.35, heavyChance: 0, comboBias: 0,
-        flow: { pathFlyers: 0.5, landingGuards: 0 }, doodadChance: 0.95, laneDoodadBand: 400, safeZoneCount: 2, sideRooms: 2 },
+        flow: { pathFlyers: 0.5, landingGuards: 0 }, doodadChance: 0.95, laneDoodadBand: 400, safeZoneCount: 2, sideRooms: 2, breakableChance: 1 },
       // 4-3 THE VOID. The longest drops, the most barbs, the thickest swarms; the route still lands.
       { platformWidth: [76, 94], gap: 244, pieces: AREA4_VOID, enemyChance: 0, flyChance: 0.65, swarm: 0.6, toughChance: 0.4, heavyChance: 0, comboBias: 0,
-        flow: { pathFlyers: 0.6, landingGuards: 0 }, doodadChance: 0.95, laneDoodadBand: 380, safeZoneCount: 2, sideRooms: 2 },
+        flow: { pathFlyers: 0.6, landingGuards: 0 }, doodadChance: 0.95, laneDoodadBand: 380, safeZoneCount: 2, sideRooms: 2, breakableChance: 1 },
     ],
   },
 ];

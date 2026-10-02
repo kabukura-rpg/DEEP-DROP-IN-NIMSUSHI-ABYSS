@@ -774,12 +774,22 @@ describe('AREA 4 images', () => {
 });
 
 describe('AREA 4 ledges and walls', () => {
-  it('lays the 3-slice on every AREA 4 ledge with row 3 on the landing line, the collision untouched', () => {
+  // WAS: "lays the 3-slice on every AREA 4 ledge", counting more than 50 of them. AREA 4 COLLAPSING
+  // PLATFORMS RESTORED makes every route ledge a collapsing one, and a collapsing ledge keeps the
+  // procedural drawing whose look carries its state (usesPlatformArt). So the image now goes only on
+  // the AREA's stable surfaces -- the opening slab, cave and chamber floors -- with the same geometry,
+  // and never on a ledge that is going to give way.
+  it('lays the 3-slice on AREA 4\'s stable surfaces with row 3 on the landing line, and never on a collapsing ledge', () => {
     const { cap, surfaceRow } = ENVIRONMENT_GEOMETRY.platform;
-    let ledges = 0;
+    let ledges = 0, collapsing = 0;
     for (const section of [1, 2, 3] as const) for (let seed = 1; seed <= 6; seed++) {
       const g = new GameModel(false, seeded(seed * 53)); g.jumpToStage(4, section);
+      for (const p of g.platforms.filter(f => f.breakable)) {
+        for (const state of ['stable', 'cracking', 'critical'] as const) expect(usesPlatformArt({ ...p, state })).toBe(false);
+        collapsing++;
+      }
       for (const p of g.platforms.filter(f => usesPlatformArt(f))) {
+        expect(p.breakable).not.toBe(true);
         const before = { x: p.x, y: p.y, width: p.width };
         const at = platformSlices(p.x, p.y, p.width);
         expect(at.top + surfaceRow).toBe(p.y);
@@ -792,7 +802,8 @@ describe('AREA 4 ledges and walls', () => {
       // A LIMBO row is never a 3-slice ledge: it keeps its own drawing.
       for (const p of g.platforms.filter(f => f.limboHazard)) expect(usesPlatformArt(p)).toBe(false);
     }
-    expect(ledges).toBeGreaterThan(50);
+    expect(ledges).toBeGreaterThan(0);
+    expect(collapsing).toBeGreaterThan(50);
   });
 
   it('keeps the shaft boundaries at x 28 and x 422, with the same tile offsets as every other AREA', () => {
@@ -926,11 +937,14 @@ describe('AREA 4 LIMBO barbs', () => {
 });
 
 describe('AREA 4 gameplay', () => {
-  it('generates and plays exactly as it did before the images', () => {
+  // WAS: the replays were 9e7c6b738ad3bd3514afd646 / 516e68ff1ffddfa04e93b75f / 2ebcb752cd22d061e39e6733.
+  // AREA 4 COLLAPSING PLATFORMS RESTORED moves the replays (every ledge now gives way) and nothing the
+  // generator lays: the generation signature is the one the images were drawn over.
+  it('generates exactly as it did before the images, and plays with its ledges collapsing', () => {
     expect(generationSignature(4)).toBe('f65a6d908865b5097e3fd899');
-    expect(replaySignature(entered(g => g.jumpToStage(4, 1)))).toBe('9e7c6b738ad3bd3514afd646');
-    expect(replaySignature(entered(g => g.jumpToStage(4, 2)))).toBe('516e68ff1ffddfa04e93b75f');
-    expect(replaySignature(entered(g => g.jumpToStage(4, 3)))).toBe('2ebcb752cd22d061e39e6733');
+    expect(replaySignature(entered(g => g.jumpToStage(4, 1)))).toBe('12ae06596103a9f573adafac');
+    expect(replaySignature(entered(g => g.jumpToStage(4, 2)))).toBe('bd849065d64cde6f6bc84e0a');
+    expect(replaySignature(entered(g => g.jumpToStage(4, 3)))).toBe('c96993f02a496755e320f4a5');
   });
 
   it('leaves AREA 3 generating and playing as it did', () => {

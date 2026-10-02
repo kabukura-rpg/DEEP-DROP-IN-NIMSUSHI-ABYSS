@@ -443,11 +443,17 @@ describe('isolation', () => {
       digest() { return a.toString(16).padStart(8, '0') + b.toString(16).padStart(8, '0'); },
     };
   };
-  /** A digest of every chunk of 60 seeds x 3 SECTIONs, exactly as generated. */
-  const signature = (area: AreaId) => {
+  /**
+   * A digest of every chunk of 60 seeds x 3 SECTIONs, exactly as generated. `withoutCollapse` lays
+   * the SECTIONs with their collapsing ledges switched off -- the one thing AREA 4 has gained since
+   * -- so everything else about the AREA can still be held to 518af88. That the collapse moves no
+   * position is held separately, in area4.test.ts.
+   */
+  const signature = (area: AreaId, withoutCollapse = false) => {
     const A = areaConfig(area); const h = digest();
     for (let n = 1; n <= 3; n++) for (let s = 1; s <= 60; s++) {
-      const g = new StageGenerator(seeded(s * 131 + n), { plan: A.plans![n - 1], enemyPool: A.enemyPool, water: A.water, oxygen: A.gimmicks?.oxygen === true, breakable: A.gimmicks?.breakablePlatforms === true, sectionLength: A.sectionLength });
+      const plan = withoutCollapse ? { ...A.plans![n - 1], breakableChance: undefined } : A.plans![n - 1];
+      const g = new StageGenerator(seeded(s * 131 + n), { plan, enemyPool: A.enemyPool, water: A.water, oxygen: A.gimmicks?.oxygen === true, breakable: !withoutCollapse && A.gimmicks?.breakablePlatforms === true, sectionLength: A.sectionLength });
       for (let c = 0; c < 40; c++) h.update(JSON.stringify(g.chunk(c)));
     }
     return h.digest();
@@ -461,8 +467,12 @@ describe('isolation', () => {
   it('changes nothing in AREA 4 but where its side rooms are: on the old chambers it is 518af88 bit for bit', () => {
     // The only AREA 4 change is `sideRooms`, which moves its rooms into the wall. Put back on the
     // rectangular chambers, AREA 4 must be exactly the shaft 518af88 generated.
+    //
+    // AREA 4 COLLAPSING PLATFORMS RESTORED: every ledge is now a collapsing one. With that switched
+    // off the AREA is still 518af88's bit for bit; with it on, the ledges carry the flag.
     setSideRoomMode('legacy');
-    expect(signature(4)).toBe('d85d9afdc4e58e2c');
+    expect(signature(4, true)).toBe('d85d9afdc4e58e2c');
+    expect(signature(4)).not.toBe('d85d9afdc4e58e2c');
     const now = areaConfig(4).plans!.map(p => { const { sideRooms, ...rest } = p; void sideRooms; return rest; });
     expect(now.every(p => p.reef === undefined && p.conveyorChance === undefined)).toBe(true);
   });

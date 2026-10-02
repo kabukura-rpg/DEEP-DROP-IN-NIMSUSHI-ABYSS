@@ -332,7 +332,10 @@ describe('isolation', () => {
     '1-1': '414b1f52261b82c067509d92', '1-2': '22ddb6304f988ed56d4538e5', '1-3': '683c2598a46b4eadcc576b35',
     '2-1': '95ebcdc29407d78501ec1a47', '2-2': 'f5d50c7e36c05e33c315524d', '2-3': 'e5f4c74110599c23f5ad5b62',
     '3-1': 'd813e6aa01f3d20ed9e034a4', '3-2': '27a110a2880f9aaaafae8a08', '3-3': 'b1c14c441b457f2baa84336f',
-    '4-1': '9e7c6b738ad3bd3514afd646', '4-2': '516e68ff1ffddfa04e93b75f', '4-3': '2ebcb752cd22d061e39e6733',
+    // WAS (AREA 4 at that commit): 9e7c6b738ad3bd3514afd646, 516e68ff1ffddfa04e93b75f, 2ebcb752cd22d061e39e6733.
+    // AREA 4 COLLAPSING PLATFORMS RESTORED: every ledge of the AREA now gives way, so its replays move;
+    // its generation does not (generationSignature(4) is unchanged). AREA 1-3 and the BOSS stay as taken.
+    '4-1': '12ae06596103a9f573adafac', '4-2': 'bd849065d64cde6f6bc84e0a', '4-3': 'c96993f02a496755e320f4a5',
   };
   it('plays all twelve SECTIONs exactly as 5de724e did', () => {
     for (const a of [1, 2, 3, 4] as const) for (const s of [1, 2, 3] as const) {

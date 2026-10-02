@@ -2396,7 +2396,10 @@ export class GameModel {
     this.oxygen.reset(!this.practice && this.stage.config.gimmicks?.oxygen === true);
     this.heat.reset(!this.practice && this.stage.config.gimmicks?.heat === true);
     this.collapse.reset(this.stage.sectionPlan?.breakDelay ?? BREAK_RULES.delay);
-    this.generator = new StageGenerator(this.random, { depthOffset: this.stage.boss ? ABYSS.curveDepth : this.completedDepth, plan: this.stage.sectionPlan, enemyPool: this.stage.enemyPool, water: this.stage.config.water, oxygen: this.oxygen.enabled, heat: this.heat.enabled, breakable: !this.practice && this.stage.config.gimmicks?.breakablePlatforms === true, sectionLength: this.practice || this.state === 'boss' || !this.stage.enabled ? undefined : this.stage.sectionLength,
+    // The STAGING room and the BOSS keep AREA 4 as their `config`, but they are not COLLAPSED REALM:
+    // its collapsing ledges stop at 4-3's exit, and nothing past it draws a single roll for them.
+    const breakable = !this.practice && !this.stage.boss && this.stage.config.gimmicks?.breakablePlatforms === true;
+    this.generator = new StageGenerator(this.random, { depthOffset: this.stage.boss ? ABYSS.curveDepth : this.completedDepth, plan: this.stage.sectionPlan, enemyPool: this.stage.enemyPool, water: this.stage.config.water, oxygen: this.oxygen.enabled, heat: this.heat.enabled, breakable, sectionLength: this.practice || this.state === 'boss' || !this.stage.enabled ? undefined : this.stage.sectionLength,
       // MEMBER'S CARD: a shop near the top of every SECTION from the one after it was taken.
       guaranteedShopDepth: this.upgrades.has('membersCard') && !this.practice && this.state !== 'boss'
         ? UPGRADE_TUNING.membersCard.shopDepth : undefined });
