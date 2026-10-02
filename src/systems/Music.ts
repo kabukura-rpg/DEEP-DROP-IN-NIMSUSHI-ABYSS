@@ -28,11 +28,11 @@ export const AREA_MUSIC: Record<AreaTrack, string> = {
  */
 export const MUSIC = { volume: 0.099, fadeOut: 0.35, fadeIn: 0.5 } as const;
 /**
- * Per-track trim on top of MUSIC.volume. pressure_in_the_deep's loud passages sit ~1.6 dB above the
- * AREA tracks', which left the shot only ~1.4 dB over it in the fight; 0.8 (~-1.9 dB) makes it 0.0792
- * (0.056 before BGM VOLUME UP raised every track by the same +3 dB, which keeps this ratio).
+ * Per-track trim on top of MUSIC.volume. AUDIO SECOND PASS (Human Review: AREA 1 and the fight were
+ * still too quiet): The_Mossy_Monolith takes 1.2 (+1.6 dB, 0.1188), and pressure_in_the_deep's old 0.8
+ * trim is lifted to 1 (0.099, +1.9 dB) -- no further. AREA 2-4 stay as they were.
  */
-export const TRACK_GAIN: Record<AreaTrack, number> = { 1: 1, 2: 1, 3: 1, 4: 1, boss: 0.8 };
+export const TRACK_GAIN: Record<AreaTrack, number> = { 1: 1.2, 2: 1, 3: 1, 4: 1, boss: 1 };
 
 /**
  * Which track the screen asks for, or null for silence. PAUSE, the rest point, the shop and the

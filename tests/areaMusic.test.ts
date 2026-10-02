@@ -1,8 +1,8 @@
 import { afterEach, describe, expect, it } from 'vitest';
-import audioSource from '../src/systems/Audio.ts?raw';
 import { AREA_MUSIC, MUSIC, TRACK_GAIN, musicTrack } from '../src/systems/Music';
-import { GameAudio } from '../src/systems/Audio';
+import { GameAudio, SFX, chimePeak, sfxPeak, type SoundId } from '../src/systems/Audio';
 import { GameModel } from '../src/systems/GameModel';
+import { GUN_MODULES, GUN_MODULE_IDS } from '../src/data/gunModules';
 
 /** AREA BGM: which track each AREA plays, when it changes, and that ♪ off always wins. */
 describe('the AREA tracks', () => {
@@ -103,11 +103,17 @@ describe('the FINAL BOSS track', () => {
 });
 
 describe('per-track gain', () => {
-  it('trims only pressure_in_the_deep, to 0.8 of the shared volume', () => {
+  it('AUDIO SECOND PASS: AREA 1 at 1.2 and the fight untrimmed, AREA 2-4 and the shared volume as they were', () => {
     expect(MUSIC.volume).toBe(0.099);
-    for (const area of [1, 2, 3, 4] as const) expect(TRACK_GAIN[area], String(area)).toBe(1);
-    expect(TRACK_GAIN.boss).toBe(0.8);
-    expect(MUSIC.volume * TRACK_GAIN.boss).toBeCloseTo(0.0792, 6);
+    expect(TRACK_GAIN).toEqual({ 1: 1.2, 2: 1, 3: 1, 4: 1, boss: 1 });
+    const db = (after: number, before: number) => 20 * Math.log10(after / before);
+    // AREA 1: 0.099 -> 0.1188, +1.6 dB. The fight: 0.0792 -> 0.099, +1.9 dB.
+    expect(MUSIC.volume * TRACK_GAIN[1]).toBeCloseTo(0.1188, 6);
+    expect(db(MUSIC.volume * TRACK_GAIN[1], 0.099)).toBeGreaterThanOrEqual(1.5);
+    expect(db(MUSIC.volume * TRACK_GAIN[1], 0.099)).toBeLessThanOrEqual(2);
+    expect(MUSIC.volume * TRACK_GAIN.boss).toBeCloseTo(0.099, 6);
+    expect(db(MUSIC.volume * TRACK_GAIN.boss, 0.0792)).toBeCloseTo(1.94, 2);
+    for (const area of [2, 3, 4] as const) expect(MUSIC.volume * TRACK_GAIN[area], String(area)).toBeCloseTo(0.099, 6);
   });
 
   it('BGM VOLUME UP: every track +3 dB from 0.07 by one shared multiplier, the fades and the effects untouched', () => {
@@ -121,8 +127,77 @@ describe('per-track gain', () => {
       expect(MUSIC.volume * TRACK_GAIN[track]).toBeLessThanOrEqual(1);
     }
     expect({ fadeOut: MUSIC.fadeOut, fadeIn: MUSIC.fadeIn }).toEqual({ fadeOut: 0.35, fadeIn: 0.5 });
-    // The sound effects keep their own gains: 0.035 for every voice, 0.018 for the combo chime.
-    expect(audioSource).toContain('gain.gain.setValueAtTime(0.035, ctx.currentTime);');
-    expect(audioSource).toContain('envelope.gain.setValueAtTime(0.018, ctx.currentTime);');
+  });
+});
+
+/** Records every scheduled value, so the envelopes the engine actually builds can be read back. */
+class RecordingAudioContext {
+  state = 'running'; currentTime = 0; destination = {};
+  static log: { node: string; kind: 'set' | 'exp'; value: number; at: number }[] = [];
+  resume() { /* running */ }
+  private param(node: string) {
+    const log = RecordingAudioContext.log;
+    return {
+      setValueAtTime: (value: number, at: number) => log.push({ node, kind: 'set', value, at }),
+      exponentialRampToValueAtTime: (value: number, at: number) => log.push({ node, kind: 'exp', value, at }),
+    };
+  }
+  createOscillator() { return { type: '', frequency: this.param('freq'), connect() {}, start() {}, stop() {} }; }
+  createGain() { return { gain: this.param('gain'), connect() {} }; }
+}
+
+describe('AUDIO SECOND PASS: the effects', () => {
+  const OLD = { voice: 0.035, chime: 0.018 };
+  const db = (after: number, before: number) => 20 * Math.log10(after / before);
+  const record = (kind: SoundId, combo = 0) => {
+    (globalThis as unknown as { AudioContext: unknown }).AudioContext = RecordingAudioContext;
+    const audio = new GameAudio(); audio.unlock();
+    RecordingAudioContext.log = [];
+    audio.play(kind, combo);
+    return RecordingAudioContext.log;
+  };
+  afterEach(() => { delete (globalThis as unknown as { AudioContext?: unknown }).AudioContext; });
+
+  it('raises every voice and the chime by the same master, x1.25 (+1.9 dB), keeping their balance', () => {
+    expect(SFX.voice).toBe(OLD.voice);
+    expect(SFX.chime).toBe(OLD.chime);
+    expect(SFX.master).toBe(1.25);
+    expect(db(SFX.master, 1)).toBeCloseTo(1.94, 2);
+    for (const kind of ['land', 'kill', 'hurt', 'upgrade', 'empty', 'over'] as const) {
+      expect(sfxPeak(kind), kind).toBeCloseTo(0.04375, 8);
+      const gains = record(kind).filter(e => e.node === 'gain');
+      expect(gains[0], kind).toEqual({ node: 'gain', kind: 'set', value: sfxPeak(kind), at: 0 });
+      // One straight decay, exactly as before: no new stage on anything but the shot.
+      expect(gains.slice(1).map(e => e.value), kind).toEqual([0.0001]);
+    }
+    expect(chimePeak()).toBeCloseTo(0.0225, 8);
+    expect(chimePeak() / sfxPeak('kill')).toBeCloseTo(OLD.chime / OLD.voice, 10);
+    // The chime rides a high combo kill at its own (unchanged) share of the master.
+    const chime = record('kill', 99).filter(e => e.node === 'gain' && e.kind === 'set');
+    expect(chime.map(e => e.value)).toEqual([sfxPeak('kill'), chimePeak()]);
+  });
+
+  it('gives the shot a further x1.25 and a short click on top, never a longer tail', () => {
+    expect(SFX.shot).toEqual({ boost: 1.25, attack: 0.012, body: 0.6, startPitch: 1.25 });
+    const peak = sfxPeak('shot');
+    expect(peak).toBeCloseTo(0.0546875, 8);
+    expect(db(peak, OLD.voice)).toBeCloseTo(3.88, 2);
+    const log = record('shot');
+    const gains = log.filter(e => e.node === 'gain');
+    expect(gains).toEqual([
+      { node: 'gain', kind: 'set', value: peak, at: 0 },
+      { node: 'gain', kind: 'exp', value: peak * 0.6, at: 0.012 },
+      { node: 'gain', kind: 'exp', value: 0.0001, at: 0.07 },
+    ]);
+    // Pitch: a quarter higher at the front (212.5 Hz), down to the same 65 Hz over the same 0.07s.
+    const freq = log.filter(e => e.node === 'freq');
+    expect(freq).toEqual([{ node: 'freq', kind: 'set', value: 212.5, at: 0 }, { node: 'freq', kind: 'exp', value: 65, at: 0.07 }]);
+  });
+
+  it('never stacks shots into a clip: even the fastest module fires after the last shot has died away', () => {
+    expect(Math.min(...GUN_MODULE_IDS.map(id => GUN_MODULES[id].fireInterval))).toBeGreaterThan(0.07);
+    // Everything that can sound at once -- the loudest BGM, a shot, a kill and its chime -- stays far under 1.
+    const loudestMusic = Math.max(...([1, 2, 3, 4, 'boss'] as const).map(t => MUSIC.volume * TRACK_GAIN[t]));
+    expect(loudestMusic + sfxPeak('shot') + sfxPeak('kill') + chimePeak()).toBeLessThan(0.3);
   });
 });

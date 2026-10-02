@@ -49,6 +49,22 @@ export const EVENT_SOUNDS: Record<GameEvent['type'], SoundId | null> = {
   // skull rattling -- until they have sounds of their own.
   ghostWake: null, ghostFade: null, skullWarn: null, skullCharge: null,
 };
+/**
+ * How loud the effects are. AUDIO SECOND PASS (Human Review: the effects could be louder, and the shot
+ * should feel good to fire): every voice starts at `voice` and the combo chime at `chime`, both times
+ * `master` (x1.25, +1.9 dB), so their balance is what it was. The shot alone takes `shot.boost` more
+ * (x1.25, +1.9 dB) and a sharper front: it opens `shot.startPitch` higher and falls from its peak to
+ * `shot.body` of it within `shot.attack`, then dies away over the same 0.07s as before -- a short
+ * click on top, never a longer tail, so even the fastest module (0.085s) never stacks two.
+ */
+export const SFX = {
+  voice: 0.035, chime: 0.018, master: 1.25,
+  shot: { boost: 1.25, attack: 0.012, body: 0.6, startPitch: 1.25 },
+} as const;
+/** The gain a voice starts at, never over 1. */
+export const sfxPeak = (kind: SoundId) => Math.min(1, SFX.voice * SFX.master * (kind === 'shot' ? SFX.shot.boost : 1));
+/** The gain the combo chime starts at, never over 1. */
+export const chimePeak = () => Math.min(1, SFX.chime * SFX.master);
 /** The sound an event should make, or null when it is silent. Never throws on an unknown type. */
 export const eventSound = (type: GameEvent['type']): SoundId | null => EVENT_SOUNDS[type] ?? null;
 export class GameAudio {
@@ -72,9 +88,11 @@ export class GameAudio {
     oscillator.type = kind === 'land' || kind === 'upgrade' ? 'sine' : 'square';
     const feedback = comboFeedback(combo);
     const pitch = kind === 'kill' ? feedback.pitch * (stomp ? 0.86 : 1) : 1;
-    oscillator.frequency.setValueAtTime(settings[0] * pitch, ctx.currentTime);
+    const shot = kind === 'shot', peak = sfxPeak(kind);
+    oscillator.frequency.setValueAtTime(settings[0] * pitch * (shot ? SFX.shot.startPitch : 1), ctx.currentTime);
     oscillator.frequency.exponentialRampToValueAtTime(settings[1] * pitch, ctx.currentTime + settings[2]);
-    gain.gain.setValueAtTime(0.035, ctx.currentTime);
+    gain.gain.setValueAtTime(peak, ctx.currentTime);
+    if (shot) gain.gain.exponentialRampToValueAtTime(peak * SFX.shot.body, ctx.currentTime + SFX.shot.attack);
     gain.gain.exponentialRampToValueAtTime(0.0001, ctx.currentTime + settings[2]);
     oscillator.connect(gain); gain.connect(ctx.destination);
     oscillator.start(); oscillator.stop(ctx.currentTime + settings[2]);
@@ -82,7 +100,7 @@ export class GameAudio {
       const chime = ctx.createOscillator(), envelope = ctx.createGain();
       chime.type = 'sine'; chime.frequency.setValueAtTime(660 * pitch, ctx.currentTime);
       chime.frequency.exponentialRampToValueAtTime(990 * pitch, ctx.currentTime + 0.09);
-      envelope.gain.setValueAtTime(0.018, ctx.currentTime); envelope.gain.exponentialRampToValueAtTime(0.0001, ctx.currentTime + 0.14);
+      envelope.gain.setValueAtTime(chimePeak(), ctx.currentTime); envelope.gain.exponentialRampToValueAtTime(0.0001, ctx.currentTime + 0.14);
       chime.connect(envelope); envelope.connect(ctx.destination); chime.start(); chime.stop(ctx.currentTime + 0.14);
     }
   }
