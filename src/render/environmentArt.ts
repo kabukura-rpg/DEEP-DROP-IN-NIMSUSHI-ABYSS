@@ -26,9 +26,10 @@
  *             patch's bottom; an 18x9 barb every other 9px down a wall patch over a 4x9 base strip
  *             along its whole height, against the wall. The right wall is mirrored. Every image is
  *             cropped to the patch's collision box: nothing is drawn outside it.
- *   limbo     a 13x24 barb repeated at the procedural barbs' 13px pitch, as many whole ones as fit the
- *             row's width, centred; row 14 (the dark seam) on y+1, so the opaque rows run y-13..y+9,
- *             inside the hit band y-14..y+12. Nothing is cropped and nothing reaches past the row.
+ *   limbo     a 13x24 barb repeated at the procedural barbs' 13px pitch across the row's whole width:
+ *             as many whole ones as fit, centred, and the leftover split evenly between a cropped barb
+ *             at each end, so the barbs reach both ends of the row and never past them. Row 14 (the
+ *             dark seam) on y+1, so the opaque rows run y-13..y+9, inside the hit band y-14..y+12.
  */
 import area1PlatformLeftUrl from '../assets/environment/area1/platform-left-cap.png?url';
 import area1PlatformCenterUrl from '../assets/environment/area1/platform-center.png?url';
@@ -249,16 +250,24 @@ export function limboArt(area: EnvironmentArtId, exists: (key: string) => boolea
 }
 
 /**
- * Where a LIMBO row's barbs go: as many whole 13px barbs as fit `width`, at the procedural 13px
- * pitch, centred in the row, with the image's seam row on y+1. Every barb lies inside the row's
- * collision (x..x+width, y-14..y+12). Null for a row narrower than one barb: drawn procedurally.
+ * Where a LIMBO row's barbs go, covering the row's collision width (x..x+width) end to end: as many
+ * whole 13px barbs as fit, at the procedural 13px pitch and centred, and the leftover (0-12px) split
+ * between the two ends -- the left end shows the right part of a barb, the right end the left part,
+ * so the repeat runs on unbroken and the two ends differ by at most 1px. Each piece is a source
+ * column `srcX` and `width` of the image drawn at `x`; together they tile x..x+width exactly. The
+ * image's seam row goes on y+1, inside the hit band y-14..y+12. Null for a row narrower than one
+ * barb: drawn procedurally.
  */
 export function limboLayout(x: number, y: number, width: number) {
-  const { width: w, pitch, seamRow } = ENVIRONMENT_GEOMETRY.limbo;
-  const count = Math.floor((width - w) / pitch) + 1;
-  if (width < w || count < 1) return null;
-  const left = x + Math.floor((width - (count - 1) * pitch - w) / 2);
-  return { top: y + 1 - seamRow, xs: Array.from({ length: count }, (_, i) => left + i * pitch) };
+  const { width: w, seamRow } = ENVIRONMENT_GEOMETRY.limbo;
+  const count = Math.floor(width / w);
+  if (count < 1) return null;
+  const rest = width - count * w, leftEnd = Math.floor(rest / 2), rightEnd = rest - leftEnd;
+  const pieces: { x: number; srcX: number; width: number }[] = [];
+  if (leftEnd > 0) pieces.push({ x, srcX: w - leftEnd, width: leftEnd });
+  for (let i = 0; i < count; i++) pieces.push({ x: x + leftEnd + i * w, srcX: 0, width: w });
+  if (rightEnd > 0) pieces.push({ x: x + leftEnd + count * w, srcX: 0, width: rightEnd });
+  return { top: y + 1 - seamRow, pieces };
 }
 
 /**

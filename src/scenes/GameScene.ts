@@ -1460,14 +1460,16 @@ export class GameScene extends Phaser.Scene {
   }
   /**
    * A LIMBO row from the AREA's barb image (render/environmentArt): whole barbs at the procedural
-   * pitch, centred in the row, seam on y+1 -- inside the hit band, nothing past the row's ends. They go
+   * pitch, centred, and a cropped barb at each end, so the barbs cover the row's whole collision width
+   * and nothing past it; seam on y+1, inside the hit band. They go
    * on the spike-tooth overlay layer, like the reef. Returns false -- and draws nothing -- for a row
    * too narrow for one barb, so the caller draws the procedural barbs. The hit is the model's.
    */
   private limboArt(texture: string, x: number, y: number, width: number, offsetX: number) {
     const at = limboLayout(Math.round(x), Math.round(y), width);
     if (!at) return false;
-    for (const bx of at.xs) this.overlayImage('tooth', texture).setPosition(offsetX + bx, at.top);
+    const h = ENVIRONMENT_GEOMETRY.limbo.height;
+    for (const piece of at.pieces) this.overlayImage('tooth', texture).setPosition(offsetX + piece.x - piece.srcX, at.top).setCrop(piece.srcX, 0, piece.width, h);
     return true;
   }
   /** Void below, drifting rubble and a cracked sky for the collapsing realm. */

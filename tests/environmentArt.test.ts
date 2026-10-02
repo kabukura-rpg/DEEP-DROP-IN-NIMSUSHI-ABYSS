@@ -797,32 +797,100 @@ describe('AREA 4 ledges and walls', () => {
 });
 
 describe('AREA 4 LIMBO barbs', () => {
-  it('reuses the procedural 13px pitch: whole barbs, centred, the seam on y+1', () => {
+  it('reuses the procedural 13px pitch: whole barbs centred, the leftover split between both ends, the seam on y+1', () => {
     expect(ENVIRONMENT_GEOMETRY.limbo).toEqual({ width: 13, height: 24, pitch: 13, seamRow: 14 });
-    expect(limboLayout(100, 500, 64)).toEqual({ top: 487, xs: [106, 119, 132, 145] });
-    expect(limboLayout(100, 500, 90)).toEqual({ top: 487, xs: [106, 119, 132, 145, 158, 171] });
-    expect(limboLayout(100, 500, 13)).toEqual({ top: 487, xs: [100] });
+    // 64 = 4 x 13 + 12: six px of a barb at each end.
+    expect(limboLayout(100, 500, 64)).toEqual({ top: 487, pieces: [
+      { x: 100, srcX: 7, width: 6 },
+      { x: 106, srcX: 0, width: 13 }, { x: 119, srcX: 0, width: 13 }, { x: 132, srcX: 0, width: 13 }, { x: 145, srcX: 0, width: 13 },
+      { x: 158, srcX: 0, width: 6 },
+    ] });
+    // 77 = 5 x 13 + 12; 79 = 6 x 13 + 1 (the odd px goes to the right end); 78 = 6 x 13 exactly.
+    expect(limboLayout(100, 500, 77)!.pieces.filter(q => q.width < 13)).toEqual([{ x: 100, srcX: 7, width: 6 }, { x: 171, srcX: 0, width: 6 }]);
+    expect(limboLayout(100, 500, 79)!.pieces.filter(q => q.width < 13)).toEqual([{ x: 178, srcX: 0, width: 1 }]);
+    expect(limboLayout(100, 500, 78)!.pieces.every(q => q.width === 13)).toBe(true);
+    // The whole barbs sit exactly where the centred layout put them: only the ends are new.
+    expect(limboLayout(100, 500, 90)!.pieces.filter(q => q.width === 13).map(q => q.x)).toEqual([106, 119, 132, 145, 158, 171]);
+    expect(limboLayout(100, 500, 13)).toEqual({ top: 487, pieces: [{ x: 100, srcX: 0, width: 13 }] });
     expect(limboLayout(100, 500, 12)).toBeNull();
   });
 
-  it('keeps every barb inside the row\'s collision rectangle, on every generated AREA 4 LIMBO row', () => {
-    const { width, height } = ENVIRONMENT_GEOMETRY.limbo;
+  /** The image's opaque columns, read off the PNG on disk (8-bit RGBA, no interlace). */
+  const limboOpaqueColumns = async () => {
+    const { inflateSync } = await import(/* @vite-ignore */ 'node:' + 'zlib') as { inflateSync: (b: Uint8Array) => Uint8Array };
+    const b = readFileSync(new URL('../src/assets/environment/area4/area4-limbo-hazard.png', import.meta.url));
+    const u32 = (o: number) => ((b[o] << 24) | (b[o + 1] << 16) | (b[o + 2] << 8) | b[o + 3]) >>> 0;
+    const w = u32(16), h = u32(20), parts: Uint8Array[] = [];
+    for (let o = 8; o < b.length;) { const len = u32(o), type = String.fromCharCode(b[o + 4], b[o + 5], b[o + 6], b[o + 7]); if (type === 'IDAT') parts.push(b.slice(o + 8, o + 8 + len)); o += 12 + len; }
+    const joined = new Uint8Array(parts.reduce((n, q) => n + q.length, 0)); let at = 0; for (const q of parts) { joined.set(q, at); at += q.length; }
+    const raw = inflateSync(joined), stride = w * 4, px = new Uint8Array(w * h * 4);
+    for (let y = 0; y < h; y++) {
+      const f = raw[y * (stride + 1)];
+      for (let i = 0; i < stride; i++) {
+        const v = raw[y * (stride + 1) + 1 + i], a = i >= 4 ? px[y * stride + i - 4] : 0, u = y ? px[(y - 1) * stride + i] : 0, c = i >= 4 && y ? px[(y - 1) * stride + i - 4] : 0;
+        const pa = Math.abs(u - c), pb = Math.abs(a - c), pc = Math.abs(a + u - 2 * c);
+        px[y * stride + i] = (v + [0, a, u, (a + u) >> 1, pa <= pb && pa <= pc ? a : pb <= pc ? u : c][f]) & 255;
+      }
+    }
+    return Array.from({ length: w }, (_, x) => Array.from({ length: h }, (_, y) => px[(y * w + x) * 4 + 3]).some(v => v > 0));
+  };
+
+  it('covers every generated AREA 4 LIMBO row edge to edge, inside its collision rectangle and never past it', async () => {
+    const { width: w, height } = ENVIRONMENT_GEOMETRY.limbo;
+    const opaque = await limboOpaqueColumns();
+    // Column 0 of the barb is empty in the image itself; every other column has opaque pixels.
+    expect(opaque.map(Boolean)).toEqual([false, true, true, true, true, true, true, true, true, true, true, true, true]);
+    const widths = new Set<number>();
     let rows = 0;
     for (const section of [1, 2, 3] as const) for (let seed = 1; seed <= 40; seed++) {
       const gen = new StageGenerator(seeded(seed * 211), { plan: AREAS[3].plans![section - 1], enemyPool: AREAS[3].enemyPool, sectionLength: AREAS[3].sectionLength, breakable: false });
       for (let chunk = 0; chunk < 4; chunk++) for (const p of gen.chunk(chunk).platforms.filter(f => f.limboHazard)) {
+        widths.add(p.width);
         const at = limboLayout(p.x, p.y, p.width)!;
         expect(at).not.toBeNull();
         // GameModel.tickLimboHazards: x..x+width across, y - reach .. y + 12 down (normal gravity).
         expect(at.top).toBeGreaterThanOrEqual(p.y - LIMBO_HAZARD_RULES.reach);
         expect(at.top + height).toBeLessThanOrEqual(p.y + 12);
-        expect(Math.min(...at.xs)).toBeGreaterThanOrEqual(p.x);
-        expect(Math.max(...at.xs) + width).toBeLessThanOrEqual(p.x + p.width);
-        expect(at.xs.length).toBe(Math.floor(p.width / width));
+        // The pieces tile x..x+width exactly: no gap between them, nothing outside the row.
+        let cursor = p.x;
+        for (const q of at.pieces) {
+          expect(q.x).toBe(cursor);
+          expect(q.srcX).toBeGreaterThanOrEqual(0);
+          expect(q.srcX + q.width).toBeLessThanOrEqual(w);
+          cursor += q.width;
+        }
+        expect(cursor).toBe(p.x + p.width);
+        // The two ends are cut evenly (an odd leftover px goes right), and the whole barbs keep the pitch.
+        const ends = at.pieces.filter(q => q.width < w);
+        if (ends.length === 2) expect(ends[1].width - ends[0].width).toBeGreaterThanOrEqual(0);
+        if (ends.length === 2) expect(ends[1].width - ends[0].width).toBeLessThanOrEqual(1);
+        expect(at.pieces.filter(q => q.width === w).length).toBe(Math.floor(p.width / w));
+        // What is actually painted: the first and last opaque columns sit at the row's ends, within the
+        // image's own empty column 0 (at most 1px), and never past them.
+        const painted: number[] = [];
+        for (const q of at.pieces) for (let i = 0; i < q.width; i++) if (opaque[q.srcX + i]) painted.push(q.x + i);
+        expect(Math.min(...painted)).toBeGreaterThanOrEqual(p.x);
+        expect(Math.max(...painted)).toBeLessThanOrEqual(p.x + p.width - 1);
+        expect(Math.min(...painted) - p.x).toBeLessThanOrEqual(1);
+        expect(p.x + p.width - 1 - Math.max(...painted)).toBeLessThanOrEqual(1);
         rows++;
       }
     }
     expect(rows).toBeGreaterThan(100);
+    // Every width AREA 4 lays for a barb row (64-90) came through the check above.
+    expect(Math.min(...widths)).toBe(64);
+    expect(Math.max(...widths)).toBe(90);
+  });
+
+  it('covers every width 13-120 the same way, so no unseen width can leave a blank end', async () => {
+    const opaque = await limboOpaqueColumns();
+    for (let width = 13; width <= 120; width++) {
+      const at = limboLayout(0, 0, width)!;
+      const painted: number[] = [];
+      for (const q of at.pieces) for (let i = 0; i < q.width; i++) if (opaque[q.srcX + i]) painted.push(q.x + i);
+      expect({ width, left: Math.min(...painted) <= 1, right: width - 1 - Math.max(...painted) <= 1, inside: Math.min(...painted) >= 0 && Math.max(...painted) <= width - 1 })
+        .toEqual({ width, left: true, right: true, inside: true });
+    }
   });
 
   it('leaves LIMBO\'s rules as they were: one heart, 14px reach', () => {
