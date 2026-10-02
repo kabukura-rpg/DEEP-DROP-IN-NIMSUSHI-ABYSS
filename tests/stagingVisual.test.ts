@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import sceneSource from '../src/scenes/GameScene.ts?raw';
-import { ENVIRONMENT_ART, chamberDrawn, environmentLoads, environmentParts, usesPlatformArt } from '../src/render/environmentArt';
+import { ENVIRONMENT_ART, chamberDrawn, environmentArtArea, environmentLoads, environmentParts, usesPlatformArt } from '../src/render/environmentArt';
 import { GameModel } from '../src/systems/GameModel';
 // Read as files (no Node types here).
 const fs = await import(/* @vite-ignore */ 'node:' + 'fs') as { readFileSync: (path: URL) => Uint8Array; readdirSync: (path: URL) => string[] };
@@ -29,16 +29,16 @@ describe('the staging room set', () => {
     const set = ENVIRONMENT_ART.staging!;
     expect(set.wall.fill).toMatch(/staging\/boss-wall-fill\.png/);
     expect(set.wall.edge).toMatch(/staging\/boss-wall-inner-edge\.png/);
-    expect(set.platform.left).toMatch(/staging\/area4-platform-left-cap\.png/);
-    expect(set.platform.center).toMatch(/staging\/area4-platform-center\.png/);
-    expect(set.platform.right).toMatch(/staging\/area4-platform-right-cap\.png/);
-    for (const url of [...Object.values(set.wall), ...Object.values(set.platform)]) expect(url).not.toMatch(/(^|\/)(output|dist)\//);
+    expect(set.platform!.left).toMatch(/staging\/area4-platform-left-cap\.png/);
+    expect(set.platform!.center).toMatch(/staging\/area4-platform-center\.png/);
+    expect(set.platform!.right).toMatch(/staging\/area4-platform-right-cap\.png/);
+    for (const url of [...Object.values(set.wall), ...Object.values(set.platform!)]) expect(url).not.toMatch(/(^|\/)(output|dist)\//);
     expect(environmentLoads('staging', set).map(([key]) => key)).toEqual([
       'env-staging-platform-left', 'env-staging-platform-center', 'env-staging-platform-right', 'env-staging-wall-fill', 'env-staging-wall-edge',
     ]);
   });
 
-  it('carries ledges and walls only: the seal and the arena keep their procedural drawing', () => {
+  it('carries ledges and walls only: the seal keeps its procedural drawing', () => {
     const { keys: _k, ...parts } = environmentParts('staging', () => true);
     expect(parts).toEqual({ wall: true, platform: true, breakBlock: false, spike: false, conveyor: false });
     // The seal is a BREAK BLOCK row, never a 3-slice ledge.
@@ -52,8 +52,11 @@ describe('the staging room set', () => {
   });
 
   it('is used from the room opening until the arena does, and never in the descent', () => {
-    expect(sceneSource).toContain("const artArea = m.state !== 'boss' ? m.stage.config.id : m.inBossArena ? 0 : 'staging';");
+    expect(sceneSource).toContain('const artArea = environmentArtArea(m);');
     expect(ENVIRONMENT_ART[0]).toBeUndefined();
+    const game = new GameModel();
+    game.jumpToBoss();
+    expect(environmentArtArea(game)).toBe('staging');
   });
 });
 

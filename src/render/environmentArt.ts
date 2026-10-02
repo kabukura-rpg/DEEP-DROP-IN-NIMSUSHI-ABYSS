@@ -5,7 +5,8 @@
  * An AREA listed in ENVIRONMENT_ART draws its ordinary ledges and its shaft walls from these images;
  * an AREA that is not listed keeps the procedural look it has always had. AREA 1, AREA 2, AREA 3 and
  * AREA 4 are listed, and so is THE ABYSS's staging room ('staging': from the room's opening until the arena
- * takes over), which has ledges and walls only -- the seal and the arena itself stay procedural. A set may also carry the AREA's special surfaces (AREA 2: BREAK BLOCK, spike floor, belt);
+ * takes over), which has ledges and walls only -- the seal stays procedural -- and the FINAL BOSS's arena
+ * ('boss': the fight itself), which has walls only: the arena lays no ledge to draw. A set may also carry the AREA's special surfaces (AREA 2: BREAK BLOCK, spike floor, belt);
  * a piece it does not carry, or whose images did not load, keeps its procedural drawing. AREA 3
  * carries its barbed reef (reefBarb); AREA 4 its LIMBO barbs (limboHazard).
  *
@@ -73,12 +74,15 @@ import stagingPlatformCenterUrl from '../assets/environment/staging/area4-platfo
 import stagingPlatformRightUrl from '../assets/environment/staging/area4-platform-right-cap.png?url';
 import stagingWallFillUrl from '../assets/environment/staging/boss-wall-fill.png?url';
 import stagingWallEdgeUrl from '../assets/environment/staging/boss-wall-inner-edge.png?url';
+import bossWallFillUrl from '../assets/environment/boss/boss-wall-fill.png?url';
+import bossWallEdgeUrl from '../assets/environment/boss/boss-wall-inner-edge.png?url';
 import type { Platform } from '../systems/StageGenerator';
 import type { SpikePlatform } from '../data/structures';
 import type { Hazard } from '../data/hazards';
 
 export interface EnvironmentArtSet {
-  platform: { left: string; center: string; right: string };
+  /** Absent for a set with no ledges to draw (the boss arena): every ledge then stays procedural. */
+  platform?: { left: string; center: string; right: string };
   wall: { fill: string; edge: string };
   breakBlock?: { normal: string; reward: string; crack1: string; crack2: string };
   spike?: { socket: string; warning1: string; warning2: string; warning3: string; warning4: string; active: string; edge: string };
@@ -86,10 +90,18 @@ export interface EnvironmentArtSet {
   reef?: { up: string; side: string; base: string };
   limbo?: { barb: string };
 }
-/** An AREA's number, or THE ABYSS's staging room. */
-export type EnvironmentArtId = number | 'staging';
+/** An AREA's number, THE ABYSS's staging room, or the FINAL BOSS's arena. */
+export type EnvironmentArtId = number | 'staging' | 'boss';
 /** The id of an ENVIRONMENT_ART entry, from its object key. */
-export const environmentArtId = (key: string): EnvironmentArtId => key === 'staging' ? 'staging' : Number(key);
+export const environmentArtId = (key: string): EnvironmentArtId => key === 'staging' || key === 'boss' ? key : Number(key);
+/**
+ * The set a frame is drawn from. In the descent, the AREA's own. In THE ABYSS the run's AREA is still
+ * 4, so the state is read first: the staging room's set from the moment the room opens until the
+ * arena does (the reversal included), and the arena's own set for the fight. Nothing falls through
+ * from one to another. Outside 'boss' (a death or the clear) it is the AREA's, as it always was.
+ */
+export const environmentArtArea = (m: { state: string; inBossArena: boolean; stage: { config: { id: number } } }): EnvironmentArtId =>
+  m.state !== 'boss' ? m.stage.config.id : m.inBossArena ? 'boss' : 'staging';
 export const ENVIRONMENT_ART: Partial<Record<EnvironmentArtId, EnvironmentArtSet>> = {
   1: {
     platform: { left: area1PlatformLeftUrl, center: area1PlatformCenterUrl, right: area1PlatformRightUrl },
@@ -122,6 +134,12 @@ export const ENVIRONMENT_ART: Partial<Record<EnvironmentArtId, EnvironmentArtSet
   staging: {
     platform: { left: stagingPlatformLeftUrl, center: stagingPlatformCenterUrl, right: stagingPlatformRightUrl },
     wall: { fill: stagingWallFillUrl, edge: stagingWallEdgeUrl },
+  },
+  // NIMUSHI's arena: the staging room's vertical seal stone, from its own copies, so the walls run on
+  // unbroken when the fight opens. Walls only -- every stretch is groundless and the arena lays no
+  // ledge -- so it carries no ledge images, and nothing of AREA 4's or the staging room's.
+  boss: {
+    wall: { fill: bossWallFillUrl, edge: bossWallEdgeUrl },
   },
 };
 
@@ -158,10 +176,9 @@ export type EnvironmentKeys = ReturnType<typeof environmentKeys>;
 /** Every [texture key, url] an AREA's set loads. */
 export function environmentLoads(area: EnvironmentArtId, set: EnvironmentArtSet): [string, string][] {
   const keys = environmentKeys(area);
-  const loads: [string, string][] = [
-    [keys.left, set.platform.left], [keys.center, set.platform.center], [keys.right, set.platform.right],
-    [keys.fill, set.wall.fill], [keys.edge, set.wall.edge],
-  ];
+  const loads: [string, string][] = [];
+  if (set.platform) loads.push([keys.left, set.platform.left], [keys.center, set.platform.center], [keys.right, set.platform.right]);
+  loads.push([keys.fill, set.wall.fill], [keys.edge, set.wall.edge]);
   if (set.breakBlock) for (const k of ['normal', 'reward', 'crack1', 'crack2'] as const) loads.push([keys.block[k], set.breakBlock[k]]);
   if (set.spike) for (const k of ['socket', 'warning1', 'warning2', 'warning3', 'warning4', 'active', 'edge'] as const) loads.push([keys.spike[k], set.spike[k]]);
   if (set.conveyor) loads.push([keys.belt.tile, set.conveyor.tile], [keys.belt.arrow, set.conveyor.arrow]);
@@ -172,14 +189,14 @@ export function environmentLoads(area: EnvironmentArtId, set: EnvironmentArtSet)
 
 /**
  * Which parts of an AREA's set can be drawn from images this frame: a part is used only when its
- * set carries it AND every one of its textures loaded. Anything else -- no set (the boss
- * arena), a part the set does not carry, an image that failed to load -- is procedural.
+ * set carries it AND every one of its textures loaded. Anything else -- no set, a part the set does
+ * not carry (the boss arena's ledges), an image that failed to load -- is procedural.
  */
 export function environmentParts(area: EnvironmentArtId, exists: (key: string) => boolean) {
   const set = ENVIRONMENT_ART[area];
   const keys = environmentKeys(area);
   const all = (list: string[]) => list.every(exists);
-  const platform = !!set && all([keys.left, keys.center, keys.right]);
+  const platform = !!set?.platform && all([keys.left, keys.center, keys.right]);
   return {
     keys,
     wall: !!set && all([keys.fill, keys.edge]),

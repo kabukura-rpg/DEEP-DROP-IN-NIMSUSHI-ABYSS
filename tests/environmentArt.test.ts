@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import {
-  BLOCK_DROP_FROM, ENVIRONMENT_ART, ENVIRONMENT_GEOMETRY, beltLayout, breakBlockFrame, breakBlockSlices, environmentKeys, environmentLoads,
+  BLOCK_DROP_FROM, ENVIRONMENT_ART, ENVIRONMENT_GEOMETRY, beltLayout, breakBlockFrame, breakBlockSlices, environmentArtArea, environmentArtId, environmentKeys, environmentLoads,
   environmentParts, limboArt, limboLayout, platformSlices, reefArt, reefLayout, spikeFrame, spikeLayout, usesPlatformArt, wallTileX, wallTileY,
 } from '../src/render/environmentArt';
 import { HAZARD_TYPES, spawnHazard } from '../src/data/hazards';
@@ -13,6 +13,8 @@ import { entered, generationSignature, replaySignature } from './regressionSigna
 import { WORLD } from '../src/data/balance';
 import { AREAS } from '../src/data/areas';
 import { GameModel } from '../src/systems/GameModel';
+import { intoTheAbyss, tick } from './nimushi';
+import { ABYSS } from '../src/data/abyss';
 
 // PNG headers read straight off disk: Vitest serves image imports as URLs, not bytes. (No Node types here.)
 const { readFileSync } = await import(/* @vite-ignore */ 'node:' + 'fs') as { readFileSync: (path: URL) => Uint8Array };
@@ -32,16 +34,17 @@ const seeded = (s: number) => () => { s = (Math.imul(s, 1664525) + 1013904223) >
 
 /** ENVIRONMENT ART: AREA 1's ledges and walls from images, on the geometry the model already has. */
 describe('the image sets', () => {
-  it('lists AREA 1, AREA 2, AREA 3, AREA 4 and THE ABYSS staging room only -- the boss arena keeps the procedural look', () => {
-    expect(Object.keys(ENVIRONMENT_ART)).toEqual(['1', '2', '3', '4', 'staging']);
+  it('lists AREA 1, AREA 2, AREA 3, AREA 4, THE ABYSS staging room and the BOSS arena -- nothing else', () => {
+    expect(Object.keys(ENVIRONMENT_ART)).toEqual(['1', '2', '3', '4', 'staging', 'boss']);
+    expect(Object.keys(ENVIRONMENT_ART).map(environmentArtId)).toEqual([1, 2, 3, 4, 'staging', 'boss']);
     expect(ENVIRONMENT_ART[0]).toBeUndefined();
   });
 
   it('keeps AREA 1 exactly as it was: five images, no special surfaces', () => {
     const set = ENVIRONMENT_ART[1]!;
-    expect(set.platform.left).toMatch(/area1\/platform-left-cap\.png/);
-    expect(set.platform.center).toMatch(/area1\/platform-center\.png/);
-    expect(set.platform.right).toMatch(/area1\/platform-right-cap\.png/);
+    expect(set.platform!.left).toMatch(/area1\/platform-left-cap\.png/);
+    expect(set.platform!.center).toMatch(/area1\/platform-center\.png/);
+    expect(set.platform!.right).toMatch(/area1\/platform-right-cap\.png/);
     expect(set.wall.fill).toMatch(/area1\/wall-fill\.png/);
     expect(set.wall.edge).toMatch(/area1\/wall-inner-edge\.png/);
     expect(set.breakBlock).toBeUndefined();
@@ -56,7 +59,7 @@ describe('the image sets', () => {
     expect(pngSize('platform-right-cap.png')).toEqual([8, 24]);
     expect(pngSize('wall-fill.png')).toEqual([32, 96]);
     expect(pngSize('wall-inner-edge.png')).toEqual([4, 96]);
-    for (const url of Object.values(ENVIRONMENT_ART[1]!.platform).concat(Object.values(ENVIRONMENT_ART[1]!.wall))) {
+    for (const url of Object.values(ENVIRONMENT_ART[1]!.platform!).concat(Object.values(ENVIRONMENT_ART[1]!.wall))) {
       expect(url).not.toMatch(/(^|\/)(output|dist)\//);
     }
   });
@@ -101,9 +104,9 @@ describe('the image sets', () => {
 
   it('maps each AREA 2 image to its part', () => {
     const set = ENVIRONMENT_ART[2]!;
-    expect(set.platform.left).toMatch(/area2-platform-left-cap\.png/);
-    expect(set.platform.center).toMatch(/area2-platform-center\.png/);
-    expect(set.platform.right).toMatch(/area2-platform-right-cap\.png/);
+    expect(set.platform!.left).toMatch(/area2-platform-left-cap\.png/);
+    expect(set.platform!.center).toMatch(/area2-platform-center\.png/);
+    expect(set.platform!.right).toMatch(/area2-platform-right-cap\.png/);
     expect(set.wall.fill).toMatch(/area2-wall-fill\.png/);
     expect(set.wall.edge).toMatch(/area2-wall-inner-edge\.png/);
     expect(set.breakBlock!.normal).toMatch(/area2-break-block-normal\.png/);
@@ -523,9 +526,9 @@ describe('AREA 3 images', () => {
 
   it('maps each image to its part: a 3-slice, a wall, a reef -- no BREAK BLOCK, spike floor or belt', () => {
     const set = ENVIRONMENT_ART[3]!;
-    expect(set.platform.left).toMatch(/area3\/area3-platform-left-cap\.png/);
-    expect(set.platform.center).toMatch(/area3\/area3-platform-center\.png/);
-    expect(set.platform.right).toMatch(/area3\/area3-platform-right-cap\.png/);
+    expect(set.platform!.left).toMatch(/area3\/area3-platform-left-cap\.png/);
+    expect(set.platform!.center).toMatch(/area3\/area3-platform-center\.png/);
+    expect(set.platform!.right).toMatch(/area3\/area3-platform-right-cap\.png/);
     expect(set.wall.fill).toMatch(/area3\/area3-wall-fill\.png/);
     expect(set.wall.edge).toMatch(/area3\/area3-wall-inner-edge\.png/);
     expect(set.reef!.up).toMatch(/area3\/area3-reef-up\.png/);
@@ -698,8 +701,13 @@ describe('AREA 3 gameplay', () => {
 });
 
 describe('outside AREA 3', () => {
-  it('AREA 4 carries no reef, the BOSS fight stays procedural, and both play as they did', () => {
+  it('AREA 4 carries no reef, the BOSS arena draws its walls only, and both play as they did', () => {
     expect(reefArt(4, () => true)).toBeNull();
+    const { keys: _b, ...arena } = environmentParts('boss', () => true);
+    expect(arena).toEqual({ wall: true, platform: false, breakBlock: false, spike: false, conveyor: false });
+    expect(reefArt('boss', () => true)).toBeNull();
+    expect(limboArt('boss', () => true)).toBeNull();
+    // No set at all for 0 any more than before: the arena is 'boss', never a fallback id.
     const { keys: _k, ...parts } = environmentParts(0, () => true);
     expect(parts).toEqual({ wall: false, platform: false, breakBlock: false, spike: false, conveyor: false });
     expect(reefArt(0, () => true)).toBeNull();
@@ -725,7 +733,7 @@ describe('outside AREA 3', () => {
     const { keys: _k, ...parts } = environmentParts('staging', () => true);
     expect(parts).toEqual({ wall: true, platform: true, breakBlock: false, spike: false, conveyor: false });
     expect(reefArt('staging', () => true)).toBeNull();
-    expect(sceneSource).toContain("const artArea = m.state !== 'boss' ? m.stage.config.id : m.inBossArena ? 0 : 'staging';");
+    expect(sceneSource).toContain('const artArea = environmentArtArea(m);');
   });
 });
 
@@ -753,14 +761,14 @@ describe('AREA 4 images', () => {
   it('maps each image to its part, and carries no BREAK BLOCK, spike, belt, reef or crumble', () => {
     const set = ENVIRONMENT_ART[4]!;
     expect(Object.keys(set).sort()).toEqual(['limbo', 'platform', 'wall']);
-    expect(set.platform.left).toMatch(/area4-platform-left-cap\.png/);
-    expect(set.platform.center).toMatch(/area4-platform-center\.png/);
-    expect(set.platform.right).toMatch(/area4-platform-right-cap\.png/);
+    expect(set.platform!.left).toMatch(/area4-platform-left-cap\.png/);
+    expect(set.platform!.center).toMatch(/area4-platform-center\.png/);
+    expect(set.platform!.right).toMatch(/area4-platform-right-cap\.png/);
     expect(set.wall.fill).toMatch(/area4-wall-fill\.png/);
     expect(set.wall.edge).toMatch(/area4-wall-inner-edge\.png/);
     expect(set.limbo!.barb).toMatch(/area4-limbo-hazard\.png/);
     // AREA 4's own copies: the staging room's files are separate, so the room cannot follow AREA 4.
-    for (const url of [set.platform.left, set.platform.center, set.platform.right]) expect(url).toMatch(/environment\/area4\//);
+    for (const url of [set.platform!.left, set.platform!.center, set.platform!.right]) expect(url).toMatch(/environment\/area4\//);
     expect(environmentKeys(4).left).not.toBe(environmentKeys('staging').left);
   });
 });
@@ -932,15 +940,102 @@ describe('AREA 4 gameplay', () => {
     expect(replaySignature(entered(g => g.jumpToStage(3, 3)))).toBe('b1c14c441b457f2baa84336f');
   });
 
-  it('never hands THE ABYSS AREA 4\'s set: the staging room keeps its own, the arena stays procedural', () => {
+  it('never hands THE ABYSS AREA 4\'s set: the staging room keeps its own, the arena its own', () => {
     // During the staging room the run's AREA is still 4 -- which is exactly why the scene asks for
     // 'staging' whenever the state is 'boss', before it ever reads the AREA.
     const g = new GameModel(); g.jumpToBoss();
     expect(g.state).toBe('boss');
     expect(g.stage.config.id).toBe(4);
-    expect(sceneSource).toContain("const artArea = m.state !== 'boss' ? m.stage.config.id : m.inBossArena ? 0 : 'staging';");
+    expect(sceneSource).toContain('const artArea = environmentArtArea(m);');
     expect(Object.keys(ENVIRONMENT_ART.staging!).sort()).toEqual(['platform', 'wall']);
     expect(limboArt('staging', () => true)).toBeNull();
     expect(replaySignature(entered(game => game.jumpToBoss()))).toBe('8e287a848cb425a8029c5f2c');
+  });
+});
+
+/**
+ * BOSS ARENA WALL ART: the fight's shaft walls from the BOSS wall images, its own copies under their own
+ * keys, so the walls run on unbroken from the staging room into the fight. Walls only: the arena lays
+ * no ledge, the seal is the staging room's and stays procedural, and nothing of the fight is touched.
+ */
+describe('the BOSS arena set', () => {
+  // output/environment-art-boss-v1/wall/ as delivered; the staging room's copies are the same bytes.
+  const BOSS_WALL: Record<string, [number, number, string]> = {
+    'boss-wall-fill.png': [32, 96, '99ec3a2da6d2d34d8b59d9f87698a9a9280699fcaf6aec9add65ebc808a043b9'],
+    'boss-wall-inner-edge.png': [4, 96, 'f02366e53fabdc98393c91b33ebae0318d29f3eef8db406828860b5151ff375f'],
+  };
+
+  it('ships the two BOSS wall images byte for byte, as its own copies, and nothing else', async () => {
+    const { readdirSync } = await import(/* @vite-ignore */ 'node:' + 'fs') as { readdirSync: (path: URL) => string[] };
+    expect(readdirSync(new URL('../src/assets/environment/boss/', import.meta.url)).sort()).toEqual(Object.keys(BOSS_WALL).sort());
+    for (const [file, [w, h, sha256]] of Object.entries(BOSS_WALL)) {
+      expect({ file, ...envPng('boss', file) }).toEqual({ file, size: [w, h], depth: 8, colour: 6, sha256 });
+      expect(envPng('staging', file).sha256).toBe(sha256);
+    }
+  });
+
+  it('carries the walls only, from src/assets/environment/boss, under its own keys', () => {
+    const set = ENVIRONMENT_ART.boss!;
+    expect(Object.keys(set)).toEqual(['wall']);
+    expect(set.platform).toBeUndefined();
+    expect(set.wall.fill).toMatch(/environment\/boss\/boss-wall-fill\.png/);
+    expect(set.wall.edge).toMatch(/environment\/boss\/boss-wall-inner-edge\.png/);
+    for (const url of Object.values(set.wall)) expect(url).not.toMatch(/(^|\/)(output|dist)\/|environment\/(staging|area4)\//);
+    expect(environmentLoads('boss', set)).toEqual([['env-boss-wall-fill', set.wall.fill], ['env-boss-wall-edge', set.wall.edge]]);
+    expect(environmentKeys('boss').fill).not.toBe(environmentKeys('staging').fill);
+    expect(environmentKeys('boss').fill).not.toBe(environmentKeys(4).fill);
+  });
+
+  it('draws no ledge in the arena: its parts are the walls alone, and they fall back when an image is missing', () => {
+    const { keys: _k, ...parts } = environmentParts('boss', () => true);
+    expect(parts).toEqual({ wall: true, platform: false, breakBlock: false, spike: false, conveyor: false });
+    const { keys: _m, ...missing } = environmentParts('boss', key => key !== 'env-boss-wall-edge');
+    expect(missing).toEqual({ wall: false, platform: false, breakBlock: false, spike: false, conveyor: false });
+    // Not even the staging room's or AREA 4's ledge images make it in.
+    const { keys: _s, ...ledges } = environmentParts('boss', key => key.includes('platform'));
+    expect(ledges.platform).toBe(false);
+  });
+
+  it('is chosen for the fight only: AREA -> AREA, staging and the reversal -> staging, fight -> boss', () => {
+    const area4 = new GameModel(false, seeded(10));
+    area4.jumpToStage(4, 2);
+    expect(environmentArtArea(area4)).toBe(4);
+    const game = new GameModel(false, seeded(10));
+    game.jumpToBoss();
+    expect(game.abyssStage).toBe('staging');
+    expect(environmentArtArea(game)).toBe('staging');
+    intoTheAbyss(game);
+    expect(game.abyssStage).toBe('inverting');
+    expect(environmentArtArea(game)).toBe('staging');
+    tick(game, ABYSS.hold + ABYSS.reverse + 0.1);
+    expect(game.abyssStage).toBe('fight');
+    expect(environmentArtArea(game)).toBe('boss');
+    // The arena lays no ledge for the set to draw.
+    expect(game.platforms).toEqual([]);
+    // A death or the clear is read off the AREA exactly as before this change.
+    expect(environmentArtArea({ state: 'over', inBossArena: true, stage: { config: { id: 4 } } })).toBe(4);
+    expect(environmentArtArea({ state: 'clear', inBossArena: false, stage: { config: { id: 4 } } })).toBe(4);
+    expect(sceneSource).toContain('const artArea = environmentArtArea(m);');
+  });
+
+  it('lays the walls on the boundary they always had: x 0-28 and 422-450, the right wall mirrored', () => {
+    expect(ENVIRONMENT_GEOMETRY.wall).toEqual({ fillWidth: 32, fillHeight: 96, edgeWidth: 4, shaftLeft: 28, shaftRight: 422 });
+    expect(WORLD.wall).toBe(28);
+    expect(WORLD.width - WORLD.wall).toBe(422);
+    // The fill's inner column against the shaft, for the arena's own reach (no side cave: cameraX 0).
+    expect(wallTileX(28 + 40)).toBe(28);
+    expect(sceneSource).toContain('rightFill.setTexture(art.fill).setPosition(offsetX + shaftRight, 0).setSize(width, 800).setTilePosition(tx, ty).setFlipX(true);');
+    expect(sceneSource).toContain('rightEdge.setTexture(art.edge).setPosition(offsetX + shaftRight, 0).setSize(edgeWidth, 800).setTilePosition(0, ty).setFlipX(true);');
+  });
+
+  it('keeps the seal the staging room\'s and procedural, and leaves the fight playing exactly as it did', () => {
+    expect(ENVIRONMENT_ART.staging!.breakBlock).toBeUndefined();
+    expect(ENVIRONMENT_ART.boss!.breakBlock).toBeUndefined();
+    const game = new GameModel();
+    game.jumpToBoss();
+    expect(game.platforms.filter(r => r.breakBlock).map(r => [r.x, r.y, r.width, r.breakBlock!.durability]))
+      .toEqual([[28, 1560, 79, 2], [107, 1560, 79, 2], [186, 1560, 78, 2], [264, 1560, 79, 2], [343, 1560, 79, 2]]);
+    expect(replaySignature(entered(g => g.jumpToBoss()))).toBe('8e287a848cb425a8029c5f2c');
+    expect(replaySignature(entered(g => { g.jumpToNimushi(); }))).toBe('26ccd33dc5a34ba1e36f989c');
   });
 });

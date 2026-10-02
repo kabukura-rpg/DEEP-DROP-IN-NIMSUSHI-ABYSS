@@ -27,7 +27,7 @@ import bossBackgroundUrl from '../../output/game-backgrounds-v2/boss-a.png?url';
 import area1SurfaceUrl from '../../output/game-backgrounds-v1/area1-surface-a.png?url';
 import { surfaceLayerAlphas, surfaceWeight } from '../render/surfaceBlend';
 import { ENEMY_ART_PLACEMENT, ENEMY_ART_URLS, enemyArtFlipX, enemyArtKey, enemyArtLook, type EnemyArtLook } from '../render/enemyArt';
-import { ENVIRONMENT_ART, ENVIRONMENT_GEOMETRY, environmentArtId, chamberDrawn, beltLayout, breakBlockFrame, breakBlockSlices, environmentKeys, environmentLoads, environmentParts, limboArt, limboLayout, reefArt, reefLayout, type ReefKeys, platformSlices, spikeFrame, spikeLayout, usesPlatformArt, wallTileX, wallTileY, type EnvironmentKeys } from '../render/environmentArt';
+import { ENVIRONMENT_ART, ENVIRONMENT_GEOMETRY, environmentArtArea, environmentArtId, chamberDrawn, beltLayout, breakBlockFrame, breakBlockSlices, environmentKeys, environmentLoads, environmentParts, limboArt, limboLayout, reefArt, reefLayout, type ReefKeys, platformSlices, spikeFrame, spikeLayout, usesPlatformArt, wallTileX, wallTileY, type EnvironmentKeys } from '../render/environmentArt';
 
 const BACKGROUND_URLS = {
   1: area1BackgroundUrl, 2: area2BackgroundUrl, 3: area3BackgroundUrl,
@@ -461,8 +461,9 @@ export class GameScene extends Phaser.Scene {
     this.graphics = this.worldBack;
     const theme = m.stage.config.theme;
     // The AREA's image set, if it has one and it loaded; otherwise the procedural look below.
-    // THE ABYSS: the staging room has its own set, from the moment it opens until the arena does.
-    const artArea = m.state !== 'boss' ? m.stage.config.id : m.inBossArena ? 0 : 'staging';
+    // THE ABYSS: the staging room has its own set, from the moment it opens until the arena does, and
+    // the arena has its own (walls only) for the fight.
+    const artArea = environmentArtArea(m);
     const parts = environmentParts(artArea, key => this.textures.exists(key));
     const envArt = parts.wall ? parts.keys : null;
     const ledgeArt = parts.platform ? parts.keys : null;
