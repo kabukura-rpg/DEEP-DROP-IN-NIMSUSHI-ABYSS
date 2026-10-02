@@ -1,4 +1,5 @@
 import { afterEach, describe, expect, it } from 'vitest';
+import audioSource from '../src/systems/Audio.ts?raw';
 import { AREA_MUSIC, MUSIC, TRACK_GAIN, musicTrack } from '../src/systems/Music';
 import { GameAudio } from '../src/systems/Audio';
 import { GameModel } from '../src/systems/GameModel';
@@ -103,9 +104,25 @@ describe('the FINAL BOSS track', () => {
 
 describe('per-track gain', () => {
   it('trims only pressure_in_the_deep, to 0.8 of the shared volume', () => {
-    expect(MUSIC.volume).toBe(0.07);
+    expect(MUSIC.volume).toBe(0.099);
     for (const area of [1, 2, 3, 4] as const) expect(TRACK_GAIN[area], String(area)).toBe(1);
     expect(TRACK_GAIN.boss).toBe(0.8);
-    expect(MUSIC.volume * TRACK_GAIN.boss).toBeCloseTo(0.056, 6);
+    expect(MUSIC.volume * TRACK_GAIN.boss).toBeCloseTo(0.0792, 6);
+  });
+
+  it('BGM VOLUME UP: every track +3 dB from 0.07 by one shared multiplier, the fades and the effects untouched', () => {
+    const before = 0.07;
+    const ratio = MUSIC.volume / before;
+    expect(ratio).toBeCloseTo(Math.SQRT2, 2);
+    expect(20 * Math.log10(ratio)).toBeCloseTo(3, 1);
+    // The same ratio for every track: the boss trim against the AREA tracks is what it was.
+    for (const track of [1, 2, 3, 4, 'boss'] as const) {
+      expect(MUSIC.volume * TRACK_GAIN[track] / (before * TRACK_GAIN[track]), String(track)).toBeCloseTo(ratio, 10);
+      expect(MUSIC.volume * TRACK_GAIN[track]).toBeLessThanOrEqual(1);
+    }
+    expect({ fadeOut: MUSIC.fadeOut, fadeIn: MUSIC.fadeIn }).toEqual({ fadeOut: 0.35, fadeIn: 0.5 });
+    // The sound effects keep their own gains: 0.035 for every voice, 0.018 for the combo chime.
+    expect(audioSource).toContain('gain.gain.setValueAtTime(0.035, ctx.currentTime);');
+    expect(audioSource).toContain('envelope.gain.setValueAtTime(0.018, ctx.currentTime);');
   });
 });

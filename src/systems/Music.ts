@@ -21,11 +21,16 @@ export type AreaTrack = 1 | 2 | 3 | 4 | 'boss';
 export const AREA_MUSIC: Record<AreaTrack, string> = {
   1: mossyMonolithUrl, 2: stoneVaultUrl, 3: sunkenMeridianUrl, 4: cavernousDriftUrl, boss: pressureInTheDeepUrl,
 };
-/** How loud the music sits under the effects, and how long an AREA change takes each way. */
-export const MUSIC = { volume: 0.07, fadeOut: 0.35, fadeIn: 0.5 } as const;
+/**
+ * How loud the music sits under the effects, and how long an AREA change takes each way.
+ * BGM VOLUME UP (Human Review: the music was too quiet): 0.07 -> 0.099, x1.414 (+3.0 dB) for every
+ * track at once. The sound effects have their own gains (GameAudio) and are not touched.
+ */
+export const MUSIC = { volume: 0.099, fadeOut: 0.35, fadeIn: 0.5 } as const;
 /**
  * Per-track trim on top of MUSIC.volume. pressure_in_the_deep's loud passages sit ~1.6 dB above the
- * AREA tracks', which left the shot only ~1.4 dB over it in the fight; 0.8 (~-1.9 dB) makes it 0.056.
+ * AREA tracks', which left the shot only ~1.4 dB over it in the fight; 0.8 (~-1.9 dB) makes it 0.0792
+ * (0.056 before BGM VOLUME UP raised every track by the same +3 dB, which keeps this ratio).
  */
 export const TRACK_GAIN: Record<AreaTrack, number> = { 1: 1, 2: 1, 3: 1, 4: 1, boss: 0.8 };
 
