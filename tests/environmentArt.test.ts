@@ -1,8 +1,12 @@
 import { describe, expect, it } from 'vitest';
 import {
   BLOCK_DROP_FROM, ENVIRONMENT_ART, ENVIRONMENT_GEOMETRY, beltLayout, breakBlockFrame, breakBlockSlices, environmentKeys, environmentLoads,
-  environmentParts, platformSlices, spikeFrame, spikeLayout, usesPlatformArt, wallTileX, wallTileY,
+  environmentParts, platformSlices, reefArt, reefLayout, spikeFrame, spikeLayout, usesPlatformArt, wallTileX, wallTileY,
 } from '../src/render/environmentArt';
+import { HAZARD_TYPES, spawnHazard } from '../src/data/hazards';
+import { AIR_CONTAINER_RULES } from '../src/data/structures';
+import { REEF_RULES } from '../src/systems/StageGenerator';
+import sceneSource from '../src/scenes/GameScene.ts?raw';
 import { BREAK_BLOCK_RULES, CONVEYOR_RULES, PLATFORM_THICKNESS, SPIKE_PLATFORM_RULES, breakBlockWidth, conveyorDirFor } from '../src/data/structures';
 import { StageGenerator } from '../src/systems/StageGenerator';
 import { entered, generationSignature, replaySignature } from './regressionSignature';
@@ -28,9 +32,9 @@ const seeded = (s: number) => () => { s = (Math.imul(s, 1664525) + 1013904223) >
 
 /** ENVIRONMENT ART: AREA 1's ledges and walls from images, on the geometry the model already has. */
 describe('the image sets', () => {
-  it('lists AREA 1, AREA 2 and THE ABYSS staging room only -- AREA 3, AREA 4 and the boss arena keep the procedural look', () => {
-    expect(Object.keys(ENVIRONMENT_ART)).toEqual(['1', '2', 'staging']);
-    for (const area of [0, 3, 4]) expect(ENVIRONMENT_ART[area]).toBeUndefined();
+  it('lists AREA 1, AREA 2, AREA 3 and THE ABYSS staging room only -- AREA 4 and the boss arena keep the procedural look', () => {
+    expect(Object.keys(ENVIRONMENT_ART)).toEqual(['1', '2', '3', 'staging']);
+    for (const area of [0, 4]) expect(ENVIRONMENT_ART[area]).toBeUndefined();
   });
 
   it('keeps AREA 1 exactly as it was: five images, no special surfaces', () => {
@@ -117,11 +121,12 @@ describe('the image sets', () => {
 
 describe('which parts draw from images', () => {
   const all = () => true;
-  it('AREA 1: ledges and walls only; AREA 2: every part; AREA 3, AREA 4 and the boss (0): nothing', () => {
+  it('AREA 1 and AREA 3: ledges and walls only; AREA 2: every part; AREA 4 and the boss (0): nothing', () => {
     const pick = (area: number) => { const { keys: _k, ...rest } = environmentParts(area, all); return rest; };
     expect(pick(1)).toEqual({ wall: true, platform: true, breakBlock: false, spike: false, conveyor: false });
     expect(pick(2)).toEqual({ wall: true, platform: true, breakBlock: true, spike: true, conveyor: true });
-    for (const area of [0, 3, 4]) expect(pick(area)).toEqual({ wall: false, platform: false, breakBlock: false, spike: false, conveyor: false });
+    expect(pick(3)).toEqual({ wall: true, platform: true, breakBlock: false, spike: false, conveyor: false });
+    for (const area of [0, 4]) expect(pick(area)).toEqual({ wall: false, platform: false, breakBlock: false, spike: false, conveyor: false });
   });
 
   it('falls back to procedural, part by part, when an image is missing or failed to load', () => {
@@ -479,5 +484,246 @@ describe('AREA 2 gameplay', () => {
   it('plays exactly as it did before the images', () => {
     expect(replaySignature(entered(g => g.jumpToStage(2, 1)))).toBe('95ebcdc29407d78501ec1a47');
     expect(replaySignature(entered(g => g.jumpToStage(2, 3)))).toBe('e5f4c74110599c23f5ad5b62');
+  });
+});
+
+/** Width, height, bit depth, colour type and SHA-256 of an image under src/assets/environment/<dir>. */
+const envPng = (dir: string, file: string) => {
+  const b = readFileSync(new URL(`../src/assets/environment/${dir}/${file}`, import.meta.url));
+  const u32 = (o: number) => ((b[o] << 24) | (b[o + 1] << 16) | (b[o + 2] << 8) | b[o + 3]) >>> 0;
+  return { size: [u32(16), u32(20)], depth: b[24], colour: b[25], sha256: createHash('sha256').update(b).digest('hex') };
+};
+
+describe('AREA 3 images', () => {
+  it('ships the eight reviewed images byte for byte, from src/assets, and nothing from output/', () => {
+    // Sizes and hashes of output/environment-art-area3-v1 as delivered (review/validation.json: 8 RGBA).
+    const expected: Record<string, [number, number, string]> = {
+      'area3-platform-left-cap.png': [8, 24, 'd7b0908be2b3836730519e5f53400575481087acd93eaf446058d11076f447a7'],
+      'area3-platform-center.png': [16, 24, 'a407121f9ee1c3002628bcf0b3921df3ece94334f8484815d338f9a2dc88e519'],
+      'area3-platform-right-cap.png': [8, 24, '666134634b91161c9f3f083099189d3fdb810ec7dfd37f280df4a1f7b09b8704'],
+      'area3-wall-fill.png': [32, 96, '8c6a0ea5f540740a089b0990a3fe1cc550a076f7c845bdc7c8da927dc16e5bf6'],
+      'area3-wall-inner-edge.png': [4, 96, '12031c930a5583c9ba550a899fd46db142ead018f204dd4fca8f2e23ad0653a2'],
+      'area3-reef-up.png': [9, 12, '28517acce47da965a29e7641241fe648c1fb4690a533b48fcbea9d6bf34095f7'],
+      'area3-reef-side.png': [18, 9, '0514e4b45e5a2ba808a63361b74a99d105261595dd24df03ec921fc7f1fa3332'],
+      'area3-reef-base.png': [4, 9, 'ee874ef45f3e46e3648915fd99c284f94533a0bba2ba5c07363199b177ec6899'],
+    };
+    for (const [file, [w, h, sha256]] of Object.entries(expected)) {
+      expect({ file, ...envPng('area3', file) }).toEqual({ file, size: [w, h], depth: 8, colour: 6, sha256 });
+    }
+    const loads = environmentLoads(3, ENVIRONMENT_ART[3]!);
+    expect(loads.map(([key]) => key)).toEqual([
+      'env-3-platform-left', 'env-3-platform-center', 'env-3-platform-right', 'env-3-wall-fill', 'env-3-wall-edge',
+      'env-3-reef-up', 'env-3-reef-side', 'env-3-reef-base',
+    ]);
+    for (const [, url] of loads) expect(url).not.toMatch(/(^|\/)(output|dist)\//);
+    const files = loads.map(([, url]) => url.match(/area3-[a-z0-9-]+\.png/)![0]).sort();
+    expect(files).toEqual(Object.keys(expected).sort());
+  });
+
+  it('maps each image to its part: a 3-slice, a wall, a reef -- no BREAK BLOCK, spike floor or belt', () => {
+    const set = ENVIRONMENT_ART[3]!;
+    expect(set.platform.left).toMatch(/area3\/area3-platform-left-cap\.png/);
+    expect(set.platform.center).toMatch(/area3\/area3-platform-center\.png/);
+    expect(set.platform.right).toMatch(/area3\/area3-platform-right-cap\.png/);
+    expect(set.wall.fill).toMatch(/area3\/area3-wall-fill\.png/);
+    expect(set.wall.edge).toMatch(/area3\/area3-wall-inner-edge\.png/);
+    expect(set.reef!.up).toMatch(/area3\/area3-reef-up\.png/);
+    expect(set.reef!.side).toMatch(/area3\/area3-reef-side\.png/);
+    expect(set.reef!.base).toMatch(/area3\/area3-reef-base\.png/);
+    expect([set.breakBlock, set.spike, set.conveyor]).toEqual([undefined, undefined, undefined]);
+    // Only AREA 3 carries a reef.
+    for (const area of [1, 2, 4, 0, 'staging'] as const) expect(reefArt(area, () => true)).toBeNull();
+    expect(reefArt(3, () => true)).toEqual({ up: 'env-3-reef-up', side: 'env-3-reef-side', base: 'env-3-reef-base' });
+  });
+});
+
+describe('AREA 3 ledges and walls', () => {
+  const { cap, surfaceRow } = ENVIRONMENT_GEOMETRY.platform;
+
+  it('uses the same 3-slice at every AREA 3 width: row 3 on the landing line, caps fixed, the center repeated', () => {
+    const widths = new Set<number>();
+    for (const plan of AREAS.find(a => a.id === 3)!.plans ?? []) { const [lo, hi] = plan.platformWidth; for (let w = lo; w <= hi; w++) widths.add(w); }
+    for (let w = 124; w <= 158; w++) widths.add(w); // the paired shelves' own ledgeWidth
+    expect(Math.min(...widths)).toBe(124);
+    expect(Math.max(...widths)).toBe(214);
+    for (const w of widths) for (const x of [28, 155, WORLD.width - WORLD.wall - w]) for (const y of [465, 821, 4667]) {
+      const at = platformSlices(x, y, w);
+      expect(at.top + surfaceRow).toBe(y);
+      expect(at.left).toEqual({ x, width: cap });
+      expect(at.right).toEqual({ x: x + w - cap, width: cap });
+      expect(at.center).toEqual({ x: x + cap, width: w - cap * 2 });
+    }
+    expect(envPng('area3', 'area3-platform-center.png').size).toEqual([ENVIRONMENT_GEOMETRY.platform.center, ENVIRONMENT_GEOMETRY.platform.height]);
+  });
+
+  it('draws every ledge an AREA 3 SECTION generates from the 3-slice, except its BREAK BLOCKs', () => {
+    const parts = environmentParts(3, () => true);
+    for (const n of [1, 2, 3] as const) {
+      const game = new GameModel(false, seeded(5 + n));
+      game.jumpToStage(3, n);
+      const rows = game.platforms.filter(f => f.id >= 0);
+      expect(rows.length).toBeGreaterThan(0);
+      for (const f of rows) expect(usesPlatformArt(f, parts)).toBe(!f.breakBlock);
+    }
+  });
+
+  it('keeps the wall boundaries at x 28 and x 422 with AREA 1\'s wall geometry', () => {
+    const { fillWidth, fillHeight, edgeWidth, shaftLeft, shaftRight } = ENVIRONMENT_GEOMETRY.wall;
+    expect(envPng('area3', 'area3-wall-fill.png').size).toEqual([fillWidth, fillHeight]);
+    expect(envPng('area3', 'area3-wall-inner-edge.png').size).toEqual([edgeWidth, fillHeight]);
+    expect([shaftLeft, shaftRight]).toEqual([28, 422]);
+    expect([WORLD.wall, WORLD.width - WORLD.wall]).toEqual([28, 422]);
+  });
+
+  it('falls back to procedural, part by part, when an AREA 3 image is missing', () => {
+    const keys = environmentKeys(3);
+    const without = (...missing: string[]) => { const { keys: _k, ...rest } = environmentParts(3, key => !missing.includes(key)); return rest; };
+    expect(without(keys.fill)).toMatchObject({ wall: false, platform: true });
+    expect(without(keys.center)).toMatchObject({ wall: true, platform: false });
+    for (const key of Object.values(keys.reef)) {
+      expect(reefArt(3, k => k !== key)).toBeNull();
+      expect(without(key)).toMatchObject({ wall: true, platform: true });
+    }
+    expect(reefArt(3, () => false)).toBeNull();
+    const { keys: _k, ...none } = environmentParts(3, () => false);
+    expect(none).toEqual({ wall: false, platform: false, breakBlock: false, spike: false, conveyor: false });
+  });
+});
+
+describe('AREA 3 reef', () => {
+  const { upWidth, upHeight, sideWidth, sideHeight, baseWidth } = ENVIRONMENT_GEOMETRY.reef;
+  type Box = Parameters<typeof reefLayout>[0];
+  const floor = (box: Box) => { const at = reefLayout(box)!; if (at.kind !== 'floor') throw new Error('not a floor patch'); return at; };
+  const wall = (box: Box) => { const at = reefLayout(box)!; if (at.kind !== 'wall') throw new Error('not a wall patch'); return at; };
+  const inside = (box: { x: number; y: number; width: number; height: number }, x: number, y: number, w: number, h: number) =>
+    x >= box.x && y >= box.y && x + w <= box.x + box.width && y + h <= box.y + box.height;
+
+  it('ships images at the sizes the layout is drawn to', () => {
+    expect(envPng('area3', 'area3-reef-up.png').size).toEqual([upWidth, upHeight]);
+    expect(envPng('area3', 'area3-reef-side.png').size).toEqual([sideWidth, sideHeight]);
+    expect(envPng('area3', 'area3-reef-base.png').size).toEqual([baseWidth, sideHeight]);
+  });
+
+  it('puts one shelf-end barb at every procedural tooth, 9px apart, the last cropped into the box', () => {
+    for (let width = REEF_RULES.ledgeMin; width <= REEF_RULES.ledgeMax; width++) {
+      const box = { x: 131, y: 600 - REEF_RULES.ledgeHeight, width, height: REEF_RULES.ledgeHeight, face: 'up' as const };
+      const at = floor(box);
+      const procedural: number[] = [];
+      for (let i = 0; i + 5 <= width; i += 9) procedural.push(box.x + i);
+      expect(at.barbs.map(b => b.x)).toEqual(procedural);
+      for (const b of at.barbs) {
+        // Bottom row on the box's bottom row (the shelf's landing line is the row under it).
+        expect(b.y + upHeight).toBe(600);
+        expect(b.width).toBeLessThanOrEqual(upWidth);
+        expect(inside(box, b.x, b.y, b.width, upHeight)).toBe(true);
+      }
+      // The images cover the box from its left edge to its right edge.
+      const last = at.barbs[at.barbs.length - 1];
+      expect(last.x + last.width).toBe(Math.min(box.x + width, last.x + upWidth));
+    }
+    // The two ends of the range: 26px is three barbs (the last 8px), 44px is five (the last 8px).
+    expect(floor({ x: 0, y: 0, width: 26, height: 12, face: 'up' }).barbs.map(b => b.width)).toEqual([9, 9, 8]);
+    expect(floor({ x: 0, y: 0, width: 44, height: 12, face: 'up' }).barbs.map(b => b.width)).toEqual([9, 9, 9, 9, 8]);
+  });
+
+  it('runs a wall patch\'s base down its whole height against the wall and a barb every other 9px, never past the box', () => {
+    for (let height = REEF_RULES.wallMin; height <= REEF_RULES.wallMax; height++) {
+      for (const [x, face] of [[WORLD.wall, 'right'], [WORLD.width - WORLD.wall - REEF_RULES.wallReach, 'left']] as const) {
+        const box = { x, y: 1000, width: REEF_RULES.wallReach, height, face };
+        const at = wall(box);
+        expect(at.flip).toBe(face === 'left');
+        // The base against the wall: x 28-32 on the left, x 418-422 on the right.
+        expect(at.base).toEqual({ x: face === 'right' ? 28 : 418, y: 1000, height });
+        expect(at.barbs.map(b => b.y - 1000)).toEqual(Array.from({ length: Math.floor((height - 5) / 18) + 1 }, (_, k) => k * 18));
+        for (const b of at.barbs) {
+          expect(b.x).toBe(face === 'right' ? 28 : 404);
+          expect(b.height).toBeLessThanOrEqual(sideHeight);
+          expect(inside(box, b.x, b.y, sideWidth, b.height)).toBe(true);
+        }
+        expect(inside(box, at.base.x, at.base.y, baseWidth, at.base.height)).toBe(true);
+      }
+    }
+    // A height that is not a multiple of 9 crops the last barb: 61px -> barbs at 0, 18, 36 and 54, the last 7px tall.
+    expect(wall({ x: 28, y: 0, width: 18, height: 61, face: 'right' }).barbs.map(b => b.height)).toEqual([9, 9, 9, 7]);
+  });
+
+  it('draws a reef from images only for reefBarb with AREA 3\'s reef loaded; anything else keeps its procedural drawing', () => {
+    const body = sceneSource.slice(sceneSource.indexOf('private hazard(h: Hazard'));
+    expect(body.indexOf("if (h.kind === 'reefBarb' && reef && this.reefArt(reef, h, y, offsetX)) return;"))
+      .toBeLessThan(body.indexOf('if (type.palette) { this.spikes('));
+    expect(sceneSource).toContain('const reef = reefArt(artArea, key => this.textures.exists(key));');
+    // A box the images cannot fit is left to the procedural reef.
+    expect(reefLayout({ x: 28, y: 0, width: 17, height: 80, face: 'right' })).toBeNull();
+    expect(reefLayout({ x: 28, y: 0, width: 30, height: 11, face: 'up' })).toBeNull();
+  });
+
+  it('leaves the reef\'s placement, collision and damage as they were', () => {
+    expect(REEF_RULES).toEqual({ corridor: 34, wallReach: 18, wallMin: 60, wallMax: 130, ledgeMin: 26, ledgeMax: 44, ledgeHeight: 12, ledgeClear: 62, airGap: 30, airSpan: 36 });
+    expect(HAZARD_TYPES.reefBarb).toEqual({ id: 'reefBarb', lethal: false, damageCause: 'spike', heat: 0, heatRadius: 0, silhouette: 'teeth', palette: { body: 0xf08a5d, tip: 0xffd2b8, base: 0x5a2a1c }, damage: 1 });
+    expect(AREAS.find(a => a.id === 3)!.plans!.map(p => p.reef)).toEqual([
+      { wall: 0.2, ledgeEnd: 0.25, air: 0.3 }, { wall: 0.35, ledgeEnd: 0.4, air: 0.5 }, { wall: 0.5, ledgeEnd: 0.55, air: 0.7 },
+    ]);
+    // One touch is one heart, through the ordinary damage path.
+    const game = new GameModel(false, seeded(21));
+    game.jumpToStage(3, 1);
+    const p = game.player;
+    game.hazards.push(spawnHazard('reefBarb', 99002, Math.round(p.x - 20), Math.round(p.y - 6), 40, 12, 0, 'up'));
+    p.invincible = 0;
+    const hp = game.hp;
+    game.step(1 / 120, 0, false);
+    expect(hp - game.hp).toBe(1);
+    expect(game.state).not.toBe('over');
+  });
+});
+
+describe('AREA 3 gameplay', () => {
+  it('keeps the water, the oxygen and the air exactly as they were', () => {
+    const area = AREAS.find(a => a.id === 3)!;
+    expect(area.water).toEqual({ gravity: 0.9, responsiveness: 11 });
+    expect(area.gimmicks).toEqual({ oxygen: true });
+    expect(area.plans!.map(p => [p.containerChance, p.maxOxygenGap, p.bubbleOffside])).toEqual([[0.44, 30, 0.35], [0.29, 40, 0.62], [0.21, 50, 0.85]]);
+    expect([AIR_CONTAINER_RULES.size, AIR_CONTAINER_RULES.bubblesMin, AIR_CONTAINER_RULES.bubblesMax, AIR_CONTAINER_RULES.recovery, AIR_CONTAINER_RULES.bubbleLife]).toEqual([34, 3, 5, 5, 4.2]);
+    const game = new GameModel();
+    game.jumpToStage(3, 1);
+    expect([game.oxygen.enabled, game.oxygen.max]).toEqual([true, 12]);
+  });
+
+  it('generates and plays exactly as it did before the images (golden values from d5883a6)', () => {
+    expect(generationSignature(3)).toBe('d748a265cf1731ae185f93cb');
+    expect(replaySignature(entered(g => g.jumpToStage(3, 1)))).toBe('d813e6aa01f3d20ed9e034a4');
+    expect(replaySignature(entered(g => g.jumpToStage(3, 2)))).toBe('27a110a2880f9aaaafae8a08');
+    expect(replaySignature(entered(g => g.jumpToStage(3, 3)))).toBe('b1c14c441b457f2baa84336f');
+  });
+});
+
+describe('outside AREA 3', () => {
+  it('AREA 4 and the BOSS fight stay procedural, and play as they did', () => {
+    for (const area of [4, 0] as const) {
+      const { keys: _k, ...parts } = environmentParts(area, () => true);
+      expect(parts).toEqual({ wall: false, platform: false, breakBlock: false, spike: false, conveyor: false });
+      expect(reefArt(area, () => true)).toBeNull();
+    }
+    expect(generationSignature(4)).toBe('f65a6d908865b5097e3fd899');
+    expect(replaySignature(entered(g => g.jumpToBoss()))).toBe('8e287a848cb425a8029c5f2c');
+  });
+
+  it('leaves the staging room\'s set exactly as it was at d5883a6: same five images, same keys, no reef', () => {
+    const expected: Record<string, string> = {
+      'area4-platform-center.png': '3988b35d328cf465927b3d4068bb98fc42926301cdf03d9ad478d031c3c3ff06',
+      'area4-platform-left-cap.png': '5886a4066858d1fa673795373a081d28ca75610a0c8056c6476ef4f0e01dacac',
+      'area4-platform-right-cap.png': 'd3098a669ba87df7427343179e20eb016f83f327f8e2edd54dc1ddbd791381b7',
+      'boss-wall-fill.png': '99ec3a2da6d2d34d8b59d9f87698a9a9280699fcaf6aec9add65ebc808a043b9',
+      'boss-wall-inner-edge.png': 'f02366e53fabdc98393c91b33ebae0318d29f3eef8db406828860b5151ff375f',
+    };
+    for (const [file, sha256] of Object.entries(expected)) expect(envPng('staging', file).sha256).toBe(sha256);
+    const set = ENVIRONMENT_ART.staging!;
+    expect(Object.keys(set).sort()).toEqual(['platform', 'wall']);
+    expect(environmentLoads('staging', set).map(([key]) => key)).toEqual([
+      'env-staging-platform-left', 'env-staging-platform-center', 'env-staging-platform-right', 'env-staging-wall-fill', 'env-staging-wall-edge',
+    ]);
+    const { keys: _k, ...parts } = environmentParts('staging', () => true);
+    expect(parts).toEqual({ wall: true, platform: true, breakBlock: false, spike: false, conveyor: false });
+    expect(reefArt('staging', () => true)).toBeNull();
+    expect(sceneSource).toContain("const artArea = m.state !== 'boss' ? m.stage.config.id : m.inBossArena ? 0 : 'staging';");
   });
 });

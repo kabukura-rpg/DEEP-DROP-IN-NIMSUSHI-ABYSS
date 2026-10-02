@@ -27,7 +27,7 @@ import bossBackgroundUrl from '../../output/game-backgrounds-v2/boss-a.png?url';
 import area1SurfaceUrl from '../../output/game-backgrounds-v1/area1-surface-a.png?url';
 import { surfaceLayerAlphas, surfaceWeight } from '../render/surfaceBlend';
 import { ENEMY_ART_PLACEMENT, ENEMY_ART_URLS, enemyArtFlipX, enemyArtKey, enemyArtLook, type EnemyArtLook } from '../render/enemyArt';
-import { ENVIRONMENT_ART, ENVIRONMENT_GEOMETRY, environmentArtId, chamberDrawn, beltLayout, breakBlockFrame, breakBlockSlices, environmentKeys, environmentLoads, environmentParts, platformSlices, spikeFrame, spikeLayout, usesPlatformArt, wallTileX, wallTileY, type EnvironmentKeys } from '../render/environmentArt';
+import { ENVIRONMENT_ART, ENVIRONMENT_GEOMETRY, environmentArtId, chamberDrawn, beltLayout, breakBlockFrame, breakBlockSlices, environmentKeys, environmentLoads, environmentParts, reefArt, reefLayout, type ReefKeys, platformSlices, spikeFrame, spikeLayout, usesPlatformArt, wallTileX, wallTileY, type EnvironmentKeys } from '../render/environmentArt';
 
 const BACKGROUND_URLS = {
   1: area1BackgroundUrl, 2: area2BackgroundUrl, 3: area3BackgroundUrl,
@@ -466,6 +466,7 @@ export class GameScene extends Phaser.Scene {
     const parts = environmentParts(artArea, key => this.textures.exists(key));
     const envArt = parts.wall ? parts.keys : null;
     const ledgeArt = parts.platform ? parts.keys : null;
+    const reef = reefArt(artArea, key => this.textures.exists(key));
     // Wide enough to still cover the view when it has slid sideways into a cave.
     // Keep the authored distance layer subdued so collision surfaces and attack tells stay foremost.
     this.rect(m.cameraX - 8, 0, 466 + Math.abs(m.cameraX) * 2, 800, 0x10191c, 0.16);
@@ -619,7 +620,7 @@ export class GameScene extends Phaser.Scene {
     }
     for (let i = ledges; i < this.ledgePool.length; i++) { const p = this.ledgePool[i]; p.left.setVisible(false); p.center.setVisible(false); p.right.setVisible(false); }
     for (const pool of this.overlayPool.values()) for (let i = pool.used; i < pool.items.length; i++) pool.items[i].setVisible(false);
-    for (const hazard of m.hazards) this.hazard(hazard, cam);
+    for (const hazard of m.hazards) this.hazard(hazard, cam, reef, g.x);
     for (const item of m.pickups) {
       if (item.taken) continue;
       const type = pickupType(item.kind), y = item.y - cam;
@@ -1378,10 +1379,11 @@ export class GameScene extends Phaser.Scene {
   }
 
   /** Lava reads as a solid bright slab; a vent shows its warning before it ever fires. */
-  private hazard(h: Hazard, cam: number) {
+  private hazard(h: Hazard, cam: number, reef: ReefKeys | null, offsetX: number) {
     const box = hazardBounds(h), y = box.y - cam;
     if (y > 820 || y + box.height < -20) return;
     const type = hazardType(h.kind);
+    if (h.kind === 'reefBarb' && reef && this.reefArt(reef, h, y, offsetX)) return;
     if (type.palette) { this.spikes(h, type.silhouette === 'stakes', type.palette, y); return; }
     if (h.kind === 'vent') {
       this.rect(h.x - 3, h.y - cam, h.width + 6, h.height, 0x4a3026);
@@ -1433,6 +1435,27 @@ export class GameScene extends Phaser.Scene {
       this.graphics.fillStyle(palette.body, 0.98).fillTriangle(mid, y, left, y + height, right, y + height);
       this.graphics.fillStyle(palette.tip, 0.95).fillTriangle(mid, y + (tall ? 1 : 0), mid - 2, y + height * 0.55, mid + 2, y + height * 0.55);
     }
+  }
+  /**
+   * A barbed reef patch from the AREA's images (render/environmentArt), every piece cropped to the
+   * patch's collision box. The images go on the spike-tooth overlay layer, under the pickups, air and
+   * enemies exactly as the procedural barbs are. Returns false -- and draws nothing -- when the box
+   * cannot take them, so the caller draws the procedural reef instead. Placement, collision and
+   * damage are the model's.
+   */
+  private reefArt(art: ReefKeys, h: Hazard, y: number, offsetX: number) {
+    const at = reefLayout({ ...h, y: Math.round(y) });
+    if (!at) return false;
+    const x = (v: number) => offsetX + Math.round(v);
+    if (at.kind === 'floor') {
+      const { upWidth, upHeight } = ENVIRONMENT_GEOMETRY.reef;
+      for (const barb of at.barbs) this.overlayImage('tooth', art.up).setPosition(x(barb.x), barb.y).setCrop(0, 0, Math.min(upWidth, barb.width), upHeight);
+      return true;
+    }
+    const { sideWidth, baseWidth } = ENVIRONMENT_GEOMETRY.reef;
+    this.overlayImage('tooth', art.base, true).setPosition(x(at.base.x), at.base.y).setSize(baseWidth, at.base.height).setTilePosition(0, 0).setFlipX(at.flip);
+    for (const barb of at.barbs) this.overlayImage('tooth', art.side).setPosition(x(barb.x), barb.y).setCrop(0, 0, sideWidth, barb.height).setFlipX(at.flip);
+    return true;
   }
   /** Void below, drifting rubble and a cracked sky for the collapsing realm. */
   private collapsed(theme: { rift?: { glow: number; void: number; debris: number } }, cam: number) {

@@ -3,10 +3,11 @@
  * changes collision; every piece is placed on the geometry the model already has.
  *
  * An AREA listed in ENVIRONMENT_ART draws its ordinary ledges and its shaft walls from these images;
- * an AREA that is not listed keeps the procedural look it has always had. AREA 1 and AREA 2 are
- * listed, and so is THE ABYSS's staging room ('staging': from the room's opening until the arena
+ * an AREA that is not listed keeps the procedural look it has always had. AREA 1, AREA 2 and AREA 3
+ * are listed, and so is THE ABYSS's staging room ('staging': from the room's opening until the arena
  * takes over), which has ledges and walls only -- the seal and the arena itself stay procedural. A set may also carry the AREA's special surfaces (AREA 2: BREAK BLOCK, spike floor, belt);
- * a piece it does not carry, or whose images did not load, keeps its procedural drawing.
+ * a piece it does not carry, or whose images did not load, keeps its procedural drawing. AREA 3
+ * carries its barbed reef (reefBarb).
  *
  *   platform  a 3-slice, 24px tall: left cap 8, center 16 (repeated, the last one cropped), right cap
  *             8. The image's row 3 is the ledge's landing line `y` (SURFACE_ROW).
@@ -21,6 +22,10 @@
  *   belt      a 14x8 tile repeated along the ledge's center under the sockets, scrolling the way
  *             the belt carries; a 10x12 arrow at the end it carries toward. Drawn for rightward,
  *             mirrored for leftward.
+ *   reef      a 9x12 barb per procedural tooth of a shelf-end patch (every 9px), its bottom row on the
+ *             patch's bottom; an 18x9 barb every other 9px down a wall patch over a 4x9 base strip
+ *             along its whole height, against the wall. The right wall is mirrored. Every image is
+ *             cropped to the patch's collision box: nothing is drawn outside it.
  */
 import area1PlatformLeftUrl from '../assets/environment/area1/platform-left-cap.png?url';
 import area1PlatformCenterUrl from '../assets/environment/area1/platform-center.png?url';
@@ -45,6 +50,14 @@ import area2SpikeWarning3Url from '../assets/environment/area2/area2-spike-warni
 import area2SpikeWarning4Url from '../assets/environment/area2/area2-spike-warning-4.png?url';
 import area2SpikeActiveUrl from '../assets/environment/area2/area2-spike-active.png?url';
 import area2SpikeEdgeUrl from '../assets/environment/area2/area2-spike-edge-mark.png?url';
+import area3PlatformLeftUrl from '../assets/environment/area3/area3-platform-left-cap.png?url';
+import area3PlatformCenterUrl from '../assets/environment/area3/area3-platform-center.png?url';
+import area3PlatformRightUrl from '../assets/environment/area3/area3-platform-right-cap.png?url';
+import area3WallFillUrl from '../assets/environment/area3/area3-wall-fill.png?url';
+import area3WallEdgeUrl from '../assets/environment/area3/area3-wall-inner-edge.png?url';
+import area3ReefUpUrl from '../assets/environment/area3/area3-reef-up.png?url';
+import area3ReefSideUrl from '../assets/environment/area3/area3-reef-side.png?url';
+import area3ReefBaseUrl from '../assets/environment/area3/area3-reef-base.png?url';
 import stagingPlatformLeftUrl from '../assets/environment/staging/area4-platform-left-cap.png?url';
 import stagingPlatformCenterUrl from '../assets/environment/staging/area4-platform-center.png?url';
 import stagingPlatformRightUrl from '../assets/environment/staging/area4-platform-right-cap.png?url';
@@ -52,6 +65,7 @@ import stagingWallFillUrl from '../assets/environment/staging/boss-wall-fill.png
 import stagingWallEdgeUrl from '../assets/environment/staging/boss-wall-inner-edge.png?url';
 import type { Platform } from '../systems/StageGenerator';
 import type { SpikePlatform } from '../data/structures';
+import type { Hazard } from '../data/hazards';
 
 export interface EnvironmentArtSet {
   platform: { left: string; center: string; right: string };
@@ -59,6 +73,7 @@ export interface EnvironmentArtSet {
   breakBlock?: { normal: string; reward: string; crack1: string; crack2: string };
   spike?: { socket: string; warning1: string; warning2: string; warning3: string; warning4: string; active: string; edge: string };
   conveyor?: { tile: string; arrow: string };
+  reef?: { up: string; side: string; base: string };
 }
 /** An AREA's number, or THE ABYSS's staging room. */
 export type EnvironmentArtId = number | 'staging';
@@ -79,6 +94,11 @@ export const ENVIRONMENT_ART: Partial<Record<EnvironmentArtId, EnvironmentArtSet
     },
     conveyor: { tile: area2BeltTileUrl, arrow: area2BeltArrowUrl },
   },
+  3: {
+    platform: { left: area3PlatformLeftUrl, center: area3PlatformCenterUrl, right: area3PlatformRightUrl },
+    wall: { fill: area3WallFillUrl, edge: area3WallEdgeUrl },
+    reef: { up: area3ReefUpUrl, side: area3ReefSideUrl, base: area3ReefBaseUrl },
+  },
   // The last room before NIMUSHI: the ABYSS's vertical seal stone for the walls (the BOSS set) and
   // AREA 4's fractured masonry for the ledges, which is the ledge the BOSS set was drawn to go with.
   staging: {
@@ -94,6 +114,7 @@ export const ENVIRONMENT_GEOMETRY = {
   block: { width: 80, height: 16 },
   spike: { socketWidth: 17, socketHeight: 8, toothWidth: 9, toothHeight: 18, edgeWidth: 6, edgeHeight: 8 },
   belt: { tileWidth: 14, tileHeight: 8, arrowWidth: 10, arrowHeight: 12 },
+  reef: { step: 9, upWidth: 9, upHeight: 12, sideWidth: 18, sideHeight: 9, baseWidth: 4 },
 } as const;
 
 /** Texture keys for an AREA's set. */
@@ -110,6 +131,7 @@ export const environmentKeys = (area: EnvironmentArtId) => ({
     edge: `env-${area}-spike-edge`,
   },
   belt: { tile: `env-${area}-belt-tile`, arrow: `env-${area}-belt-arrow` },
+  reef: { up: `env-${area}-reef-up`, side: `env-${area}-reef-side`, base: `env-${area}-reef-base` },
 });
 export type EnvironmentKeys = ReturnType<typeof environmentKeys>;
 
@@ -123,13 +145,14 @@ export function environmentLoads(area: EnvironmentArtId, set: EnvironmentArtSet)
   if (set.breakBlock) for (const k of ['normal', 'reward', 'crack1', 'crack2'] as const) loads.push([keys.block[k], set.breakBlock[k]]);
   if (set.spike) for (const k of ['socket', 'warning1', 'warning2', 'warning3', 'warning4', 'active', 'edge'] as const) loads.push([keys.spike[k], set.spike[k]]);
   if (set.conveyor) loads.push([keys.belt.tile, set.conveyor.tile], [keys.belt.arrow, set.conveyor.arrow]);
+  if (set.reef) for (const k of ['up', 'side', 'base'] as const) loads.push([keys.reef[k], set.reef[k]]);
   return loads;
 }
 
 /**
  * Which parts of an AREA's set can be drawn from images this frame: a part is used only when its
- * set carries it AND every one of its textures loaded. Anything else -- no set (AREA 3, AREA 4, the
- * boss arena), a part the set does not carry, an image that failed to load -- is procedural.
+ * set carries it AND every one of its textures loaded. Anything else -- no set (AREA 4, the boss
+ * arena), a part the set does not carry, an image that failed to load -- is procedural.
  */
 export function environmentParts(area: EnvironmentArtId, exists: (key: string) => boolean) {
   const set = ENVIRONMENT_ART[area];
@@ -188,6 +211,43 @@ const mod = (a: number, n: number) => ((a % n) + n) % n;
 export const wallTileX = (width: number) => mod(ENVIRONMENT_GEOMETRY.wall.fillWidth - mod(width, ENVIRONMENT_GEOMETRY.wall.fillWidth), ENVIRONMENT_GEOMETRY.wall.fillWidth);
 /** The vertical tile offset: the rock is fixed to the world, so it scrolls with the camera. */
 export const wallTileY = (cam: number) => mod(Math.round(cam), ENVIRONMENT_GEOMETRY.wall.fillHeight);
+
+/**
+ * The reef's texture keys when this set carries the reef and all three images loaded; otherwise null,
+ * and every barb is drawn procedurally. Kept out of environmentParts, whose parts are ledges and walls.
+ */
+export function reefArt(area: EnvironmentArtId, exists: (key: string) => boolean) {
+  const keys = environmentKeys(area).reef;
+  return ENVIRONMENT_ART[area]?.reef && Object.values(keys).every(exists) ? keys : null;
+}
+export type ReefKeys = NonNullable<ReturnType<typeof reefArt>>;
+
+/**
+ * Where a reef patch's images go, read off its collision box and never past it.
+ *
+ *   up (a shelf end)  one barb at every procedural tooth (x + i, i += 9 while i + 5 <= width), its
+ *                     bottom row on the box's bottom row; the last is cropped to the box's width.
+ *   left / right      the base strip down the whole box against the wall, and a barb in every other
+ *   (a wall)          9px slot from the top; the last is cropped to the box's height. A wall facing
+ *                     left (the right wall) is the left one mirrored.
+ *
+ * Null for a box the images do not fit (narrower or shorter than one image): it is drawn procedurally.
+ */
+export function reefLayout(h: Pick<Hazard, 'x' | 'y' | 'width' | 'height' | 'face'>) {
+  const { step, upWidth, upHeight, sideWidth, sideHeight, baseWidth } = ENVIRONMENT_GEOMETRY.reef;
+  if (h.face === 'left' || h.face === 'right') {
+    if (h.width < sideWidth || h.height < 1) return null;
+    const flip = h.face === 'left';
+    const side = flip ? h.x + h.width - sideWidth : h.x;
+    const barbs: { x: number; y: number; height: number }[] = [];
+    for (let i = 0; i + 5 <= h.height; i += step * 2) barbs.push({ x: side, y: h.y + i, height: Math.min(sideHeight, h.height - i) });
+    return { kind: 'wall' as const, flip, base: { x: flip ? h.x + h.width - baseWidth : h.x, y: h.y, height: h.height }, barbs };
+  }
+  if (h.height < upHeight) return null;
+  const barbs: { x: number; y: number; width: number }[] = [];
+  for (let i = 0; i + 5 <= h.width; i += step) barbs.push({ x: h.x + i, y: h.y + h.height - upHeight, width: Math.min(upWidth, h.width - i) });
+  return { kind: 'floor' as const, barbs };
+}
 
 /**
  * A BREAK BLOCK's images for its state, read straight off the model: the stone it was built as
