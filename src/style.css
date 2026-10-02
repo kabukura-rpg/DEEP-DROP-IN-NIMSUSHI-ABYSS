@@ -320,6 +320,14 @@
 }
 /* Not wide enough for the tablets either: the game alone, centred, with its brand line and status. */
 @media(min-width:651px) and (max-width:999px){.shell-record,.shell-notes,.shell-ruins{display:none}}
+/* CONTROL LAB between 651 and 999px: the PHYSICS TUNING panel still opens beside the game, so the
+   game and the panel are centred together instead of the game alone (never closer than 8px to the
+   left edge), and the panel narrows rather than run past the right edge. The game keeps its size. */
+@media(min-width:651px) and (max-width:999px){
+  .practice-active{--lab-left:max(8px,calc((100vw - var(--gw) - 230px) / 2))}
+  .practice-active .site-header,.practice-active .layout{margin-left:var(--lab-left);margin-right:auto}
+  .practice-active .physics-tuning{width:min(210px,calc(100vw - var(--lab-left) - var(--gw) - 28px))}
+}
 /* A short window: the game keeps its height first. The piers go, then the tablets. */
 @media(min-width:651px) and (max-height:699px){
   .shell-pier{display:none}

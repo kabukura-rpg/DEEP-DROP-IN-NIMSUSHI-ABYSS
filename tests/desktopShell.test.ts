@@ -115,5 +115,12 @@ describe('Concept A desktop shell', () => {
     expect(mobileCss).toContain('.header-right>span{display:none}');
     // The practice panel takes the right tablet's place rather than sitting on it.
     expect(css).toContain('.practice-active .shell-notes,.practice-active .shell-wing-right{visibility:hidden}');
+    // Between 651 and 999px CONTROL LAB centres the game and the PHYSICS TUNING panel together and
+    // narrows the panel, so it never runs past the right edge; the game keeps its size.
+    const lab = css.slice(css.indexOf('@media(min-width:651px) and (max-width:999px){\n  .practice-active'));
+    expect(lab).toContain('.practice-active{--lab-left:max(8px,calc((100vw - var(--gw) - 230px) / 2))}');
+    expect(lab).toContain('.practice-active .site-header,.practice-active .layout{margin-left:var(--lab-left);margin-right:auto}');
+    expect(lab).toContain('.practice-active .physics-tuning{width:min(210px,calc(100vw - var(--lab-left) - var(--gw) - 28px))}');
+    expect(lab.slice(0, lab.indexOf('\n}'))).not.toMatch(/--gh|--gw:|#game-frame|aspect-ratio/);
   });
 });
