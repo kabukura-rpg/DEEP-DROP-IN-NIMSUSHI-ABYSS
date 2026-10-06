@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import {
   BLOCK_DROP_FROM, ENVIRONMENT_ART, ENVIRONMENT_GEOMETRY, beltLayout, breakBlockFrame, breakBlockSlices, environmentArtArea, environmentArtId, environmentKeys, environmentLoads,
-  environmentParts, limboArt, limboLayout, platformSlices, reefArt, reefLayout, spikeFrame, spikeLayout, usesPlatformArt, wallTileX, wallTileY,
+  environmentParts, limboArt, limboLayout, collapseArt, collapseFrame, COLLAPSE_FRAMES, platformSlices, reefArt, reefLayout, spikeFrame, spikeLayout, usesPlatformArt, wallTileX, wallTileY,
 } from '../src/render/environmentArt';
 import { HAZARD_TYPES, spawnHazard } from '../src/data/hazards';
 import { AIR_CONTAINER_RULES } from '../src/data/structures';
@@ -14,6 +14,7 @@ import { WORLD } from '../src/data/balance';
 import { AREAS } from '../src/data/areas';
 import { GameModel } from '../src/systems/GameModel';
 import { intoTheAbyss, tick } from './nimushi';
+import { BREAK_RULES } from '../src/systems/BreakablePlatformSystem';
 import { ABYSS } from '../src/data/abyss';
 
 // PNG headers read straight off disk: Vitest serves image imports as URLs, not bytes. (No Node types here.)
@@ -753,15 +754,19 @@ describe('AREA 4 images', () => {
       expect({ file, ...envPng('area4', file) }).toEqual({ file, size: [w, h], depth: 8, colour: 6, sha256 });
     }
     const loads = environmentLoads(4, ENVIRONMENT_ART[4]!);
+    // WAS: these six and nothing else. AREA 4 COLLAPSING PLATFORM ART adds the collapsing ledges' nine
+    // after them (held byte for byte in 'AREA 4 collapsing ledge images'); the six are unchanged.
     expect(loads.map(([key]) => key)).toEqual([
       'env-4-platform-left', 'env-4-platform-center', 'env-4-platform-right', 'env-4-wall-fill', 'env-4-wall-edge', 'env-4-limbo-barb',
+      ...COLLAPSE_FRAMES.flatMap(frame => [`env-4-collapse-${frame}-left`, `env-4-collapse-${frame}-center`, `env-4-collapse-${frame}-right`]),
     ]);
     for (const [, url] of loads) expect(url).not.toMatch(/(^|\/)(output|dist)\//);
   });
 
   it('maps each image to its part, and carries no BREAK BLOCK, spike, belt, reef or crumble', () => {
     const set = ENVIRONMENT_ART[4]!;
-    expect(Object.keys(set).sort()).toEqual(['limbo', 'platform', 'wall']);
+    // WAS ['limbo', 'platform', 'wall']: the collapsing ledges' own set is AREA 4's fourth part.
+    expect(Object.keys(set).sort()).toEqual(['collapse', 'limbo', 'platform', 'wall']);
     expect(set.platform!.left).toMatch(/area4-platform-left-cap\.png/);
     expect(set.platform!.center).toMatch(/area4-platform-center\.png/);
     expect(set.platform!.right).toMatch(/area4-platform-right-cap\.png/);
@@ -1058,5 +1063,198 @@ describe('the BOSS arena set', () => {
       .toEqual([[28, 1560, 79, 2], [107, 1560, 79, 2], [186, 1560, 78, 2], [264, 1560, 79, 2], [343, 1560, 79, 2]]);
     expect(replaySignature(entered(g => g.jumpToBoss()))).toBe('8e287a848cb425a8029c5f2c');
     expect(replaySignature(entered(g => { g.jumpToNimushi(); }))).toBe('26ccd33dc5a34ba1e36f989c');
+  });
+});
+
+/**
+ * AREA 4 COLLAPSING PLATFORM ART. Every collapsing ledge of COLLAPSED REALM -- route ledge and debris --
+ * is drawn from its own 3-slice per state (output/environment-art-area4-collapse-v1, review/validation.json),
+ * on exactly the ordinary platform geometry; every permanent surface keeps the AREA's ordinary ledge.
+ * Drawing only: no position, width, collision, timing or state is touched.
+ */
+describe('AREA 4 collapsing ledge images', () => {
+  const COLLAPSE_PNG: Record<string, [number, number, string]> = {
+    'area4-collapse-stable-left-cap.png': [8, 24, 'ea1dac84f3694e4bfa77ab2c503bc9924cf639de6f0091450542713ac5527e95'],
+    'area4-collapse-stable-center.png': [16, 24, 'c0c526ea22e06ddd9559293f72425880a5f19dc94b7e7eb739c66cb5fc0412e8'],
+    'area4-collapse-stable-right-cap.png': [8, 24, 'd37f4393f67bf22b8cbda4b6726a8bd11e7b60a5ba863e84d3ed385b2b03514e'],
+    'area4-collapse-cracking-left-cap.png': [8, 24, 'a68681fb677e892048fc6f57fc76f29b0797eac541e2c44ca5bc216e2314ecce'],
+    'area4-collapse-cracking-center.png': [16, 24, 'd35689c527ced8731972226ee39b47da7a5bed1d67b6d94b4ae97b3587ec3aaf'],
+    'area4-collapse-cracking-right-cap.png': [8, 24, '21fe057b68078c0eabe20d6401903e5abab23763b2aeaef93f051ffd87bbc459'],
+    'area4-collapse-critical-left-cap.png': [8, 24, 'ffb25fb88a5d3af2474f5fd16eba4f76e44b89f4e8036071866e0bbb6cc121d3'],
+    'area4-collapse-critical-center.png': [16, 24, '8d6697b86d408fcc7d2169b9b3522399687867df5b2c6f31b7891a7553acf9fb'],
+    'area4-collapse-critical-right-cap.png': [8, 24, '39d5f4cf7f4b44ebfe63bb5ca2d00394be1ada39059b8aa8a6d55a4630112696'],
+  };
+  /** The alpha of one image, row by row (8-bit RGBA, non-interlaced: what the files are). */
+  const alpha = async (file: string) => {
+    const { inflateSync } = await import(/* @vite-ignore */ 'node:' + 'zlib') as { inflateSync: (b: Uint8Array) => Uint8Array };
+    const b = readFileSync(new URL(`../src/assets/environment/area4/${file}`, import.meta.url));
+    const u32 = (o: number) => ((b[o] << 24) | (b[o + 1] << 16) | (b[o + 2] << 8) | b[o + 3]) >>> 0;
+    const w = u32(16), h = u32(20), parts: Uint8Array[] = [];
+    for (let o = 8; o < b.length;) { const len = u32(o), type = String.fromCharCode(b[o + 4], b[o + 5], b[o + 6], b[o + 7]); if (type === 'IDAT') parts.push(b.slice(o + 8, o + 8 + len)); o += 12 + len; }
+    const joined = new Uint8Array(parts.reduce((n, q) => n + q.length, 0)); let at = 0; for (const q of parts) { joined.set(q, at); at += q.length; }
+    const raw = inflateSync(joined), stride = w * 4, px = new Uint8Array(w * h * 4);
+    for (let y = 0; y < h; y++) {
+      const ft = raw[y * (stride + 1)];
+      for (let i = 0; i < stride; i++) {
+        const v = raw[y * (stride + 1) + 1 + i], a = i >= 4 ? px[y * stride + i - 4] : 0, u = y ? px[(y - 1) * stride + i] : 0, c = i >= 4 && y ? px[(y - 1) * stride + i - 4] : 0;
+        const pa = Math.abs(u - c), pb = Math.abs(a - c), pc = Math.abs(a + u - 2 * c);
+        px[y * stride + i] = (v + [0, a, u, (a + u) >> 1, pa <= pb && pa <= pc ? a : pb <= pc ? u : c][ft]) & 255;
+      }
+    }
+    return Array.from({ length: h }, (_, y) => Array.from({ length: w }, (_, x) => px[(y * w + x) * 4 + 3]));
+  };
+  /**
+   * A ledge `width` wide as GameScene lays it (ledgeArt + platformSlices): the left cap, the center tiled
+   * from its column 0 and cut where the right cap begins, the right cap. Alpha, row by row, 0..width-1.
+   */
+  const compose = (left: number[][], center: number[][], right: number[][], width: number) => {
+    const { cap } = ENVIRONMENT_GEOMETRY.platform;
+    const at = platformSlices(0, 3, width);
+    return left.map((_, y) => Array.from({ length: width }, (_, x) =>
+      x < at.center.x ? left[y][x] : x < at.right.x ? center[y][(x - at.center.x) % 16] : right[y][x - at.right.x]).slice(0, Math.max(width, cap * 2)));
+  };
+
+  it('ships the nine reviewed images byte for byte, three states of three slices, from src/assets/environment/area4', () => {
+    expect(Object.keys(COLLAPSE_PNG)).toHaveLength(9);
+    for (const [file, [w, h, sha256]] of Object.entries(COLLAPSE_PNG)) {
+      expect({ file, ...envPng('area4', file) }).toEqual({ file, size: [w, h], depth: 8, colour: 6, sha256 });
+    }
+    const set = ENVIRONMENT_ART[4]!.collapse!;
+    expect(Object.keys(set)).toEqual(['stable', 'cracking', 'critical']);
+    for (const frame of COLLAPSE_FRAMES) {
+      expect(set[frame].left).toMatch(new RegExp(`area4-collapse-${frame}-left-cap\\.png`));
+      expect(set[frame].center).toMatch(new RegExp(`area4-collapse-${frame}-center\\.png`));
+      expect(set[frame].right).toMatch(new RegExp(`area4-collapse-${frame}-right-cap\\.png`));
+      for (const url of Object.values(set[frame])) expect(url).not.toMatch(/(^|\/)(output|dist)\//);
+    }
+    // Nine distinct keys, none shared with the AREA's ordinary ledge.
+    const keys = collapseArt(4, () => true)!;
+    const all = COLLAPSE_FRAMES.flatMap(frame => Object.values(keys[frame]));
+    expect(new Set(all).size).toBe(9);
+    for (const k of [environmentKeys(4).left, environmentKeys(4).center, environmentKeys(4).right]) expect(all).not.toContain(k);
+  });
+
+  it('maps each state to its own set, and draws nothing for a broken ledge', () => {
+    const ledge = { width: 48, breakable: true };
+    expect(collapseFrame({ ...ledge, state: 'stable' })).toBe('stable');
+    expect(collapseFrame({ ...ledge })).toBe('stable');
+    expect(collapseFrame({ ...ledge, state: 'cracking' })).toBe('cracking');
+    expect(collapseFrame({ ...ledge, state: 'critical' })).toBe('critical');
+    expect(collapseFrame({ ...ledge, state: 'broken' })).toBeNull();
+    // Not a collapsing ledge, or one whose look carries another rule: never the collapse image.
+    expect(collapseFrame({ width: 48 })).toBeNull();
+    expect(collapseFrame({ width: 48, breakable: false, state: 'stable' })).toBeNull();
+    expect(collapseFrame({ ...ledge, limboHazard: true })).toBeNull();
+    expect(collapseFrame({ ...ledge, breakBlock: { hits: 0, durability: 1, slot: 0, reward: false } })).toBeNull();
+    // Narrower than its two caps: procedural, as an ordinary ledge is.
+    expect(collapseFrame({ ...ledge, width: 15 })).toBeNull();
+    expect(collapseFrame({ ...ledge, width: 16 })).toBe('stable');
+    // The scene: the collapse image is chosen before the ordinary ledge, and a broken ledge is not drawn
+    // at all -- the model takes it out of `platforms` the step it breaks.
+    expect(sceneSource).toContain('const frame = collapse ? collapseFrame(f) : null;');
+    expect(sceneSource).toContain('if (collapse && frame) { this.ledgeArt(ledges++, collapse[frame], f.x, y, f.width, g.x); continue; }');
+    expect(sceneSource.indexOf('if (collapse && frame)')).toBeLessThan(sceneSource.indexOf('if (ledgeArt && usesPlatformArt(f, parts))'));
+    const g = new GameModel(false, seeded(7)); g.jumpToStage(4, 1);
+    const p = g.platforms.find(f => f.breakable)!;
+    p.state = 'broken';
+    g.step(1 / 120, 0, false);
+    expect(g.platforms.includes(p)).toBe(false);
+  });
+
+  it('draws every collapsing ledge of a real AREA 4 run from it, and every permanent surface from the ordinary ledge', () => {
+    let collapsing = 0, permanent = 0, exits = 0;
+    for (const section of [1, 2, 3] as const) for (let seed = 1; seed <= 6; seed++) {
+      const g = new GameModel(false, seeded(seed * 53)); g.jumpToStage(4, section);
+      const seen = new Set<number>();
+      // Down the whole SECTION to its exit floor, reading every surface while it is in the world.
+      for (let i = 0; i < 80 && !g.exit; i++) { g.player.invincible = 99; g.player.y = WORLD.startY + (i * 8) * WORLD.pixelsPerMeter; g.step(1 / 120, 0, false); check(g.platforms); }
+      check(g.platforms);
+      function check(platforms: typeof g.platforms) { for (const f of platforms) {
+        if (seen.has(f.id)) continue;
+        seen.add(f.id);
+        if (f.limboHazard) { expect(collapseFrame(f)).toBeNull(); continue; }
+        if (f.breakable) {
+          // Route ledge or debris: the collapse image, never the ordinary one.
+          expect(collapseFrame(f)).toBe(f.state === 'broken' ? null : f.state ?? 'stable');
+          expect(usesPlatformArt(f)).toBe(false);
+          collapsing++;
+        } else {
+          // The opening slab, a cave or chamber floor, the exit floor: the ordinary AREA 4 ledge.
+          expect(collapseFrame(f)).toBeNull();
+          expect(usesPlatformArt(f)).toBe(true);
+          permanent++;
+          if (f.width >= WORLD.width - WORLD.wall * 2 - 1) exits++;
+        }
+      } }
+    }
+    expect(collapsing).toBeGreaterThan(100);
+    expect(permanent).toBeGreaterThan(18);
+    expect(exits).toBeGreaterThan(0);
+    // The start slab of every SECTION is permanent.
+    const g = new GameModel(false, seeded(3)); g.jumpToStage(4, 2);
+    const start = g.platforms.find(f => f.id === -2)!;
+    expect(start.breakable).not.toBe(true);
+    expect(collapseFrame(start)).toBeNull();
+  });
+
+  it('lays every width from 16 to 160 -- the generated 26-66 included -- inside its collision, landing row 3 solid end to end', async () => {
+    const { cap, surfaceRow, height } = ENVIRONMENT_GEOMETRY.platform;
+    expect(surfaceRow).toBe(3);
+    for (const frame of COLLAPSE_FRAMES) {
+      const [l, c, r] = await Promise.all([alpha(`area4-collapse-${frame}-left-cap.png`), alpha(`area4-collapse-${frame}-center.png`), alpha(`area4-collapse-${frame}-right-cap.png`)]);
+      for (const img of [l, c, r]) {
+        expect(img).toHaveLength(height);
+        // Nothing above the landing line, and the landing line itself opaque.
+        for (const row of [0, 1, 2]) expect(img[row].every(a => a === 0)).toBe(true);
+        expect(img[surfaceRow].every(a => a === 255)).toBe(true);
+        expect(img.flat().every(a => a === 0 || a === 255)).toBe(true);
+      }
+      for (let width = cap * 2; width <= 160; width++) {
+        const at = platformSlices(100, 400, width);
+        // The slices tile x..x+width exactly: nothing outside the ledge's collision span.
+        expect({ width, left: at.left.x, end: at.right.x + cap, center: at.center.width }).toEqual({ width, left: 100, end: 100 + width, center: width - cap * 2 });
+        expect(at.top + surfaceRow).toBe(400);
+        const art = compose(l, c, r, width);
+        expect({ frame, width, solid: art[surfaceRow].length === width && art[surfaceRow].every(a => a === 255) }).toEqual({ frame, width, solid: true });
+      }
+    }
+    // Every width COLLAPSED REALM actually lays for a collapsing ledge is in that range.
+    const widths = new Set<number>();
+    for (const section of [1, 2, 3] as const) for (let seed = 1; seed <= 20; seed++) {
+      const gen = new StageGenerator(seeded(seed * 211), { plan: AREAS[3].plans![section - 1], enemyPool: AREAS[3].enemyPool, sectionLength: AREAS[3].sectionLength, breakable: true });
+      for (let chunk = 0; chunk < 14; chunk++) for (const p of gen.chunk(chunk).platforms.filter(f => f.breakable)) widths.add(p.width);
+    }
+    expect(Math.min(...widths)).toBeGreaterThanOrEqual(cap * 2);
+    expect(Math.min(...widths)).toBeLessThanOrEqual(30);
+    expect(Math.max(...widths)).toBeLessThanOrEqual(160);
+  });
+
+  it('falls back to the procedural collapsing ledge when any one of the nine is missing, and only AREA 4 has them', () => {
+    expect(collapseArt(4, () => true)).not.toBeNull();
+    for (const frame of COLLAPSE_FRAMES) for (const k of ['left', 'center', 'right'] as const) {
+      const missing = environmentKeys(4).collapse[frame][k];
+      expect(collapseArt(4, key => key !== missing)).toBeNull();
+    }
+    for (const area of [1, 2, 3, 'staging', 'boss', 0] as const) expect(collapseArt(area, () => true)).toBeNull();
+    // The procedural drawing is still there for it.
+    expect(sceneSource).toContain("const top = critical ? 0xf0a0b4 : cracking ? 0xe8d48a : f.breakable ? 0x9ad6c0 : 0xb9ef70;");
+  });
+
+  it('changes no geometry, collision, timing or generation: AREA 4 is c1495be\'s, bit for bit', () => {
+    expect(BREAK_RULES).toEqual({ delay: 0.65, criticalAt: 0.55, shatterRadius: 190 });
+    expect(ENVIRONMENT_GEOMETRY.platform).toEqual({ height: 24, cap: 8, center: 16, surfaceRow: 3 });
+    expect(generationSignature(4)).toBe('8fe90e6d6d4574a2e2ac7acf');
+    expect(replaySignature(entered(g => g.jumpToStage(4, 1)))).toBe('1e76e850a940069cb736eecc');
+    expect(replaySignature(entered(g => g.jumpToStage(4, 2)))).toBe('7c1a7fd3289e1612548469c1');
+    expect(replaySignature(entered(g => g.jumpToStage(4, 3)))).toBe('b168d91ecea486a17fcc5fbf');
+  });
+
+  it('never reaches THE ABYSS: the staging room and the arena carry no collapse image and lay no collapsing ledge', () => {
+    expect(ENVIRONMENT_ART.staging!.collapse).toBeUndefined();
+    expect(ENVIRONMENT_ART.boss!.collapse).toBeUndefined();
+    const g = new GameModel(); g.jumpToBoss();
+    expect(environmentArtArea(g)).toBe('staging');
+    expect(collapseArt(environmentArtArea(g), () => true)).toBeNull();
+    expect(g.platforms.some(f => f.breakable)).toBe(false);
   });
 });

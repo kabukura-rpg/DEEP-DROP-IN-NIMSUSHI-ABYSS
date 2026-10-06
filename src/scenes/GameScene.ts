@@ -27,7 +27,7 @@ import bossBackgroundUrl from '../../output/game-backgrounds-v2/boss-a.png?url';
 import area1SurfaceUrl from '../../output/game-backgrounds-v1/area1-surface-a.png?url';
 import { surfaceLayerAlphas, surfaceWeight } from '../render/surfaceBlend';
 import { ENEMY_ART_PLACEMENT, ENEMY_ART_URLS, enemyArtFlipX, enemyArtKey, enemyArtLook, type EnemyArtLook } from '../render/enemyArt';
-import { ENVIRONMENT_ART, ENVIRONMENT_GEOMETRY, environmentArtArea, environmentArtId, chamberDrawn, beltLayout, breakBlockFrame, breakBlockSlices, environmentKeys, environmentLoads, environmentParts, limboArt, limboLayout, reefArt, reefLayout, type ReefKeys, platformSlices, spikeFrame, spikeLayout, usesPlatformArt, wallTileX, wallTileY, type EnvironmentKeys } from '../render/environmentArt';
+import { ENVIRONMENT_ART, ENVIRONMENT_GEOMETRY, environmentArtArea, environmentArtId, chamberDrawn, beltLayout, breakBlockFrame, breakBlockSlices, environmentKeys, environmentLoads, environmentParts, collapseArt, collapseFrame, limboArt, limboLayout, reefArt, reefLayout, type ReefKeys, platformSlices, spikeFrame, spikeLayout, usesPlatformArt, wallTileX, wallTileY, type EnvironmentKeys } from '../render/environmentArt';
 
 const BACKGROUND_URLS = {
   1: area1BackgroundUrl, 2: area2BackgroundUrl, 3: area3BackgroundUrl,
@@ -469,6 +469,8 @@ export class GameScene extends Phaser.Scene {
     const ledgeArt = parts.platform ? parts.keys : null;
     const reef = reefArt(artArea, key => this.textures.exists(key));
     const limbo = limboArt(artArea, key => this.textures.exists(key));
+    // AREA 4's collapsing ledges, per state; null anywhere else, or if an image is missing (procedural).
+    const collapse = collapseArt(artArea, key => this.textures.exists(key));
     // Wide enough to still cover the view when it has slid sideways into a cave.
     // Keep the authored distance layer subdued so collision surfaces and attack tells stay foremost.
     this.rect(m.cameraX - 8, 0, 466 + Math.abs(m.cameraX) * 2, 800, 0x10191c, 0.16);
@@ -590,6 +592,10 @@ export class GameScene extends Phaser.Scene {
         continue;
       }
       if (f.limboHazard) { if (!(limbo && this.limboArt(limbo, f.x, y, f.width, g.x))) this.limboHazard(f.x, y, f.width); continue; }
+      // A ledge that will give way is drawn from its own state's 3-slice, on the same geometry as any
+      // ledge. A permanent surface never gets here (`collapseFrame` is null) and keeps `platform`.
+      const frame = collapse ? collapseFrame(f) : null;
+      if (collapse && frame) { this.ledgeArt(ledges++, collapse[frame], f.x, y, f.width, g.x); continue; }
       if (ledgeArt && usesPlatformArt(f, parts)) {
         this.ledgeArt(ledges++, ledgeArt, f.x, y, f.width, g.x);
         if (f.spikePlatform) this.spikeArt(ledgeArt, Math.round(f.x), Math.round(y), f.width, f.spikePlatform, g.x);
@@ -1000,7 +1006,7 @@ export class GameScene extends Phaser.Scene {
    * repeated between them and cropped at the last one, nothing stretched. Placed so the image's
    * surface row is the ledge's landing line `y` -- the collision is untouched and still the model's.
    */
-  private ledgeArt(index: number, art: ReturnType<typeof environmentKeys>, x: number, y: number, width: number, offsetX: number) {
+  private ledgeArt(index: number, art: { left: string; center: string; right: string }, x: number, y: number, width: number, offsetX: number) {
     let piece = this.ledgePool[index];
     if (!piece) {
       piece = {

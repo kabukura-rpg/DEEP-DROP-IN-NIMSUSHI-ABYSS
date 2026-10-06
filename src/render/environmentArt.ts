@@ -27,6 +27,10 @@
  *             patch's bottom; an 18x9 barb every other 9px down a wall patch over a 4x9 base strip
  *             along its whole height, against the wall. The right wall is mirrored. Every image is
  *             cropped to the patch's collision box: nothing is drawn outside it.
+ *   collapse  AREA 4 only: a collapsing ledge's own 3-slice, one per state it shows -- stable,
+ *             cracking, critical -- on exactly the ordinary platform geometry above (caps 8, center 16
+ *             repeated and cropped, 24px tall, surface row 3). `broken` has no image: the ledge is gone.
+ *             Permanent surfaces (the opening slab, cave and chamber floors, the exit floor) keep `platform`.
  *   limbo     a 13x24 barb repeated at the procedural barbs' 13px pitch across the row's whole width:
  *             as many whole ones as fit, centred, and the leftover split evenly between a cropped barb
  *             at each end, so the barbs reach both ends of the row and never past them. Row 14 (the
@@ -69,6 +73,15 @@ import area4PlatformRightUrl from '../assets/environment/area4/area4-platform-ri
 import area4WallFillUrl from '../assets/environment/area4/area4-wall-fill.png?url';
 import area4WallEdgeUrl from '../assets/environment/area4/area4-wall-inner-edge.png?url';
 import area4LimboBarbUrl from '../assets/environment/area4/area4-limbo-hazard.png?url';
+import area4CollapseStableLeftUrl from '../assets/environment/area4/area4-collapse-stable-left-cap.png?url';
+import area4CollapseStableCenterUrl from '../assets/environment/area4/area4-collapse-stable-center.png?url';
+import area4CollapseStableRightUrl from '../assets/environment/area4/area4-collapse-stable-right-cap.png?url';
+import area4CollapseCrackingLeftUrl from '../assets/environment/area4/area4-collapse-cracking-left-cap.png?url';
+import area4CollapseCrackingCenterUrl from '../assets/environment/area4/area4-collapse-cracking-center.png?url';
+import area4CollapseCrackingRightUrl from '../assets/environment/area4/area4-collapse-cracking-right-cap.png?url';
+import area4CollapseCriticalLeftUrl from '../assets/environment/area4/area4-collapse-critical-left-cap.png?url';
+import area4CollapseCriticalCenterUrl from '../assets/environment/area4/area4-collapse-critical-center.png?url';
+import area4CollapseCriticalRightUrl from '../assets/environment/area4/area4-collapse-critical-right-cap.png?url';
 import stagingPlatformLeftUrl from '../assets/environment/staging/area4-platform-left-cap.png?url';
 import stagingPlatformCenterUrl from '../assets/environment/staging/area4-platform-center.png?url';
 import stagingPlatformRightUrl from '../assets/environment/staging/area4-platform-right-cap.png?url';
@@ -89,7 +102,12 @@ export interface EnvironmentArtSet {
   conveyor?: { tile: string; arrow: string };
   reef?: { up: string; side: string; base: string };
   limbo?: { barb: string };
+  /** A collapsing ledge's 3-slice for each state it is seen in (AREA 4). See `collapseArt`. */
+  collapse?: Record<CollapseFrame, { left: string; center: string; right: string }>;
 }
+/** The collapse states that have an image. `broken` has none: a broken ledge is not drawn at all. */
+export type CollapseFrame = 'stable' | 'cracking' | 'critical';
+export const COLLAPSE_FRAMES: readonly CollapseFrame[] = ['stable', 'cracking', 'critical'];
 /** An AREA's number, THE ABYSS's staging room, or the FINAL BOSS's arena. */
 export type EnvironmentArtId = number | 'staging' | 'boss';
 /** The id of an ENVIRONMENT_ART entry, from its object key. */
@@ -128,6 +146,13 @@ export const ENVIRONMENT_ART: Partial<Record<EnvironmentArtId, EnvironmentArtSet
     platform: { left: area4PlatformLeftUrl, center: area4PlatformCenterUrl, right: area4PlatformRightUrl },
     wall: { fill: area4WallFillUrl, edge: area4WallEdgeUrl },
     limbo: { barb: area4LimboBarbUrl },
+    // The collapsing ledges -- every route ledge and piece of debris of COLLAPSED REALM -- from their own
+    // images, so a ledge that will go never looks like one that stays.
+    collapse: {
+      stable: { left: area4CollapseStableLeftUrl, center: area4CollapseStableCenterUrl, right: area4CollapseStableRightUrl },
+      cracking: { left: area4CollapseCrackingLeftUrl, center: area4CollapseCrackingCenterUrl, right: area4CollapseCrackingRightUrl },
+      critical: { left: area4CollapseCriticalLeftUrl, center: area4CollapseCriticalCenterUrl, right: area4CollapseCriticalRightUrl },
+    },
   },
   // The last room before NIMUSHI: the ABYSS's vertical seal stone for the walls (the BOSS set) and
   // AREA 4's fractured masonry for the ledges, which is the ledge the BOSS set was drawn to go with.
@@ -170,6 +195,9 @@ export const environmentKeys = (area: EnvironmentArtId) => ({
   belt: { tile: `env-${area}-belt-tile`, arrow: `env-${area}-belt-arrow` },
   reef: { up: `env-${area}-reef-up`, side: `env-${area}-reef-side`, base: `env-${area}-reef-base` },
   limbo: { barb: `env-${area}-limbo-barb` },
+  collapse: Object.fromEntries(COLLAPSE_FRAMES.map(frame => [frame, {
+    left: `env-${area}-collapse-${frame}-left`, center: `env-${area}-collapse-${frame}-center`, right: `env-${area}-collapse-${frame}-right`,
+  }])) as Record<CollapseFrame, { left: string; center: string; right: string }>,
 });
 export type EnvironmentKeys = ReturnType<typeof environmentKeys>;
 
@@ -184,6 +212,7 @@ export function environmentLoads(area: EnvironmentArtId, set: EnvironmentArtSet)
   if (set.conveyor) loads.push([keys.belt.tile, set.conveyor.tile], [keys.belt.arrow, set.conveyor.arrow]);
   if (set.reef) for (const k of ['up', 'side', 'base'] as const) loads.push([keys.reef[k], set.reef[k]]);
   if (set.limbo) loads.push([keys.limbo.barb, set.limbo.barb]);
+  if (set.collapse) for (const frame of COLLAPSE_FRAMES) for (const k of ['left', 'center', 'right'] as const) loads.push([keys.collapse[frame][k], set.collapse[frame][k]]);
   return loads;
 }
 
@@ -259,6 +288,29 @@ export function reefArt(area: EnvironmentArtId, exists: (key: string) => boolean
   return ENVIRONMENT_ART[area]?.reef && Object.values(keys).every(exists) ? keys : null;
 }
 export type ReefKeys = NonNullable<ReturnType<typeof reefArt>>;
+
+/**
+ * A collapsing ledge's texture keys, per state, when this set carries them and all nine loaded;
+ * otherwise null, and every collapsing ledge keeps its procedural drawing. Only AREA 4 carries them:
+ * the staging room and the arena have none, so nothing there can ever be drawn as collapsing.
+ */
+export function collapseArt(area: EnvironmentArtId, exists: (key: string) => boolean) {
+  const keys = environmentKeys(area).collapse;
+  return ENVIRONMENT_ART[area]?.collapse && COLLAPSE_FRAMES.every(frame => Object.values(keys[frame]).every(exists)) ? keys : null;
+}
+export type CollapseKeys = NonNullable<ReturnType<typeof collapseArt>>;
+
+/**
+ * Which collapse image a ledge is drawn with: its own state, read from the model -- nothing here keeps
+ * a timer. Null for anything that is not a collapsing ledge (a permanent surface keeps `platform`),
+ * for a `broken` one (not drawn), for one too narrow for its two caps, and for a ledge that is also
+ * something else (a BREAK BLOCK, a LIMBO row, a spike floor), whose look carries that rule instead.
+ */
+export function collapseFrame(f: Partial<Pick<Platform, 'breakBlock' | 'limboHazard' | 'spikePlatform' | 'breakable' | 'state'>> & { width: number }): CollapseFrame | null {
+  if (!f.breakable || f.breakBlock || f.limboHazard || f.spikePlatform || f.width < ENVIRONMENT_GEOMETRY.platform.cap * 2) return null;
+  const state = f.state ?? 'stable';
+  return state === 'broken' ? null : state;
+}
 
 /** The LIMBO barb's texture key when this set carries it and it loaded; otherwise null (procedural). */
 export function limboArt(area: EnvironmentArtId, exists: (key: string) => boolean) {
