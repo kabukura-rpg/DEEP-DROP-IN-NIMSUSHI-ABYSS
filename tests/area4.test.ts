@@ -12,14 +12,17 @@ import { LIMBO_HAZARD_RULES } from '../src/data/structures';
 import { WORLD, BALANCE } from '../src/data/balance';
 import { SAFE_ZONE_RULES, type SafeZone } from '../src/data/safeZone';
 import type { Hazard } from '../src/data/hazards';
+import { LIMBO_FALLING_CITY, LIMBO_RULES, LIMBO_VOID, LIMBO_WAY_IN, limboCanReach, tubeTouches, type LimboMotif, type LimboTube } from '../src/data/limboTerrain';
+import { activeRun, HUMAN, lineRun, passiveRun, straightRun } from './limboBot';
+import { hazardCoverage, limboSection, longestClearFall } from './limboMetrics';
 
 /**
  * AREA 4 carries the LIMBO role: there is nowhere safe to stand.
  *
- * Every ledge is a SPIKE PLATFORM, so touching down buys a reload and a settled chain at the price of
- * having to leave straight away. Nothing in the enemy pool can be stomped, so the gunboots are the
- * only way through them. Floating scenery is what refills CHARGE, which makes the AREA a loop of
- * shoot, bounce, shoot -- and the thing these tests exist to hold is that the loop can never run dry.
+ * AREA 4 / LIMBO GAMEPLAY REBUILD (limboTerrain.ts, StageGenerator.limboRow): small collapsing rubble,
+ * barbed rubble around and under it, bodies laid by role, and no column of the shaft that can simply be
+ * fallen down. Nothing in the enemy pool can be stomped, so the gunboots are the only way through them.
+ * Ledges and floating scenery refill CHARGE -- and the loop can never run dry.
  */
 const seeded = (seed: number) => () => { seed = (Math.imul(seed, 1664525) + 1013904223) >>> 0; return seed / 4294967296; };
 const area4 = areaConfig(4);
@@ -47,8 +50,12 @@ function section(sectionId: SectionId, seed: number) {
   }
   /** The ledges a run actually meets: not chamber floors, not gate blocks. */
   const ledges = platforms.filter(p => !p.breakBlock && p.safeZone === undefined);
-  return { platforms, ledges, hazards, zones, doodads, enemies };
+  return { generator, platforms, ledges, hazards, zones, doodads, enemies };
 }
+/** Every line the generator promised a SECTION, read by cast (it is no production API). */
+const linesOf = (generator: StageGenerator) => (generator as unknown as { limboLines: LimboTube[] }).limboLines;
+/** A SECTION's route ledges: landable, not debris, not a cave or chamber floor. */
+const routeOf = (shaft: ReturnType<typeof section>) => shaft.ledges.filter(p => !p.limboHazard && p.shaped !== 'debris');
 function bare(sectionId: SectionId = 1, seed = 41) {
   const game = new GameModel(false, seeded(seed));
   game.jumpToStage(4, sectionId);
@@ -58,37 +65,42 @@ function bare(sectionId: SectionId = 1, seed = 41) {
 }
 
 /**
- * STAGE GENERATION v2 REBUILT THIS AREA (limboTerrain.ts). The tests below used to hold "LIMBO has no
- * ground": every row a barb block, no landable ledge past 4-1's opening, no collapse, doodads as the
- * only reload. That design concentrated the AREA's whole difficulty in one mechanic (75-86% of the
- * damage a bot took, 2.9 hearts in 4-1 alone) and PHASE 7C-1's footage showed Downwell's Limbo as
- * landable rubble. What is held now is the rebuilt AREA's own guarantees.
+ * STAGE GENERATION v2 rebuilt this AREA once (rubble ledges, barbs only beside the route); human review
+ * of ab49ed2 then found it easier than AREA 1 -- 64-112px ledges, 2-8 barbs a SECTION, a straight drop
+ * that worked. AREA 4 / LIMBO GAMEPLAY REBUILD replaces it. WAS here: "lays landable rubble in every
+ * SECTION, with barbs only as debris beside the route" -- bands grouped by height, barbs only at the
+ * route's own height. Barbed rubble now hangs at any height in the band; what is held is the rebuilt
+ * AREA's own promise.
  */
 describe('COLLAPSED REALM is broken rubble to land on', () => {
-  it('lays landable rubble in every SECTION, with barbs only as debris beside the route', () => {
+  it('lays small rubble to land on every band, from its own builder, with barbed rubble all around it', () => {
+    const specs = [LIMBO_WAY_IN, LIMBO_FALLING_CITY, LIMBO_VOID];
     for (const sectionId of SECTIONS) {
+      const spec = specs[sectionId - 1];
+      expect(plan(sectionId).limbo).toBe(spec);
       expect(plan(sectionId).limboHazardChance ?? 0).toBe(0);
-      expect(plan(sectionId).pieces).toBeDefined();
-      let landable = 0, barbs = 0;
-      for (let seed = 1; seed <= SEEDS; seed++) {
+      expect(plan(sectionId).pieces).toBeUndefined();
+      let landable = 0, barbs = 0, bands = 0;
+      for (let seed = 1; seed <= 30; seed++) {
         const shaft = section(sectionId, seed * 613);
-        const bands = new Map<number, RoutePlatform[]>();
-        for (const p of shaft.ledges) bands.set(Math.round(p.y), [...(bands.get(Math.round(p.y)) ?? []), p]);
-        for (const band of bands.values()) {
-          // The route ledge -- laid first in its band -- is never a barb, and no band is barbs alone.
-          expect({ sectionId, seed, routeBarb: band[0].limboHazard === true }).toEqual({ sectionId, seed, routeBarb: false });
-          for (const b of band.filter(p => p.limboHazard)) {
-            const covers = band[0].exitX > b.x && band[0].exitX < b.x + b.width;
-            expect({ sectionId, seed, covers }).toEqual({ sectionId, seed, covers: false });
-          }
+        const route = routeOf(shaft), debris = shaft.ledges.filter(p => p.shaped === 'debris');
+        // Small: the route ledge inside its SECTION's own range, debris smaller still. Nothing like the
+        // 64-112px of before, and nothing wider than a few bodies.
+        for (const p of route) expect({ sectionId, seed, w: p.width >= spec.ledgeWidth[0] && p.width <= spec.ledgeWidth[1] }).toEqual({ sectionId, seed, w: true });
+        for (const p of debris) expect({ sectionId, seed, w: p.width >= spec.debrisWidth[0] && p.width <= spec.debrisWidth[1] }).toEqual({ sectionId, seed, w: true });
+        // Every promised line ends on a ledge there is, and no barb is a landing.
+        for (const t of linesOf(shaft.generator).filter(l => l.y1 <= WORLD.startY + SECTION_PIXELS)) {
+          const on = shaft.platforms.some(p => !p.limboHazard && Math.abs(p.y - t.y1) < 1 && t.x1 + 9 > p.x && t.x1 - 9 < p.x + p.width);
+          expect({ sectionId, seed, y: t.y1, on }).toEqual({ sectionId, seed, y: t.y1, on: true });
         }
+        bands += route.length;
         barbs += shaft.ledges.filter(p => p.limboHazard).length;
-        landable += shaft.ledges.filter(p => !p.limboHazard).length;
+        landable += route.length + debris.length;
       }
       const screens = SECTION_PIXELS / WORLD.height;
-      // Somewhere to land again -- one to three and a half ledges a screen -- and barbs still there.
-      expect({ sectionId, ok: landable / SEEDS / screens >= 1 && landable / SEEDS / screens <= 3.5 }).toEqual({ sectionId, ok: true });
-      expect({ sectionId, any: barbs > 0 }).toEqual({ sectionId, any: true });
+      // Somewhere to land, every band -- 1.5 to 3.5 ledges a screen -- and more barbed rubble than ledges.
+      expect({ sectionId, ok: landable / 30 / screens >= 1.5 && landable / 30 / screens <= 3.5 }).toEqual({ sectionId, ok: true });
+      expect({ sectionId, barbsPerBand: barbs / bands >= 1.5 }).toEqual({ sectionId, barbsPerBand: true });
     }
   });
 
@@ -283,25 +295,6 @@ describe('LIMBO reloads through doodads and a chamber, and nothing else', () => 
         const { shaft, ys } = reloadSources(sectionId, seed);
         expect({ sectionId, seed, sources: ys.length > 0 }).toEqual({ sectionId, seed, sources: true });
         expect({ sectionId, seed, chamber: shaft.zones.length >= 1 }).toEqual({ sectionId, seed, chamber: true });
-      }
-    }
-  });
-
-  it('makes every band of the descent landable, reachable at walking speed from the band above', () => {
-    // No band is barbs alone, and the route ledge is always reachable without a shot: nothing in the
-    // AREA asks for the gunboots' recoil to be crossed, however much it helps.
-    for (const sectionId of SECTIONS) {
-      for (let seed = 1; seed <= SEEDS; seed++) {
-        const shaft = section(sectionId, seed * 271);
-        const bands = [...new Set(shaft.ledges.map(p => Math.round(p.y)))].sort((a, b) => a - b);
-        let above: RoutePlatform[] = [];
-        for (const y of bands) {
-          const here = shaft.ledges.filter(p => Math.round(p.y) === y);
-          const landings = here.filter(p => !p.limboHazard);
-          expect({ sectionId, seed, y, landable: landings.length > 0 }).toEqual({ sectionId, seed, y, landable: true });
-          if (above.length) expect({ sectionId, seed, y, reach: above.every(from => canReachPlatform(from, landings[0])) }).toEqual({ sectionId, seed, y, reach: true });
-          above = landings;
-        }
       }
     }
   });
@@ -558,41 +551,108 @@ describe('COLLAPSED REALM: STAGE GENERATION v2 guarantees', () => {
     return ys.map(y => shaft.ledges.filter(p => Math.round(p.y) === y));
   };
 
-  it('keeps every barb off the way into the landing and the way off it', () => {
+  // WAS: 'keeps every barb off the way into the landing and the way off it' -- a 30px rectangle from the
+  // band above's exits to the landing, in which no barb at the route's height could sit. The rebuilt
+  // AREA promises a LINE instead (limboTerrain.ts `tubeX`): the fall a human steers from the way off to
+  // the landing. No barb anywhere in the SECTION -- this band's, the next band's, any -- may touch one.
+  it('keeps every barb off every line it promises, and off the walk along each ledge to its way off', () => {
     let checked = 0;
-    for (const sectionId of SECTIONS) for (let seed = 1; seed <= SEEDS; seed++) {
-      const bands = bandsOf(section(sectionId, seed * 919));
-      for (let i = 1; i < bands.length; i++) {
-        const route = bands[i][0], above = bands[i - 1].filter(p => !p.limboHazard);
-        const exits = above.map(p => p.exitX);
-        const left = Math.min(...exits, route.safeX) - 30, right = Math.max(...exits, route.safeX) + 30;
-        for (const b of bands[i].filter(p => p.limboHazard)) {
-          checked++;
-          const onTheWayIn = b.x < right && b.x + b.width > left;
-          expect({ sectionId, seed, onTheWayIn }).toEqual({ sectionId, seed, onTheWayIn: false });
-        }
+    for (const sectionId of SECTIONS) for (let seed = 1; seed <= 30; seed++) {
+      const shaft = section(sectionId, seed * 919);
+      const barbs = shaft.ledges.filter(p => p.limboHazard);
+      for (const t of linesOf(shaft.generator)) for (const b of barbs) {
+        if (b.y < t.y0 - 80 || b.y > t.y1 + 80) continue;
+        checked++;
+        expect({ sectionId, seed, line: [t.x0, t.y0, t.x1, t.y1], barb: [b.x, b.y, b.width], touches: tubeTouches(t, b.x, b.y, b.width, LIMBO_HAZARD_RULES.reach) })
+          .toEqual({ sectionId, seed, line: [t.x0, t.y0, t.x1, t.y1], barb: [b.x, b.y, b.width], touches: false });
       }
     }
-    expect(checked).toBeGreaterThan(100);
+    expect(checked).toBeGreaterThan(5000);
   });
 
-  // WAS: busier by combining collapse, traps and barbs while holding enemies to c9a0a63's count. The
-  // clone takes the original's limbo instead: more barbed rubble, longer void drops, and the
-  // original's floating roster growing -- ~2.4 enemies a screen in D's limbo (reference spec).
-  it("gets busier from 4-1 to 4-3: more barbs, more void, more of the original's floaters", () => {
-    const per = SECTIONS.map(sectionId => {
-      let barbs = 0, enemies = 0;
-      for (let seed = 1; seed <= SEEDS; seed++) {
-        const shaft = section(sectionId, seed * 577);
-        barbs += shaft.ledges.filter(p => p.limboHazard).length;
-        enemies += shaft.enemies.length;
+  // WAS: 'makes every band of the descent landable, reachable at walking speed from the band above' (in
+  // the reload block below, for bands grouped by height). Held now on the lines themselves.
+  it('reaches every route ledge from every surface the band above can be left from, by steering alone', () => {
+    let lines = 0, fallbacks = 0, bands = 0;
+    for (const sectionId of SECTIONS) for (let seed = 1; seed <= 30; seed++) {
+      const shaft = section(sectionId, seed * 271);
+      for (const t of linesOf(shaft.generator)) {
+        lines++;
+        // The way into a side cave is the side room's own rule (postClonePass1.test.ts); this is the descent's.
+        if (t.to === 'cave') continue;
+        // From rest, after a human reaction, at 90% of walking speed -- never a shot.
+        expect({ sectionId, seed, reach: limboCanReach({ exitX: t.x0, y: t.y0 }, { safeX: t.x1, y: t.y1 }) }).toEqual({ sectionId, seed, reach: true });
+        expect(Math.abs(t.x1 - t.x0)).toBeLessThanOrEqual(horizontalReach(t.y1 - t.y0));
       }
-      return { barbs, perScreen: enemies / SEEDS * 28.6 / area4.sectionLength };
+      // Every route ledge is the end of at least one line.
+      for (const p of routeOf(shaft).filter(q => q.y > WORLD.startY + 300 && q.y < WORLD.startY + SECTION_PIXELS - 100)) {
+        bands++;
+        expect({ sectionId, seed, y: p.y, line: linesOf(shaft.generator).some(t => Math.abs(t.y1 - p.y) < 1 && Math.abs(t.x1 - p.safeX) < 1) }).toEqual({ sectionId, seed, y: p.y, line: true });
+      }
+      const fb = (shaft.generator as unknown as { limboFallbacks: { caveExit: number; debris: number } }).limboFallbacks;
+      fallbacks += fb.caveExit + fb.debris;
+    }
+    expect(lines).toBeGreaterThan(3000);
+    // A cave sill or debris the next ledge could not also answer to is let go: kept rare.
+    expect(fallbacks / bands).toBeLessThan(0.01);
+  });
+
+  // WAS: "gets busier from 4-1 to 4-3: more barbs, more void, more of the original's floaters", on the
+  // retired grammar's barb count. The rebuilt SECTIONs keep a similar number of barbs and put them where
+  // a fall goes: the build-up is in smaller rubble, closer barbs down every column and more bodies.
+  it('builds up from 4-1 to 4-3: smaller rubble, barbs closer down every column, more bodies, more of them on the line', () => {
+    const per = SECTIONS.map(sectionId => {
+      const widths: number[] = []; let enemies = 0, guards = 0, coverage = 0;
+      for (let seed = 1; seed <= 30; seed++) {
+        const shaft = section(sectionId, seed * 577);
+        widths.push(...routeOf(shaft).map(p => p.width));
+        enemies += shaft.enemies.length;
+        guards += shaft.enemies.filter(e => e.placed === 'path').length;
+        coverage += hazardCoverage(limboSection(sectionId, seed * 577));
+      }
+      widths.sort((a, b) => a - b);
+      return { width: widths[widths.length >> 1], perScreen: enemies / 30 * 28.6 / area4.sectionLength, guards: guards / 30, coverage: coverage / 30, run: plan(sectionId).limbo!.maxClearRun };
     });
-    for (let i = 1; i < 3; i++) { expect(per[i].barbs).toBeGreaterThan(per[i - 1].barbs); expect(per[i].perScreen).toBeGreaterThan(per[i - 1].perScreen); }
+    for (let i = 1; i < 3; i++) {
+      expect(per[i].width).toBeLessThan(per[i - 1].width);
+      expect(per[i].run).toBeLessThan(per[i - 1].run);
+      expect(per[i].coverage).toBeGreaterThan(per[i - 1].coverage);
+      expect(per[i].perScreen).toBeGreaterThan(per[i - 1].perScreen);
+      expect(per[i].guards).toBeGreaterThan(per[i - 1].guards);
+    }
+    // Inside the reference's band (~2.4 a screen in D's limbo, up to 5 in a swarm).
     for (const p of per) { expect(p.perScreen).toBeGreaterThan(1.2); expect(p.perScreen).toBeLessThan(3.6); }
     // Every one of them is answered with the gunboots: nothing in LIMBO can be stood on.
     for (const kind of area4.enemyPool) expect(ENEMY_TYPES[kind].stompable).toBe(false);
+  });
+
+  it('makes 4-1, 4-2 and 4-3 three SECTIONs, not one with different numbers', () => {
+    const motifs = (sectionId: SectionId) => {
+      const seen = new Map<LimboMotif, number>();
+      for (let seed = 1; seed <= 20; seed++) for (const h of (section(sectionId, seed * 59).generator as unknown as { limbo: { history: { motif: LimboMotif }[] } }).limbo.history) seen.set(h.motif, (seen.get(h.motif) ?? 0) + 1);
+      return seen;
+    };
+    const [a, b, c] = SECTIONS.map(motifs);
+    // 4-1 teaches one rule a band: no gate across the shaft, no body in an opening.
+    expect(a.has('gate')).toBe(false);
+    expect(LIMBO_WAY_IN.enemies.gateGuard).toBe(0);
+    // 4-2 and 4-3 add the gate and stand bodies in its opening; 4-3 drops and crosses fire most.
+    for (const m of [b, c]) expect(m.get('gate') ?? 0).toBeGreaterThan(20);
+    expect(LIMBO_VOID.motifs.voidDrop).toBeGreaterThan(LIMBO_FALLING_CITY.motifs.voidDrop);
+    expect(LIMBO_FALLING_CITY.motifs.voidDrop).toBeGreaterThan(LIMBO_WAY_IN.motifs.voidDrop);
+    expect(LIMBO_VOID.motifs.rest).toBeLessThan(LIMBO_WAY_IN.motifs.rest);
+    expect(LIMBO_VOID.enemies.underBarb).toBeGreaterThan(LIMBO_WAY_IN.enemies.underBarb);
+  });
+
+  it('leaves no column of the shaft to fall down: the longest straight drop clear of barbs is a few screens at most', () => {
+    // ab49ed2: every column of every SECTION was clear of barbs from top to bottom (12,980px).
+    for (const sectionId of SECTIONS) {
+      const runs: number[] = [];
+      for (let seed = 1; seed <= 20; seed++) runs.push(longestClearFall(limboSection(sectionId, seed * 613), false));
+      runs.sort((x, y) => x - y);
+      expect({ sectionId, median: runs[10] <= 2600 }).toEqual({ sectionId, median: true });
+      expect({ sectionId, worst: runs[19] <= 3600 }).toEqual({ sectionId, worst: true });
+    }
   });
 
   it('never hurts on a landing: a turning ledge warns for longer than the walk off it', () => {
@@ -809,5 +869,68 @@ describe('COLLAPSED REALM: every ledge gives way', () => {
       expect(game.platforms.some(f => f.breakable)).toBe(false);
       expect(game.collapse.counting).toBe(0);
     }
+  });
+});
+
+/**
+ * AREA 4 / LIMBO GAMEPLAY REBUILD: what the rebuild was FOR, held through the real GameModel and real
+ * inputs only (`step(dt, direction, firing)`, tests/limboBot.ts). Seeds are fixed, so each count below is
+ * exact; the margins are for a later change to the AREA, not for chance.
+ */
+describe('COLLAPSED REALM is played, not fallen', () => {
+  const COLUMNS = [60, 140, 225, 310, 390];
+  it('ends a fall that neither steers, shoots nor means to land, in every SECTION, from every column', () => {
+    for (const sectionId of SECTIONS) {
+      let dead = 0, barbDeaths = 0;
+      for (let seed = 1; seed <= 6; seed++) for (const x of COLUMNS) {
+        const r = passiveRun(4, sectionId, seed * 211, x);
+        expect({ sectionId, seed, x, cleared: r.outcome === 'clear' }).toEqual({ sectionId, seed, x, cleared: false });
+        if (r.outcome === 'dead') { dead++; if (r.deathBy === 'barb') barbDeaths++; }
+      }
+      // The ones that do not die stopped on a side cave's sill, which never gives way. Barbed rubble,
+      // not a wall of anything, is what ends the rest.
+      expect(dead).toBeGreaterThanOrEqual(25);
+      expect(barbDeaths).toBeGreaterThan(dead / 2);
+    }
+  });
+
+  it('ends a fall that shoots everything under it but never steers', () => {
+    for (const sectionId of SECTIONS) for (let seed = 1; seed <= 6; seed++) for (const x of COLUMNS) {
+      expect({ sectionId, seed, x, cleared: straightRun(4, sectionId, seed * 211, x).outcome === 'clear' }).toEqual({ sectionId, seed, x, cleared: false });
+    }
+  });
+
+  for (const [sectionId, atLeast] of [[1, 10], [2, 8], [3, 6]] as [SectionId, number][]) {
+    it(`4-${sectionId}: is cleared on ordinary HP by a human-like player who steers, shoots and lands`, () => {
+      const runs = Array.from({ length: 12 }, (_, i) => activeRun(4, sectionId, (i + 1) * 389, 200, HUMAN));
+      expect(runs.filter(r => r.outcome === 'stuck' || r.outcome === 'timeout')).toEqual([]);
+      expect(runs.filter(r => r.outcome === 'clear').length).toBeGreaterThanOrEqual(atLeast);
+      // It is played: the player lands, shoots and kills on the way down.
+      for (const r of runs) { expect(r.landings).toBeGreaterThan(10); expect(r.shots).toBeGreaterThan(20); }
+    });
+  }
+
+  it('gets harder from 4-1 to 4-3 for the same player', () => {
+    const hits = SECTIONS.map(sectionId => Array.from({ length: 12 }, (_, i) => activeRun(4, sectionId, (i + 1) * 389, 200, HUMAN)).reduce((a, r) => a + r.hits.barb + r.hits.enemy, 0));
+    expect(hits[0]).toBeLessThan(hits[1]);
+    expect(hits[1]).toBeLessThan(hits[2]);
+  });
+
+  it('lets the promised line itself be fallen, without one barb, to the way out, on every seed', () => {
+    for (const sectionId of SECTIONS) for (let seed = 1; seed <= 10; seed++) {
+      const r = lineRun(sectionId, seed * 97);
+      expect({ sectionId, seed, touches: r.touches, lost: r.lost, cleared: r.cleared }).toEqual({ sectionId, seed, touches: 0, lost: 0, cleared: true });
+    }
+  });
+
+  it('replays exactly: the same seed is the same run', () => {
+    const run = () => activeRun(4, 3, 4242, 200, HUMAN);
+    expect(run()).toEqual(run());
+  });
+
+  it('keeps LIMBO damage at one heart and the collapse on its 0.65s', () => {
+    expect(LIMBO_HAZARD_RULES.damage).toBe(1);
+    expect(BREAK_RULES.delay).toBe(0.65);
+    expect(LIMBO_RULES.margin).toBeGreaterThanOrEqual(9);
   });
 });

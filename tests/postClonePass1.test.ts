@@ -354,7 +354,9 @@ describe('SIDE ROOMS in AREA 2-4: in the wall, like AREA 1', () => {
       for (const n of [1, 2, 3] as SectionId[]) for (const seed of SEEDS_500.slice(0, 80)) {
         const s = section(area, n, seed);
         const bands = new Map<number, RoutePlatform>();
-        for (const p of s.platforms) if (p.safeZone === undefined && !bands.has(Math.round(p.y))) bands.set(Math.round(p.y), p);
+        // The route ledge of each band. In AREA 4 (LIMBO GAMEPLAY REBUILD) a band's barbed rubble and its
+        // debris sit at heights of their own, so neither is mistaken for the ledge the fall leaves from.
+        for (const p of s.platforms) if (p.safeZone === undefined && !p.limboHazard && p.shaped !== 'debris' && !bands.has(Math.round(p.y))) bands.set(Math.round(p.y), p);
         const ys = [...bands.keys()].sort((a, b) => a - b);
         for (const cave of s.caves) {
           const sillY = cave.opening.y + cave.opening.height;
@@ -464,16 +466,23 @@ describe('isolation', () => {
     expect(signature(1)).toBe('bbf4e03d836bd95c');
   });
 
-  it('changes nothing in AREA 4 but where its side rooms are: on the old chambers it is 518af88 bit for bit', () => {
-    // The only AREA 4 change is `sideRooms`, which moves its rooms into the wall. Put back on the
-    // rectangular chambers, AREA 4 must be exactly the shaft 518af88 generated.
-    //
-    // AREA 4 COLLAPSING PLATFORMS RESTORED: every ledge is now a collapsing one. With that switched
-    // off the AREA is still 518af88's bit for bit; with it on, the ledges carry the flag.
+  // WAS: 'changes nothing in AREA 4 but where its side rooms are: on the old chambers it is 518af88 bit
+  // for bit' -- `signature(4, true)` was d85d9afdc4e58e2c. AREA 4 / LIMBO GAMEPLAY REBUILD replaces the
+  // AREA's generation (limboTerrain.ts) on human review, so 518af88's shaft is deliberately gone; the
+  // rebuilt AREA is pinned in environmentArt.test.ts. What this pass gave AREA 2-3 still never reaches it.
+  it('hands AREA 4 none of AREA 2-3\'s furniture: no reef, no belt, no spike floor, side rooms in the wall', () => {
     setSideRoomMode('legacy');
-    expect(signature(4, true)).toBe('d85d9afdc4e58e2c');
-    expect(signature(4)).not.toBe('d85d9afdc4e58e2c');
-    const now = areaConfig(4).plans!.map(p => { const { sideRooms, ...rest } = p; void sideRooms; return rest; });
-    expect(now.every(p => p.reef === undefined && p.conveyorChance === undefined)).toBe(true);
+    expect(signature(4, true)).not.toBe('d85d9afdc4e58e2c');
+    const plans = areaConfig(4).plans!;
+    expect(plans.every(p => p.reef === undefined && p.conveyorChance === undefined && (p.spikePlatformChance ?? 0) === 0 && p.sideRooms === 2)).toBe(true);
+    setSideRoomMode('v1');
+    for (let n = 1; n <= 3; n++) for (let s = 1; s <= 10; s++) {
+      const g = new StageGenerator(seeded(s * 131 + n), { plan: plans[n - 1], enemyPool: areaConfig(4).enemyPool, breakable: true, sectionLength: areaConfig(4).sectionLength });
+      for (let c = 0; c < 16; c++) {
+        const k = g.chunk(c);
+        expect({ n, s, c, hazards: k.hazards.length, safeZones: k.safeZones.length }).toEqual({ n, s, c, hazards: 0, safeZones: 0 });
+        expect(k.platforms.some(p => p.spikePlatform || p.conveyor)).toBe(false);
+      }
+    }
   });
 });

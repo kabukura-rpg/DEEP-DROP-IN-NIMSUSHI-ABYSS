@@ -5,7 +5,7 @@ import { AREA1_RHYTHM, type RhythmGrammar } from './rhythm';
 import { AREA1_GRAMMAR, type PieceGrammar } from './pieces';
 import { AREA3_CROSS_CURRENT, AREA3_DROWNED_RUINS, AREA3_OPEN_WATER } from './waterTerrain';
 import { AREA2_INTRO, AREA2_OSSUARY, AREA2_PURSUIT } from './catacombTerrain';
-import { AREA4_RUBBLE, AREA4_RUINFALL, AREA4_VOID } from './limboTerrain';
+import { LIMBO_FALLING_CITY, LIMBO_VOID, LIMBO_WAY_IN, type LimboSpec } from './limboTerrain';
 
 export type AreaId = 1 | 2 | 3 | 4;
 export type SectionId = 1 | 2 | 3;
@@ -58,6 +58,13 @@ export interface SectionPlan {
    * AREA 1 only. The others keep the single-gap row generator until each is measured on its own.
    */
   pieces?: PieceGrammar;
+  /**
+   * COLLAPSED REALM (AREA 4 / LIMBO GAMEPLAY REBUILD): the AREA's own row builder (limboTerrain.ts,
+   * StageGenerator.limboRow). When present it lays the whole SECTION -- ledges, barbs, bodies, doodads --
+   * and `pieces`, `rhythm`, `gap`, the per-row enemy chances, `swarm` and `flow` are not read.
+   * AREA 4 only.
+   */
+  limbo?: LimboSpec;
   /** Per-row chance of a ground enemy and of an air enemy. */
   enemyChance: number;
   flyChance: number;
@@ -282,9 +289,10 @@ const LATER_AREA_POOL: readonly EnemyKind[] = ['slime', 'bat', 'armoredSlime', '
  *                             warning, for ordinary damage. Wall candles to bounce from. No water.
  *   AREA 3  Aquifer role   -- submerged. The breath gauge is the clock, air containers are the only
  *                             supply, and everything moves through water.
- *   AREA 4  Limbo role     -- a collapsed space. Broken rubble to land on, much of it giving way or
- *                             turning; nothing can be stomped, so the gunboots clear the way, and
- *                             floating scenery reloads them between landings.
+ *   AREA 4  Limbo role     -- a collapsed space. Small rubble to land on, all of it giving way, in a
+ *                             field of barbed rubble no column of which can simply be fallen down;
+ *                             nothing can be stomped, so the gunboots clear the way, and ledges and
+ *                             floating scenery reload them.
  *
  * Magma -- heat, lava, ice -- is no longer part of a normal run. The systems stay because the FINAL
  * BOSS replays them, and they are available for later bonus content.
@@ -437,21 +445,30 @@ export const AREAS: readonly AreaConfig[] = [
     // every landable piece of debris as a BREAK ledge on the shared timing (BREAK_RULES, 0.65s), with
     // no draw spent on it, so the layout is the one above unchanged. Barbs, cave and chamber floors,
     // the opening slab and the exit floor are not ledges of the route and stay as they were.
+    // AREA 4 / LIMBO GAMEPLAY REBUILD (human review of ab49ed2: "easier than AREA 1", a straight drop
+    // worked): everything above about the layout is retired. Each SECTION now runs the AREA's own row
+    // builder (limboTerrain.ts, StageGenerator.limboRow) -- small collapsing rubble, barbed rubble that
+    // keeps every column of the shaft from being a way down, bodies laid by role -- on the same images,
+    // the same roster, the same BREAK timing and the same one-heart barbs. The collapse is unchanged.
     id: 4, name: 'COLLAPSED REALM', sections: 3, sectionLength: 570,
     gimmicks: { breakablePlatforms: true },
     enemyPool: ['voidWisp', 'hollowShade', 'voidShard', 'shadeOrb', 'angryOrb'],
     theme: { wall: 0x241f2e, wallEdge: 0x3c3350, pillar: 0x2d2740, brick: 0x171422, accent: 0xc0a7ed, dust: 0x8c82a5, rift: { glow: 0x9d7bd8, void: 0x0b0710, debris: 0x4a3f63 },
       cave: { style: 'rubble', hollow: 0x07050b, lining: 0x2a2238, frame: 0x4a3f63, light: 0xc0a7ed } },
     plans: [
-      // 4-1 THE WAY IN. Rubble to land on, barbed debris beside it, the first void drops and swarms.
-      { platformWidth: [92, 112], gap: 232, pieces: AREA4_RUBBLE, enemyChance: 0, flyChance: 0.55, swarm: 0.3, toughChance: 0.3, heavyChance: 0, comboBias: 0, graceDepth: 20,
-        flow: { pathFlyers: 0.4, landingGuards: 0 }, doodadChance: 0.95, laneDoodadBand: 420, safeZoneCount: 2, sideRooms: 2, breakableChance: 1 },
-      // 4-2 THE FALLING CITY. More barbed rubble, longer and more frequent void drops.
-      { platformWidth: [84, 102], gap: 238, pieces: AREA4_RUINFALL, enemyChance: 0, flyChance: 0.6, swarm: 0.45, toughChance: 0.35, heavyChance: 0, comboBias: 0,
-        flow: { pathFlyers: 0.5, landingGuards: 0 }, doodadChance: 0.95, laneDoodadBand: 400, safeZoneCount: 2, sideRooms: 2, breakableChance: 1 },
-      // 4-3 THE VOID. The longest drops, the most barbs, the thickest swarms; the route still lands.
-      { platformWidth: [76, 94], gap: 244, pieces: AREA4_VOID, enemyChance: 0, flyChance: 0.65, swarm: 0.6, toughChance: 0.4, heavyChance: 0, comboBias: 0,
-        flow: { pathFlyers: 0.6, landingGuards: 0 }, doodadChance: 0.95, laneDoodadBand: 380, safeZoneCount: 2, sideRooms: 2, breakableChance: 1 },
+      // LIMBO GAMEPLAY REBUILD: each SECTION runs the AREA's own builder (limboTerrain.ts). The generic
+      // per-row fields below are required by the type and NOT read while `limbo` is set: bodies are laid
+      // by role, not by `flyChance` / `swarm` / `flow`. Every landable ledge still collapses on the
+      // shared BREAK timing (`breakableChance: 1`); side caves, the exit and the doodad rate are the AREA's.
+      // 4-1 THE WAY IN. Every LIMBO rule one at a time; already nowhere to fall straight down.
+      { platformWidth: [44, 66], gap: 320, limbo: LIMBO_WAY_IN, enemyChance: 0, flyChance: 0, toughChance: 0, heavyChance: 0, comboBias: 0, graceDepth: 20,
+        doodadChance: 0.7, safeZoneCount: 2, sideRooms: 2, breakableChance: 1 },
+      // 4-2 THE FALLING CITY. Bodies, barbs and collapsing rubble start arriving in the same band.
+      { platformWidth: [38, 60], gap: 350, limbo: LIMBO_FALLING_CITY, enemyChance: 0, flyChance: 0, toughChance: 0, heavyChance: 0, comboBias: 0, graceDepth: 14,
+        doodadChance: 0.65, safeZoneCount: 2, sideRooms: 2, breakableChance: 1 },
+      // 4-3 THE VOID. The AREA complete: a decision every band, the longest falls, the smallest rubble.
+      { platformWidth: [34, 54], gap: 365, limbo: LIMBO_VOID, enemyChance: 0, flyChance: 0, toughChance: 0, heavyChance: 0, comboBias: 0, graceDepth: 14,
+        doodadChance: 0.6, safeZoneCount: 2, sideRooms: 2, breakableChance: 1 },
     ],
   },
 ];

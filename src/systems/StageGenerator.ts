@@ -25,6 +25,8 @@ import { RhythmWalker, getTerrainMode, laneOf, type RhythmBand } from '../data/r
 import { PiecePlanner, type RowIntent } from '../data/pieces';
 import { dormantGhost, GHOST_RULES } from '../data/chasers';
 import type { StageFlowProfile } from '../data/stageFlow';
+import { LIMBO_HAZARD_RULES } from '../data/structures';
+import { LimboPlanner, LIMBO_RULES, limboCanReach, limboSteer, tubeHits, tubeTouches, tubeX, type LimboMotif, type LimboSpec, type LimboTube } from '../data/limboTerrain';
 
 export type { Enemy, EnemyKind } from '../data/enemies';
 export type { Pickup } from '../data/pickups';
@@ -81,10 +83,12 @@ export interface Platform {
 export interface RoutePlatform extends Platform {
   safeX: number; exitX: number; safeSide: -1 | 1;
   /**
-   * Which CATACOMB shape built this row, when one did. Read only by tests: a baffle's geometry can
-   * coincide exactly with an ordinary row's, so only the generator can say which one it laid.
+   * Which CATACOMB shape built this row, when one did -- or, in COLLAPSED REALM, that this landing is
+   * DEBRIS beside the band's route ledge rather than the route ledge itself. Read only by tests: a
+   * baffle's geometry can coincide exactly with an ordinary row's, so only the generator can say
+   * which one it laid.
    */
-  shaped?: 'baffle' | 'slot';
+  shaped?: 'baffle' | 'slot' | 'debris';
 }
 export const START_PLATFORM: RoutePlatform = { id: -2, x: 155, y: 250, width: 140, safeX: 225, exitX: 307, safeSide: 1, breakable: false, state: 'stable' };
 /**
@@ -163,6 +167,32 @@ const LIMBO_BARB_CLEARANCE = 30;
  */
 const CAMERA_LEAD = Math.round(WORLD.height * 0.63);
 const DEFAULT_POOL: readonly EnemyKind[] = ['slime', 'bat', 'armoredSlime', 'tank'];
+/** COLLAPSED REALM's column ledger: one entry per 4px of the span a body's centre can occupy. */
+const LIMBO_COLUMN = 4;
+const LIMBO_LEFT = WORLD.wall + 12;
+const LIMBO_COLUMNS = Math.floor((WORLD.width - WORLD.wall - 12 - LIMBO_LEFT) / LIMBO_COLUMN) + 1;
+const limboColumnX = (c: number) => LIMBO_LEFT + c * LIMBO_COLUMN;
+type Box = { minX: number; maxX: number; minY: number; maxY: number };
+/** Everything a COLLAPSED REALM band is furnished against. */
+interface LimboBand {
+  spec: LimboSpec; motif: LimboMotif;
+  /** The ledge the band starts from, the route ledge it ends on, and every surface a fall can rest on in it. */
+  from: RoutePlatform; route: RoutePlatform; ledges: RoutePlatform[];
+  /** Every line a fall through this band is promised. */
+  tubes: LimboTube[];
+  /** Barbs laid in this band so far, and the band above's (spacing only). */
+  barbs: RoutePlatform[]; recent: RoutePlatform[];
+  /** Side-cave mouths in the band: nothing is laid in one. */
+  zones: Box[];
+  /**
+   * Centre-coordinate boxes no barb may reach: the walk along each landing of this band to its way off,
+   * and the first of the fall from it. The NEXT band's line starts there, before it is known where it goes.
+   */
+  keepOut: Box[];
+  top: number; bottom: number;
+  /** Where a `guarded` or `crossfire` band wants its body, once its barbs are down. */
+  guardY?: number;
+}
 
 export class StageGenerator {
   private id = 0;
@@ -253,11 +283,36 @@ export class StageGenerator {
   private doodadLane = 0;
   /** Chambers still owed a SHOP outright, rather than a rolled content. MEMBER'S CARD's doing. */
   private forcedShopChambers = 0;
+  /**
+   * COLLAPSED REALM (AREA 4 / LIMBO GAMEPLAY REBUILD): the AREA's own row builder, see `limboRow`. Null in
+   * every SECTION whose plan carries no `limbo` spec, and then nothing below it is ever consulted -- not
+   * one number is drawn for it -- so AREA 1-3, the STAGING room and the BOSS generate exactly as before.
+   */
+  private limbo: LimboPlanner | null = null;
+  /** The motif the band now being laid was planned with (decided with its height, one row earlier). */
+  private limboMotif: LimboMotif = 'rest';
+  /** Per 4px column of the fall: the world y of the last barb that column met. See `limboLedgerBarbs`. */
+  private limboLedger: Float64Array | null = null;
+  /** The band above's barbs, kept only so this band's are not laid on top of them. */
+  private limboRecent: RoutePlatform[] = [];
+  /** The band above's way-off keep-outs: its landings are this band's starting points. */
+  private limboRecentKeep: Box[] = [];
+  /** How often a way down had to be given up (a cave sill or debris the next ledge could not answer to). */
+  readonly limboFallbacks = { caveExit: 0, debris: 0 };
+  /** The side-cave sills standing in for ledges in `previousBand` (they are not platforms of the route). */
+  private limboSills = new Set<RoutePlatform>();
+  /** Every line this generator has promised, in order. Read only by tests (by cast), never by play. */
+  private readonly limboLines: LimboTube[] = [];
   constructor(private random: () => number = Math.random, private context: GenerationContext = {}) {
     this.nextY = context.startY ?? 465;
     const mode = getTerrainMode();
     const pieces = mode === 'grammar-v2' ? context.plan?.pieces : undefined;
-    if (pieces) {
+    const limbo = context.plan?.limbo;
+    if (limbo) {
+      this.limbo = new LimboPlanner(limbo, random);
+      this.maxRowStep = limbo.voidStep[1];
+      this.limboLedger = new Float64Array(LIMBO_COLUMNS).fill(WORLD.startY + (context.plan?.graceDepth ?? 0) * WORLD.pixelsPerMeter);
+    } else if (pieces) {
       this.planner = new PiecePlanner(pieces, random);
       // The widest span any piece can ask for, for the lookaheads that must stay conservative.
       // The GRAMMAR states it. It used to be a literal 860 -- AREA 1's number, written into the
@@ -630,6 +685,11 @@ export class StageGenerator {
       const chamberDue = this.chambers.length > 0 && localDepth >= this.chambers[0];
       const clearance = chamberDue ? safeZoneRowClearance() : 0;
       const gateDue = this.gates.length > 0 && localDepth >= this.gates[0];
+      // COLLAPSED REALM builds its rows its own way, start to finish. See `limboRow`.
+      if (this.limbo) {
+        this.limboRow(y, localDepth, start, tuning, { platforms, enemies, hazards, containers, doodads, safeZones, caves });
+        continue;
+      }
       // A piece owns the whole row -- step, width, where the ledge sits and how many there are --
       // so the rhythm walker is not consulted when one is running. Null leaves both off and the row
       // behaves exactly as it did before either existed.
@@ -904,6 +964,487 @@ export class StageGenerator {
       this.nextY += plannedStep ?? this.rowStep(tuning, band, intent);
     }
     return { platforms, enemies, pickups, hazards, containers, doodads, safeZones, caves, exit };
+  }
+
+  /* ----------------------------------------------------------------------------------------------
+   * COLLAPSED REALM (AREA 4) -- the LIMBO row builder. See limboTerrain.ts for what the AREA is and
+   * why. One call lays one BAND: the fall from the ledge above (`this.previous`) down to a new route
+   * ledge at `y`, and everything in it.
+   *
+   *   1. the route ledge     small collapsing rubble, reached from every surface the band above can
+   *                          be left from by steering alone (`limboCanReach`), and moved across the
+   *                          shaft from the last way off, so the line down is never a column
+   *   2. debris              sometimes a second, smaller landing beside it, off the line
+   *   3. the side cave       if one is due -- before any barb, so the barbs keep clear of its mouth
+   *   4. barbs               the motif's, then the ledger's, then the band's coverage; none on a line
+   *   5. bodies              by role: on the line (guarded), beside it, under a barb, by a ledge
+   *   6. a doodad
+   *   7. the next band       its motif and height, planned together
+   * -------------------------------------------------------------------------------------------- */
+  private limboRow(y: number, localDepth: number, start: number, tuning: RowTuning,
+    out: { platforms: RoutePlatform[]; enemies: Enemy[]; hazards: Hazard[]; containers: AirContainer[]; doodads: Doodad[]; safeZones: SafeZone[]; caves: SideCave[] }) {
+    const plan = this.context.plan!, spec = plan.limbo!;
+    const quiet = localDepth < (plan.graceDepth ?? 0);
+    const motif: LimboMotif = quiet ? 'rest' : this.limboMotif;
+    const from = this.previous;
+    const everyLedge = this.everyLedgeBreaks(tuning);
+
+    // 1. THE ROUTE LEDGE.
+    const [w0, w1] = spec.ledgeWidth;
+    const width = Math.round(quiet ? w1 : w0 + this.random() * (w1 - w0));
+    const { route, froms } = this.limboRoute(y, width, spec, motif);
+    if (everyLedge) { route.breakable = true; route.state = 'stable'; }
+    const tubes: LimboTube[] = froms.map(f => ({ x0: f.exitX, y0: f.y, x1: route.safeX, y1: route.y, walkFrom: f.safeX, to: 'route' as const }));
+    const band: LimboBand = { spec, motif, from, route, ledges: [from, ...this.previousBand.filter(f => f !== from && !this.limboSills.has(f)), route], tubes, barbs: [], recent: this.limboRecent, zones: [], keepOut: [], top: from.y, bottom: y };
+    this.limboKeepWayOff(band, route);
+    if (y >= start) out.platforms.push(route);
+
+    // 2. DEBRIS: a second landing, off the line, that the next band also has to answer to.
+    const debris: RoutePlatform[] = [];
+    if (!quiet && this.random() < spec.debrisChance) {
+      const d = this.limboDebris(band);
+      if (d) {
+        if (everyLedge) { d.breakable = true; d.state = 'stable'; }
+        debris.push(d); band.ledges.push(d);
+        this.limboKeepWayOff(band, d);
+        band.tubes.push({ x0: from.exitX, y0: from.y, x1: d.safeX, y1: d.y, walkFrom: from.safeX, to: 'debris' });
+        if (y >= start) out.platforms.push(d);
+      }
+    }
+
+    // 3. THE SIDE CAVE, when one is due. Its sill is somewhere a fall can leave from, so the next band
+    // answers to it as to a ledge; the way into it is a line like any other.
+    const cavesBefore = out.caves.length;
+    this.placeSafeZone(route, y, localDepth, start, out.safeZones, out.caves, out.platforms, out.hazards, out.enemies, out.containers);
+    let caveFrom: RoutePlatform | null = null;
+    for (const cave of out.caves.slice(cavesBefore)) {
+      const sill = cave.floors[0];
+      const edge = cave.side === -1 ? WORLD.wall + CAVE_RULES.sillOverhang : WORLD.width - WORLD.wall - CAVE_RULES.sillOverhang;
+      caveFrom = {
+        id: -1, x: cave.side === -1 ? WORLD.wall : edge, y: sill.y, width: CAVE_RULES.sillOverhang,
+        safeSide: cave.side === -1 ? 1 : -1, safeX: edge + cave.side * 10, exitX: edge - cave.side * 12, breakable: false, state: 'stable',
+      };
+      band.zones.push({ minX: cave.side === -1 ? WORLD.wall : edge - 24, maxX: cave.side === -1 ? edge + 24 : WORLD.width - WORLD.wall, minY: cave.bounds.y - 16, maxY: sill.y + 30 });
+      band.tubes.push({ x0: from.exitX, y0: from.y, x1: caveFrom.safeX, y1: caveFrom.y, walkFrom: from.safeX, to: 'cave' });
+      band.ledges.push(caveFrom);
+      this.limboSills.add(caveFrom);
+      this.limboKeepWayOff(band, caveFrom);
+    }
+
+    // 4. BARBS.
+    if (!quiet) {
+      this.limboMotifBarbs(band);
+      this.limboLedgerBarbs(band);
+      this.limboCoverBarbs(band);
+    }
+    if (y >= start) out.platforms.push(...band.barbs);
+    this.limboLines.push(...band.tubes);
+
+    // 5. BODIES.
+    if (!quiet) this.limboEnemies(band, out.enemies, y >= start);
+
+    // 6. A DOODAD.
+    this.limboDoodad(band, tuning, out.doodads, out.enemies, y >= start);
+
+    // 7. THE NEXT BAND.
+    this.previous = route;
+    this.previousBand = [route, ...debris, ...(caveFrom ? [caveFrom] : [])];
+    this.limboRecent = band.barbs;
+    this.limboRecentKeep = band.keepOut;
+    const ppm = WORLD.pixelsPerMeter;
+    const dueNext = this.chambers.length > 0 && (y + spec.step[1] - WORLD.startY) / ppm >= this.chambers[0];
+    const nextQuiet = (y + spec.step[0] - WORLD.startY) / ppm < (plan.graceDepth ?? 0);
+    const next = this.limbo!.next(y, nextQuiet, dueNext ? safeZoneRowClearance() : 0);
+    this.limboMotif = next.motif;
+    this.nextY += next.step;
+  }
+
+  /**
+   * The route ledge: reachable by steering alone from every surface the band above can be left from,
+   * and moved across the shaft from the way off above -- away from the ledge it is leaving, so the line
+   * never runs back under it. A void drop asks for most of what the fall allows. When a cave sill or a
+   * piece of debris cannot be answered to as well, it is let go (counted in `limboFallbacks`).
+   */
+  private limboRoute(y: number, width: number, spec: LimboSpec, motif: LimboMotif): { route: RoutePlatform; froms: RoutePlatform[] } {
+    const from = this.previous;
+    const inset = Math.min(14, Math.floor(width / 2));
+    const search = (froms: RoutePlatform[]) => {
+      const out: RoutePlatform[] = [];
+      for (let x = WORLD.wall; x <= WORLD.width - WORLD.wall - width; x += 2) {
+        for (const side of [-1, 1] as const) {
+          const p: RoutePlatform = {
+            id: this.id, x, y, width, safeSide: side,
+            safeX: side === -1 ? x + inset : x + width - inset,
+            exitX: side === -1 ? x - 12 : x + width + 12,
+            breakable: false, state: 'stable',
+          };
+          if (p.exitX < WORLD.wall + 12 || p.exitX > WORLD.width - WORLD.wall - 12) continue;
+          if (froms.every(f => limboCanReach(f, p))) out.push(p);
+        }
+      }
+      return out;
+    };
+    let froms = this.previousBand;
+    let candidates = search(froms);
+    if (!candidates.length) {
+      const kept = froms.filter(f => !this.limboSills.has(f));
+      if (kept.length < froms.length) this.limboFallbacks.caveExit++;
+      froms = kept; candidates = search(froms);
+    }
+    if (!candidates.length) { this.limboFallbacks.debris++; froms = [from]; candidates = search(froms); }
+    if (!candidates.length) throw new Error(`No reachable LIMBO ledge at ${y}`);
+    const reach = limboSteer(y - from.y) - LIMBO_RULES.slack;
+    const [s0, s1] = motif === 'voidDrop' ? [Math.min(reach * 0.6, spec.shift[1]), reach] : spec.shift;
+    const shift = (p: RoutePlatform) => Math.abs(p.safeX - from.exitX);
+    const away = (p: RoutePlatform) => (p.safeX - from.exitX) * from.safeSide >= -8;
+    const preferred = candidates.filter(p => shift(p) >= s0 && shift(p) <= s1 && away(p));
+    const shifted = candidates.filter(p => shift(p) >= s0 * 0.6);
+    const pool = preferred.length ? preferred : shifted.length ? shifted : candidates;
+    const route = pool[Math.min(pool.length - 1, Math.floor(this.random() * pool.length))];
+    this.id++;
+    return { route, froms };
+  }
+
+  /** A second, smaller landing in the band: reachable from the ledge above, clear of every line, beside the route. */
+  private limboDebris(band: LimboBand): RoutePlatform | null {
+    const [d0, d1] = band.spec.debrisWidth;
+    const width = Math.round(d0 + this.random() * (d1 - d0));
+    const dy = Math.round(-60 + this.random() * 70);
+    const y = band.route.y + dy;
+    const side: -1 | 1 = this.random() < 0.5 ? -1 : 1;
+    const gap = 26 + Math.round(this.random() * 70);
+    const x = side === -1 ? band.route.x - gap - width : band.route.x + band.route.width + gap;
+    if (x < WORLD.wall || x + width > WORLD.width - WORLD.wall || y <= band.from.y + 120) return null;
+    const p: RoutePlatform = {
+      id: this.id, x, y, width, safeSide: side, safeX: x + width / 2,
+      exitX: side === -1 ? x - 12 : x + width + 12, breakable: false, state: 'stable', shaped: 'debris',
+    };
+    if (p.exitX < WORLD.wall + 12 || p.exitX > WORLD.width - WORLD.wall - 12) return null;
+    if (!limboCanReach(band.from, p)) return null;
+    // A landing on a line would change the line: debris never sits in one.
+    const body: Box = { minX: x - 9, maxX: x + width + 9, minY: y - 45, maxY: y + 20 };
+    if (band.tubes.some(t => tubeHits(t, body, 6))) return null;
+    this.id++;
+    return p;
+  }
+
+  /**
+   * Keep the walk along a landing to its way off clear of barbs, and the first 120px of the fall from it
+   * -- as a widening fan, because which way the next line steers is not decided yet: at each depth, as
+   * far either side as a fall from rest can have steered by then.
+   */
+  private limboKeepWayOff(band: LimboBand, L: RoutePlatform) {
+    const m = LIMBO_RULES.margin;
+    band.keepOut.push({ minX: Math.min(L.safeX, L.exitX) - m, maxX: Math.max(L.safeX, L.exitX) + m, minY: L.y - 40, maxY: L.y - 4 });
+    for (let d = 0; d < 120; d += 20) {
+      const half = m + 4 + limboSteer(d + 20);
+      band.keepOut.push({ minX: L.exitX - half, maxX: L.exitX + half, minY: L.y - 15 + d, maxY: L.y - 15 + d + 20 });
+    }
+  }
+
+  /** Lay one barb if it fits; true when it did. `adjacent` lets it sit flush against that ledge's end. */
+  private limboBarb(band: LimboBand, x: number, by: number, width: number, adjacent?: RoutePlatform) {
+    x = Math.round(x); by = Math.round(by); width = Math.round(width);
+    if (!this.limboBarbFits(band, x, by, width, adjacent)) return false;
+    const r = band.route;
+    const barb: RoutePlatform = { id: this.id++, x, y: by, width, limboHazard: true, safeSide: r.safeSide, safeX: r.safeX, exitX: r.exitX };
+    band.barbs.push(barb);
+    const ledger = this.limboLedger!;
+    for (let c = 0; c < LIMBO_COLUMNS; c++) {
+      const cx = limboColumnX(c);
+      if (cx >= x - 9 && cx <= x + width + 9) ledger[c] = Math.max(ledger[c], by);
+    }
+    return true;
+  }
+
+  private limboBarbFits(band: LimboBand, x: number, by: number, width: number, adjacent?: RoutePlatform) {
+    if (width < 16 || x < WORLD.wall || x + width > WORLD.width - WORLD.wall) return false;
+    if (by < band.top + 24 || by > band.bottom + 14) return false;
+    const reach = LIMBO_HAZARD_RULES.reach;
+    if (band.tubes.some(t => tubeTouches(t, x, by, width, reach))) return false;
+    for (const L of band.ledges) {
+      if (adjacent === L && by === L.y && (x === L.x + L.width + 2 || x + width === L.x - 2)) continue;
+      const overX = x < L.x + L.width + 8 && x + width + 8 > L.x;
+      if (overX && by > L.y - LIMBO_RULES.landingClear && by < L.y + 46) return false;
+      // Never level with a ledge and touching it, unless it is the rubble's own spiked end.
+      if (Math.abs(by - L.y) < 30 && x < L.x + L.width + 14 && x + width + 14 > L.x) return false;
+    }
+    // No pocket: barbs close across are far apart down, so whatever is between them can be steered out of.
+    const near = LIMBO_RULES.stackReach;
+    for (const B of [...band.barbs, ...band.recent]) if (x < B.x + B.width + near && x + width + near > B.x && Math.abs(by - B.y) < band.spec.stackGap) return false;
+    for (const z of band.zones) if (x < z.maxX && x + width > z.minX && by + 27 > z.minY && by - 30 < z.maxY) return false;
+    const hit = { minX: x - 9, maxX: x + width + 9, minY: by - reach - 15, maxY: by + 27 };
+    for (const k of [...band.keepOut, ...this.limboRecentKeep]) if (hit.minX < k.maxX && hit.maxX > k.minX && hit.minY < k.maxY && hit.maxY > k.minY) return false;
+    return true;
+  }
+
+  /**
+   * Try to lay a barb of `width` somewhere in [y0, y1] with its left end in [x0, x1]: heights in a
+   * random order, ends swept from x0. Returns true on the first one that fits.
+   */
+  private limboTryBarb(band: LimboBand, x0: number, x1: number, y0: number, y1: number, width: number) {
+    const heights: number[] = [];
+    for (let yy = y0; yy <= y1; yy += 10) heights.push(yy);
+    for (let i = heights.length - 1; i > 0; i--) { const j = Math.floor(this.random() * (i + 1)); [heights[i], heights[j]] = [heights[j], heights[i]]; }
+    const dir = x1 >= x0 ? 1 : -1;
+    for (const by of heights) {
+      for (let x = x0; dir > 0 ? x <= x1 : x >= x1; x += dir * 6) if (this.limboBarb(band, x, by, width)) return true;
+    }
+    return false;
+  }
+
+  /** The barbs each motif is about. Anything that does not fit is simply not laid. */
+  private limboMotifBarbs(band: LimboBand) {
+    const { spec, route, from, top, bottom } = band;
+    const [b0, b1] = spec.barbWidth;
+    const w = () => Math.round(b0 + this.random() * (b1 - b0));
+    const left = WORLD.wall, right = WORLD.width - WORLD.wall;
+    const lineAt = (yy: number) => tubeX(band.tubes[0], yy - 15);
+    switch (band.motif) {
+      case 'rubble': {
+        // The route's far end is barbed: rubble topped with spikes, landed on from its clean end.
+        const bw = Math.round(22 + this.random() * 32);
+        const x = route.safeSide === -1 ? route.x + route.width + 2 : route.x - 2 - bw;
+        this.limboBarb(band, x, route.y, bw, route);
+        // ...and a second barbed piece hanging above it, off the line.
+        const y2 = route.y - 90 - this.random() * 90;
+        const side = lineAt(y2) < (left + right) / 2 ? 1 : -1;
+        const bw2 = w();
+        this.limboTryBarb(band, side === 1 ? lineAt(y2) + 30 : lineAt(y2) - 30 - bw2, side === 1 ? right - bw2 : left, y2 - 30, y2 + 30, bw2);
+        break;
+      }
+      case 'undercut': {
+        // Barbs right under the ledge just left, from its far end inward: ride it down and they bite.
+        if (from.id === START_PLATFORM.id || from.width > 200 || this.limboSills.has(from)) break;
+        const ext = Math.round(this.random() * 30);
+        for (let k = 0; k <= from.width; k += 6) {
+          const bw = from.width + ext - k;
+          if (bw < 24) break;
+          const x = from.safeSide === 1 ? from.x - ext : from.x + k;
+          if (this.limboBarb(band, x, from.y + 50 + Math.round(this.random() * 50), Math.min(b1, bw))) break;
+        }
+        break;
+      }
+      case 'stagger':
+      case 'voidDrop': {
+        // Left-high then right-low, or the mirror: the open side changes on the way down.
+        const pieces = band.motif === 'voidDrop' ? 3 : 2;
+        let side: -1 | 1 = this.random() < 0.5 ? -1 : 1;
+        for (let i = 0; i < pieces; i++) {
+          const yy = top + (bottom - top) * ((i + 0.6) / (pieces + 0.6)) + (this.random() - 0.5) * 40;
+          const bw = w(), cx = lineAt(yy);
+          if (side === -1) this.limboTryBarb(band, cx - 34 - bw, left, yy - 20, yy + 20, bw);
+          else this.limboTryBarb(band, cx + 34, right - bw, yy - 20, yy + 20, bw);
+          side = side === -1 ? 1 : -1;
+        }
+        break;
+      }
+      case 'gate': {
+        // Barbed rubble in from both walls around the one opening, at uneven heights.
+        const gy = top + (bottom - top) * (0.45 + this.random() * 0.3);
+        band.guardY = gy;
+        const cx = lineAt(gy), half = 30 + Math.round(this.random() * 18);
+        for (const side of [-1, 1] as const) {
+          const span = side === -1 ? cx - half - left : right - (cx + half);
+          if (span < 24) continue;
+          const pieces = span > b1 ? 2 : 1;
+          for (let i = 0; i < pieces; i++) {
+            const bw = Math.min(b1, Math.round(span / pieces));
+            const x = side === -1 ? left + i * bw : cx + half + i * bw;
+            const yy = gy + (this.random() - 0.5) * 36;
+            // Shrink toward the wall until it fits; never into the opening.
+            for (let k = 0; k < bw - 20; k += 6) if (this.limboBarb(band, side === -1 ? x : x + k, yy, bw - k)) break;
+          }
+        }
+        break;
+      }
+      case 'guarded':
+      case 'crossfire': {
+        // The barbs that make the body the question: either side of the line, at the body's height.
+        const gy = top + (bottom - top) * (0.4 + this.random() * 0.2);
+        const cx = lineAt(gy);
+        const bw = w();
+        this.limboTryBarb(band, cx - 34 - bw, Math.max(left, cx - 34 - bw - 40), gy - 6, gy + 6, bw);
+        if (band.motif === 'guarded') this.limboTryBarb(band, cx + 34, Math.min(right - bw, cx + 74), gy - 6, gy + 6, w());
+        band.guardY = gy;
+        break;
+      }
+      case 'rest':
+        break;
+    }
+  }
+
+  /**
+   * THE LEDGER. A column that has gone most of `maxClearRun` without a barb gets one in this band --
+   * the widest run of such columns first, wherever off the lines it fits. What cannot be laid here
+   * stays owed to the next band.
+   */
+  private limboLedgerBarbs(band: LimboBand) {
+    const ledger = this.limboLedger!, spec = band.spec;
+    const due = (c: number) => band.bottom - ledger[c] > spec.maxClearRun * 0.6;
+    const runs: [number, number][] = [];
+    for (let c = 0; c < LIMBO_COLUMNS; c++) {
+      if (!due(c)) continue;
+      if (runs.length && runs[runs.length - 1][1] === c - 1) runs[runs.length - 1][1] = c;
+      else runs.push([c, c]);
+    }
+    runs.sort((a, b) => (b[1] - b[0]) - (a[1] - a[0]));
+    const [b0, b1] = spec.barbWidth;
+    for (const [c0, c1] of runs) {
+      let a = limboColumnX(c0);
+      const e = limboColumnX(c1);
+      while (a <= e) {
+        // Cover centres a..end: a barb from x covers centres x-9 .. x+width+9.
+        const end = Math.min(e, a + b1 + 18);
+        const width = Math.max(b0, Math.min(b1, end - a - 18 + 8));
+        const x = Math.max(WORLD.wall, Math.min(WORLD.width - WORLD.wall - width, a + 9 - 4));
+        const yLo = band.top + 40, yHi = band.bottom + 10;
+        // Swept both ways from the run's own position: a little left of it first, then a little right.
+        if (!this.limboTryBarb(band, x, Math.max(WORLD.wall, x - 24), yLo, yHi, width)
+          && !this.limboTryBarb(band, Math.min(WORLD.width - WORLD.wall - width, x + 6), Math.min(WORLD.width - WORLD.wall - width, x + 24), yLo, yHi, width)) {
+          // Not here at full width: try the run's two halves narrower before leaving it owed.
+          const half = Math.max(b0, Math.round(width / 2));
+          this.limboTryBarb(band, x, Math.max(WORLD.wall, x - 10), yLo, yHi, half)
+            || this.limboTryBarb(band, Math.min(WORLD.width - WORLD.wall - half, x + width - half), Math.min(WORLD.width - WORLD.wall - half, x + width - half + 10), yLo, yHi, half);
+        }
+        a = end + 4;
+      }
+    }
+  }
+
+  /** Top the band up to its share of barbed columns, off the lines, at random heights and widths. */
+  private limboCoverBarbs(band: LimboBand) {
+    const spec = band.spec;
+    const covered = () => {
+      let n = 0;
+      for (let c = 0; c < LIMBO_COLUMNS; c++) {
+        const cx = limboColumnX(c);
+        if (band.barbs.some(b => cx >= b.x - 9 && cx <= b.x + b.width + 9)) n++;
+      }
+      return n / LIMBO_COLUMNS;
+    };
+    const [b0, b1] = spec.barbWidth;
+    for (let attempt = 0; attempt < 24 && covered() < spec.coverage; attempt++) {
+      const width = Math.round(b0 + this.random() * (b1 - b0));
+      const x = WORLD.wall + this.random() * (WORLD.width - WORLD.wall * 2 - width);
+      const by = band.top + 40 + this.random() * (band.bottom - band.top - 30);
+      this.limboBarb(band, x, by, width);
+    }
+  }
+
+  /** Where a body's movement can take it, widened for the movers whose `motionEnvelope` is only a start. */
+  private limboReachOf(e: Enemy): Box {
+    const env = motionEnvelope(e);
+    const ai = e.ai as { kind?: string; radius?: number } | undefined;
+    if (ai?.kind === 'orbit') { const r = ai.radius ?? 40; return { minX: e.originX - r - 13, maxX: e.originX + r + 13, minY: e.y - r - 15, maxY: e.y + r + 15 }; }
+    if (ai?.kind === 'phantom') return { minX: env.minX - 6, maxX: env.maxX + 6, minY: env.minY - 16, maxY: env.maxY + 16 };
+    return env;
+  }
+
+  /** Can this body start here? `onLine` lets it stand on a line (a guard); nothing else may. */
+  private limboEnemyFits(band: LimboBand, e: Enemy, enemies: readonly Enemy[], onLine: boolean) {
+    const reach = this.limboReachOf(e);
+    if (reach.minX < WORLD.wall + 2 || reach.maxX > WORLD.width - WORLD.wall - 2) return false;
+    const body: Box = { minX: e.x - 16, maxX: e.x + 16, minY: e.y - 16, maxY: e.y + 16 };
+    const hits = (a: Box, b: Box) => a.minX < b.maxX && a.maxX > b.minX && a.minY < b.maxY && a.maxY > b.minY;
+    for (const b of [...band.barbs, ...band.recent]) if (hits(reach, { minX: b.x - 6, maxX: b.x + b.width + 6, minY: b.y - 22, maxY: b.y + 18 })) return false;
+    for (const L of band.ledges) if (hits(body, { minX: L.x - 10, maxX: L.x + L.width + 10, minY: L.y - 46, maxY: L.y + 26 })) return false;
+    for (const z of band.zones) if (hits(reach, z)) return false;
+    // Never waiting on a landing: well clear of where the route's fall arrives.
+    const r = band.route;
+    if (hits(reach, { minX: r.safeX - 40, maxX: r.safeX + 40, minY: r.y - 90, maxY: r.y + 10 })) return false;
+    if (!onLine && band.tubes.some(t => tubeHits(t, reach, 30))) return false;
+    if (enemies.some(o => Math.hypot(o.x - e.x, o.y - e.y) < 48)) return false;
+    return true;
+  }
+
+  /** Lay a body (and its company) if it fits. */
+  private limboEnemy(band: LimboBand, kind: EnemyKind, x: number, y: number, range: number, enemies: Enemy[], emit: boolean, onLine = false) {
+    const e = this.enemy(kind, Math.round(x), Math.round(y), range, 'open');
+    const near = enemies.filter(o => Math.abs(o.y - e.y) < 200);
+    if (!this.limboEnemyFits(band, e, near, onLine)) return null;
+    const group = this.companions(e, near).filter(m => this.limboEnemyFits(band, m, [...near, e].filter(o => o !== m), onLine));
+    if (emit) enemies.push(onLine ? { ...e, placed: 'path' as const } : e, ...group);
+    return e;
+  }
+
+  private limboKind(kinds: readonly EnemyKind[]): EnemyKind | undefined {
+    const usable = kinds.filter(k => this.pool.includes(k));
+    return usable.length ? this.weighted(usable) : undefined;
+  }
+
+  /**
+   * Bodies by role. A `guarded` band stands one on its line, between barbs; a `crossfire` band runs VOID
+   * WISP columns through the air the line does not use. Any band may then have one loose beside the
+   * line, one under a barb on the side the line does not take, and an orbiting pair by the route ledge.
+   */
+  private limboEnemies(band: LimboBand, enemies: Enemy[], emit: boolean) {
+    const { spec, route, top, bottom } = band;
+    const lineAt = (yy: number) => tubeX(band.tubes[0], yy - 15);
+    const rand = (lo: number, hi: number) => lo + this.random() * (hi - lo);
+    const left = WORLD.wall + 40, right = WORLD.width - WORLD.wall - 40;
+    const lineGuard = band.motif === 'guarded'
+      || (band.motif === 'gate' && this.random() < spec.enemies.gateGuard)
+      || (band.motif === 'voidDrop' && this.random() < spec.enemies.dropGuard);
+    if (lineGuard) {
+      const gy = band.guardY ?? top + (bottom - top) * (0.45 + this.random() * 0.15);
+      // A guard has to stay where it was put: the phantoms hold their line, a bouncer would not.
+      const kind = this.limboKind(['shadeOrb', 'angryOrb']);
+      if (kind) for (const dy of [0, -24, 24, -48]) if (this.limboEnemy(band, kind, lineAt(gy + dy), gy + dy, 6, enemies, emit, true)) break;
+    }
+    if (band.motif === 'crossfire' || band.motif === 'voidDrop') {
+      const n = band.motif === 'crossfire' ? 2 + (this.random() < 0.5 ? 1 : 0) : 1;
+      for (let i = 0; i < n; i++) {
+        const yy = rand(top + 80, bottom - 90);
+        const cx = lineAt(yy), side = this.random() < 0.5 ? -1 : 1;
+        const x = side === -1 ? rand(left, Math.max(left, cx - 60)) : rand(Math.min(right, cx + 60), right);
+        const kind = this.limboKind(['voidWisp']) ?? this.limboKind(['hollowShade']);
+        if (kind) this.limboEnemy(band, kind, x, yy, 24, enemies, emit);
+      }
+    }
+    const loose = Math.floor(spec.enemies.loose) + (this.random() < spec.enemies.loose % 1 ? 1 : 0);
+    for (let n = 0; n < loose; n++) {
+      const kind = this.limboKind(this.pool);
+      for (let t = 0; kind && t < 4; t++) {
+        const yy = rand(top + 70, bottom - 80);
+        if (this.limboEnemy(band, kind, rand(left, right), yy, 24, enemies, emit)) break;
+      }
+    }
+    if (this.random() < spec.enemies.underBarb && band.barbs.length) {
+      const b = band.barbs[Math.floor(this.random() * band.barbs.length)];
+      const kind = this.limboKind(['shadeOrb', 'hollowShade', 'voidShard']);
+      if (kind) this.limboEnemy(band, kind, b.x + b.width / 2 + rand(-20, 20), b.y + rand(56, 96), 12, enemies, emit);
+    }
+    if (this.random() < spec.enemies.orbitLedge) {
+      const kind = this.limboKind(['hollowShade']);
+      const far = route.safeSide === -1 ? route.x + route.width + 46 : route.x - 46;
+      if (kind) this.limboEnemy(band, kind, far, route.y - 70, 10, enemies, emit);
+    }
+  }
+
+  /** One doodad in the band: off the lines (a reload you choose), or on a void drop's line (a reload mid-fall). */
+  private limboDoodad(band: LimboBand, tuning: RowTuning, doodads: Doodad[], enemies: readonly Enemy[], emit: boolean) {
+    if (this.random() >= tuning.doodadChance) return;
+    const w = DOODAD_RULES.width, h = DOODAD_RULES.height;
+    const onLine = band.motif === 'voidDrop';
+    for (let attempt = 0; attempt < 6; attempt++) {
+      const yy = Math.round(band.top + (band.bottom - band.top) * (0.3 + this.random() * 0.4));
+      const cx = tubeX(band.tubes[0], yy - 15);
+      const x = Math.round(onLine && attempt < 3
+        ? cx - w / 2 + (this.random() - 0.5) * 20
+        : WORLD.wall + 6 + this.random() * (WORLD.width - WORLD.wall * 2 - 12 - w));
+      if (x < WORLD.wall + 4 || x + w > WORLD.width - WORLD.wall - 4) continue;
+      const zone = doodadBounceZone({ x, y: yy, width: w, height: h });
+      const hits = (b: Box) => zone.minX < b.maxX && zone.maxX > b.minX && zone.minY < b.maxY && zone.maxY > b.minY;
+      if ([...band.barbs, ...band.recent].some(b => hits({ minX: b.x - 10, maxX: b.x + b.width + 10, minY: b.y - 30, maxY: b.y + 30 }))) continue;
+      if (band.ledges.some(L => hits({ minX: L.x - 10, maxX: L.x + L.width + 10, minY: L.y - 40, maxY: L.y + 30 }))) continue;
+      if (band.zones.some(hits)) continue;
+      if (enemies.some(e => hits(this.limboReachOf(e)))) continue;
+      if (!onLine && band.tubes.some(t => tubeHits(t, zone, 10))) continue;
+      const id = this.id++;
+      if (emit) doodads.push(spawnDoodad(id, x, yy, this.random() < 0.5 ? 'lamp' : 'bracket', true));
+      return;
+    }
   }
 
   /**

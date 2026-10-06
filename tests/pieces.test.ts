@@ -76,13 +76,18 @@ describe('AREA 1 terrain pieces', () => {
    */
   // STAGE GENERATION v2 gave AREA 4 a grammar of its own (limboTerrain.ts): every AREA now runs one,
   // and still no two share a shape beyond the two names the planner forces.
+  // WAS: AREA 1-4 each ran a piece grammar. AREA 4 / LIMBO GAMEPLAY REBUILD gives AREA 4 a row builder of
+  // its own (limboTerrain.ts) in place of one: its SECTIONs carry a `limbo` spec and no pieces, so no
+  // piece shape of AREA 1-3 can reach it. AREA 1-3 are held exactly as before.
   it('runs its own grammar in every SECTION of every AREA, and no two AREAs share a shape', () => {
-    for (const id of [1, 2, 3, 4] as const) expect(areaConfig(id).plans?.every(p => p.pieces !== undefined)).toBe(true);
-    const shapes = (id: 1 | 2 | 3 | 4) => new Set(areaConfig(id).plans!.flatMap(p => p.pieces!.pieces.map(x => x.id)).filter(x => x !== 'normal' && x !== 'breakableDrop'));
-    const all = [shapes(1), shapes(2), shapes(3), shapes(4)];
+    for (const id of [1, 2, 3] as const) expect(areaConfig(id).plans?.every(p => p.pieces !== undefined && p.limbo === undefined)).toBe(true);
+    expect(areaConfig(4).plans?.every(p => p.limbo !== undefined && p.pieces === undefined && p.rhythm === undefined)).toBe(true);
+    const shapes = (id: 1 | 2 | 3) => new Set(areaConfig(id).plans!.flatMap(p => p.pieces!.pieces.map(x => x.id)).filter(x => x !== 'normal' && x !== 'breakableDrop'));
+    const all = [shapes(1), shapes(2), shapes(3)];
     for (let i = 0; i < all.length; i++) for (let j = i + 1; j < all.length; j++) expect([...all[i]].filter(x => all[j].has(x))).toEqual([]);
     // Each states its own widest step, so the air-gap lookahead is never checked against another's.
-    for (const id of [1, 2, 3, 4] as const) expect(areaConfig(id).plans!.every(p => p.pieces!.maxStep > 0)).toBe(true);
+    for (const id of [1, 2, 3] as const) expect(areaConfig(id).plans!.every(p => p.pieces!.maxStep > 0)).toBe(true);
+    expect(areaConfig(4).plans!.every(p => p.limbo!.voidStep[1] > p.limbo!.step[1])).toBe(true);
     expect(AREAS.length).toBe(4);
   });
 

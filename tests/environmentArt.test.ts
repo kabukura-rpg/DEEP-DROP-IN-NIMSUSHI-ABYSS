@@ -712,7 +712,8 @@ describe('outside AREA 3', () => {
     expect(parts).toEqual({ wall: false, platform: false, breakBlock: false, spike: false, conveyor: false });
     expect(reefArt(0, () => true)).toBeNull();
     expect(limboArt(0, () => true)).toBeNull();
-    expect(generationSignature(4)).toBe('f65a6d908865b5097e3fd899');
+    // WAS f65a6d908865b5097e3fd899: AREA 4 / LIMBO GAMEPLAY REBUILD lays a different AREA 4 (see 'AREA 4 gameplay').
+    expect(generationSignature(4)).toBe('8fe90e6d6d4574a2e2ac7acf');
     expect(replaySignature(entered(g => g.jumpToBoss()))).toBe('8e287a848cb425a8029c5f2c');
   });
 
@@ -896,9 +897,12 @@ describe('AREA 4 LIMBO barbs', () => {
       }
     }
     expect(rows).toBeGreaterThan(100);
-    // Every width AREA 4 lays for a barb row (64-90) came through the check above.
-    expect(Math.min(...widths)).toBe(64);
-    expect(Math.max(...widths)).toBe(90);
+    // WAS: exactly 64-90, the only widths the retired grammar laid. The rebuilt AREA lays barbed rubble
+    // from 16px up to its SECTIONs' widest (120px); every one of them came through the check above, and
+    // all of them lie inside the 13-120 the next test covers width by width.
+    expect(widths.size).toBeGreaterThan(40);
+    expect(Math.min(...widths)).toBeGreaterThanOrEqual(16);
+    expect(Math.max(...widths)).toBeLessThanOrEqual(120);
   });
 
   it('covers every width 13-120 the same way, so no unseen width can leave a blank end', async () => {
@@ -938,13 +942,16 @@ describe('AREA 4 LIMBO barbs', () => {
 
 describe('AREA 4 gameplay', () => {
   // WAS: the replays were 9e7c6b738ad3bd3514afd646 / 516e68ff1ffddfa04e93b75f / 2ebcb752cd22d061e39e6733.
-  // AREA 4 COLLAPSING PLATFORMS RESTORED moves the replays (every ledge now gives way) and nothing the
-  // generator lays: the generation signature is the one the images were drawn over.
-  it('generates exactly as it did before the images, and plays with its ledges collapsing', () => {
-    expect(generationSignature(4)).toBe('f65a6d908865b5097e3fd899');
-    expect(replaySignature(entered(g => g.jumpToStage(4, 1)))).toBe('12ae06596103a9f573adafac');
-    expect(replaySignature(entered(g => g.jumpToStage(4, 2)))).toBe('bd849065d64cde6f6bc84e0a');
-    expect(replaySignature(entered(g => g.jumpToStage(4, 3)))).toBe('c96993f02a496755e320f4a5');
+  // AREA 4 COLLAPSING PLATFORMS RESTORED moved the replays (every ledge gives way) and nothing the
+  // generator laid (f65a6d908865b5097e3fd899, the shaft the images were drawn over; replays
+  // 12ae06596103a9f573adafac / bd849065d64cde6f6bc84e0a / c96993f02a496755e320f4a5).
+  // AREA 4 / LIMBO GAMEPLAY REBUILD replaces the AREA's generation outright (limboTerrain.ts), on the
+  // same images: what is pinned now is the rebuilt AREA, so a later change to it is seen.
+  it('generates and plays the rebuilt COLLAPSED REALM, on the same images, with its ledges collapsing', () => {
+    expect(generationSignature(4)).toBe('8fe90e6d6d4574a2e2ac7acf');
+    expect(replaySignature(entered(g => g.jumpToStage(4, 1)))).toBe('1e76e850a940069cb736eecc');
+    expect(replaySignature(entered(g => g.jumpToStage(4, 2)))).toBe('7c1a7fd3289e1612548469c1');
+    expect(replaySignature(entered(g => g.jumpToStage(4, 3)))).toBe('b168d91ecea486a17fcc5fbf');
   });
 
   it('leaves AREA 3 generating and playing as it did', () => {

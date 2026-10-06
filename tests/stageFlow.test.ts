@@ -39,9 +39,14 @@ describe('STAGE GENERATION v2: enemies placed into the fall', () => {
     }
   });
 
+  // AREA 4 / LIMBO GAMEPLAY REBUILD: AREA 4 no longer runs the flow profile. Its bodies are laid by role
+  // (limboTerrain.ts), and a LIMBO guard stands ON its band's line between barbs on purpose -- shot, not
+  // gone round. That rule is held in area4.test.ts; this one is the profile's, for the AREAs that run it.
+  const FLOW_AREAS = AREAS.filter(a => a.plans?.every(p => p.limbo === undefined));
   it('only lays a flyer across a fall that can still go round all of it and make the landing', () => {
     let checked = 0;
-    for (const area of AREAS) for (let n = 0; n < 3; n++) for (let seed = 1; seed <= 25; seed++) {
+    expect(FLOW_AREAS.map(a => a.id)).toEqual([1, 2, 3]);
+    for (const area of FLOW_AREAS) for (let n = 0; n < 3; n++) for (let seed = 1; seed <= 25; seed++) {
       const { platforms, enemies } = build(area.id, n, seed * 977, FULL);
       const rows = platforms.filter(p => p.safeZone === undefined).sort((a, b) => a.y - b.y);
       for (const e of enemies.filter(x => x.placed === 'path')) {
@@ -68,7 +73,11 @@ describe('STAGE GENERATION v2: enemies placed into the fall', () => {
   // profile's, so the count here is of what the profile decides.
   it('moves enemies without adding any: the rolls for whether a row has one are untouched', () => {
     const rows = (b: ReturnType<typeof build>) => b.enemies.filter(e => e.placed !== 'group').length;
-    for (const area of AREAS) for (let n = 0; n < 3; n++) {
+    // AREA 4 does not read the profile at all: forced on, it lays exactly the shaft it lays without it.
+    for (let n = 0; n < 3; n++) for (let seed = 1; seed <= 4; seed++) {
+      expect(JSON.stringify(build(4, n, seed * 53, FULL))).toBe(JSON.stringify(build(4, n, seed * 53)));
+    }
+    for (const area of FLOW_AREAS) for (let n = 0; n < 3; n++) {
       let before = 0, after = 0;
       for (let seed = 1; seed <= 200; seed++) {
         before += rows(build(area.id, n, seed * 53));

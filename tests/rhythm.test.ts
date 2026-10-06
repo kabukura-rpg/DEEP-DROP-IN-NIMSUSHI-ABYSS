@@ -152,21 +152,19 @@ describe('AREA 1 vertical rhythm', () => {
   // AREA 2 has since been given a grammar of its own too (catacombTerrain.ts), and STAGE GENERATION v2
   // gave AREA 4 one (limboTerrain.ts). What is held now: AREA 4 never runs AREA 1's RHYTHM, and on the
   // dev A/B's non-grammar modes it falls back to exactly the single-gap step it always had.
-  it('never puts AREA 4 on the rhythm, and falls back to its single-gap step off the grammar', () => {
-    for (const area of AREAS.filter(a => a.id === 4)) {
-      expect(area.plans?.every(p => p.rhythm === undefined && p.pieces !== undefined)).toBe(true);
+  // WAS: AREA 4 ran a piece grammar, and off `grammar-v2` fell back to its single-gap step. AREA 4 /
+  // LIMBO GAMEPLAY REBUILD gives it a row builder of its own that no terrain mode reaches: the AREA 1
+  // A/B switch is AREA 1's, and AREA 4 lays the same shaft whichever way it is set.
+  it('never puts AREA 4 on the rhythm, and lays the same LIMBO shaft whatever the AREA 1 terrain mode', () => {
+    const area = areaConfig(4);
+    expect(area.plans?.every(p => p.rhythm === undefined && p.limbo !== undefined)).toBe(true);
+    const shaft = (section: number, seed: number) => JSON.stringify(rowsOf(4, section, seed).map(p => [p.x, p.y, p.width, !!p.limboHazard]));
+    for (const seed of SEEDS.slice(0, 6)) for (let section = 1; section <= area.sections; section++) {
+      const grammar = shaft(section, seed);
       for (const mode of ['legacy', 'rhythm-v1'] as const) {
-      setTerrainMode(mode);
-      for (const seed of SEEDS.slice(0, 8)) for (let section = 1; section <= area.sections; section++) {
-        const plan = area.plans![section - 1];
-        for (const gap of gapsOf(rowsOf(area.id, section, seed))) {
-          // The old step exactly: the plan's own gap plus its 0-28px jitter, and nothing else.
-          if (gap < plan.gap * 1.9) {
-            expect(gap).toBeGreaterThanOrEqual(plan.gap);
-            expect(gap).toBeLessThanOrEqual(plan.gap + 28);
-          }
-        }
-      }
+        setTerrainMode(mode);
+        expect({ mode, seed, section, same: shaft(section, seed) === grammar }).toEqual({ mode, seed, section, same: true });
+        setTerrainMode('grammar-v2');
       }
     }
   });
