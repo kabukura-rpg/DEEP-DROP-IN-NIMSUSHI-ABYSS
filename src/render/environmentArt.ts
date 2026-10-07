@@ -27,6 +27,11 @@
  *             patch's bottom; an 18x9 barb every other 9px down a wall patch over a 4x9 base strip
  *             along its whole height, against the wall. The right wall is mirrored. Every image is
  *             cropped to the patch's collision box: nothing is drawn outside it.
+ *   doodad    AREA 1-4 only: a 44x21 image per variant (lamp, bracket) and per state the model already
+ *             has -- `active` while d.active, `spent` once the bounce has used it. Row 9 is the doodad's
+ *             top face d.y, so the image goes at (d.x, d.y - 9) and rows 9-20 are its 44x12 body; rows
+ *             0-8 are the lamp's ornament (transparent on a bracket). The staging room and the arena
+ *             carry none.
  *   collapse  AREA 4 only: a collapsing ledge's own 3-slice, one per state it shows -- stable,
  *             cracking, critical -- on exactly the ordinary platform geometry above (caps 8, center 16
  *             repeated and cropped, 24px tall, surface row 3). `broken` has no image: the ledge is gone.
@@ -82,6 +87,24 @@ import area4CollapseCrackingRightUrl from '../assets/environment/area4/area4-col
 import area4CollapseCriticalLeftUrl from '../assets/environment/area4/area4-collapse-critical-left-cap.png?url';
 import area4CollapseCriticalCenterUrl from '../assets/environment/area4/area4-collapse-critical-center.png?url';
 import area4CollapseCriticalRightUrl from '../assets/environment/area4/area4-collapse-critical-right-cap.png?url';
+// DOODADS: AREA 1 and AREA 2 from output/doodad-art-area1-4-v1, AREA 3 and AREA 4 from the readability
+// revision output/doodad-art-area3-4-readability-v2 (same alpha as v1, a brighter row 9).
+import area1DoodadLampActiveUrl from '../assets/environment/area1/area1-doodad-lamp-active.png?url';
+import area1DoodadLampSpentUrl from '../assets/environment/area1/area1-doodad-lamp-spent.png?url';
+import area1DoodadBracketActiveUrl from '../assets/environment/area1/area1-doodad-bracket-active.png?url';
+import area1DoodadBracketSpentUrl from '../assets/environment/area1/area1-doodad-bracket-spent.png?url';
+import area2DoodadLampActiveUrl from '../assets/environment/area2/area2-doodad-lamp-active.png?url';
+import area2DoodadLampSpentUrl from '../assets/environment/area2/area2-doodad-lamp-spent.png?url';
+import area2DoodadBracketActiveUrl from '../assets/environment/area2/area2-doodad-bracket-active.png?url';
+import area2DoodadBracketSpentUrl from '../assets/environment/area2/area2-doodad-bracket-spent.png?url';
+import area3DoodadLampActiveUrl from '../assets/environment/area3/area3-doodad-lamp-active.png?url';
+import area3DoodadLampSpentUrl from '../assets/environment/area3/area3-doodad-lamp-spent.png?url';
+import area3DoodadBracketActiveUrl from '../assets/environment/area3/area3-doodad-bracket-active.png?url';
+import area3DoodadBracketSpentUrl from '../assets/environment/area3/area3-doodad-bracket-spent.png?url';
+import area4DoodadLampActiveUrl from '../assets/environment/area4/area4-doodad-lamp-active.png?url';
+import area4DoodadLampSpentUrl from '../assets/environment/area4/area4-doodad-lamp-spent.png?url';
+import area4DoodadBracketActiveUrl from '../assets/environment/area4/area4-doodad-bracket-active.png?url';
+import area4DoodadBracketSpentUrl from '../assets/environment/area4/area4-doodad-bracket-spent.png?url';
 import stagingPlatformLeftUrl from '../assets/environment/staging/area4-platform-left-cap.png?url';
 import stagingPlatformCenterUrl from '../assets/environment/staging/area4-platform-center.png?url';
 import stagingPlatformRightUrl from '../assets/environment/staging/area4-platform-right-cap.png?url';
@@ -92,6 +115,7 @@ import bossWallEdgeUrl from '../assets/environment/boss/boss-wall-inner-edge.png
 import type { Platform } from '../systems/StageGenerator';
 import type { SpikePlatform } from '../data/structures';
 import type { Hazard } from '../data/hazards';
+import type { Doodad, DoodadVariant } from '../data/doodads';
 
 export interface EnvironmentArtSet {
   /** Absent for a set with no ledges to draw (the boss arena): every ledge then stays procedural. */
@@ -104,7 +128,16 @@ export interface EnvironmentArtSet {
   limbo?: { barb: string };
   /** A collapsing ledge's 3-slice for each state it is seen in (AREA 4). See `collapseArt`. */
   collapse?: Record<CollapseFrame, { left: string; center: string; right: string }>;
+  /** A DOODAD's image per variant and state (AREA 1-4). See `doodadArt`. */
+  doodad?: Record<DoodadVariant, Record<DoodadFrame, string>>;
 }
+/** The two looks a DOODAD has: the model's `active` true and false. No other state exists. */
+export type DoodadFrame = 'active' | 'spent';
+export const DOODAD_VARIANTS: readonly DoodadVariant[] = ['lamp', 'bracket'];
+export const DOODAD_FRAMES: readonly DoodadFrame[] = ['active', 'spent'];
+const doodadSet = (lampActive: string, lampSpent: string, bracketActive: string, bracketSpent: string) => ({
+  lamp: { active: lampActive, spent: lampSpent }, bracket: { active: bracketActive, spent: bracketSpent },
+});
 /** The collapse states that have an image. `broken` has none: a broken ledge is not drawn at all. */
 export type CollapseFrame = 'stable' | 'cracking' | 'critical';
 export const COLLAPSE_FRAMES: readonly CollapseFrame[] = ['stable', 'cracking', 'critical'];
@@ -124,6 +157,7 @@ export const ENVIRONMENT_ART: Partial<Record<EnvironmentArtId, EnvironmentArtSet
   1: {
     platform: { left: area1PlatformLeftUrl, center: area1PlatformCenterUrl, right: area1PlatformRightUrl },
     wall: { fill: area1WallFillUrl, edge: area1WallEdgeUrl },
+    doodad: doodadSet(area1DoodadLampActiveUrl, area1DoodadLampSpentUrl, area1DoodadBracketActiveUrl, area1DoodadBracketSpentUrl),
   },
   2: {
     platform: { left: area2PlatformLeftUrl, center: area2PlatformCenterUrl, right: area2PlatformRightUrl },
@@ -134,11 +168,13 @@ export const ENVIRONMENT_ART: Partial<Record<EnvironmentArtId, EnvironmentArtSet
       warning4: area2SpikeWarning4Url, active: area2SpikeActiveUrl, edge: area2SpikeEdgeUrl,
     },
     conveyor: { tile: area2BeltTileUrl, arrow: area2BeltArrowUrl },
+    doodad: doodadSet(area2DoodadLampActiveUrl, area2DoodadLampSpentUrl, area2DoodadBracketActiveUrl, area2DoodadBracketSpentUrl),
   },
   3: {
     platform: { left: area3PlatformLeftUrl, center: area3PlatformCenterUrl, right: area3PlatformRightUrl },
     wall: { fill: area3WallFillUrl, edge: area3WallEdgeUrl },
     reef: { up: area3ReefUpUrl, side: area3ReefSideUrl, base: area3ReefBaseUrl },
+    doodad: doodadSet(area3DoodadLampActiveUrl, area3DoodadLampSpentUrl, area3DoodadBracketActiveUrl, area3DoodadBracketSpentUrl),
   },
   // AREA 4's own copies of the fractured masonry. THE ABYSS's staging room keeps its separate set
   // below, so nothing about AREA 4 can change the room.
@@ -153,6 +189,7 @@ export const ENVIRONMENT_ART: Partial<Record<EnvironmentArtId, EnvironmentArtSet
       cracking: { left: area4CollapseCrackingLeftUrl, center: area4CollapseCrackingCenterUrl, right: area4CollapseCrackingRightUrl },
       critical: { left: area4CollapseCriticalLeftUrl, center: area4CollapseCriticalCenterUrl, right: area4CollapseCriticalRightUrl },
     },
+    doodad: doodadSet(area4DoodadLampActiveUrl, area4DoodadLampSpentUrl, area4DoodadBracketActiveUrl, area4DoodadBracketSpentUrl),
   },
   // The last room before NIMUSHI: the ABYSS's vertical seal stone for the walls (the BOSS set) and
   // AREA 4's fractured masonry for the ledges, which is the ledge the BOSS set was drawn to go with.
@@ -177,6 +214,7 @@ export const ENVIRONMENT_GEOMETRY = {
   belt: { tileWidth: 14, tileHeight: 8, arrowWidth: 10, arrowHeight: 12 },
   reef: { step: 9, upWidth: 9, upHeight: 12, sideWidth: 18, sideHeight: 9, baseWidth: 4 },
   limbo: { width: 13, height: 24, pitch: 13, seamRow: 14 },
+  doodad: { width: 44, height: 21, surfaceRow: 9 },
 } as const;
 
 /** Texture keys for an AREA's set. */
@@ -198,6 +236,7 @@ export const environmentKeys = (area: EnvironmentArtId) => ({
   collapse: Object.fromEntries(COLLAPSE_FRAMES.map(frame => [frame, {
     left: `env-${area}-collapse-${frame}-left`, center: `env-${area}-collapse-${frame}-center`, right: `env-${area}-collapse-${frame}-right`,
   }])) as Record<CollapseFrame, { left: string; center: string; right: string }>,
+  doodad: Object.fromEntries(DOODAD_VARIANTS.map(variant => [variant, Object.fromEntries(DOODAD_FRAMES.map(frame => [frame, `env-${area}-doodad-${variant}-${frame}`]))])) as Record<DoodadVariant, Record<DoodadFrame, string>>,
 });
 export type EnvironmentKeys = ReturnType<typeof environmentKeys>;
 
@@ -213,6 +252,7 @@ export function environmentLoads(area: EnvironmentArtId, set: EnvironmentArtSet)
   if (set.reef) for (const k of ['up', 'side', 'base'] as const) loads.push([keys.reef[k], set.reef[k]]);
   if (set.limbo) loads.push([keys.limbo.barb, set.limbo.barb]);
   if (set.collapse) for (const frame of COLLAPSE_FRAMES) for (const k of ['left', 'center', 'right'] as const) loads.push([keys.collapse[frame][k], set.collapse[frame][k]]);
+  if (set.doodad) for (const variant of DOODAD_VARIANTS) for (const frame of DOODAD_FRAMES) loads.push([keys.doodad[variant][frame], set.doodad[variant][frame]]);
   return loads;
 }
 
@@ -310,6 +350,28 @@ export function collapseFrame(f: Partial<Pick<Platform, 'breakBlock' | 'limboHaz
   if (!f.breakable || f.breakBlock || f.limboHazard || f.spikePlatform || f.width < ENVIRONMENT_GEOMETRY.platform.cap * 2) return null;
   const state = f.state ?? 'stable';
   return state === 'broken' ? null : state;
+}
+
+/**
+ * The DOODAD images' texture keys, per variant and state, when this set carries them and all four
+ * loaded; otherwise null, and every doodad keeps its procedural drawing. AREA 1-4 carry them; the
+ * staging room and the arena do not, so nothing of AREA 4's can reach THE ABYSS.
+ */
+export function doodadArt(area: EnvironmentArtId, exists: (key: string) => boolean) {
+  const keys = environmentKeys(area).doodad;
+  return ENVIRONMENT_ART[area]?.doodad && DOODAD_VARIANTS.every(variant => DOODAD_FRAMES.every(frame => exists(keys[variant][frame]))) ? keys : null;
+}
+export type DoodadKeys = NonNullable<ReturnType<typeof doodadArt>>;
+
+/** Which image a doodad shows: read straight off the model's `active`, which the bounce clears. */
+export const doodadFrame = (d: Pick<Doodad, 'active'>): DoodadFrame => d.active ? 'active' : 'spent';
+
+/**
+ * Where a doodad's image goes: its row 9 on the doodad's top face `y`, its left column on `x`. The
+ * 44x12 body (rows 9-20) is exactly the doodad's collision box; nothing here moves it.
+ */
+export function doodadPlacement(x: number, y: number) {
+  return { x, y: y - ENVIRONMENT_GEOMETRY.doodad.surfaceRow };
 }
 
 /** The LIMBO barb's texture key when this set carries it and it loaded; otherwise null (procedural). */

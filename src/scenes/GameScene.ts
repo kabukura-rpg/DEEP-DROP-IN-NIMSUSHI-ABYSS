@@ -19,6 +19,7 @@ import { PlayerArt } from '../render/PlayerArt';
 import { NIMUSHI_ART, nimushiArtBarrierOrbit, nimushiArtPlacement, nimushiArtShade } from '../render/NimushiArt';
 import { TOMATO_REVEAL_SECONDS, tomatoRevealFrame, tomatoRevealStart } from '../render/tomatoReveal';
 import type { Pickup } from '../data/pickups';
+import type { Doodad } from '../data/doodads';
 import area1BackgroundUrl from '../../output/game-backgrounds-v2/area1-a.png?url';
 import area2BackgroundUrl from '../../output/game-backgrounds-v2/area2-b.png?url';
 import area3BackgroundUrl from '../../output/game-backgrounds-v2/area3-b.png?url';
@@ -27,7 +28,7 @@ import bossBackgroundUrl from '../../output/game-backgrounds-v2/boss-a.png?url';
 import area1SurfaceUrl from '../../output/game-backgrounds-v1/area1-surface-a.png?url';
 import { surfaceLayerAlphas, surfaceWeight } from '../render/surfaceBlend';
 import { ENEMY_ART_PLACEMENT, ENEMY_ART_URLS, enemyArtFlipX, enemyArtKey, enemyArtLook, type EnemyArtLook } from '../render/enemyArt';
-import { ENVIRONMENT_ART, ENVIRONMENT_GEOMETRY, environmentArtArea, environmentArtId, chamberDrawn, beltLayout, breakBlockFrame, breakBlockSlices, environmentKeys, environmentLoads, environmentParts, collapseArt, collapseFrame, limboArt, limboLayout, reefArt, reefLayout, type ReefKeys, platformSlices, spikeFrame, spikeLayout, usesPlatformArt, wallTileX, wallTileY, type EnvironmentKeys } from '../render/environmentArt';
+import { ENVIRONMENT_ART, ENVIRONMENT_GEOMETRY, environmentArtArea, environmentArtId, chamberDrawn, beltLayout, breakBlockFrame, breakBlockSlices, environmentKeys, environmentLoads, environmentParts, collapseArt, collapseFrame, doodadArt, doodadFrame, doodadPlacement, type DoodadKeys, limboArt, limboLayout, reefArt, reefLayout, type ReefKeys, platformSlices, spikeFrame, spikeLayout, usesPlatformArt, wallTileX, wallTileY, type EnvironmentKeys } from '../render/environmentArt';
 
 const BACKGROUND_URLS = {
   1: area1BackgroundUrl, 2: area2BackgroundUrl, 3: area3BackgroundUrl,
@@ -99,6 +100,12 @@ export class GameScene extends Phaser.Scene {
   private worldBack!: Phaser.GameObjects.Graphics;
   private worldMid!: Phaser.GameObjects.Graphics;
   private wallLayer!: Phaser.GameObjects.Container;
+  /**
+   * DOODAD images, just above `worldMid` where the procedural doodads are the last thing drawn, and
+   * below the ledges: the same place in the order either way. Pooled, one image per doodad on screen.
+   */
+  private doodadLayer!: Phaser.GameObjects.Container;
+  private doodadImages: Phaser.GameObjects.Image[] = [];
   private platformLayer!: Phaser.GameObjects.Container;
   /**
    * What an image set draws ON its ledges and blocks, in this order bottom to top: spike sockets,
@@ -168,6 +175,7 @@ export class GameScene extends Phaser.Scene {
     this.worldBack = this.add.graphics();
     this.wallLayer = this.add.container(0, 0);
     this.worldMid = this.add.graphics();
+    this.doodadLayer = this.add.container(0, 0);
     this.platformLayer = this.add.container(0, 0);
     for (const kind of ['socket', 'tooth', 'edge', 'belt', 'arrow', 'crack'] as const) this.platformOverlay[kind] = this.add.container(0, 0);
     this.graphics = this.add.graphics();
@@ -471,6 +479,8 @@ export class GameScene extends Phaser.Scene {
     const limbo = limboArt(artArea, key => this.textures.exists(key));
     // AREA 4's collapsing ledges, per state; null anywhere else, or if an image is missing (procedural).
     const collapse = collapseArt(artArea, key => this.textures.exists(key));
+    // AREA 1-4's DOODAD images, per variant and state; null in THE ABYSS, or if an image is missing (procedural).
+    const doodadKeys = doodadArt(artArea, key => this.textures.exists(key));
     // Wide enough to still cover the view when it has slid sideways into a cave.
     // Keep the authored distance layer subdued so collision surfaces and attack tells stay foremost.
     this.rect(m.cameraX - 8, 0, 466 + Math.abs(m.cameraX) * 2, 800, 0x10191c, 0.16);
@@ -556,9 +566,12 @@ export class GameScene extends Phaser.Scene {
       }
     }
     // DOODADS: small fixtures on the shaft wall, unmistakably not enemies and not ledges.
+    let doodadImages = 0;
     for (const d of m.doodads) {
       const dy = d.y - cam;
       if (dy < -30 || dy > 830) continue;
+      // From the AREA's images: the variant's own, `active` or `spent` as the model says. Drawing only.
+      if (doodadKeys) { this.doodadArt(doodadImages++, doodadKeys, d, dy, g.x); continue; }
       const glow = 0.5 + Math.abs(Math.sin(this.model.elapsed * 1.8 + d.x)) * 0.25;
       this.rect(d.x, dy, d.width, d.height, 0x4a4232);
       this.rect(d.x, dy, d.width, 3, 0xd8c88a);
@@ -570,6 +583,7 @@ export class GameScene extends Phaser.Scene {
         for (let i = 4; i < d.width - 3; i += 10) this.rect(d.x + i, dy + 4, 5, d.height - 6, 0x2b271d);
       }
     }
+    for (let i = doodadImages; i < this.doodadImages.length; i++) this.doodadImages[i].setVisible(false);
     this.graphics = g;
     let ledges = 0;
     for (const pool of this.overlayPool.values()) pool.used = 0;
@@ -1021,6 +1035,18 @@ export class GameScene extends Phaser.Scene {
     piece.left.setTexture(art.left).setPosition(offsetX + at.left.x, top).setVisible(true);
     piece.center.setTexture(art.center).setPosition(offsetX + at.center.x, top).setSize(at.center.width, h).setTilePosition(0, 0).setVisible(at.center.width > 0);
     piece.right.setTexture(art.right).setPosition(offsetX + at.right.x, top).setVisible(true);
+  }
+  /**
+   * One DOODAD from the AREA's images (render/environmentArt): its variant's image for the state the
+   * model has it in -- `active` until the bounce clears it, `spent` after -- with the image's row 9 on
+   * the doodad's top face, so rows 9-20 cover exactly its 44x12 box. The bounce is the model's.
+   */
+  private doodadArt(index: number, art: DoodadKeys, d: Pick<Doodad, 'x' | 'variant' | 'active'>, y: number, offsetX: number) {
+    const texture = art[d.variant][doodadFrame(d)];
+    let img = this.doodadImages[index];
+    if (!img) { img = this.add.image(0, 0, texture).setOrigin(0); this.doodadLayer.add(img); this.doodadImages[index] = img; }
+    const at = doodadPlacement(Math.round(d.x), Math.round(y));
+    img.setTexture(texture).setPosition(offsetX + at.x, at.y).setVisible(true);
   }
   /** The next free image (or tile strip) of one overlay pool, made on the kind's own layer when the pool runs out. */
   private overlayImage(kind: keyof GameScene['platformOverlay'], texture: string): Phaser.GameObjects.Image;

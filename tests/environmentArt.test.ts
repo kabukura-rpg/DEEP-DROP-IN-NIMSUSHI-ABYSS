@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import {
-  BLOCK_DROP_FROM, ENVIRONMENT_ART, ENVIRONMENT_GEOMETRY, beltLayout, breakBlockFrame, breakBlockSlices, environmentArtArea, environmentArtId, environmentKeys, environmentLoads,
+  BLOCK_DROP_FROM, DOODAD_FRAMES, DOODAD_VARIANTS, doodadArt, doodadFrame, doodadPlacement, ENVIRONMENT_ART, ENVIRONMENT_GEOMETRY, beltLayout, breakBlockFrame, breakBlockSlices, environmentArtArea, environmentArtId, environmentKeys, environmentLoads,
   environmentParts, limboArt, limboLayout, collapseArt, collapseFrame, COLLAPSE_FRAMES, platformSlices, reefArt, reefLayout, spikeFrame, spikeLayout, usesPlatformArt, wallTileX, wallTileY,
 } from '../src/render/environmentArt';
 import { HAZARD_TYPES, spawnHazard } from '../src/data/hazards';
@@ -32,6 +32,8 @@ const area2Png = (file: string) => {
   return { size: [u32(16), u32(20)], depth: b[24], colour: b[25], sha256: createHash('sha256').update(b).digest('hex') };
 };
 const seeded = (s: number) => () => { s = (Math.imul(s, 1664525) + 1013904223) >>> 0; return s / 4294967296; };
+/** The four DOODAD keys an AREA 1-4 set loads after its terrain (DOODAD ART FINAL INTEGRATION). */
+const doodadLoadKeys = (area: number) => DOODAD_VARIANTS.flatMap(v => DOODAD_FRAMES.map(f => `env-${area}-doodad-${v}-${f}`));
 
 /** ENVIRONMENT ART: AREA 1's ledges and walls from images, on the geometry the model already has. */
 describe('the image sets', () => {
@@ -51,7 +53,9 @@ describe('the image sets', () => {
     expect(set.breakBlock).toBeUndefined();
     expect(set.spike).toBeUndefined();
     expect(set.conveyor).toBeUndefined();
-    expect(environmentLoads(1, set).map(([key]) => key)).toEqual(['env-1-platform-left', 'env-1-platform-center', 'env-1-platform-right', 'env-1-wall-fill', 'env-1-wall-edge']);
+    // WAS: these five keys and nothing else. DOODAD ART adds the four DOODAD images after them (held
+    // byte for byte in 'DOODAD images'); the five terrain images are unchanged.
+    expect(environmentLoads(1, set).map(([key]) => key)).toEqual(['env-1-platform-left', 'env-1-platform-center', 'env-1-platform-right', 'env-1-wall-fill', 'env-1-wall-edge', ...doodadLoadKeys(1)]);
   });
 
   it('ships the five AREA 1 images at the audited sizes, from src/assets', () => {
@@ -91,7 +95,11 @@ describe('the image sets', () => {
       expect({ file, ...area2Png(file) }).toEqual({ file, size: [w, h], depth: 8, colour: 6, sha256 });
     }
     // Every one is loaded, under its own key, and none is read from output/ or dist/.
-    const loads = environmentLoads(2, ENVIRONMENT_ART[2]!);
+    // WAS: the loads were these 18 exactly. DOODAD ART appends AREA 2's four DOODAD images after them
+    // (held byte for byte in 'DOODAD images'); the 18 are the same, in the same order.
+    const all = environmentLoads(2, ENVIRONMENT_ART[2]!);
+    expect(all.slice(18).map(([key]) => key)).toEqual(doodadLoadKeys(2));
+    const loads = all.slice(0, 18);
     expect(loads).toHaveLength(18);
     expect(new Set(loads.map(([key]) => key)).size).toBe(18);
     for (const [key, url] of loads) {
@@ -515,11 +523,14 @@ describe('AREA 3 images', () => {
     for (const [file, [w, h, sha256]] of Object.entries(expected)) {
       expect({ file, ...envPng('area3', file) }).toEqual({ file, size: [w, h], depth: 8, colour: 6, sha256 });
     }
-    const loads = environmentLoads(3, ENVIRONMENT_ART[3]!);
-    expect(loads.map(([key]) => key)).toEqual([
+    // WAS: these eight keys and nothing else. DOODAD ART appends the four DOODAD images (held byte for
+    // byte in 'DOODAD images'); the eight are unchanged.
+    const all = environmentLoads(3, ENVIRONMENT_ART[3]!);
+    expect(all.map(([key]) => key)).toEqual([
       'env-3-platform-left', 'env-3-platform-center', 'env-3-platform-right', 'env-3-wall-fill', 'env-3-wall-edge',
-      'env-3-reef-up', 'env-3-reef-side', 'env-3-reef-base',
+      'env-3-reef-up', 'env-3-reef-side', 'env-3-reef-base', ...doodadLoadKeys(3),
     ]);
+    const loads = all.slice(0, 8);
     for (const [, url] of loads) expect(url).not.toMatch(/(^|\/)(output|dist)\//);
     const files = loads.map(([, url]) => url.match(/area3-[a-z0-9-]+\.png/)![0]).sort();
     expect(files).toEqual(Object.keys(expected).sort());
@@ -759,6 +770,8 @@ describe('AREA 4 images', () => {
     expect(loads.map(([key]) => key)).toEqual([
       'env-4-platform-left', 'env-4-platform-center', 'env-4-platform-right', 'env-4-wall-fill', 'env-4-wall-edge', 'env-4-limbo-barb',
       ...COLLAPSE_FRAMES.flatMap(frame => [`env-4-collapse-${frame}-left`, `env-4-collapse-${frame}-center`, `env-4-collapse-${frame}-right`]),
+      // DOODAD ART: the four DOODAD images last (held byte for byte in 'DOODAD images').
+      ...doodadLoadKeys(4),
     ]);
     for (const [, url] of loads) expect(url).not.toMatch(/(^|\/)(output|dist)\//);
   });
@@ -766,7 +779,8 @@ describe('AREA 4 images', () => {
   it('maps each image to its part, and carries no BREAK BLOCK, spike, belt, reef or crumble', () => {
     const set = ENVIRONMENT_ART[4]!;
     // WAS ['limbo', 'platform', 'wall']: the collapsing ledges' own set is AREA 4's fourth part.
-    expect(Object.keys(set).sort()).toEqual(['collapse', 'limbo', 'platform', 'wall']);
+    // WAS ['collapse', 'limbo', 'platform', 'wall']: DOODAD ART adds the DOODAD images as the fifth.
+    expect(Object.keys(set).sort()).toEqual(['collapse', 'doodad', 'limbo', 'platform', 'wall']);
     expect(set.platform!.left).toMatch(/area4-platform-left-cap\.png/);
     expect(set.platform!.center).toMatch(/area4-platform-center\.png/);
     expect(set.platform!.right).toMatch(/area4-platform-right-cap\.png/);
