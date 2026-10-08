@@ -28,6 +28,7 @@ import bossBackgroundUrl from '../../output/game-backgrounds-v2/boss-a.png?url';
 import area1SurfaceUrl from '../../output/game-backgrounds-v1/area1-surface-a.png?url';
 import { surfaceLayerAlphas, surfaceWeight } from '../render/surfaceBlend';
 import { ENEMY_ART_PLACEMENT, ENEMY_ART_URLS, enemyArtFlipX, enemyArtKey, enemyArtLook, type EnemyArtLook } from '../render/enemyArt';
+import { coinArt, coinFace, contentLoads, moduleArt, modulePlacement, shopDoorArt, veinArt } from '../render/contentArt';
 import { ENVIRONMENT_ART, ENVIRONMENT_GEOMETRY, environmentArtArea, environmentArtId, chamberDrawn, beltLayout, breakBlockFrame, breakBlockSlices, environmentKeys, environmentLoads, environmentParts, collapseArt, collapseFrame, doodadArt, doodadFrame, doodadPlacement, type DoodadKeys, limboArt, limboLayout, reefArt, reefLayout, type ReefKeys, platformSlices, spikeFrame, spikeLayout, usesPlatformArt, wallTileX, wallTileY, type EnvironmentKeys } from '../render/environmentArt';
 
 const BACKGROUND_URLS = {
@@ -106,6 +107,27 @@ export class GameScene extends Phaser.Scene {
    */
   private doodadLayer!: Phaser.GameObjects.Container;
   private doodadImages: Phaser.GameObjects.Image[] = [];
+  /**
+   * CONTENT ART (render/contentArt). Each image layer sits exactly where its procedural drawing was
+   * in the order, so nothing changes place:
+   *
+   *   veinLayer      a SIDE CAVE's COIN VEIN, just above `worldMid` where `sideCaves` drew it -- under
+   *                  the ledges, as it always was.
+   *   contentLayer   GUN MODULE crates and SIDE CAVE shop doors. `graphics` is split around it:
+   *                  `worldFront` takes what came before them (ledges, hazards, pickups, the exit,
+   *                  TIMEVOID) and `worldFrontLate` what came after (the module's bonus pip, the
+   *                  procedural doorways, containers, bubbles), up to the coins.
+   *   coinLayer      loose coins, between `worldFrontLate` and `graphics`, which keeps everything that
+   *                  followed them -- TIMEOUT bubbles, bodies, NIMUSHI and on.
+   */
+  private veinLayer!: Phaser.GameObjects.Container;
+  private veinImages: Phaser.GameObjects.Image[] = [];
+  private worldFront!: Phaser.GameObjects.Graphics;
+  private contentLayer!: Phaser.GameObjects.Container;
+  private contentImages: Phaser.GameObjects.Image[] = [];
+  private worldFrontLate!: Phaser.GameObjects.Graphics;
+  private coinLayer!: Phaser.GameObjects.Container;
+  private coinImages: Phaser.GameObjects.Image[] = [];
   private platformLayer!: Phaser.GameObjects.Container;
   /**
    * What an image set draws ON its ledges and blocks, in this order bottom to top: spike sockets,
@@ -140,6 +162,7 @@ export class GameScene extends Phaser.Scene {
       if (!set) continue;
       for (const [key, url] of environmentLoads(environmentArtId(area), set)) this.load.image(key, url);
     }
+    for (const [key, url] of contentLoads()) this.load.image(key, url);
     PlayerArt.preload(this);
     this.load.image('nimushi-art', NIMUSHI_ART.url);
   }
@@ -175,9 +198,14 @@ export class GameScene extends Phaser.Scene {
     this.worldBack = this.add.graphics();
     this.wallLayer = this.add.container(0, 0);
     this.worldMid = this.add.graphics();
+    this.veinLayer = this.add.container(0, 0);
     this.doodadLayer = this.add.container(0, 0);
     this.platformLayer = this.add.container(0, 0);
     for (const kind of ['socket', 'tooth', 'edge', 'belt', 'arrow', 'crack'] as const) this.platformOverlay[kind] = this.add.container(0, 0);
+    this.worldFront = this.add.graphics();
+    this.contentLayer = this.add.container(0, 0);
+    this.worldFrontLate = this.add.graphics();
+    this.coinLayer = this.add.container(0, 0);
     this.graphics = this.add.graphics();
     // Ordering: world -> NIMUSHI's image -> everything drawn after its body -> the player's image ->
     // particles, damage flash and scanlines. Created in that order, so Phaser draws them in it.
@@ -466,6 +494,7 @@ export class GameScene extends Phaser.Scene {
     this.afterBoss?.clear().setPosition(g.x, g.y);
     this.afterEnemies.clear().setPosition(g.x, g.y);
     this.worldBack.clear().setPosition(g.x, g.y); this.worldMid.clear().setPosition(g.x, g.y);
+    this.worldFront.clear().setPosition(g.x, g.y); this.worldFrontLate.clear().setPosition(g.x, g.y);
     this.graphics = this.worldBack;
     const theme = m.stage.config.theme;
     // The AREA's image set, if it has one and it loaded; otherwise the procedural look below.
@@ -481,6 +510,9 @@ export class GameScene extends Phaser.Scene {
     const collapse = collapseArt(artArea, key => this.textures.exists(key));
     // AREA 1-4's DOODAD images, per variant and state; null in THE ABYSS, or if an image is missing (procedural).
     const doodadKeys = doodadArt(artArea, key => this.textures.exists(key));
+    // COIN + SIDE CAVE CONTENT images, shared by every AREA; each null if its image is missing (procedural).
+    const exists = (key: string) => this.textures.exists(key);
+    const coinKeys = coinArt(exists), veinKey = veinArt(exists), doorKey = shopDoorArt(exists);
     // Wide enough to still cover the view when it has slid sideways into a cave.
     // Keep the authored distance layer subdued so collision surfaces and attack tells stay foremost.
     this.rect(m.cameraX - 8, 0, 466 + Math.abs(m.cameraX) * 2, 800, 0x10191c, 0.16);
@@ -494,7 +526,8 @@ export class GameScene extends Phaser.Scene {
     this.wallArt(envArt, reach, cam, g.x);
     if (!envArt) { this.rect(-reach, 0, 28 + reach, 800, theme.wall); this.rect(422, 0, 28 + reach, 800, theme.wall); }
     this.graphics = this.worldMid;
-    this.sideCaves(m, cam, theme);
+    const veins = this.sideCaves(m, cam, theme, veinKey, g.x);
+    for (let i = veins; i < this.veinImages.length; i++) this.veinImages[i].setVisible(false);
     if (!envArt) {
       this.rect(27, 0, 2, 800, theme.wallEdge); this.rect(421, 0, 2, 800, theme.wallEdge);
       for (let i = 0; i < 19; i++) {
@@ -584,7 +617,8 @@ export class GameScene extends Phaser.Scene {
       }
     }
     for (let i = doodadImages; i < this.doodadImages.length; i++) this.doodadImages[i].setVisible(false);
-    this.graphics = g;
+    // Ledges through TIMEVOID: what `graphics` drew before the content images (see `contentLayer`).
+    this.graphics = this.worldFront;
     let ledges = 0;
     for (const pool of this.overlayPool.values()) pool.used = 0;
     // DEVELOPMENT ONLY: record what this frame is about to draw, so the "blocks sometimes all
@@ -643,6 +677,10 @@ export class GameScene extends Phaser.Scene {
     for (let i = ledges; i < this.ledgePool.length; i++) { const p = this.ledgePool[i]; p.left.setVisible(false); p.center.setVisible(false); p.right.setVisible(false); }
     for (const pool of this.overlayPool.values()) for (let i = pool.used; i < pool.items.length; i++) pool.items[i].setVisible(false);
     for (const hazard of m.hazards) this.hazard(hazard, cam, reef, g.x);
+    let contentImages = 0;
+    // A crate drawn from its image gets its bonus pip on `worldFrontLate`, over the image -- where the
+    // pip always sat, over the box.
+    const pips: { x: number; y: number; color: number }[] = [];
     for (const item of m.pickups) {
       if (item.taken) continue;
       const type = pickupType(item.kind), y = item.y - cam;
@@ -650,6 +688,14 @@ export class GameScene extends Phaser.Scene {
       const bob = Math.sin(this.model.elapsed * 2.2 + item.phase) * 3;
       const x = Math.round(item.x);
       if (type.silhouette === 'module') {
+        // The module's own crate (render/contentArt). The image says which weapon it is, so no label.
+        const crate = moduleArt(item.module, exists);
+        if (crate) {
+          const at = modulePlacement(x, y + bob);
+          this.contentImage(contentImages++, crate, g.x + at.x, at.y);
+          pips.push({ x: x + 10, y: y + bob - 16, color: item.bonus === 'charge' ? 0x9fe8f5 : 0xff8fa8 });
+          continue;
+        }
         const label = item.module ? gunModule(item.module).short : '';
         this.rect(x - 17, y + bob - 13, 34, 26, 0x2a2438, 0.95);
         this.rect(x - 17, y + bob - 13, 34, 26, type.color, 0.22);
@@ -688,9 +734,22 @@ export class GameScene extends Phaser.Scene {
     this.timeVoid(m, cam);
     // Every doorway this SECTION has: the chamber's, where an AREA still cuts chambers, and one
     // for EACH shop cave -- a SECTION can hold more than one, and each is its own door.
+    //
+    // Only a SHOP CAVE's door is drawn from its image, and that is decided by where the door came
+    // from rather than by AREA: `shopDoor(cave)` is a SideCave's. `shop.entrance` -- THE ABYSS staging
+    // room's shelf, and a chamber's -- is never a cave's and always keeps the procedural doorway.
+    const caveDoors = m.caves.filter(c => c.content?.kind === 'shop' && !c.taken).map(c => m.shopDoor(c));
+    if (doorKey) for (const door of caveDoors) {
+      const dy = door.y - cam;
+      if (dy > -120 && dy < 860) this.contentImage(contentImages++, doorKey, g.x + door.x, Math.round(dy));
+    }
+    for (let i = contentImages; i < this.contentImages.length; i++) this.contentImages[i].setVisible(false);
+    // After the crates and cave doors: doorways, containers, bubbles, up to the coins.
+    this.graphics = this.worldFrontLate;
+    for (const pip of pips) this.rect(pip.x, pip.y, 6, 6, pip.color, 0.95);
     const doors = [
       ...(m.shop.entrance ? [m.shop.entrance] : []),
-      ...m.caves.filter(c => c.content?.kind === 'shop' && !c.taken).map(c => m.shopDoor(c)),
+      ...(doorKey ? [] : caveDoors),
     ];
     for (const door of doors) {
       const dy = door.y - cam;
@@ -724,11 +783,14 @@ export class GameScene extends Phaser.Scene {
       this.rect(bubble.x - 4, by - 5, 3, 3, 0xffffff, fade * 0.8);
     }
     // Loose coins.
+    let coinImages = 0;
     for (const coin of m.coins.coins) {
       const cy = coin.y - cam;
       if (cy < -40 || cy > 850) continue;
       const fade = m.coins.expiring(coin) ? 0.3 + Math.abs(Math.sin(this.model.elapsed * 16)) * 0.6 : 1;
       const spin = Math.abs(Math.cos(this.model.elapsed * 5 + coin.id));
+      // The coin's face (render/contentArt), turned by the same spin and blinking by the same fade.
+      if (coinKeys) { this.coinImage(coinImages++, coinKeys[coin.denomination], coinFace(coin.denomination, coin.x, cy, spin), fade, g.x); continue; }
       // A LARGE COIN is drawn half again as big and with a bright rim, so which one is worth
       // chasing is a read at a glance rather than something only the wallet finds out about.
       const large = coin.denomination === 'large';
@@ -737,6 +799,9 @@ export class GameScene extends Phaser.Scene {
       this.rect(coin.x - 1 - half * spin, cy - tall / 2, 2 + half * 2 * spin, tall, 0xffd479, fade);
       this.rect(coin.x - 1 - (half / 2) * spin, cy - tall / 4, 1 + half * spin, tall / 2, 0xfff0c0, fade * 0.9);
     }
+    for (let i = coinImages; i < this.coinImages.length; i++) this.coinImages[i].setVisible(false);
+    // Back on `graphics` for everything that followed the coins.
+    this.graphics = g;
     // TIMEOUT: stopped time left behind where a hit landed. Drawn under everything so the world it
     // is holding still reads normally through it.
     for (const bubble of m.timeoutBubbles) {
@@ -1014,6 +1079,18 @@ export class GameScene extends Phaser.Scene {
     rightFill.setTexture(art.fill).setPosition(offsetX + shaftRight, 0).setSize(width, 800).setTilePosition(tx, ty).setFlipX(true);
     leftEdge.setTexture(art.edge).setPosition(offsetX + shaftLeft - edgeWidth, 0).setSize(edgeWidth, 800).setTilePosition(0, ty).setFlipX(false);
     rightEdge.setTexture(art.edge).setPosition(offsetX + shaftRight, 0).setSize(edgeWidth, 800).setTilePosition(0, ty).setFlipX(true);
+  }
+  /** One GUN MODULE crate or SHOP CAVE door from its image, top-left at (x, y), on `contentLayer`. */
+  private contentImage(index: number, texture: string, x: number, y: number) {
+    let img = this.contentImages[index];
+    if (!img) { img = this.add.image(0, 0, texture).setOrigin(0); this.contentLayer.add(img); this.contentImages[index] = img; }
+    img.setTexture(texture).setPosition(x, y).setVisible(true);
+  }
+  /** One loose coin's face on `coinLayer`: centred on the coin across, squeezed by the spin, blinking by `fade`. */
+  private coinImage(index: number, texture: string, face: { x: number; y: number; scaleX: number }, fade: number, offsetX: number) {
+    let img = this.coinImages[index];
+    if (!img) { img = this.add.image(0, 0, texture).setOrigin(0.5, 0); this.coinLayer.add(img); this.coinImages[index] = img; }
+    img.setTexture(texture).setPosition(offsetX + face.x, face.y).setScale(face.scaleX, 1).setAlpha(fade).setVisible(true);
   }
   /**
    * One ordinary ledge from an AREA's 3-slice (render/environmentArt): caps at each end, the center
@@ -1304,8 +1381,12 @@ export class GameScene extends Phaser.Scene {
    * land on top of the hollow and read as its ground. The order is: cut the hollow, line it, then
    * break the shaft wall where the mouth is, so the opening is a hole through the brickwork rather
    * than a panel laid over it.
+   *
+   * A COIN VEIN with its image loaded goes on `veinLayer`, directly above all of this and under the
+   * ledges; returns how many of those images it used.
    */
-  private sideCaves(m: GameModel, cam: number, theme: AreaTheme) {
+  private sideCaves(m: GameModel, cam: number, theme: AreaTheme, veinKey: string | null, offsetX: number) {
+    let veins = 0;
     // AREA 1 has no `cave` entry and keeps the look it was reviewed with; the others line the same
     // shell with their own rock. Only colours and the dressing below differ -- the shape is shared.
     const look = theme.cave ?? { style: undefined, hollow: 0x070d11, lining: 0x15303a, frame: 0x3c7a84, light: 0x9fe8f5 };
@@ -1334,9 +1415,13 @@ export class GameScene extends Phaser.Scene {
       // their own objects and are drawn by the code that already owns them.
       if (cave.content?.kind === 'coinVein' && !cave.taken) {
         const v = m.veinBounds(cave), vy = v.y - cam;
-        this.rect(v.x, vy, v.width, v.height, 0x3a2f14, 0.95);
-        this.graphics.lineStyle(2, 0xffd479, 0.9).strokeRect(v.x, vy, v.width, v.height);
-        for (let i = 0; i < 5; i++) this.rect(v.x + 6 + (i % 3) * 9, vy + 6 + Math.floor(i / 3) * 13, 6, 6, 0xffd479, 0.85);
+        // The vein's image (render/contentArt) on exactly the rectangle rounds are tested against.
+        if (veinKey) this.veinImage(veins++, veinKey, offsetX + v.x, Math.round(vy));
+        else {
+          this.rect(v.x, vy, v.width, v.height, 0x3a2f14, 0.95);
+          this.graphics.lineStyle(2, 0xffd479, 0.9).strokeRect(v.x, vy, v.width, v.height);
+          for (let i = 0; i < 5; i++) this.rect(v.x + 6 + (i % 3) * 9, vy + 6 + Math.floor(i / 3) * 13, 6, 6, 0xffd479, 0.85);
+        }
       }
       // The mouth, broken through the brickwork: a lintel and a sill that jut into the shaft, and
       // light spilling out of it, so it is read from the middle of the shaft at falling speed.
@@ -1358,6 +1443,13 @@ export class GameScene extends Phaser.Scene {
         }
       }
     }
+    return veins;
+  }
+  /** One SIDE CAVE COIN VEIN from its image, top-left at (x, y), on `veinLayer`. */
+  private veinImage(index: number, texture: string, x: number, y: number) {
+    let img = this.veinImages[index];
+    if (!img) { img = this.add.image(0, 0, texture).setOrigin(0); this.veinLayer.add(img); this.veinImages[index] = img; }
+    img.setTexture(texture).setPosition(x, y).setVisible(true);
   }
   /**
    * What makes an AREA 2-4 cave read as that AREA's rock. Drawn inside the hollow only -- none of it
