@@ -29,7 +29,7 @@ import area1SurfaceUrl from '../../output/game-backgrounds-v1/area1-surface-a.pn
 import { surfaceLayerAlphas, surfaceWeight } from '../render/surfaceBlend';
 import { ENEMY_ART_PLACEMENT, ENEMY_ART_URLS, enemyArtFlipX, enemyArtKey, enemyArtLook, type EnemyArtLook } from '../render/enemyArt';
 import { coinArt, coinFace, contentLoads, moduleArt, modulePlacement, shopDoorArt, veinArt } from '../render/contentArt';
-import { CAVE_ENTRANCE_FRAMES, CAVE_SHELL_AREAS, CAVE_SHELL_GEOMETRY, CAVE_SHELL_KEYS, CAVE_SHELL_LIGHT, caveBackwallPlacement, caveEntrancePlacement, caveShellArt, caveShellLoads } from '../render/caveShellArt';
+import { CAVE_ENTRANCE_FRAMES, CAVE_SHELL_AREAS, CAVE_SHELL_GEOMETRY, CAVE_SHELL_KEYS, CAVE_SHELL_LIGHT, caveBackwallPlacement, caveCeilingArt, caveCeilingLoads, caveCeilingPlacement, caveEntrancePlacement, caveShellArt, caveShellLoads } from '../render/caveShellArt';
 import { ENVIRONMENT_ART, ENVIRONMENT_GEOMETRY, environmentArtArea, environmentArtId, chamberDrawn, beltLayout, breakBlockFrame, breakBlockSlices, environmentKeys, environmentLoads, environmentParts, collapseArt, collapseFrame, doodadArt, doodadFrame, doodadPlacement, type DoodadKeys, limboArt, limboLayout, reefArt, reefLayout, type ReefKeys, platformSlices, spikeFrame, spikeLayout, usesPlatformArt, wallTileX, wallTileY, type EnvironmentKeys } from '../render/environmentArt';
 
 const BACKGROUND_URLS = {
@@ -135,6 +135,12 @@ export class GameScene extends Phaser.Scene {
    */
   private caveBackLayer!: Phaser.GameObjects.Container;
   private caveBackImages: Phaser.GameObjects.TileSprite[] = [];
+  /**
+   * The CEILING STRIPS, one per roof slab, between the backwall and `worldMid`: where the procedural
+   * roof was in effect -- over the backwall, under the light out of the mouth and the entrance.
+   */
+  private caveRoofLayer!: Phaser.GameObjects.Container;
+  private caveRoofImages: Phaser.GameObjects.TileSprite[] = [];
   private caveFrontLayer!: Phaser.GameObjects.Container;
   private caveFrontImages: { top: Phaser.GameObjects.Image; face: Phaser.GameObjects.Image }[] = [];
   private worldMidLate!: Phaser.GameObjects.Graphics;
@@ -180,6 +186,7 @@ export class GameScene extends Phaser.Scene {
     }
     for (const [key, url] of contentLoads()) this.load.image(key, url);
     for (const [key, url] of caveShellLoads()) this.load.image(key, url);
+    for (const [key, url] of caveCeilingLoads()) this.load.image(key, url);
     PlayerArt.preload(this);
     this.load.image('nimushi-art', NIMUSHI_ART.url);
   }
@@ -223,6 +230,7 @@ export class GameScene extends Phaser.Scene {
     this.worldBack = this.add.graphics();
     this.wallLayer = this.add.container(0, 0);
     this.caveBackLayer = this.add.container(0, 0);
+    this.caveRoofLayer = this.add.container(0, 0);
     this.worldMid = this.add.graphics();
     this.caveFrontLayer = this.add.container(0, 0);
     this.worldMidLate = this.add.graphics();
@@ -544,6 +552,8 @@ export class GameScene extends Phaser.Scene {
     const coinKeys = coinArt(exists), veinKey = veinArt(exists), doorKey = shopDoorArt(exists);
     // The AREA's own SIDE CAVE shell pair; null in THE ABYSS, or if either image is missing (procedural).
     const shell = caveShellArt(artArea, exists);
+    // ...and its CEILING STRIP, only with the shell; null if missing (that AREA keeps the procedural roof).
+    const ceiling = shell ? caveCeilingArt(artArea, exists) : null;
     // Wide enough to still cover the view when it has slid sideways into a cave.
     // Keep the authored distance layer subdued so collision surfaces and attack tells stay foremost.
     this.rect(m.cameraX - 8, 0, 466 + Math.abs(m.cameraX) * 2, 800, 0x10191c, 0.16);
@@ -557,7 +567,7 @@ export class GameScene extends Phaser.Scene {
     this.wallArt(envArt, reach, cam, g.x);
     if (!envArt) { this.rect(-reach, 0, 28 + reach, 800, theme.wall); this.rect(422, 0, 28 + reach, 800, theme.wall); }
     this.graphics = this.worldMid;
-    const veins = this.sideCaves(m, cam, theme, veinKey, shell, g.x);
+    const veins = this.sideCaves(m, cam, theme, veinKey, shell, ceiling, g.x);
     for (let i = veins; i < this.veinImages.length; i++) this.veinImages[i].setVisible(false);
     // After the caves (and their entrances, on `caveFrontLayer`): the rest of what `worldMid` drew.
     this.graphics = this.worldMidLate;
@@ -1418,8 +1428,8 @@ export class GameScene extends Phaser.Scene {
    * A COIN VEIN with its image loaded goes on `veinLayer`, directly above all of this and under the
    * ledges; returns how many of those images it used.
    */
-  private sideCaves(m: GameModel, cam: number, theme: AreaTheme, veinKey: string | null, shell: ReturnType<typeof caveShellArt>, offsetX: number) {
-    let veins = 0, shells = 0;
+  private sideCaves(m: GameModel, cam: number, theme: AreaTheme, veinKey: string | null, shell: ReturnType<typeof caveShellArt>, ceiling: string | null, offsetX: number) {
+    let veins = 0, shells = 0, roofs = 0;
     // AREA 1 has no `cave` entry and keeps the look it was reviewed with; the others line the same
     // shell with their own rock. Only colours and the dressing below differ -- the shape is shared.
     const look = theme.cave ?? { style: undefined, hollow: 0x070d11, lining: 0x15303a, frame: 0x3c7a84, light: 0x9fe8f5 };
@@ -1445,7 +1455,9 @@ export class GameScene extends Phaser.Scene {
         else this.caveDressing(cave, look, hollowX, hollowW, top, b.height, cam);
       }
       // The roof slabs, so the cave has a ceiling to read against rather than open black.
+      // From the AREA's strip when it has one: the same rectangles, drawn and nothing else.
       for (const slab of cave.roof) {
+        if (ceiling) { this.caveCeiling(roofs++, ceiling, cave, slab, cam, offsetX); continue; }
         this.rect(slab.x, slab.y - cam, slab.width, slab.height, theme.brick);
         this.rect(slab.x, slab.y - cam + slab.height - 2, slab.width, 2, theme.wallEdge, 0.8);
       }
@@ -1488,6 +1500,7 @@ export class GameScene extends Phaser.Scene {
       }
     }
     for (let i = shells; i < this.caveBackImages.length; i++) this.caveBackImages[i].setVisible(false);
+    for (let i = roofs; i < this.caveRoofImages.length; i++) this.caveRoofImages[i].setVisible(false);
     for (let i = shells; i < this.caveFrontImages.length; i++) { this.caveFrontImages[i].top.setVisible(false); this.caveFrontImages[i].face.setVisible(false); }
     return veins;
   }
@@ -1500,6 +1513,16 @@ export class GameScene extends Phaser.Scene {
     if (!tile) { tile = this.add.tileSprite(0, 0, 4, 4, texture).setOrigin(0); this.caveBackLayer.add(tile); this.caveBackImages[index] = tile; }
     const at = caveBackwallPlacement(cave, cam);
     tile.setTexture(texture).setPosition(offsetX + at.x, at.y).setSize(at.width, at.height).setTilePosition(at.tileX, at.tileY).setVisible(true);
+  }
+  /**
+   * One roof slab's CEILING STRIP (render/caveShellArt) on `caveRoofLayer`: repeated 1:1 along the slab
+   * and cropped at its end, starting at the shaft side, mirrored on a left cave.
+   */
+  private caveCeiling(index: number, texture: string, cave: SideCave, slab: SideCave['roof'][number], cam: number, offsetX: number) {
+    let tile = this.caveRoofImages[index];
+    if (!tile) { tile = this.add.tileSprite(0, 0, 4, 4, texture).setOrigin(0); this.caveRoofLayer.add(tile); this.caveRoofImages[index] = tile; }
+    const at = caveCeilingPlacement(cave, slab, cam);
+    tile.setTexture(texture).setPosition(offsetX + at.x, at.y).setSize(at.width, at.height).setTilePosition(at.tileX, 0).setFlipX(at.flipX).setVisible(true);
   }
   /**
    * One SIDE CAVE's entrance (render/caveShellArt) on `caveFrontLayer`: the lip at 1:1 over the

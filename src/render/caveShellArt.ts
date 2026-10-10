@@ -26,6 +26,10 @@ import area3EntranceUrl from '../assets/cave-shell/area3-cave-entrance.png?url';
 import area3BackwallUrl from '../assets/cave-shell/area3-cave-backwall.png?url';
 import area4EntranceUrl from '../assets/cave-shell/area4-cave-entrance.png?url';
 import area4BackwallUrl from '../assets/cave-shell/area4-cave-backwall.png?url';
+import area1CeilingUrl from '../assets/cave-ceiling/area1-cave-ceiling-strip.png?url';
+import area2CeilingUrl from '../assets/cave-ceiling/area2-cave-ceiling-strip.png?url';
+import area3CeilingUrl from '../assets/cave-ceiling/area3-cave-ceiling-strip.png?url';
+import area4CeilingUrl from '../assets/cave-ceiling/area4-cave-ceiling-strip.png?url';
 import type { SideCave } from '../data/sideCave';
 import type { EnvironmentArtId } from './environmentArt';
 
@@ -120,3 +124,38 @@ export function caveBackwallPlacement(cave: Pick<SideCave, 'side' | 'opening' | 
  * the mouth, in the AREA's own colour and shape, with every alpha multiplied by this. 1 = ea3de3a's.
  */
 export const CAVE_SHELL_LIGHT = 0.25;
+
+/**
+ * The CEILING STRIP, optional on top of the shell: one 96x14 image per AREA from
+ * output/side-cave-ceiling-v1 (runtime/, byte for byte), drawn on each roof slab in place of the
+ * procedural brick and its edge line. Row 0 on the slab's top, row 13 on its last row; repeated 1:1
+ * along the slab and cropped at its far end, never stretched. The sequence starts at the slab's
+ * shaft-side end and grows into the rock: as authored on a right cave, mirrored whole on a left one.
+ * The slab is the model's and stops nothing -- the strip is a picture of it, nothing more.
+ *
+ * Only with the AREA's shell pair; without its own strip an AREA keeps the procedural roof alone.
+ */
+export const CAVE_CEILING_ART: Record<CaveShellArea, string> = { 1: area1CeilingUrl, 2: area2CeilingUrl, 3: area3CeilingUrl, 4: area4CeilingUrl };
+export const CAVE_CEILING_GEOMETRY = { width: 96, height: 14 } as const;
+export const CAVE_CEILING_KEYS: Record<CaveShellArea, string> = {
+  1: 'cave-ceiling-area1', 2: 'cave-ceiling-area2', 3: 'cave-ceiling-area3', 4: 'cave-ceiling-area4',
+};
+
+/** What the scene loads for the strips: [texture key, url], one per AREA. */
+export const caveCeilingLoads = (): [string, string][] => CAVE_SHELL_AREAS.map(a => [CAVE_CEILING_KEYS[a], CAVE_CEILING_ART[a]]);
+
+/** This AREA's strip if it loaded, else null (that AREA's roof stays procedural). Never another AREA's. */
+export function caveCeilingArt(area: EnvironmentArtId, exists: (key: string) => boolean) {
+  if (area !== 1 && area !== 2 && area !== 3 && area !== 4) return null;
+  return exists(CAVE_CEILING_KEYS[area]) ? CAVE_CEILING_KEYS[area] : null;
+}
+
+/**
+ * Where one roof slab's strip goes: the slab's own rectangle, in world x and screen y, with the
+ * texture's column 0 on the slab's shaft-side end -- the left end of a right cave's slab and, mirrored,
+ * the right end of a left cave's. Both ends are the slab's in the world, so the tiles never move
+ * against the rock as the view slides.
+ */
+export function caveCeilingPlacement(cave: Pick<SideCave, 'side'>, slab: { x: number; y: number; width: number; height: number }, cam: number) {
+  return { x: slab.x, y: Math.round(slab.y - cam), width: slab.width, height: slab.height, tileX: 0, flipX: cave.side === -1 };
+}
