@@ -234,10 +234,11 @@ describe('SHOP behaviour is unchanged', () => {
     expect(body).toContain("mode = 'shop'; bridge.active = false; clearInput();");
     expect(body).toContain("if (button) button.onclick = () => { audio.unlock(); if (model.buyShopItem(index) === 'bought') { lastHud = ''; updateHud(model); draw(); } };");
     expect(body).toContain("$('shop-close').onclick = () => closeShop(model);");
-    expect(body).toContain("mode = 'playing'; clearInput(); setOverlay(''); lastHud = ''; updateHud(model);");
+    // Closing returns to the mode the model restored (tests/stagingShopMode.test.ts).
+    expect(body).toContain("mode = model.state === 'boss' ? 'boss' : 'playing'; clearInput(); setOverlay(''); lastHud = ''; updateHud(model);");
     // FOUND -- NOT FIXED, deliberately: the first button gets focus even when it is disabled (so
-    // focus falls to BODY), a purchase re-renders and refocuses from the top, and closing in
-    // STAGING sets mode 'playing'. All three are still exactly the ac4bd7c lines.
+    // focus falls to BODY), and a purchase re-renders and refocuses from the top. Both are still
+    // exactly the ac4bd7c lines.
     expect(mainSource).toContain("if (content) window.setTimeout(() => $('overlay').querySelector<HTMLButtonElement>('button')?.focus({ preventScroll: true }), 60);");
     expect(mainSource).toContain("cancel: () => {\n    if (mode !== 'shop') return false;\n    closeShop(scene.model);\n    return true;\n  },");
     // One panel for every SHOP: the only way in is the model's shopOpen event.

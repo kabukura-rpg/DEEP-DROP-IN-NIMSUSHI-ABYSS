@@ -500,7 +500,9 @@ function showShop(model: GameModel) {
 }
 function closeShop(model: GameModel) {
   if (!model.closeShop()) return;
-  mode = 'playing'; clearInput(); setOverlay(''); lastHud = ''; updateHud(model);
+  // Back to whatever play the shelf was opened from. The model already remembers that (its
+  // shopReturn): a SIDE CAVE returns to 'playing', THE ABYSS staging doorway to 'boss'.
+  mode = model.state === 'boss' ? 'boss' : 'playing'; clearInput(); setOverlay(''); lastHud = ''; updateHud(model);
   resumeInput();
 }
 /** A short, non-blocking card. Used for weapon swaps and for the exit opening. */
