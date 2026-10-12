@@ -13,7 +13,7 @@ import { HEALTH_RULES } from './systems/HealthSystem';
 import { PhysicsPanel } from './ui/PhysicsPanel';
 import { comboFeedback } from './systems/ComboFeedback';
 import { AREAS, TOTAL_SECTIONS } from './data/areas';
-import { shopItem, type ShopOffer } from './data/shop';
+import { shopPanelHtml } from './ui/shopPanel';
 import { BOSS_TEST_WEAPONS, enterBossTest, type BossTestRequest, type BossTestTarget } from './dev/bossTest';
 import { setTerrainMode, getTerrainMode, type TerrainMode } from './data/rhythm';
 import { setSideRoomMode, getSideRoomMode, setCaveFrequency, getCaveFrequency, type SideRoomMode, type CaveFrequency } from './data/safeZone';
@@ -486,29 +486,10 @@ let gunToastAnimation: Animation | undefined;
  * nothing kills the player while they read. Every button is a real button, so touch works the
  * same as a mouse.
  */
-/** What a good does, in one word, so a shelf can be read before any of it is priced. */
-function shopKind(offer: ShopOffer) {
-  const item = shopItem(offer.item);
-  if (item.maxHp > 0) return 'MAX LIFE';
-  if (item.hearts > 0 && item.maxCharge > 0) return 'LIFE + CHARGE';
-  if (item.hearts > 0) return 'LIFE';
-  return 'CHARGE';
-}
 function showShop(model: GameModel) {
   mode = 'shop'; bridge.active = false; clearInput();
   const draw = () => {
-    const rows = model.shop.offers.map((offer, index) => {
-      const affordable = model.coins.walletCoins >= offer.price;
-      const state = offer.sold ? 'SOLD OUT' : affordable ? `${offer.price} COIN` : `${offer.price} COIN（不足）`;
-      return `<button class="shop-item" id="shop-buy-${index}" ${offer.sold || !affordable ? 'disabled' : ''}>` +
-        `<span class="shop-kind">${shopKind(offer)}</span>` +
-        `<strong>${offer.name}</strong><small>${offer.effect}</small><b>${state}</b></button>`;
-    }).join('');
-    setOverlay(`<div class="panel-content shop-content"><div class="eyebrow">SHOP</div>` +
-      `<h2>SHOP.<span>コインを使って装備を整える</span></h2>` +
-      `<div class="shop-purse">所持 <b>${model.coins.walletCoins}</b> COIN<small>SCORE ${model.coins.scoreCoins}（購入しても減りません）</small></div>` +
-      `<div class="shop-list">${rows}</div>` +
-      `<button id="shop-close" class="primary-button">立ち去る <span>↓</span></button></div>`);
+    setOverlay(shopPanelHtml({ offers: model.shop.offers, walletCoins: model.coins.walletCoins, scoreCoins: model.coins.scoreCoins }));
     model.shop.offers.forEach((_, index) => {
       const button = document.getElementById(`shop-buy-${index}`);
       if (button) button.onclick = () => { audio.unlock(); if (model.buyShopItem(index) === 'bought') { lastHud = ''; updateHud(model); draw(); } };

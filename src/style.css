@@ -141,18 +141,116 @@
 .coin-high[data-state=active] b{color:#ffe9a8;animation:coin-high-pulse .5s steps(2,end) infinite}
 @keyframes coin-high-pulse{50%{opacity:.5}}
 @media(prefers-reduced-motion:reduce){.coin-high[data-state=active] b{animation:none;opacity:1}}
-.shop-purse{border-top:1px solid #4a4030;border-bottom:1px solid #4a4030;padding:12px 0;margin-bottom:16px;font-size:10px;letter-spacing:1px;color:#cfd8c2}
-.shop-purse b{font-size:22px;color:#ffd479;margin:0 4px}
-.shop-purse small{display:block;font-size:8px;color:#94a08d;margin-top:5px;letter-spacing:.5px}
-.shop-list{display:flex;flex-direction:column;gap:10px;margin-bottom:16px}
-.shop-item{display:block;width:100%;text-align:left;padding:13px 12px;background:#221d33;border:1px solid #4a4166;color:#e6e0f2;min-height:62px}
-.shop-item:hover:not(:disabled),.shop-item:focus-visible:not(:disabled){border-color:#ffd479;background:#2e2744}
-.shop-item:disabled{opacity:.42}
-.shop-kind{display:block;font-size:7px;letter-spacing:2px;color:#a79bd0}
-.shop-item strong{display:block;font-size:14px;letter-spacing:.7px;color:#ffd479;margin-top:3px}
-.shop-item small{display:block;font-size:8px;line-height:1.7;color:#aba3c4;margin-top:4px}
-.shop-item b{display:block;font-size:11px;color:#dfe9cf;margin-top:6px;letter-spacing:1px}
-@media(max-height:700px){.purse span{font-size:10px}.shop-item{min-height:54px;padding:10px}.shop-item small{display:none}.shop-purse{padding:9px 0;margin-bottom:11px}}
+@media(max-height:700px){.purse span{font-size:10px}}
+/*
+ * THE SHOP PANEL -- MINIMAL PIXEL SHOP. Dark teal shelves in a charcoal-and-wood frame with a brass
+ * edge, the merchant palette of the SIDE CAVE shop door. All of it is CSS: the only images are the
+ * six goods (24px drawn at 48px) and the SHOP coin (12px at 12px and 24px), nearest-neighbour.
+ *
+ * Look only. Which goods, what they cost, whether a card is enabled, what a click, a tap, ENTER or
+ * SPACE does and where focus lands are all exactly as before; nothing here changes a hit area --
+ * no transform on a card, and the press moves the content inside a box that keeps its size.
+ */
+.overlay:has(>.shop-content){background:#060c0ee0;padding:16px}
+/* The run's HUD is behind this panel, not part of it: hold it back while the SHOP is up. */
+#game-frame:has(>.overlay>.shop-content)>.hud{opacity:.35}
+.shop-content{--shop-panel:#1b1a15;--shop-wood:#2a2117;--shop-wood-line:#4b3b25;--shop-brass:#8c7445;--shop-brass-hi:#dcbb68;--shop-gold:#f0cf73;--shop-teal:#163036;--shop-teal-hi:#1b3a41;--shop-stone:#4a4733;--shop-ink:#f1e8cf;--shop-dim:#a9b8b0;--shop-rust:#e07a52;
+  position:relative;max-width:404px;margin:0 auto;padding:14px;background:var(--shop-panel);border:2px solid var(--shop-brass);
+  box-shadow:inset 0 0 0 2px var(--shop-panel),inset 0 0 0 3px #3d3524,0 0 0 2px #04080a,0 6px 0 2px #04080a99}
+/* Brass corner studs, 4px, on the frame's corners. */
+.shop-content::before{content:'';position:absolute;inset:-2px;pointer-events:none;
+  background:linear-gradient(var(--shop-brass-hi) 0 0) 0 0/4px 4px no-repeat,linear-gradient(var(--shop-brass-hi) 0 0) 100% 0/4px 4px no-repeat,
+    linear-gradient(var(--shop-brass-hi) 0 0) 0 100%/4px 4px no-repeat,linear-gradient(var(--shop-brass-hi) 0 0) 100% 100%/4px 4px no-repeat}
+.shop-content button:focus-visible{outline:none}
+.shop-content .shop-title{font-family:'Silkscreen','IBM Plex Mono',monospace;font-weight:400;font-size:18px;line-height:1;letter-spacing:3px;color:var(--shop-brass-hi);margin:2px 0 10px;text-align:center}
+.shop-content .shop-title>span{font-family:'Noto Sans JP',sans-serif;font-size:10px;font-weight:500;line-height:1.3;letter-spacing:.5px;color:#98a49b;margin-top:6px}
+/* The purse: the SHOP's own wallet, a wooden slot with the coin -- not the HUD's COIN line. */
+.shop-purse{display:flex;flex-wrap:wrap;align-items:center;justify-content:center;gap:0 8px;padding:7px 10px 6px;margin:0 0 12px;background:var(--shop-wood);border:2px solid var(--shop-wood-line);box-shadow:inset 0 2px 0 #0000004d}
+.shop-purse-label{font-family:'Noto Sans JP',sans-serif;font-size:10px;font-weight:600;letter-spacing:1px;color:#c9b993}
+.shop-purse b{font-size:22px;font-weight:700;line-height:1.1;letter-spacing:1px;color:var(--shop-gold)}
+.shop-purse small{flex-basis:100%;text-align:center;font-size:9px;letter-spacing:.3px;color:#9a917a;margin-top:3px}
+.shop-coin{display:inline-flex;flex:none}
+.shop-coin img{display:block;image-rendering:pixelated}
+.shop-coin-24 img{width:24px;height:24px}
+.shop-coin-12 img{width:12px;height:12px}
+/* COIN in words: read aloud always, shown only when the coin image is missing. */
+.shop-unit{position:absolute;width:1px;height:1px;overflow:hidden;clip-path:inset(50%);white-space:nowrap}
+.shop-coin:empty{display:none}
+.shop-coin:empty~.shop-unit{position:static;width:auto;height:auto;overflow:visible;clip-path:none;font-size:.7em;letter-spacing:1px}
+.shop-list{display:flex;flex-direction:column;gap:8px;margin:0 0 12px}
+.shop-item{position:relative;display:grid;grid-template-columns:48px minmax(0,1fr);column-gap:12px;align-items:center;width:100%;min-height:0;padding:9px 26px 9px 10px;text-align:left;
+  background:var(--shop-teal);border:2px solid var(--shop-stone);box-shadow:0 2px 0 #050a0b,inset 0 1px 0 #ffffff0d;color:var(--shop-ink)}
+/* The whole card is the button: nothing inside it can take the pointer, start a drag or be its own target. */
+.shop-item>*,.shop-item img{pointer-events:none;-webkit-user-drag:none;user-select:none;-webkit-user-select:none}
+.shop-icon{width:48px;height:48px;display:grid;place-items:center}
+.shop-icon img{display:block;width:48px;height:48px;image-rendering:pixelated}
+/* No image (not shipped, or failed to load): an empty frame where it would be. Name, effect and price stay. */
+.shop-icon:empty::before{content:'';width:22px;height:22px;border:2px dashed #4f5546}
+.shop-text{display:flex;flex-direction:column;align-items:flex-start;min-width:0}
+.shop-kind{font-size:9px;font-weight:600;line-height:1.2;letter-spacing:1.2px;color:#8e9a93}
+.shop-kind i{font-style:normal;white-space:nowrap}
+.shop-kind i::before{content:'';display:inline-block;width:5px;height:5px;margin-right:4px;vertical-align:1px;background:currentColor}
+.shop-kind .k-life{color:var(--pink)}
+.shop-kind .k-charge{color:var(--lime)}
+.shop-kind .k-max{color:var(--pink)}
+/* MAX LIFE: a brass plus where the others have a square. */
+.shop-kind .k-max::before{width:7px;height:7px;vertical-align:0;background:linear-gradient(#cfa85a 0 0) center/7px 3px no-repeat,linear-gradient(#cfa85a 0 0) center/3px 7px no-repeat}
+.shop-item strong{font-family:'Noto Sans JP',sans-serif;font-size:15px;font-weight:700;line-height:1.3;letter-spacing:.5px;color:var(--shop-ink);margin-top:2px}
+.shop-item small{font-family:'Noto Sans JP',sans-serif;font-size:10px;font-weight:500;line-height:1.4;color:var(--shop-dim);margin-top:1px}
+.shop-price-row{display:flex;align-items:center;gap:8px;margin-top:5px}
+.shop-price{display:inline-flex;align-items:center;gap:5px;font-size:12px;font-weight:700;line-height:1;letter-spacing:.5px;color:var(--shop-gold)}
+.shop-short{font-family:'Noto Sans JP',sans-serif;font-style:normal;font-size:9px;font-weight:700;line-height:1;color:var(--shop-rust);border:1px solid currentColor;padding:2px 4px}
+.shop-go{position:absolute;right:9px;top:50%;margin-top:-9px;font-size:16px;font-weight:700;line-height:18px;color:var(--shop-gold);opacity:0}
+/* NOT ENOUGH COIN: still disabled, still readable. Only the price turns rust and says so. */
+.shop-item[data-state=short]{border-color:#3e3c2e}
+.shop-item[data-state=short] .shop-price{color:var(--shop-rust)}
+/* SOLD OUT: grey and stamped, which nothing else on the shelf is. */
+.shop-item[data-state=sold]{background:#1b2123;border-color:#36393a}
+.shop-item[data-state=sold] .shop-icon img,.shop-item[data-state=sold] .shop-coin img{filter:grayscale(1) brightness(.8);opacity:.6}
+.shop-item[data-state=sold] .shop-kind i{color:#7a817e}
+.shop-item[data-state=sold] strong{color:#9da29e}
+.shop-item[data-state=sold] small{color:#737b78}
+.shop-item[data-state=sold] .shop-price{color:#6b7370;text-decoration:line-through}
+.shop-stamp{position:absolute;right:10px;bottom:7px;transform:rotate(-7deg);font-family:'Silkscreen','IBM Plex Mono',monospace;font-style:normal;font-size:11px;line-height:1;letter-spacing:1px;color:#d8d2c0;border:2px solid #d8d2c0;padding:4px 6px;background:#1b2123e6;box-shadow:0 0 0 1px #0b0f10}
+/*
+ * Hover is a hint and keyboard focus is the answer. Hover only lightens the brass, and only on a
+ * pointer that can hover (a finger would leave it stuck); keyboard focus is the gold frame and the
+ * chevron, and while a keyboard focus is showing, hover elsewhere does not light anything.
+ */
+@media(hover:hover){
+  .shop-item:not(:disabled):hover{border-color:var(--shop-brass);background:var(--shop-teal-hi)}
+  .shop-leave:hover{border-color:var(--shop-brass);color:#efe4c2}
+  .shop-content:has(button:focus-visible) .shop-item:not(:focus-visible):hover{border-color:var(--shop-stone);background:var(--shop-teal)}
+  .shop-content:has(button:focus-visible) .shop-leave:not(:focus-visible):hover{border-color:#4d4a3c;color:#cfc6ab}
+}
+.shop-item:focus-visible{border-color:var(--shop-brass-hi);background:#1f434b;box-shadow:0 0 0 2px #04080a,0 0 0 4px var(--shop-brass-hi),0 2px 0 4px #050a0b}
+.shop-item:focus-visible .shop-go{opacity:1}
+/* PRESS: the drop shadow goes and the contents sink 1px. The card's box does not move. */
+.shop-item:not(:disabled):active{padding-top:10px;padding-bottom:8px;background:#10252a;border-color:var(--shop-brass);box-shadow:inset 0 2px 0 #00000066}
+.shop-item:not(:disabled):focus-visible:active{box-shadow:0 0 0 2px #04080a,0 0 0 4px var(--shop-brass-hi),inset 0 2px 0 #0000004d}
+/* The way out: a dark stone button, quieter than any good on the shelf. */
+.shop-leave{position:relative;display:flex;align-items:center;justify-content:center;width:100%;min-height:44px;padding:10px 40px;background:#151a1a;border:2px solid #4d4a3c;box-shadow:0 2px 0 #04080a;color:#cfc6ab;font-family:'Noto Sans JP',sans-serif;font-size:12px;font-weight:700;line-height:1;letter-spacing:2px}
+.shop-leave>span{position:absolute;right:16px;top:50%;margin-top:-8px;font-family:'IBM Plex Mono',monospace;font-size:16px;line-height:16px;color:var(--shop-brass)}
+.shop-leave:focus-visible{border-color:var(--shop-brass-hi);background:#1d2322;color:#f6ecd0;box-shadow:0 0 0 2px #04080a,0 0 0 4px var(--shop-brass-hi)}
+.shop-leave:focus-visible>span{color:var(--shop-brass-hi)}
+.shop-leave:active{padding-top:12px;padding-bottom:8px;box-shadow:inset 0 2px 0 #0000004d}
+/*
+ * A short frame -- a 680px desktop window gives the cabinet 580px, a 360x640 phone ~560px. The
+ * effect line stays (it is what the good does); the frame, the gaps and the way out give way first.
+ */
+@media(max-height:700px){
+  .overlay:has(>.shop-content){padding:10px}
+  .shop-content{padding:10px}
+  .shop-content .shop-title{font-size:16px;margin:0 0 8px}
+  .shop-content .shop-title>span{margin-top:4px}
+  .shop-purse{padding:5px 8px 4px;margin-bottom:8px}
+  .shop-purse b{font-size:20px}
+  .shop-list{gap:6px;margin-bottom:8px}
+  .shop-item{padding:7px 22px 7px 8px;column-gap:10px}
+  .shop-item:not(:disabled):active{padding-top:8px;padding-bottom:6px}
+  .shop-go{right:7px}
+  .shop-leave{min-height:40px}
+}
 
 /*
  * NIMUSHI's voice. Screen-space and the right way up, exactly like every other piece of the HUD:
