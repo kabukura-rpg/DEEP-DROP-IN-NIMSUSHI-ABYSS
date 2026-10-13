@@ -73,3 +73,26 @@ export function shopPanelHtml({ offers, walletCoins, scoreCoins }: ShopPanelView
     `<div class="shop-list">${offers.map((offer, index) => shopCardHtml(offer, index, walletCoins, art)).join('')}</div>` +
     `<button id="shop-close" class="shop-leave">立ち去る <span>↓</span></button></div>`;
 }
+
+/**
+ * WHERE THE KEYBOARD STARTS on a freshly drawn shelf, as a slot. Opening: the first good that can
+ * be bought. After buying slot `bought`: the next one after it that can, wrapping round to the
+ * front. -1 when none can, so the focus goes to `shop-close` rather than being left on BODY.
+ *
+ * By slot index only -- never by name, price or text -- and `buyable` is each button's own
+ * `disabled`, so this follows exactly what the panel drew and the menu keys step through.
+ */
+export function shopFocusSlot(buyable: readonly boolean[], bought = -1) {
+  for (let step = 1; step <= buyable.length; step++) {
+    const slot = (bought + step) % buyable.length;
+    if (buyable[slot]) return slot;
+  }
+  return -1;
+}
+
+/** The button that slot means: `shop-buy-N`, or `shop-close` when no good can be bought. */
+export function shopFocusTarget(root: ParentNode, slots: number, bought = -1) {
+  const buyable = Array.from({ length: slots }, (_, slot) => root.querySelector<HTMLButtonElement>(`#shop-buy-${slot}`)?.disabled === false);
+  const slot = shopFocusSlot(buyable, bought);
+  return root.querySelector<HTMLElement>(slot < 0 ? '#shop-close' : `#shop-buy-${slot}`);
+}

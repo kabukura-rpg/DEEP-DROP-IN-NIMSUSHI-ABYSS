@@ -13,7 +13,7 @@ import { HEALTH_RULES } from './systems/HealthSystem';
 import { PhysicsPanel } from './ui/PhysicsPanel';
 import { comboFeedback } from './systems/ComboFeedback';
 import { AREAS, TOTAL_SECTIONS } from './data/areas';
-import { shopPanelHtml } from './ui/shopPanel';
+import { shopFocusTarget, shopPanelHtml } from './ui/shopPanel';
 import { BOSS_TEST_WEAPONS, enterBossTest, type BossTestRequest, type BossTestTarget } from './dev/bossTest';
 import { setTerrainMode, getTerrainMode, type TerrainMode } from './data/rhythm';
 import { setSideRoomMode, getSideRoomMode, setCaveFrequency, getCaveFrequency, type SideRoomMode, type CaveFrequency } from './data/safeZone';
@@ -237,7 +237,11 @@ if (import.meta.env.DEV) {
     () => ({ direction: bridge.direction, firing: bridge.firing, active: bridge.active });
 }
 
-function setOverlay(content: string) {
+/**
+ * Put a screen in the overlay. The keyboard starts on its first button, unless the screen names
+ * another (`focus`) -- the SHOP does, because its first button can be a good that cannot be bought.
+ */
+function setOverlay(content: string, focus?: () => HTMLElement | null) {
   if (content) { introAnimation?.cancel(); $('stage-intro').hidden = true; }
   $('overlay').innerHTML = content;
   $('overlay').hidden = !content;
@@ -253,7 +257,7 @@ function setOverlay(content: string) {
   // it. The run has no use for the key while a menu is up, so it lets go of it for the duration.
   scene.captureKeys(!content);
   physicsPanel?.show(mode);
-  if (content) window.setTimeout(() => $('overlay').querySelector<HTMLButtonElement>('button')?.focus({ preventScroll: true }), 60);
+  if (content) window.setTimeout(() => (focus ? focus() : $('overlay').querySelector<HTMLButtonElement>('button'))?.focus({ preventScroll: true }), 60);
 }
 /** Announces the SECTION as it starts. The AREA name only appears on that area's first SECTION. */
 let introAnimation: Animation | undefined;
@@ -488,11 +492,14 @@ let gunToastAnimation: Animation | undefined;
  */
 function showShop(model: GameModel) {
   mode = 'shop'; bridge.active = false; clearInput();
-  const draw = () => {
-    setOverlay(shopPanelHtml({ offers: model.shop.offers, walletCoins: model.coins.walletCoins, scoreCoins: model.coins.scoreCoins }));
+  // A purchase redraws the shelf and takes the pressed button with it. `bought` is that slot, so
+  // the keyboard picks up from there instead of falling back to the top (see shopFocusTarget).
+  const draw = (bought = -1) => {
+    setOverlay(shopPanelHtml({ offers: model.shop.offers, walletCoins: model.coins.walletCoins, scoreCoins: model.coins.scoreCoins }),
+      () => shopFocusTarget($('overlay'), model.shop.offers.length, bought));
     model.shop.offers.forEach((_, index) => {
       const button = document.getElementById(`shop-buy-${index}`);
-      if (button) button.onclick = () => { audio.unlock(); if (model.buyShopItem(index) === 'bought') { lastHud = ''; updateHud(model); draw(); } };
+      if (button) button.onclick = () => { audio.unlock(); if (model.buyShopItem(index) === 'bought') { lastHud = ''; updateHud(model); draw(index); } };
     });
     $('shop-close').onclick = () => closeShop(model);
   };

@@ -229,17 +229,18 @@ describe('SHOP behaviour is unchanged', () => {
     });
   });
 
-  it('drives the panel exactly as before: same handlers, same initial focus, same close', () => {
+  it('drives the panel exactly as before: same handlers, same focus timing, same close', () => {
     const body = mainSource.slice(mainSource.indexOf('function showShop('), mainSource.indexOf('/** A short, non-blocking card.'));
     expect(body).toContain("mode = 'shop'; bridge.active = false; clearInput();");
-    expect(body).toContain("if (button) button.onclick = () => { audio.unlock(); if (model.buyShopItem(index) === 'bought') { lastHud = ''; updateHud(model); draw(); } };");
+    // The same purchase on click/tap/ENTER/SPACE; only the redraw now knows which slot was bought.
+    expect(body).toContain("if (button) button.onclick = () => { audio.unlock(); if (model.buyShopItem(index) === 'bought') { lastHud = ''; updateHud(model); draw(index); } };");
     expect(body).toContain("$('shop-close').onclick = () => closeShop(model);");
     // Closing returns to the mode the model restored (tests/stagingShopMode.test.ts).
     expect(body).toContain("mode = model.state === 'boss' ? 'boss' : 'playing'; clearInput(); setOverlay(''); lastHud = ''; updateHud(model);");
-    // FOUND -- NOT FIXED, deliberately: the first button gets focus even when it is disabled (so
-    // focus falls to BODY), and a purchase re-renders and refocuses from the top. Both are still
-    // exactly the ac4bd7c lines.
-    expect(mainSource).toContain("if (content) window.setTimeout(() => $('overlay').querySelector<HTMLButtonElement>('button')?.focus({ preventScroll: true }), 60);");
+    // The same 60ms initial focus as ac4bd7c; the SHOP names its own target (tests/shopFocus.test.ts),
+    // every other screen still starts on its first button.
+    expect(mainSource).toContain("if (content) window.setTimeout(() => (focus ? focus() : $('overlay').querySelector<HTMLButtonElement>('button'))?.focus({ preventScroll: true }), 60);");
+    expect(body).toContain("() => shopFocusTarget($('overlay'), model.shop.offers.length, bought));");
     expect(mainSource).toContain("cancel: () => {\n    if (mode !== 'shop') return false;\n    closeShop(scene.model);\n    return true;\n  },");
     // One panel for every SHOP: the only way in is the model's shopOpen event.
     expect(mainSource.match(/showShop\(/g)).toHaveLength(2);
