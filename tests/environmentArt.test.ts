@@ -1052,9 +1052,11 @@ describe('the BOSS arena set', () => {
     expect(environmentArtArea(game)).toBe('boss');
     // The arena lays no ledge for the set to draw.
     expect(game.platforms).toEqual([]);
-    // A death or the clear is read off the AREA exactly as before this change.
-    expect(environmentArtArea({ state: 'over', inBossArena: true, stage: { config: { id: 4 } } })).toBe(4);
-    expect(environmentArtArea({ state: 'clear', inBossArena: false, stage: { config: { id: 4 } } })).toBe(4);
+    // A death or the clear keeps the place it happened in: the arena never falls through to AREA 4
+    // (tests/visualStateMapping.test.ts covers every state on a real run).
+    expect(environmentArtArea({ abyssStage: 'fight', stage: { boss: true, config: { id: 4 } } })).toBe('boss');
+    expect(environmentArtArea({ abyssStage: 'none', stage: { boss: true, config: { id: 4 } } })).toBe('boss');
+    expect(environmentArtArea({ abyssStage: 'none', stage: { boss: false, config: { id: 4 } } })).toBe(4);
     expect(sceneSource).toContain('const artArea = environmentArtArea(m);');
   });
 

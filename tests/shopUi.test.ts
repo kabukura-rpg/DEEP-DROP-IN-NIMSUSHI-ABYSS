@@ -225,7 +225,9 @@ describe('SHOP behaviour is unchanged', () => {
       'systems/GameModel.ts': 'd44534da247bb31183e8dca9e1760c8cc498ad0671f5d0d6da030da021554ab6',
       'systems/CoinSystem.ts': '6892dda7c0721c34265547192540700374a3d9a38a1f4a42a471dea932135eba',
       'ui/menuKeys.ts': 'e7701ab8bc56ace0638cab2b229b27b724a6046e7b28d81c0b0981c474833ff4',
-      'scenes/GameScene.ts': 'bc5ca1a5c09a4d05714ad269ea05e06f1abb441fa1fa62c746d46330fda92f9c',
+      // Changed after ac4bd7c only by the place-keyed art selection in draw() (background, chamber,
+      // enemy art) -- tests/visualStateMapping.test.ts; nothing the SHOP reads or drives.
+      'scenes/GameScene.ts': '0110e351750c12ba7cab654c4081b624fb8774e30a65312e6c9dfb85529c879a',
     });
   });
 

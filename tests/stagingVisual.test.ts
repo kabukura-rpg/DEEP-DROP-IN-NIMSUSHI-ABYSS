@@ -62,11 +62,13 @@ describe('the staging room set', () => {
 
 describe('the TOMATO room without a visible chamber', () => {
   it('draws no chamber at all in THE ABYSS, and every chamber in the descent as before', () => {
+    // Keyed on the place, so THE ABYSS's SHOP or a death there never brings the recess back.
+    expect(chamberDrawn('staging')).toBe(false);
     expect(chamberDrawn('boss')).toBe(false);
-    for (const state of ['playing', 'upgrade', 'shop', 'clear', 'over']) expect(chamberDrawn(state)).toBe(true);
+    for (const area of [1, 2, 3, 4]) expect(chamberDrawn(area)).toBe(true);
     // Skipped before the recess, the frame (lintel 0x3c7a84) and the light are drawn.
     const loop = sceneSource.slice(sceneSource.indexOf('for (const zone of m.safeZones) {'));
-    const skip = loop.indexOf('if (!chamberDrawn(m.state)) continue;');
+    const skip = loop.indexOf('if (!chamberDrawn(artArea)) continue;');
     expect(skip).toBeGreaterThan(-1);
     for (const drawn of ['0x070d11', '0x15303a', '0x3c7a84', '0x9fe8f5']) expect(loop.indexOf(drawn), drawn).toBeGreaterThan(skip);
   });

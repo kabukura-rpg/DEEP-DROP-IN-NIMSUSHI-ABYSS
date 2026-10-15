@@ -512,10 +512,16 @@ export class GameScene extends Phaser.Scene {
   }
   private draw() {
     const g = this.graphics, m = this.model, cam = m.cameraY;
+    // The AREA's image set, if it has one and it loaded; otherwise the procedural look below.
+    // THE ABYSS: the staging room has its own set, from the moment it opens until the arena does, and
+    // the arena has its own (walls only) for the fight. Read off the place, never the state, so a SHOP,
+    // a death or the clear keeps the place it happened in (render/environmentArt).
+    const artArea = environmentArtArea(m);
     // The whole scene slides with the camera's horizontal offset, which is zero everywhere except
     // inside a SIDE CAVE. One setPosition rather than an offset threaded through every draw call:
     // the cave is the only thing that ever leaves the shaft, and the shaft is drawn in world x.
-    const backgroundId = m.inBossArena ? 'boss' : m.stage.config.id;
+    // The painting follows the same place: the arena's own, THE ABYSS's staging room the AREA's.
+    const backgroundId = artArea === 'boss' ? 'boss' : m.stage.config.id;
     if (backgroundId !== this.backgroundId) {
       this.backgroundId = backgroundId;
       this.backgroundArt.setTexture(`background-${backgroundId}`);
@@ -534,10 +540,6 @@ export class GameScene extends Phaser.Scene {
     this.worldFront.clear().setPosition(g.x, g.y); this.worldFrontLate.clear().setPosition(g.x, g.y);
     this.graphics = this.worldBack;
     const theme = m.stage.config.theme;
-    // The AREA's image set, if it has one and it loaded; otherwise the procedural look below.
-    // THE ABYSS: the staging room has its own set, from the moment it opens until the arena does, and
-    // the arena has its own (walls only) for the fight.
-    const artArea = environmentArtArea(m);
     const parts = environmentParts(artArea, key => this.textures.exists(key));
     const envArt = parts.wall ? parts.keys : null;
     const ledgeArt = parts.platform ? parts.keys : null;
@@ -606,7 +608,7 @@ export class GameScene extends Phaser.Scene {
       // no recess, no frame, no light. Only the drawing goes: the room's ceiling and sides are the
       // model's (holdInsideSafeZone) and still hold the player exactly as before; its floor is an
       // ordinary ledge and is drawn as one.
-      if (!chamberDrawn(m.state)) continue;
+      if (!chamberDrawn(artArea)) continue;
       const left = zone.side === -1;
       // The cut runs from the outside of the shaft wall to the mouth.
       const cutX = left ? 0 : zone.x, cutW = zone.width + 28;
@@ -1963,7 +1965,7 @@ export class GameScene extends Phaser.Scene {
     const hurt = e.flash || (e.hurtFlash || 0) > 0.08;
     // ENEMY ART: this kind in this state has an image and it loaded -> draw that and nothing else.
     // Otherwise, the procedural body below, exactly as before.
-    const artKey = enemyArtKey(e, this.model.inBossArena ? 'boss' : this.model.stage.config.id);
+    const artKey = enemyArtKey(e, environmentArtArea(this.model) === 'boss' ? 'boss' : this.model.stage.config.id);
     if (artKey && this.textures.exists(artKey)) {
       // A waking GHOST keeps the procedural burst out of the wall; the body is the image.
       if (e.ai?.kind === 'ghost' && e.ai.state === 'hunt' && e.ai.t < 0.5) this.ghostBurst(x, y, e.ai.t);

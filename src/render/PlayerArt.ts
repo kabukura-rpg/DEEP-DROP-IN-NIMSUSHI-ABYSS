@@ -2,7 +2,7 @@ import Phaser from 'phaser';
 import type { GameModel, GameEvent } from '../systems/GameModel';
 import type { PlayerArtMode } from '../dev/playerArtState';
 import { PLAYER_ANIMATIONS, PlayerAnimationState, playerAnimationFrame, type PlayerAnimation } from '../dev/playerAnimationState';
-import { PLAYER_ART_ASSETS, artFrameUsable, type ArtMap } from './playerArtAssets';
+import { PLAYER_ART_ASSETS, artFrameUsable, shownPose, type ArtMap } from './playerArtAssets';
 
 /**
  * PLAYER ART v1 (HUMAN APPROVED, docs/PLAYER-ART-v1-APPROVED.md) -- in the shipped game.
@@ -57,7 +57,7 @@ export class PlayerArt {
   event(event: GameEvent, model: GameModel) { this.state.event(event, model); }
   render(model: GameModel, shakeX: number, direction: number): boolean {
     if (direction !== 0) this.flipX = direction < 0;
-    const pose = this.forced ?? this.state.pose(model);
+    const pose = this.forced ?? shownPose(this.state.pose(model), this.currentPose);
     if (pose !== this.currentPose) { this.currentPose = pose; this.started = model.elapsed; this.startedWall = this.scene.game.loop.time; }
     const seconds = pose === 'death' || this.forced ? (this.scene.game.loop.time - this.startedWall) / 1000 : model.elapsed - this.started;
     this.currentFrame = pose ? playerAnimationFrame(pose, seconds) : 0;

@@ -37,3 +37,15 @@ export function artFrameUsable(map: ArtMap | undefined, key: string, sheetLoaded
   return frame && sheetLoaded(frame.group) ? frame : undefined;
 }
 
+
+/**
+ * The pose the image shows. The selector (dev/playerAnimationState) answers null wherever it has no
+ * pose of its own: a REST, a SHOP, the clear, an arena bounce with no approved frame. None of those is
+ * a missing image, so the PLAYER keeps the pose it was last drawn in instead of dropping to the
+ * procedural body -- held still while an overlay has stopped the run's clock, and timed by the same
+ * clock when it has not. The procedural body is left for what it is for: a sheet or map that did not
+ * load, and a run not yet drawn once.
+ */
+export function shownPose<P>(selected: P | null, previous: P | null): P | null {
+  return selected ?? previous;
+}

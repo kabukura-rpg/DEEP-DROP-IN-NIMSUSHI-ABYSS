@@ -146,13 +146,19 @@ export type EnvironmentArtId = number | 'staging' | 'boss';
 /** The id of an ENVIRONMENT_ART entry, from its object key. */
 export const environmentArtId = (key: string): EnvironmentArtId => key === 'staging' || key === 'boss' ? key : Number(key);
 /**
- * The set a frame is drawn from. In the descent, the AREA's own. In THE ABYSS the run's AREA is still
- * 4, so the state is read first: the staging room's set from the moment the room opens until the
- * arena does (the reversal included), and the arena's own set for the fight. Nothing falls through
- * from one to another. Outside 'boss' (a death or the clear) it is the AREA's, as it always was.
+ * The set a frame is drawn from: WHERE the run is, never what the run is doing. In the descent, the
+ * AREA's own. In THE ABYSS the run's AREA is still 4, so the place is read off `abyssStage`: the
+ * staging room's set from the moment the room opens until the arena does (the reversal included),
+ * and the arena's own set for the fight. Nothing falls through from one to another.
+ *
+ * The run's `state` is deliberately not read. A SHOP, a death or the clear changes the state and
+ * nothing about the place -- reading it put AREA 4's walls and ledges behind THE ABYSS's shelf and
+ * the arena's result screens. The clear is the one moment the place has to be remembered rather than
+ * read: `clearBoss` puts `abyssStage` back to 'none', and only the arena can be cleared, so a run
+ * past the FINAL BOSS (`stage.boss`) with no ABYSS stage left is the arena it was cleared in.
  */
-export const environmentArtArea = (m: { state: string; inBossArena: boolean; stage: { config: { id: number } } }): EnvironmentArtId =>
-  m.state !== 'boss' ? m.stage.config.id : m.inBossArena ? 'boss' : 'staging';
+export const environmentArtArea = (m: { abyssStage: string; stage: { boss: boolean; config: { id: number } } }): EnvironmentArtId =>
+  m.abyssStage === 'fight' ? 'boss' : m.abyssStage !== 'none' ? 'staging' : m.stage.boss ? 'boss' : m.stage.config.id;
 export const ENVIRONMENT_ART: Partial<Record<EnvironmentArtId, EnvironmentArtSet>> = {
   1: {
     platform: { left: area1PlatformLeftUrl, center: area1PlatformCenterUrl, right: area1PlatformRightUrl },
@@ -515,8 +521,9 @@ export function beltLayout(x: number, surface: number, width: number, dir: -1 | 
 
 /**
  * Whether a SAFE ZONE chamber is drawn -- its recess cut through the wall, the lit frame and the
- * light out of its mouth. Every chamber in the descent is; THE ABYSS's (the run's 'boss' state, where
- * the staging room's TOMATO chamber is the only one) is not. Drawing only: the room's containment is
- * the model's and does not depend on this.
+ * light out of its mouth. Every chamber in the descent is; THE ABYSS's (the staging room's TOMATO
+ * chamber is the only one) is not -- whatever the run's state, so its SHOP or a death there does not
+ * bring the recess back. Keyed on the place (`environmentArtArea`). Drawing only: the room's
+ * containment is the model's and does not depend on this.
  */
-export const chamberDrawn = (state: string) => state !== 'boss';
+export const chamberDrawn = (area: EnvironmentArtId) => area !== 'staging' && area !== 'boss';
