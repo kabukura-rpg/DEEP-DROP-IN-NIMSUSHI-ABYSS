@@ -687,7 +687,10 @@ document.addEventListener('visibilitychange', () => { if (document.hidden && inP
 // AREA BGM: the track the current screen asks for, and silence while the page is in the background.
 window.setInterval(() => music.sync(musicTrack({
   mode, area: scene.model.stage.config.id, muted: audio.muted,
-  abyss: scene.model.state === 'boss', bossStarted: scene.model.boss.enabled && scene.model.boss.started,
+  // A shelf opened in THE ABYSS staging room is still THE ABYSS: while shopping the model's state is
+  // 'shop', but its abyssStage still says where the shelf was opened from (a SIDE CAVE's is 'none').
+  abyss: scene.model.state === 'boss' || (scene.model.state === 'shop' && scene.model.abyssStage !== 'none'),
+  bossStarted: scene.model.boss.enabled && scene.model.boss.started,
 })), 100);
 document.addEventListener('visibilitychange', () => music.setHidden(document.hidden));
 
