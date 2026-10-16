@@ -29,6 +29,7 @@ import area1SurfaceUrl from '../../output/game-backgrounds-v1/area1-surface-a.pn
 import { surfaceLayerAlphas, surfaceWeight } from '../render/surfaceBlend';
 import { ENEMY_ART_PLACEMENT, ENEMY_ART_URLS, enemyArtFlipX, enemyArtKey, enemyArtLook, type EnemyArtLook } from '../render/enemyArt';
 import { coinArt, coinFace, contentLoads, moduleArt, modulePlacement, shopDoorArt, veinArt } from '../render/contentArt';
+import { exitGateArt, exitGateLoads, exitGatePlacement } from '../render/exitGateArt';
 import { CAVE_ENTRANCE_FRAMES, CAVE_SHELL_AREAS, CAVE_SHELL_GEOMETRY, CAVE_SHELL_KEYS, CAVE_SHELL_LIGHT, caveBackwallPlacement, caveCeilingArt, caveCeilingLoads, caveCeilingPlacement, caveEntrancePlacement, caveShellArt, caveShellLoads } from '../render/caveShellArt';
 import { ENVIRONMENT_ART, ENVIRONMENT_GEOMETRY, environmentArtArea, environmentArtId, chamberDrawn, beltLayout, breakBlockFrame, breakBlockSlices, environmentKeys, environmentLoads, environmentParts, collapseArt, collapseFrame, doodadArt, doodadFrame, doodadPlacement, type DoodadKeys, limboArt, limboLayout, reefArt, reefLayout, type ReefKeys, platformSlices, spikeFrame, spikeLayout, usesPlatformArt, wallTileX, wallTileY, type EnvironmentKeys } from '../render/environmentArt';
 
@@ -145,6 +146,13 @@ export class GameScene extends Phaser.Scene {
   private caveFrontImages: { top: Phaser.GameObjects.Image; face: Phaser.GameObjects.Image }[] = [];
   private worldMidLate!: Phaser.GameObjects.Graphics;
   private worldFront!: Phaser.GameObjects.Graphics;
+  /**
+   * The SECTION EXIT gate's image (render/exitGateArt), where the procedural gate was in `worldFront`:
+   * after the ledges, hazards and pickups, before TIMEVOID. `worldFront` is split around it, and
+   * `worldFrontVoid` takes what followed the gate (TIMEVOID), so neither changes place.
+   */
+  private exitArt!: Phaser.GameObjects.Image;
+  private worldFrontVoid!: Phaser.GameObjects.Graphics;
   private contentLayer!: Phaser.GameObjects.Container;
   private contentImages: Phaser.GameObjects.Image[] = [];
   private worldFrontLate!: Phaser.GameObjects.Graphics;
@@ -185,6 +193,7 @@ export class GameScene extends Phaser.Scene {
       for (const [key, url] of environmentLoads(environmentArtId(area), set)) this.load.image(key, url);
     }
     for (const [key, url] of contentLoads()) this.load.image(key, url);
+    for (const [key, url] of exitGateLoads()) this.load.image(key, url);
     for (const [key, url] of caveShellLoads()) this.load.image(key, url);
     for (const [key, url] of caveCeilingLoads()) this.load.image(key, url);
     PlayerArt.preload(this);
@@ -239,6 +248,8 @@ export class GameScene extends Phaser.Scene {
     this.platformLayer = this.add.container(0, 0);
     for (const kind of ['socket', 'tooth', 'edge', 'belt', 'arrow', 'crack'] as const) this.platformOverlay[kind] = this.add.container(0, 0);
     this.worldFront = this.add.graphics();
+    this.exitArt = this.add.image(0, 0, '__MISSING').setOrigin(0).setVisible(false);
+    this.worldFrontVoid = this.add.graphics();
     this.contentLayer = this.add.container(0, 0);
     this.worldFrontLate = this.add.graphics();
     this.coinLayer = this.add.container(0, 0);
@@ -537,7 +548,7 @@ export class GameScene extends Phaser.Scene {
     this.afterEnemies.clear().setPosition(g.x, g.y);
     this.worldBack.clear().setPosition(g.x, g.y); this.worldMid.clear().setPosition(g.x, g.y);
     this.worldMidLate.clear().setPosition(g.x, g.y);
-    this.worldFront.clear().setPosition(g.x, g.y); this.worldFrontLate.clear().setPosition(g.x, g.y);
+    this.worldFront.clear().setPosition(g.x, g.y); this.worldFrontVoid.clear().setPosition(g.x, g.y); this.worldFrontLate.clear().setPosition(g.x, g.y);
     this.graphics = this.worldBack;
     const theme = m.stage.config.theme;
     const parts = environmentParts(artArea, key => this.textures.exists(key));
@@ -552,6 +563,8 @@ export class GameScene extends Phaser.Scene {
     // COIN + SIDE CAVE CONTENT images, shared by every AREA; each null if its image is missing (procedural).
     const exists = (key: string) => this.textures.exists(key);
     const coinKeys = coinArt(exists), veinKey = veinArt(exists), doorKey = shopDoorArt(exists);
+    // The SECTION EXIT gate, shared by every AREA; null if its image is missing (procedural).
+    const exitKey = exitGateArt(exists);
     // The AREA's own SIDE CAVE shell pair; null in THE ABYSS, or if either image is missing (procedural).
     const shell = caveShellArt(artArea, exists);
     // ...and its CEILING STRIP, only with the shell; null if missing (that AREA keeps the procedural roof).
@@ -764,9 +777,17 @@ export class GameScene extends Phaser.Scene {
       }
     }
     // The way out: a gate standing on the floor that ends the shaft.
+    let exitShown = false;
     if (m.exit) {
       const e = m.exit, ey = e.y - cam;
-      if (ey > -120 && ey < 860) {
+      if (ey > -120 && ey < 860 && exitKey) {
+        // From its image, 1:1 on the gate's own rectangle (render/exitGateArt), with nothing procedural
+        // under or over it. Drawing only: the gate, its floor and what touching it does are the model's.
+        const at = exitGatePlacement(e, cam);
+        this.exitArt.setTexture(exitKey).setPosition(g.x + at.x, at.y).setVisible(true);
+        exitShown = true;
+      } else if (ey > -120 && ey < 860) {
+        // The procedural gate, only when the image did not load.
         const pulse = 0.5 + Math.abs(Math.sin(this.model.elapsed * 2.4)) * 0.3;
         this.rect(e.x - 6, ey - 6, e.width + 12, e.height + 12, 0x7de8b0, 0.12 * pulse);
         this.rect(e.x, ey, e.width, e.height, 0x0e1a16, 0.96);
@@ -775,6 +796,9 @@ export class GameScene extends Phaser.Scene {
         this.label2(e.x + e.width / 2, ey + e.height / 2, 'EXIT');
       }
     }
+    if (!exitShown) this.exitArt.setVisible(false);
+    // TIMEVOID, over the gate as it always was: on `worldFrontVoid`, above the gate's image.
+    this.graphics = this.worldFrontVoid;
     // The shop doorway, when this SECTION happens to have one.
     this.timeVoid(m, cam);
     // Every doorway this SECTION has: the chamber's, where an AREA still cuts chambers, and one
