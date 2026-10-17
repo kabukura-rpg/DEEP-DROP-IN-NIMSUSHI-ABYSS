@@ -227,9 +227,10 @@ describe('SHOP behaviour is unchanged', () => {
       'ui/menuKeys.ts': 'e7701ab8bc56ace0638cab2b229b27b724a6046e7b28d81c0b0981c474833ff4',
       // Changed after ac4bd7c only by the place-keyed art selection in draw() (background, chamber,
       // enemy art) -- tests/visualStateMapping.test.ts -- and after cc578bf only by the SECTION EXIT
-      // gate's image and the TIMEVOID Graphics split around it -- tests/exitGateArt.test.ts; nothing
-      // the SHOP reads or drives.
-      'scenes/GameScene.ts': 'b13f3ce16fdec08b42bb44b9078b8563e9df3de4ae0693a15964a6ac5d65ef7c',
+      // gate's image and the TIMEVOID Graphics split around it -- tests/exitGateArt.test.ts -- and after
+      // 842d4c6 only by AREA 3's AIR CONTAINER image and the bubble Graphics split around it --
+      // tests/airContainerArt.test.ts; nothing the SHOP reads or drives.
+      'scenes/GameScene.ts': '28b128998cb0205d11f3d4fe4e82719f114a0fe2e373f8c1dbcddd0aa4400a04',
     });
   });
 

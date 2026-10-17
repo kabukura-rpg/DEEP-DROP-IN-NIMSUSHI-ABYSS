@@ -30,6 +30,7 @@ import { surfaceLayerAlphas, surfaceWeight } from '../render/surfaceBlend';
 import { ENEMY_ART_PLACEMENT, ENEMY_ART_URLS, enemyArtFlipX, enemyArtKey, enemyArtLook, type EnemyArtLook } from '../render/enemyArt';
 import { coinArt, coinFace, contentLoads, moduleArt, modulePlacement, shopDoorArt, veinArt } from '../render/contentArt';
 import { exitGateArt, exitGateLoads, exitGatePlacement } from '../render/exitGateArt';
+import { airContainerArt, airContainerLoads, airContainerPlacement } from '../render/airContainerArt';
 import { CAVE_ENTRANCE_FRAMES, CAVE_SHELL_AREAS, CAVE_SHELL_GEOMETRY, CAVE_SHELL_KEYS, CAVE_SHELL_LIGHT, caveBackwallPlacement, caveCeilingArt, caveCeilingLoads, caveCeilingPlacement, caveEntrancePlacement, caveShellArt, caveShellLoads } from '../render/caveShellArt';
 import { ENVIRONMENT_ART, ENVIRONMENT_GEOMETRY, environmentArtArea, environmentArtId, chamberDrawn, beltLayout, breakBlockFrame, breakBlockSlices, environmentKeys, environmentLoads, environmentParts, collapseArt, collapseFrame, doodadArt, doodadFrame, doodadPlacement, type DoodadKeys, limboArt, limboLayout, reefArt, reefLayout, type ReefKeys, platformSlices, spikeFrame, spikeLayout, usesPlatformArt, wallTileX, wallTileY, type EnvironmentKeys } from '../render/environmentArt';
 
@@ -119,7 +120,11 @@ export class GameScene extends Phaser.Scene {
    *                  `worldFront` takes what came before them (ledges, hazards, pickups, the exit,
    *                  TIMEVOID) and `worldFrontLate` what came after (the module's bonus pip, the
    *                  procedural doorways, containers, bubbles), up to the coins.
-   *   coinLayer      loose coins, between `worldFrontLate` and `graphics`, which keeps everything that
+   *   airLayer       AREA 3's sealed AIR CONTAINERS (render/airContainerArt), where the procedural
+   *                  boxes were on `worldFrontLate`. `worldFrontLate` keeps what came before them (and
+   *                  a broken container's debris); `worldFrontAir` takes the released bubbles that
+   *                  followed them, up to the coins.
+   *   coinLayer      loose coins, between `worldFrontAir` and `graphics`, which keeps everything that
    *                  followed them -- TIMEOUT bubbles, bodies, NIMUSHI and on.
    */
   private veinLayer!: Phaser.GameObjects.Container;
@@ -156,6 +161,9 @@ export class GameScene extends Phaser.Scene {
   private contentLayer!: Phaser.GameObjects.Container;
   private contentImages: Phaser.GameObjects.Image[] = [];
   private worldFrontLate!: Phaser.GameObjects.Graphics;
+  private airLayer!: Phaser.GameObjects.Container;
+  private airImages: Phaser.GameObjects.Image[] = [];
+  private worldFrontAir!: Phaser.GameObjects.Graphics;
   private coinLayer!: Phaser.GameObjects.Container;
   private coinImages: Phaser.GameObjects.Image[] = [];
   private platformLayer!: Phaser.GameObjects.Container;
@@ -194,6 +202,7 @@ export class GameScene extends Phaser.Scene {
     }
     for (const [key, url] of contentLoads()) this.load.image(key, url);
     for (const [key, url] of exitGateLoads()) this.load.image(key, url);
+    for (const [key, url] of airContainerLoads()) this.load.image(key, url);
     for (const [key, url] of caveShellLoads()) this.load.image(key, url);
     for (const [key, url] of caveCeilingLoads()) this.load.image(key, url);
     PlayerArt.preload(this);
@@ -252,6 +261,8 @@ export class GameScene extends Phaser.Scene {
     this.worldFrontVoid = this.add.graphics();
     this.contentLayer = this.add.container(0, 0);
     this.worldFrontLate = this.add.graphics();
+    this.airLayer = this.add.container(0, 0);
+    this.worldFrontAir = this.add.graphics();
     this.coinLayer = this.add.container(0, 0);
     this.graphics = this.add.graphics();
     // Ordering: world -> NIMUSHI's image -> everything drawn after its body -> the player's image ->
@@ -549,6 +560,7 @@ export class GameScene extends Phaser.Scene {
     this.worldBack.clear().setPosition(g.x, g.y); this.worldMid.clear().setPosition(g.x, g.y);
     this.worldMidLate.clear().setPosition(g.x, g.y);
     this.worldFront.clear().setPosition(g.x, g.y); this.worldFrontVoid.clear().setPosition(g.x, g.y); this.worldFrontLate.clear().setPosition(g.x, g.y);
+    this.worldFrontAir.clear().setPosition(g.x, g.y);
     this.graphics = this.worldBack;
     const theme = m.stage.config.theme;
     const parts = environmentParts(artArea, key => this.textures.exists(key));
@@ -565,6 +577,8 @@ export class GameScene extends Phaser.Scene {
     const coinKeys = coinArt(exists), veinKey = veinArt(exists), doorKey = shopDoorArt(exists);
     // The SECTION EXIT gate, shared by every AREA; null if its image is missing (procedural).
     const exitKey = exitGateArt(exists);
+    // AREA 3's sealed AIR CONTAINER; null anywhere else (THE ABYSS's are its own), or if missing (procedural).
+    const airKey = airContainerArt(artArea, exists);
     // The AREA's own SIDE CAVE shell pair; null in THE ABYSS, or if either image is missing (procedural).
     const shell = caveShellArt(artArea, exists);
     // ...and its CEILING STRIP, only with the shell; null if missing (that AREA keeps the procedural roof).
@@ -830,6 +844,7 @@ export class GameScene extends Phaser.Scene {
       }
     }
     // AREA 2 air containers. Sealed they read as cargo; broken they burst and fade.
+    let airImages = 0;
     for (const box of m.containers) {
       const by = box.y - cam;
       if (by < -60 || by > 850) continue;
@@ -838,12 +853,22 @@ export class GameScene extends Phaser.Scene {
         for (let i = 0; i < 6; i++) this.rect(box.x + (i % 3) * 12 - 6 + (1 - t) * (i - 3) * 6, by + Math.floor(i / 3) * 14 - (1 - t) * 10, 7, 7, 0x9fe8f5, 0.5 * t);
         continue;
       }
+      // Sealed, in AREA 3: from its image, 1:1 on the container's own rectangle, on `airLayer` above
+      // this Graphics (render/airContainerArt). Drawing only: the box, its bounds and its bubbles are the model's.
+      if (airKey) {
+        const at = airContainerPlacement(box, cam);
+        this.airImage(airImages++, airKey, g.x + at.x, at.y);
+        continue;
+      }
+      // The procedural box, only when there is no image.
       this.rect(box.x, by, box.width, box.height, 0x17323a, 0.95);
       this.graphics.lineStyle(2, 0x70d8ef, 0.95).strokeRect(box.x, by, box.width, box.height);
       this.rect(box.x + 5, by + 5, box.width - 10, 5, 0x9fe8f5, 0.55);
       this.graphics.lineStyle(2, 0x9fe8f5, 0.5).strokeCircle(box.x + box.width / 2, by + box.height / 2 + 3, 7);
     }
-    // Released bubbles, climbing away. They blink as their life runs out.
+    for (let i = airImages; i < this.airImages.length; i++) this.airImages[i].setVisible(false);
+    // Released bubbles, climbing away, over the containers' images: on `worldFrontAir`. They blink as their life runs out.
+    this.graphics = this.worldFrontAir;
     for (const bubble of m.bubbles) {
       const by = bubble.y - cam;
       if (by < -40 || by > 850) continue;
@@ -1153,6 +1178,12 @@ export class GameScene extends Phaser.Scene {
   private contentImage(index: number, texture: string, x: number, y: number) {
     let img = this.contentImages[index];
     if (!img) { img = this.add.image(0, 0, texture).setOrigin(0); this.contentLayer.add(img); this.contentImages[index] = img; }
+    img.setTexture(texture).setPosition(x, y).setVisible(true);
+  }
+  /** One sealed AIR CONTAINER on `airLayer`, at native size; pooled like the content images. */
+  private airImage(index: number, texture: string, x: number, y: number) {
+    let img = this.airImages[index];
+    if (!img) { img = this.add.image(0, 0, texture).setOrigin(0); this.airLayer.add(img); this.airImages[index] = img; }
     img.setTexture(texture).setPosition(x, y).setVisible(true);
   }
   /** One loose coin's face on `coinLayer`: centred on the coin across, squeezed by the spin, blinking by `fade`. */
