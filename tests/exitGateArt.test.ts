@@ -16,9 +16,9 @@ import progressionSource from '../src/systems/StageProgressionSystem.ts?raw';
 import areasSource from '../src/data/areas.ts?raw';
 
 /**
- * SECTION EXIT GATE ART. One image from deep-drop-exit-gate-art-production/outputs/runtime (byte for
- * byte), A / ANCIENT LIFT GATE, shared by AREA 1-4, laid 1:1 on the StageExit rectangle in place of
- * the procedural mint gate. Drawing only: where the gate stands, its floor, the trigger, SECTION CLEAR,
+ * SECTION EXIT GATE ART. One image, output/exit-gate-occlusion-v3/exit-gate-common-v3.png byte for
+ * byte (A / ANCIENT LIFT GATE with the V3 upper cues), shared by AREA 1-4, laid 1:1 on the StageExit
+ * rectangle in place of the procedural mint gate. Drawing only: where the gate stands, its floor, the trigger, SECTION CLEAR,
  * the REST point and the next SECTION are exactly cc578bf's.
  */
 
@@ -62,9 +62,9 @@ describe('the image', () => {
     expect(sceneSource).toContain('for (const [key, url] of exitGateLoads()) this.load.image(key, url);');
   });
 
-  it('ships byte for byte as delivered: SHA-256, 86x74, 8-bit RGBA, alpha 0/255, 16 colours', () => {
-    // From outputs/validation.json (automated.assets.A.sha256).
-    expect(sha256(bytes())).toBe('d139eb197e17242cbe603f5ff207b06789dc696088ec6b95d1a0b78eb88dccf0');
+  it('ships byte for byte as delivered: SHA-256, 86x74, 8-bit RGBA, alpha 0/255, 21 colours', () => {
+    // From output/exit-gate-occlusion-v3/validation.json (sha256).
+    expect(sha256(bytes())).toBe('625be5af94667c005de54ccd41643f7ab16cc93849d0fb36f287ce124176ac52');
     const { w, h, px } = decode();
     expect([w, h]).toEqual([86, 74]);
     const alphas = new Set<number>(), colours = new Set<string>();
@@ -74,7 +74,8 @@ describe('the image', () => {
       if (px[i + 3] === 0) transparent++;
     }
     expect([...alphas].sort((a, b) => a - b)).toEqual([0, 255]);
-    expect(colours.size).toBe(16);
+    // 20 opaque colours plus transparent black (validation.json format / edit.opaquePaletteCount).
+    expect(colours.size).toBe(21);
     expect(transparent).toBe(655);
   });
 
