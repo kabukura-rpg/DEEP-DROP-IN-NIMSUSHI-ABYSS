@@ -231,8 +231,10 @@ describe('SHOP behaviour is unchanged', () => {
       // enemy art) -- tests/visualStateMapping.test.ts -- and after cc578bf only by the SECTION EXIT
       // gate's image and the TIMEVOID Graphics split around it -- tests/exitGateArt.test.ts -- and after
       // 842d4c6 only by AREA 3's AIR CONTAINER image and the bubble Graphics split around it --
-      // tests/airContainerArt.test.ts; nothing the SHOP reads or drives.
-      'scenes/GameScene.ts': '28b128998cb0205d11f3d4fe4e82719f114a0fe2e373f8c1dbcddd0aa4400a04',
+      // tests/airContainerArt.test.ts -- and after 1784c3e only by the floating labels' glyph styling (label()
+      // takes a kind and draws through src/render/floatingText.ts; spawn, life and motion unchanged) --
+      // tests/floatingText.test.ts; nothing the SHOP reads or drives.
+      'scenes/GameScene.ts': 'b525415fd50f172a7997999a6f83371be5c812e99af8a244b88a24fda1f6e5ea',
     });
   });
 

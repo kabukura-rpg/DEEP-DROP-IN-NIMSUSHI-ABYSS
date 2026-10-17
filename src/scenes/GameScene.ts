@@ -31,6 +31,7 @@ import { ENEMY_ART_PLACEMENT, ENEMY_ART_URLS, enemyArtFlipX, enemyArtKey, enemyA
 import { coinArt, coinFace, contentLoads, moduleArt, modulePlacement, shopDoorArt, veinArt } from '../render/contentArt';
 import { exitGateArt, exitGateLoads, exitGatePlacement } from '../render/exitGateArt';
 import { airContainerArt, airContainerLoads, airContainerPlacement } from '../render/airContainerArt';
+import { addFloatingText, loadFloatingTextFont, type FloatingTextKind } from '../render/floatingText';
 import { CAVE_ENTRANCE_FRAMES, CAVE_SHELL_AREAS, CAVE_SHELL_GEOMETRY, CAVE_SHELL_KEYS, CAVE_SHELL_LIGHT, caveBackwallPlacement, caveCeilingArt, caveCeilingLoads, caveCeilingPlacement, caveEntrancePlacement, caveShellArt, caveShellLoads } from '../render/caveShellArt';
 import { ENVIRONMENT_ART, ENVIRONMENT_GEOMETRY, environmentArtArea, environmentArtId, chamberDrawn, beltLayout, breakBlockFrame, breakBlockSlices, environmentKeys, environmentLoads, environmentParts, collapseArt, collapseFrame, doodadArt, doodadFrame, doodadPlacement, type DoodadKeys, limboArt, limboLayout, reefArt, reefLayout, type ReefKeys, platformSlices, spikeFrame, spikeLayout, usesPlatformArt, wallTileX, wallTileY, type EnvironmentKeys } from '../render/environmentArt';
 
@@ -209,6 +210,8 @@ export class GameScene extends Phaser.Scene {
     this.load.image('nimushi-art', NIMUSHI_ART.url);
   }
   create() {
+    // The floating labels' pixel font, asked for before the first label can need it (src/render/floatingText.ts).
+    loadFloatingTextFont();
     // Expose the recorder so a human who sees the terrain misbehave can dump the history at once.
     // DEV only; in a production build `terrainWatch` is null and this never runs.
     if (import.meta.env.DEV && this.terrainWatch) {
@@ -362,49 +365,49 @@ export class GameScene extends Phaser.Scene {
   }
   private effect(event: GameEvent) {
     if (event.type === 'shot') { this.shake = Math.max(this.shake, 1.2); this.burst(event.x, event.y, 0xf6ffc2, 5); }
-    if (event.type === 'land') { this.burst(event.x, event.y, 0xb9ef70, 9); this.label(event.x, event.y - 20, 'RELOADED', '#b9ef70', 12); }
-    if (event.type === 'heal') this.label(event.x, event.y - 48, event.lifeUps ? `LIFE UP! MAX HP +${event.lifeUps}` : event.value ? `HP +${event.value}` : `LIFE +${event.overflow}`, '#b9ef70', 13);
-    if (event.type === 'empty') this.label(event.x, event.y - 30, '弾切れ / 足場へ', '#f99bae', 11);
-    if (event.type === 'crack') { this.burst(event.x, event.y, 0xe8d48a, 7); if (event.value) this.label(event.x, event.y - 22, 'CRACK!', '#e8d48a', 11); }
+    if (event.type === 'land') { this.burst(event.x, event.y, 0xb9ef70, 9); this.label(event.x, event.y - 20, 'RELOADED', 'system'); }
+    if (event.type === 'heal') this.label(event.x, event.y - 48, event.lifeUps ? `LIFE UP! MAX HP +${event.lifeUps}` : event.value ? `HP +${event.value}` : `LIFE +${event.overflow}`, 'system');
+    if (event.type === 'empty') this.label(event.x, event.y - 30, '弾切れ / 足場へ', 'warning');
+    if (event.type === 'crack') { this.burst(event.x, event.y, 0xe8d48a, 7); if (event.value) this.label(event.x, event.y - 22, 'CRACK!', 'warning'); }
     if (event.type === 'collapse') { this.shake = Math.max(this.shake, 2.4); this.burst(event.x, event.y, 0x8f7ac4, 16); }
     // A block that held: say how many more rounds THIS one needs, so durability is never a guess.
-    if (event.type === 'blockCrack') { this.shake = Math.max(this.shake, 1.4); this.burst(event.x, event.y, 0xffc27a, 8); this.label(event.x, event.y - 24, `あと${event.value}発`, '#ffc27a', 12); }
-    if (event.type === 'blockBreak') { this.shake = Math.max(this.shake, 2.8); this.burst(event.x, event.y, 0xffd2a0, 22); this.label(event.x, event.y - 24, 'OPEN!', '#ffd2a0', 15); }
+    if (event.type === 'blockCrack') { this.shake = Math.max(this.shake, 1.4); this.burst(event.x, event.y, 0xffc27a, 8); this.label(event.x, event.y - 24, `あと${event.value}発`, 'system'); }
+    if (event.type === 'blockBreak') { this.shake = Math.max(this.shake, 2.8); this.burst(event.x, event.y, 0xffd2a0, 22); this.label(event.x, event.y - 24, 'OPEN!', 'impact'); }
     // A ground jump: a small puff, no screen shake, nothing that reads as a shot.
     if (event.type === 'jump') this.burst(event.x, event.y + 15, 0xb9ef70, 6);
     // A wall kick: the puff comes off the wall itself, so the push reads even at a glance.
     if (event.type === 'wallJump') { this.shake = Math.max(this.shake, 1.2); this.burst(event.x, event.y, 0xdff7a8, 10); }
     // Bouncing off scenery: the same RELOADED note a landing gets, because that is what it is.
-    if (event.type === 'doodad') { this.burst(event.x, event.y, 0xb9ef70, 10); this.label(event.x, event.y - 20, 'RELOADED', '#b9ef70', 12); }
-    if (event.type === 'coinVein') { this.burst(event.x, event.y, 0xffd479, 20); this.label(event.x, event.y - 24, `COIN +${event.value}`, '#ffd479', 14); }
-    if (event.type === 'timeVoid' && event.value) this.label(event.x, event.y - 54, 'TIME VOID', '#9fe8f5', 15);
-    if (event.type === 'coinHigh' && event.value) { this.burst(event.x, event.y, 0xffe9a8, 26); this.label(event.x, event.y - 46, 'COIN HIGH', '#ffe9a8', 17); }
+    if (event.type === 'doodad') { this.burst(event.x, event.y, 0xb9ef70, 10); this.label(event.x, event.y - 20, 'RELOADED', 'system'); }
+    if (event.type === 'coinVein') { this.burst(event.x, event.y, 0xffd479, 20); this.label(event.x, event.y - 24, `COIN +${event.value}`, 'reward'); }
+    if (event.type === 'timeVoid' && event.value) this.label(event.x, event.y - 54, 'TIME VOID', 'system');
+    if (event.type === 'coinHigh' && event.value) { this.burst(event.x, event.y, 0xffe9a8, 26); this.label(event.x, event.y - 46, 'COIN HIGH', 'reward'); }
     if (event.type === 'explosion') this.burst(event.x, event.y, 0xffb066, 22);
     if (event.type === 'balloon') this.burst(event.x, event.y, 0xf497ab, 24);
-    if (event.type === 'corpse') this.label(event.x, event.y - 20, `OMNOM ${event.value}/10`, '#d8c8d4', 12);
+    if (event.type === 'corpse') this.label(event.x, event.y - 20, `OMNOM ${event.value}/10`, 'system');
     // The chain being banked. It never opens a screen, so the shaft itself has to carry it.
-    if (event.type === 'comboSettle') { this.flash = Math.max(this.flash, 0.08); this.burst(event.x, event.y, 0xf4e9ad, 24); this.label(event.x, event.y - 62, `${event.value} COMBO · ${event.stage ?? ''}`, '#f4e9ad', 16); }
+    if (event.type === 'comboSettle') { this.flash = Math.max(this.flash, 0.08); this.burst(event.x, event.y, 0xf4e9ad, 24); this.label(event.x, event.y - 62, `${event.value} COMBO · ${event.stage ?? ''}`, 'reward'); }
     // A round the TAPIOCA BARRIER stopped reads differently from one that landed: a spray of brown
     // pearl chips and a white glint, no shake -- "blocked", at the point it was blocked.
     if (event.type === 'bossHit' && (event.value ?? 0) < 0) { this.burst(event.x, event.y, 0x5a3b2a, 5); this.burst(event.x, event.y, 0xfff4e0, 2); }
     else if (event.type === 'bossHit') { this.burst(event.x, event.y, 0xd9a0ff, 6); this.shake = Math.max(this.shake, 1.4); }
     if (event.type === 'bossFire') this.shake = Math.max(this.shake, 2.2);
-    if (event.type === 'bossDown') { this.shake = 6; this.flash = 0.16; this.burst(event.x, event.y, 0xffd2a0, 40); this.label(event.x, event.y - 40, 'BOSS DEFEATED', '#ffd2a0', 18); }
+    if (event.type === 'bossDown') { this.shake = 6; this.flash = 0.16; this.burst(event.x, event.y, 0xffd2a0, 40); this.label(event.x, event.y - 40, 'BOSS DEFEATED', 'impact'); }
     if (event.type === 'kill') {
       const feedback = comboFeedback(event.combo || 0);
       this.shake = Math.max(this.shake, Math.min(6, (event.stomp ? 3.2 : 1.8) + feedback.shake));
       this.freeze = Math.max(this.freeze, event.stomp ? 0.042 : 0.025);
       this.burst(event.x, event.y, feedback.tier >= 8 ? 0xf4e9ad : 0xf99bae, (event.stomp ? 20 : 12) + feedback.particles);
-      this.label(event.x, event.y, event.stomp ? `BAM! +${event.value}` : `+${event.value}`, feedback.tier >= 8 ? '#f4e9ad' : '#f9acbf', event.stomp ? 20 : 15);
+      this.label(event.x, event.y, event.stomp ? `BAM! +${event.value}` : `+${event.value}`, event.stomp ? 'impact' : 'reward', feedback.tier >= 8);
     }
     if (event.type === 'hurt') {
       this.flash = 0.1; this.shake = 4; this.burst(event.x, event.y, 0xfc6e8c, 12);
       this.damageSource = event.source; this.damageTime = 0.3;
-      if (event.source) this.label(event.source.x, event.source.y - 35, enemyType(event.source.kind).contactHint, '#ffc4cf', 12);
+      if (event.source) this.label(event.source.x, event.source.y - 35, enemyType(event.source.kind).contactHint, 'warning');
     }
   }
-  private label(x: number, y: number, value: string, color: string, fontSize: number) {
-    const text = this.add.text(x, y - this.model.cameraY, value, { fontFamily: 'monospace', fontSize, color, fontStyle: 'bold' }).setOrigin(0.5).setDepth(3);
+  private label(x: number, y: number, value: string, kind: FloatingTextKind, hot = false) {
+    const text = addFloatingText(this, x, y - this.model.cameraY, value, kind, hot).setOrigin(0.5).setDepth(3);
     this.labels.push({ text, y, life: 0.85 });
   }
   private burst(x: number, y: number, color: number, count: number) {

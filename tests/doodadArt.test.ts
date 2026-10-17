@@ -292,7 +292,9 @@ describe('nothing but the DOODAD drawing changes', () => {
       expect(g.ammo).toBe(1);
       expect(doodadFrame(d)).toBe('spent');
     }
-    // RELOADED, the burst and the land note are the scene's response to that one event, unchanged.
-    expect(sceneSource).toContain("if (event.type === 'doodad') { this.burst(event.x, event.y, 0xb9ef70, 10); this.label(event.x, event.y - 20, 'RELOADED', '#b9ef70', 12); }");
+    // RELOADED, the burst and the land note are the scene's response to that one event, unchanged. Since
+    // 1784c3e the label names its kind ('system') instead of a colour and size -- glyph styling only, same
+    // spawn point and message (tests/floatingText.test.ts).
+    expect(sceneSource).toContain("if (event.type === 'doodad') { this.burst(event.x, event.y, 0xb9ef70, 10); this.label(event.x, event.y - 20, 'RELOADED', 'system'); }");
   });
 });
