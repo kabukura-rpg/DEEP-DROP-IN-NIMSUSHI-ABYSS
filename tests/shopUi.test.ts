@@ -194,7 +194,9 @@ describe('SHOP panel CSS', () => {
   it('holds the HUD back only while the SHOP panel is in the overlay', () => {
     expect(shopRules).toContain('#game-frame:has(>.overlay>.shop-content)>.hud{opacity:.35}');
     // Keyed on the panel being present, so closing the SHOP (an empty overlay) restores the HUD.
-    expect(rules(styleSource).filter(([sel, decl]) => /\.hud\b|#hud\b/.test(sel) && /opacity/.test(decl)).map(([sel]) => sel)).toEqual(['#game-frame:has(>.overlay>.shop-content)>.hud']);
+    // REST / UPGRADE UI V1 added the REST panel's own HUD hold-back, keyed the same way on its panel
+    // (.rest-panel) and kept out of this block; the SHOP's rule and its selector are unchanged.
+    expect(rules(styleSource).filter(([sel, decl]) => /\.hud\b|#hud\b/.test(sel) && /opacity/.test(decl)).map(([sel]) => sel)).toEqual(['#game-frame:has(>.overlay>.shop-content)>.hud', '#game-frame:has(>.overlay>.rest-panel)>.hud']);
   });
 });
 

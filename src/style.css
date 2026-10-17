@@ -1,6 +1,6 @@
 @import url('https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@600;700;800;900&family=Silkscreen&family=IBM+Plex+Mono:wght@400;500;600;700&family=Noto+Sans+JP:wght@400;500;600;700;800&display=swap');
 :root{font-family:'IBM Plex Mono','Noto Sans JP',monospace;color:#dbe0d8;background:#101719;font-synthesis:none;--lime:#b9ef70;--muted:#73817f;--pink:#f49bab}
-*{box-sizing:border-box}body{margin:0}button,a{-webkit-tap-highlight-color:transparent}button{font:inherit;cursor:pointer}button:focus-visible,a:focus-visible{outline:2px solid var(--lime);outline-offset:5px}button:disabled{cursor:default}button{border:0}a{color:inherit;text-decoration:none}[hidden]{display:none!important}.site-header{height:88px;max-width:1440px;margin:auto;padding:0 58px;display:flex;align-items:center;justify-content:space-between;border-bottom:1px solid #293234}.wordmark{display:flex;align-items:center;gap:12px;font-size:16px;font-weight:700;letter-spacing:1px}.brand-icon{display:grid;place-items:center;background:var(--lime);color:#101719;width:25px;height:29px;font-size:24px;font-weight:700}.version{font-size:11px;color:#74817d;margin-left:6px}.header-right{display:flex;align-items:center;gap:10px;font-size:10px;letter-spacing:1.4px;color:#8c9691}.icon-button{margin-left:22px;width:32px;height:32px;border:1px solid #394342;color:#cad3c7;background:transparent;font-size:21px}.layout{max-width:1260px;margin:48px auto 45px;display:grid;grid-template-columns:minmax(240px,1fr) minmax(300px,410px) minmax(220px,1fr);gap:64px;align-items:center;padding:0 26px}.eyebrow{font-size:9px;font-weight:500;letter-spacing:1.5px;color:#97a59b;display:flex;align-items:center;gap:8px}.eyebrow>span{width:14px;height:1px;background:var(--lime)}.game-column{min-width:0;box-shadow:0 16px 60px #0003;align-self:start}.cabinet-top,.cabinet-bottom{display:flex;align-items:center;justify-content:space-between;background:#1a2426;border:1px solid #354244;color:#a8b3aa;font-size:8px;letter-spacing:1px;padding:0 14px;height:35px}.cabinet-top>span:first-child{display:flex;align-items:center;gap:8px}.cabinet-top i{width:6px;height:6px;border:1px solid var(--lime)}.cabinet-top>span:last-child{color:#6f8179;font-size:7px}.cabinet-bottom{height:32px;font-size:7px;color:#72867c}#game-frame{width:100%;aspect-ratio:9/16;position:relative;overflow:hidden;border-left:1px solid #354244;border-right:1px solid #354244;background:#10191c;touch-action:none;user-select:none;-webkit-user-select:none}#game{position:absolute;inset:0}#game canvas{display:block!important;width:100%!important;height:100%!important;margin:0!important;image-rendering:pixelated}.hud{position:absolute;inset:0;pointer-events:none;padding:24px 28px;z-index:2}.hud-top{display:flex;justify-content:space-between;align-items:flex-start}.hud-label{font-size:8px;letter-spacing:2px;color:#aebaae}.depth-number{font-size:34px;font-weight:600;line-height:1.25;letter-spacing:-2px;color:#f1f4dd}.depth-number small{font-size:12px;font-weight:400;color:#92a38b;margin-left:5px;letter-spacing:0}.pause-button{pointer-events:auto;background:#162023b3;border:1px solid #3e4c45;width:31px;height:31px;color:#b7c4ab;font-size:15px}.pause-button:disabled{opacity:.4}.hud-status{display:flex;justify-content:space-between;align-items:flex-start;margin-top:15px}#hearts{font-size:16px;color:var(--pink);line-height:20px;letter-spacing:2px;max-width:53%}#hearts .lost{color:#3f383f}.ammo-group{text-align:right;max-width:46%}#ammo-label{font-size:6px;letter-spacing:1.5px;color:#99ad8f;display:block;margin-bottom:6px}#ammo{display:flex;gap:4px;flex-wrap:wrap;justify-content:flex-end}#ammo i{height:13px;width:6px;border:1px solid #3a4c38}#ammo i.loaded{background:var(--lime);border-color:var(--lime)}.depth-progress{position:absolute;bottom:0;left:0;right:0;height:2px;background:#25362b}.depth-progress>div{height:100%;background:var(--lime);transition:width .15s}.combo{position:absolute;right:35px;top:160px;font-size:11px;color:var(--lime);text-shadow:0 2px 10px #000}.combo b{font-size:32px}.combo span{display:block;text-align:right;font-size:12px}.combo.hot{color:#f8a0b4;transform:scale(1.1)}#practice-label{position:absolute;bottom:112px;left:0;right:0;text-align:center;font-size:10px;letter-spacing:2px;color:var(--lime)}#practice-label span{display:block;color:#91a18e;font-size:10px;letter-spacing:1px;margin-top:7px}.overlay{position:absolute;inset:0;z-index:5;display:flex;justify-content:center;align-items:center;padding:28px;background:linear-gradient(180deg,#0e181c4d,#0b151ae8 36%,#0b151af2 72%,#0e181ca6)}.primary-button,.secondary-button{width:100%;min-height:48px;padding:12px 20px;display:flex;align-items:center;justify-content:center;position:relative;gap:12px;font-size:12px;font-weight:700;letter-spacing:2px}.primary-button{background:var(--lime);color:#1d2b1c;box-shadow:0 3px 0 #6f923f}.primary-button>span{position:absolute;right:19px;font-size:23px;line-height:1}.primary-button:hover,.primary-button:focus-visible{background:#d2ff94}.primary-button:active{transform:translateY(2px);box-shadow:0 1px 0 #6f923f}.secondary-button{border:1px solid #4a5945;background:#17231d;color:#ccd9bf;margin-top:12px}.secondary-button:hover,.secondary-button:focus-visible{background:#26382b}.text-button{background:transparent;color:#b0baa7;width:100%;font-size:10px;padding:17px 0;letter-spacing:1px}.text-button:hover,.text-button:focus-visible{color:var(--lime)}.text-button>span{font-size:7px;color:#788b70;margin-left:12px}.panel-content{width:100%;text-align:center}.panel-content .eyebrow{justify-content:center;color:var(--lime)}.panel-content h2{font-family:'Barlow Condensed',Impact,sans-serif;font-size:54px;margin:14px 0 22px;line-height:1.1;color:#e8efda}.panel-content h2>span{display:block;font-family:'Noto Sans JP',sans-serif;font-size:12px;font-weight:500;margin-top:13px;letter-spacing:1px;color:#a4b39e}.panel-content>p{font-size:11px;color:#93a58a;margin-bottom:35px}.upgrade-list{display:flex;flex-direction:column;gap:12px}.upgrade-card{display:flex;gap:12px;align-items:center;width:100%;text-align:left;padding:16px 12px;background:#1b2a24;border:1px solid #43523a;color:#e2eed2}.upgrade-card:hover,.upgrade-card:focus-visible{border-color:var(--lime);background:#2c3e29}.upgrade-icon{display:grid;place-items:center;flex-shrink:0;width:33px;height:40px;background:#32432b;font-size:26px;color:var(--lime)}.upgrade-card strong{display:block;font-size:14px;letter-spacing:.7px;color:var(--lime)}.upgrade-card b{display:block;font-size:9px;font-weight:500;margin-top:4px}.upgrade-card small{display:block;font-size:8px;line-height:1.8;color:#a3b69a;margin-top:5px}.upgrade-arrow{margin-left:auto;color:#718961}.upgrade-content>p.upgrade-note{font-size:8px;margin:20px 0 0}.result-depth{border-top:1px solid #33422e;border-bottom:1px solid #33422e;padding:17px 0;margin-bottom:18px}.result-depth>small{font-size:8px;letter-spacing:2px;color:#9eae91;display:block}.result-depth strong{display:block;font-size:65px;line-height:1.2;font-weight:500;color:var(--lime);letter-spacing:-4px}.result-depth strong span{font-size:20px;letter-spacing:0;margin-left:6px}.result-depth>b{font-size:7px;letter-spacing:1px;color:var(--pink)}.result-stats{display:grid;grid-template-columns:1fr 1fr;gap:12px 25px;margin:0 0 23px}.result-stats>div{display:flex;justify-content:space-between;align-items:center}.result-stats span{font-size:7px;letter-spacing:.5px;color:#8c9c80}.result-stats b{font-size:14px;font-weight:500;color:#d8e5ca}/* THREE-BUTTON TOUCH CONTROLS. Movement under the left thumb, FIRE under the right, both sat
+*{box-sizing:border-box}body{margin:0}button,a{-webkit-tap-highlight-color:transparent}button{font:inherit;cursor:pointer}button:focus-visible,a:focus-visible{outline:2px solid var(--lime);outline-offset:5px}button:disabled{cursor:default}button{border:0}a{color:inherit;text-decoration:none}[hidden]{display:none!important}.site-header{height:88px;max-width:1440px;margin:auto;padding:0 58px;display:flex;align-items:center;justify-content:space-between;border-bottom:1px solid #293234}.wordmark{display:flex;align-items:center;gap:12px;font-size:16px;font-weight:700;letter-spacing:1px}.brand-icon{display:grid;place-items:center;background:var(--lime);color:#101719;width:25px;height:29px;font-size:24px;font-weight:700}.version{font-size:11px;color:#74817d;margin-left:6px}.header-right{display:flex;align-items:center;gap:10px;font-size:10px;letter-spacing:1.4px;color:#8c9691}.icon-button{margin-left:22px;width:32px;height:32px;border:1px solid #394342;color:#cad3c7;background:transparent;font-size:21px}.layout{max-width:1260px;margin:48px auto 45px;display:grid;grid-template-columns:minmax(240px,1fr) minmax(300px,410px) minmax(220px,1fr);gap:64px;align-items:center;padding:0 26px}.eyebrow{font-size:9px;font-weight:500;letter-spacing:1.5px;color:#97a59b;display:flex;align-items:center;gap:8px}.eyebrow>span{width:14px;height:1px;background:var(--lime)}.game-column{min-width:0;box-shadow:0 16px 60px #0003;align-self:start}.cabinet-top,.cabinet-bottom{display:flex;align-items:center;justify-content:space-between;background:#1a2426;border:1px solid #354244;color:#a8b3aa;font-size:8px;letter-spacing:1px;padding:0 14px;height:35px}.cabinet-top>span:first-child{display:flex;align-items:center;gap:8px}.cabinet-top i{width:6px;height:6px;border:1px solid var(--lime)}.cabinet-top>span:last-child{color:#6f8179;font-size:7px}.cabinet-bottom{height:32px;font-size:7px;color:#72867c}#game-frame{width:100%;aspect-ratio:9/16;position:relative;overflow:hidden;border-left:1px solid #354244;border-right:1px solid #354244;background:#10191c;touch-action:none;user-select:none;-webkit-user-select:none}#game{position:absolute;inset:0}#game canvas{display:block!important;width:100%!important;height:100%!important;margin:0!important;image-rendering:pixelated}.hud{position:absolute;inset:0;pointer-events:none;padding:24px 28px;z-index:2}.hud-top{display:flex;justify-content:space-between;align-items:flex-start}.hud-label{font-size:8px;letter-spacing:2px;color:#aebaae}.depth-number{font-size:34px;font-weight:600;line-height:1.25;letter-spacing:-2px;color:#f1f4dd}.depth-number small{font-size:12px;font-weight:400;color:#92a38b;margin-left:5px;letter-spacing:0}.pause-button{pointer-events:auto;background:#162023b3;border:1px solid #3e4c45;width:31px;height:31px;color:#b7c4ab;font-size:15px}.pause-button:disabled{opacity:.4}.hud-status{display:flex;justify-content:space-between;align-items:flex-start;margin-top:15px}#hearts{font-size:16px;color:var(--pink);line-height:20px;letter-spacing:2px;max-width:53%}#hearts .lost{color:#3f383f}.ammo-group{text-align:right;max-width:46%}#ammo-label{font-size:6px;letter-spacing:1.5px;color:#99ad8f;display:block;margin-bottom:6px}#ammo{display:flex;gap:4px;flex-wrap:wrap;justify-content:flex-end}#ammo i{height:13px;width:6px;border:1px solid #3a4c38}#ammo i.loaded{background:var(--lime);border-color:var(--lime)}.depth-progress{position:absolute;bottom:0;left:0;right:0;height:2px;background:#25362b}.depth-progress>div{height:100%;background:var(--lime);transition:width .15s}.combo{position:absolute;right:35px;top:160px;font-size:11px;color:var(--lime);text-shadow:0 2px 10px #000}.combo b{font-size:32px}.combo span{display:block;text-align:right;font-size:12px}.combo.hot{color:#f8a0b4;transform:scale(1.1)}#practice-label{position:absolute;bottom:112px;left:0;right:0;text-align:center;font-size:10px;letter-spacing:2px;color:var(--lime)}#practice-label span{display:block;color:#91a18e;font-size:10px;letter-spacing:1px;margin-top:7px}.overlay{position:absolute;inset:0;z-index:5;display:flex;justify-content:center;align-items:center;padding:28px;background:linear-gradient(180deg,#0e181c4d,#0b151ae8 36%,#0b151af2 72%,#0e181ca6)}.primary-button,.secondary-button{width:100%;min-height:48px;padding:12px 20px;display:flex;align-items:center;justify-content:center;position:relative;gap:12px;font-size:12px;font-weight:700;letter-spacing:2px}.primary-button{background:var(--lime);color:#1d2b1c;box-shadow:0 3px 0 #6f923f}.primary-button>span{position:absolute;right:19px;font-size:23px;line-height:1}.primary-button:hover,.primary-button:focus-visible{background:#d2ff94}.primary-button:active{transform:translateY(2px);box-shadow:0 1px 0 #6f923f}.secondary-button{border:1px solid #4a5945;background:#17231d;color:#ccd9bf;margin-top:12px}.secondary-button:hover,.secondary-button:focus-visible{background:#26382b}.text-button{background:transparent;color:#b0baa7;width:100%;font-size:10px;padding:17px 0;letter-spacing:1px}.text-button:hover,.text-button:focus-visible{color:var(--lime)}.text-button>span{font-size:7px;color:#788b70;margin-left:12px}.panel-content{width:100%;text-align:center}.panel-content .eyebrow{justify-content:center;color:var(--lime)}.panel-content h2{font-family:'Barlow Condensed',Impact,sans-serif;font-size:54px;margin:14px 0 22px;line-height:1.1;color:#e8efda}.panel-content h2>span{display:block;font-family:'Noto Sans JP',sans-serif;font-size:12px;font-weight:500;margin-top:13px;letter-spacing:1px;color:#a4b39e}.panel-content>p{font-size:11px;color:#93a58a;margin-bottom:35px}.result-depth{border-top:1px solid #33422e;border-bottom:1px solid #33422e;padding:17px 0;margin-bottom:18px}.result-depth>small{font-size:8px;letter-spacing:2px;color:#9eae91;display:block}.result-depth strong{display:block;font-size:65px;line-height:1.2;font-weight:500;color:var(--lime);letter-spacing:-4px}.result-depth strong span{font-size:20px;letter-spacing:0;margin-left:6px}.result-depth>b{font-size:7px;letter-spacing:1px;color:var(--pink)}.result-stats{display:grid;grid-template-columns:1fr 1fr;gap:12px 25px;margin:0 0 23px}.result-stats>div{display:flex;justify-content:space-between;align-items:center}.result-stats span{font-size:7px;letter-spacing:.5px;color:#8c9c80}.result-stats b{font-size:14px;font-weight:500;color:#d8e5ca}/* THREE-BUTTON TOUCH CONTROLS. Movement under the left thumb, FIRE under the right, both sat
    clear of the home indicator and the rounded corners. Sized for a thumb aimed at while watching
    the shaft rather than the button, so the targets are deliberately larger than they look like
    they need to be -- FIRE largest, because it is held. */
@@ -13,12 +13,12 @@
 #game-frame,#game canvas,#touch-controls,#move-pad,#fire-pad,#touch-controls button,#pause{touch-action:none;user-select:none;-webkit-user-select:none;-webkit-touch-callout:none}
 /* The hidden LEVEL SELECT arrow: tapped five times in a row, so none of Safari's tap handling may touch it. */
 .title-player-hit{touch-action:none;user-select:none;-webkit-user-select:none;-webkit-touch-callout:none;-webkit-tap-highlight-color:transparent}
-@media(min-width:1000px) and (max-height:900px){.panel-content h2{font-size:46px}.upgrade-card{padding:12px 9px}.hud{padding:20px 24px}.result-depth strong{font-size:52px}.panel-content h2{margin-bottom:16px}.result-depth{padding:12px 0;margin-bottom:14px}.result-stats{margin-bottom:19px;gap:9px 22px}}
+@media(min-width:1000px) and (max-height:900px){.panel-content h2{font-size:46px}.hud{padding:20px 24px}.result-depth strong{font-size:52px}.panel-content h2{margin-bottom:16px}.result-depth{padding:12px 0;margin-bottom:14px}.result-stats{margin-bottom:19px;gap:9px 22px}}
 /* A device with no coarse pointer at all (a PC with a mouse or trackpad) never shows the touch pad:
    the keyboard is its control. A touch laptop still reports a coarse pointer and keeps it. */
 @media not (any-pointer:coarse){#touch-controls,#touch-controls.visible{display:none!important}}
-@media(max-width:650px){.site-header{height:52px;padding:0 19px;border-bottom:0}.wordmark{font-size:12px;gap:8px}.brand-icon{height:23px;width:20px;font-size:19px}.version{font-size:9px}.header-right>span{display:none}.icon-button{height:28px;width:28px;font-size:18px}.layout{display:block;margin:0 auto;padding:0;max-width:min(100vw,calc((100svh - 78px)*9/16))}.game-column{box-shadow:none}.cabinet-bottom{display:none}.cabinet-top{height:25px;font-size:7px;padding:0 12px}#game-frame{border:1px solid #354244;border-top:0}.hud{padding:20px 24px}.overlay{padding:26px}.panel-content h2{font-size:46px}.upgrade-card{padding:12px 10px;gap:10px}.upgrade-list{gap:10px}.upgrade-card strong{font-size:13px}.panel-content>p{font-size:10px}.result-depth strong{font-size:52px}.result-depth{padding:12px 0}.result-stats{gap:9px 20px;margin-bottom:18px}.result-content h2{margin-bottom:16px}.primary-button,.secondary-button{min-height:44px}.text-button{padding:14px 0}}
-@media(max-width:650px) and (max-height:730px){.hud{padding:17px 22px}.depth-number{font-size:28px}.hud-status{margin-top:10px}.panel-content h2{font-size:36px;margin:12px 0}.upgrade-card{padding:9px}.upgrade-card strong{font-size:11px}.upgrade-card small{font-size:7px}.upgrade-icon{width:25px;font-size:21px}.upgrade-list{gap:8px}.result-depth strong{font-size:43px}.result-depth{padding:9px 0;margin-bottom:10px}.primary-button,.secondary-button{min-height:38px;font-size:10px}.text-button{padding:12px 0;font-size:9px}#touch-controls{padding-bottom:max(12px,env(safe-area-inset-bottom))}#touch-controls button{width:66px;height:66px;font-size:26px}#touch-controls #fire-control{width:90px;height:74px}#fire-control span{font-size:19px}}
+@media(max-width:650px){.site-header{height:52px;padding:0 19px;border-bottom:0}.wordmark{font-size:12px;gap:8px}.brand-icon{height:23px;width:20px;font-size:19px}.version{font-size:9px}.header-right>span{display:none}.icon-button{height:28px;width:28px;font-size:18px}.layout{display:block;margin:0 auto;padding:0;max-width:min(100vw,calc((100svh - 78px)*9/16))}.game-column{box-shadow:none}.cabinet-bottom{display:none}.cabinet-top{height:25px;font-size:7px;padding:0 12px}#game-frame{border:1px solid #354244;border-top:0}.hud{padding:20px 24px}.overlay{padding:26px}.panel-content h2{font-size:46px}.panel-content>p{font-size:10px}.result-depth strong{font-size:52px}.result-depth{padding:12px 0}.result-stats{gap:9px 20px;margin-bottom:18px}.result-content h2{margin-bottom:16px}.primary-button,.secondary-button{min-height:44px}.text-button{padding:14px 0}}
+@media(max-width:650px) and (max-height:730px){.hud{padding:17px 22px}.depth-number{font-size:28px}.hud-status{margin-top:10px}.panel-content h2{font-size:36px;margin:12px 0}.result-depth strong{font-size:43px}.result-depth{padding:9px 0;margin-bottom:10px}.primary-button,.secondary-button{min-height:38px;font-size:10px}.text-button{padding:12px 0;font-size:9px}#touch-controls{padding-bottom:max(12px,env(safe-area-inset-bottom))}#touch-controls button{width:66px;height:66px;font-size:26px}#touch-controls #fire-control{width:90px;height:74px}#fire-control span{font-size:19px}}
 @media(prefers-reduced-motion:reduce){*{transition:none!important}}
 
 /* Practice-only tuning sits outside the game, so no landing route is obscured. */
@@ -39,11 +39,7 @@
 /* Rest choices retain the cabinet layout and scroll on short mobile screens. */
 .hud-status>div:first-child{max-width:53%}#hearts{max-width:none}#life-gauge{display:block;font-size:7px;letter-spacing:.7px;color:#a6bc8f;margin-top:4px}
 .overlay.rest-overlay{background:#101b1af7;overflow-y:auto;align-items:safe center;touch-action:pan-y;padding:20px 24px}
-.rest-overlay .upgrade-content{margin:auto 0;padding:4px 0;flex-shrink:0}.rest-overlay h2{font-size:35px;margin:8px 0 12px}.rest-overlay h2>span{font-size:9px;margin-top:7px;letter-spacing:0}
-.rest-stats{display:grid;grid-template-columns:1fr 1fr;gap:8px 14px;text-align:left;font-size:9px;padding:10px 0;border-block:1px solid #394b38}.rest-stats span{display:flex;justify-content:space-between;color:#a3b69a}.rest-stats b{color:#e2eed2}
-.owned-upgrades{display:flex;flex-wrap:wrap;gap:5px;max-height:50px;overflow-y:auto;margin:10px 0;font-size:7px;text-align:left;color:#b2c89e;touch-action:pan-y}.owned-upgrades span{background:#253528;padding:4px 5px}
-.rest-overlay .upgrade-list{gap:8px}.rest-overlay .upgrade-card{padding:10px;min-height:82px}.rest-overlay .upgrade-card[aria-pressed=true]{border-color:var(--lime);background:#304529}.rest-overlay .upgrade-card strong{font-size:13px}.rest-overlay .upgrade-card small{margin-top:3px;font-size:8px}.rest-overlay .upgrade-note{margin:10px 0;font-size:8px;min-height:23px;line-height:1.5}.rest-overlay .primary-button{min-height:44px;font-size:10px;letter-spacing:1px}.rest-overlay .primary-button:disabled{opacity:.4}
-@media(max-width:350px){.overlay.rest-overlay{padding:14px}.rest-overlay h2{font-size:29px}.rest-overlay .upgrade-card{gap:8px}.rest-overlay .upgrade-icon{width:25px}}
+@media(max-width:350px){.overlay.rest-overlay{padding:14px}}
 /* Stage progression: HUD stage chip, the short SECTION CLEAR card, the placeholder boss screen. */
 .hud-label b{display:inline-block;background:var(--lime);color:#101719;font-weight:700;font-size:9px;letter-spacing:1px;padding:1px 5px;margin-right:7px;vertical-align:1px}
 .clear-banner{width:100%;text-align:center;color:#e8efda}
@@ -59,8 +55,8 @@
 .boss-card small{display:block;font-size:9px;line-height:1.9;color:#93a58a;margin-top:13px}
 .clear-content h2>span{color:var(--lime);font-size:10px;letter-spacing:1px}
 @media(max-width:650px) and (max-height:730px){.clear-banner strong{font-size:62px;margin:8px 0 0}.clear-banner small{margin-top:18px}.boss-card{padding:11px 0;margin-bottom:16px}.boss-card strong{font-size:24px}}
-/* Short phones: the rest panel adds stats and owned upgrades, so compact it until NEXT fits without scrolling. */
-@media(max-width:650px) and (max-height:730px){.overlay.rest-overlay{padding:14px 18px}.rest-overlay .upgrade-content{padding:2px 0}.rest-overlay h2{font-size:27px;margin:3px 0 8px}.rest-overlay h2>span{margin-top:5px}.rest-overlay .rest-stats{padding:7px 0;gap:6px 14px}.rest-overlay .owned-upgrades{max-height:40px;margin:7px 0}.rest-overlay .upgrade-list{gap:7px}.rest-overlay .upgrade-card{padding:8px;min-height:64px}.rest-overlay .upgrade-card b{margin-top:3px}.rest-overlay .upgrade-card small{margin-top:2px;line-height:1.55}.rest-overlay .upgrade-note{margin:7px 0;min-height:20px}}
+/* Short phones: the SECTION CLEAR card that leads into a REST POINT sits a little tighter. */
+@media(max-width:650px) and (max-height:730px){.overlay.rest-overlay{padding:14px 18px}}
 /* Non-blocking AREA / SECTION announcement. Play continues underneath while it fades. */
 .stage-intro{position:absolute;left:0;right:0;top:36%;text-align:center;pointer-events:none;color:#e8efda}
 .stage-intro b{display:block;font-size:9px;letter-spacing:4px;color:var(--lime)}
@@ -277,39 +273,15 @@
 }
 
 /*
- * The rest panel at its widest -- four cards after YOUTH, with a long list of upgrades already
- * held -- on the shortest screen the game supports.
- *
- * Everything above NEXT is allowed to give way before NEXT itself is: the card list takes whatever
- * height is left and scrolls inside it. A confirm button pushed below the fold is not a layout
- * that merely looks cramped, it is a run that cannot be continued without knowing to scroll.
- */
-/*
- * Keyed on the frame being narrow as well as on the window being short: at 390x844 the cabinet is
- * 9:16 of the width, so the panel has ~693px to live in however tall the phone is.
+ * The SECTION CLEAR card that leads into a REST POINT shares the REST overlay class (mode 'upgrade').
+ * The REST panel itself is laid out in its own block, THE REST PANEL, at the end of this file.
  */
 @media (max-height: 760px), (max-width: 650px) {
   .overlay.rest-overlay { align-items: stretch; }
-  .rest-overlay .upgrade-content {
-    display: flex;
-    flex-direction: column;
-    max-height: 100%;
-    min-height: 0;
-  }
-  .rest-overlay .upgrade-list {
-    flex: 1 1 auto;
-    min-height: 0;
-    overflow-y: auto;
-    -webkit-overflow-scrolling: touch;
-  }
-  .rest-overlay .primary-button { flex: 0 0 auto; }
 }
 /* TEST LEVEL SELECT: four columns of SECTIONs, BOSS across the bottom. Big enough for a thumb. */
 .level-select h2{margin-bottom:16px}.level-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:8px}.level-button{min-height:44px;background:#17231d;border:1px solid #4a5945;color:#dfe9d2;font-size:14px;letter-spacing:1px}.level-button:hover,.level-button:focus-visible{border-color:var(--lime);color:var(--lime)}.level-button.boss{grid-column:1/-1;border-color:#8a4a5a;color:#f8a0b4}
 /* EXTERNAL TEST BUILD: the subtitle under DEEP DROP, and the build tag -- small, in the corner, title screen only. */
-/* EXTERNAL TEST BUILD: the upgrade choice is ICON / NAME / one line, and the chosen card is unmistakable. */
-.upgrade-card .upgrade-text small{font-size:10px;color:#c9d8bd;margin-top:4px}.upgrade-icon img{width:32px;height:32px;object-fit:contain;image-rendering:auto}.upgrade-card[aria-pressed="true"]{border-color:var(--lime);background:#2f4a2a;box-shadow:inset 4px 0 0 var(--lime)}.upgrade-card[aria-pressed="true"] .upgrade-arrow{color:var(--lime)}
-/* Upgrade icons are 64px artwork with soft alpha edges, drawn in a 32px slot: 1:1 on a 2x screen. image-rendering stays auto -- nearest-neighbour would drop pixels at 1x and double them unevenly at 3x. */
 /* TITLE SCREEN -- Concept C "QUIET RUINS" (src/ui/titleScreen.ts). Laid out in the game's 450x800
    logical frame: --u is one logical pixel, so the ruins, the PLAYER and the buttons scale together
    with the frame and the composition never spreads out on a wide window. No glow, no shake, no
@@ -345,6 +317,125 @@
 .title-sound:hover,.title-sound:focus-visible{color:var(--lime)}
 .title-screen .build-tag{font-size:calc(var(--u) * 10);letter-spacing:calc(var(--u) * .8);color:#7d9089;white-space:nowrap;pointer-events:none}
 @media(prefers-reduced-motion:reduce){.title-player{animation:none}}
+/*
+ * THE REST PANEL -- the REST POINT's choice (src/ui/restPanel.ts). The SHOP's pixel family, quieter:
+ * charcoal and deep blue-green, worn stone cards, a muted brass edge, Silkscreen for the names.
+ * One small accent per kind of upgrade (data-kind, display only) and nothing that moves on its own:
+ * hover lightens the stone, keyboard focus is the brass frame, a press sinks the contents by 1px.
+ *
+ * Look only. Which cards, how many, what a click, a tap, ENTER or SPACE does and where focus goes
+ * are exactly as before; nothing here changes a hit area -- no transform on a card, and the press
+ * moves the content inside a box that keeps its size. Keyed on .rest-panel, so the SECTION CLEAR
+ * card that shares the REST overlay class is left as it was.
+ *
+ * Upgrade icons are 64px artwork with soft alpha edges: 64px wherever the frame has the room (1:1,
+ * or an exact 2x on a 2x screen, so nearest-neighbour), 48px and smoothed in a smaller frame --
+ * nearest-neighbour would drop pixels there.
+ */
+.overlay.rest-overlay:has(>.rest-panel){container:rest/size;background:#070d10e8;padding:10px;align-items:safe center}
+/* The run's HUD is behind this panel, not part of it: hold it back while the REST is up. */
+#game-frame:has(>.overlay>.rest-panel)>.hud{opacity:.35}
+.rest-panel{--rest-bg:#131a1c;--rest-card:#142629;--rest-card-hi:#182f33;--rest-well:#0b1416;--rest-stone:#38403f;--rest-metal:#525a55;
+  --rest-brass:#8f7a4c;--rest-brass-hi:#d4b46a;--rest-ink:#ece5cf;--rest-dim:#a2b1ac;--rest-faint:#82918d;
+  position:relative;display:flex;flex-direction:column;width:100%;max-width:404px;max-height:100%;margin:0 auto;padding:12px;
+  background:var(--rest-bg);border:2px solid var(--rest-metal);color:var(--rest-ink);text-align:left;
+  box-shadow:inset 0 0 0 2px var(--rest-bg),inset 0 0 0 3px #2a3232,0 0 0 2px #04080a,0 6px 0 2px #04080a99}
+/* Muted brass corner studs, 4px, on the frame's corners. */
+.rest-panel::before{content:'';position:absolute;inset:-2px;pointer-events:none;
+  background:linear-gradient(var(--rest-brass) 0 0) 0 0/4px 4px no-repeat,linear-gradient(var(--rest-brass) 0 0) 100% 0/4px 4px no-repeat,
+    linear-gradient(var(--rest-brass) 0 0) 0 100%/4px 4px no-repeat,linear-gradient(var(--rest-brass) 0 0) 100% 100%/4px 4px no-repeat}
+.rest-panel button:focus-visible{outline:none}
+.rest-panel [data-kind=life]{--kind:#c4707f}
+.rest-panel [data-kind=coin]{--kind:#c9a24e}
+.rest-panel [data-kind=fire]{--kind:#c4744a}
+.rest-panel [data-kind=move]{--kind:#5c9f9c}
+.rest-head{flex:none;text-align:center;margin:0 0 10px}
+.rest-eyebrow{font-size:10px;font-weight:500;line-height:1.2;letter-spacing:1.5px;color:var(--rest-faint)}
+.rest-panel .rest-title{font-family:'Silkscreen','IBM Plex Mono',monospace;font-weight:400;font-size:18px;line-height:1;letter-spacing:2px;color:#cdb172;margin:7px 0 0}
+.rest-title i{font-family:'IBM Plex Mono',monospace;font-style:normal;font-weight:500;color:#6f6a55}
+.rest-sub{font-family:'Noto Sans JP',sans-serif;font-size:10px;font-weight:500;line-height:1.3;color:#8d9a96;margin:6px 0 0}
+/* The run's numbers: a stone plaque of six, label over value. */
+.rest-panel .rest-stats{flex:none;display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:2px;margin:0 0 8px;padding:0;background:#0a1012;border:2px solid #283131}
+.rest-stats>span{display:flex;flex-direction:column;gap:1px;min-width:0;padding:4px 7px;background:#182123}
+.rest-stats small{font-size:10px;line-height:1.2;letter-spacing:.3px;color:var(--rest-faint);white-space:nowrap}
+.rest-stats b{font-size:12px;font-weight:600;line-height:1.25;color:var(--rest-ink);white-space:nowrap}
+/* What the run already holds: one icon each, in a recessed strip. Never a scroller. */
+.rest-panel .owned-upgrades{flex:none;display:flex;flex-wrap:wrap;align-items:center;gap:3px;min-height:34px;margin:0 0 10px;padding:3px 6px;background:var(--rest-well);border:2px solid #222b2b;box-shadow:inset 0 2px 0 #00000059}
+.rest-held-label,.rest-held-none{font-family:'Noto Sans JP',sans-serif;font-size:10px;font-weight:600;line-height:1.2;letter-spacing:.5px;color:var(--rest-faint);margin-right:4px}
+.rest-held{display:grid;place-items:center;width:24px;height:24px;background:#152022;border:1px solid #303b3b;border-bottom:2px solid var(--kind)}
+.rest-held img{display:block;width:20px;height:20px;-webkit-user-drag:none}
+/* The cards. The list only scrolls when nothing else is left to give (four cards on the smallest frame). */
+.rest-panel .upgrade-list{display:flex;flex-direction:column;gap:8px;min-height:0;overflow-y:auto;margin:-4px -4px 4px;padding:4px;overscroll-behavior:contain}
+.upgrade-card{position:relative;flex:none;display:grid;grid-template-columns:68px minmax(0,1fr) 14px;column-gap:12px;align-items:center;width:100%;padding:8px 12px 8px 8px;text-align:left;
+  background:var(--rest-card);border:2px solid var(--rest-stone);box-shadow:0 2px 0 #050a0b,inset 0 1px 0 #ffffff0a;color:var(--rest-ink)}
+/* The whole card is the button: nothing inside it can take the pointer, start a drag or be its own target. */
+.upgrade-card>*,.upgrade-card img{pointer-events:none;-webkit-user-drag:none;user-select:none;-webkit-user-select:none}
+/* The icon sits in a recessed well; the kind's accent is the well's floor. */
+.upgrade-icon{display:grid;place-items:center;width:68px;height:68px;background:var(--rest-well);box-shadow:inset 0 2px 0 #00000070,inset 0 -2px 0 var(--kind)}
+.upgrade-icon img{display:block;width:64px;height:64px;image-rendering:pixelated}
+/* No image (not shipped, or failed to load): an empty frame where it would be. The name and effect stay. */
+.upgrade-icon:empty::before{content:'';width:22px;height:22px;border:2px dashed #4a5552}
+.upgrade-text{display:flex;flex-direction:column;min-width:0}
+.upgrade-card strong{font-family:'Silkscreen','IBM Plex Mono',monospace;font-weight:400;font-size:15px;line-height:1.15;letter-spacing:.5px;color:var(--rest-ink);overflow-wrap:anywhere}
+.upgrade-card small{font-family:'Noto Sans JP',sans-serif;font-size:12px;font-weight:500;line-height:1.35;color:var(--rest-dim);margin-top:5px}
+/* The choice mark: an empty stone square, filled brass on the chosen card. */
+.upgrade-mark{width:14px;height:14px;border:2px solid #4a5552;background:#0d1618}
+.upgrade-card[aria-pressed=true]{background:#1a3236;border-color:var(--rest-brass);box-shadow:0 2px 0 #050a0b,inset 3px 0 0 var(--rest-brass-hi)}
+.upgrade-card[aria-pressed=true] .upgrade-mark{border-color:var(--rest-brass-hi);background:var(--rest-brass-hi);box-shadow:inset 0 0 0 2px #1a3236}
+/*
+ * Hover is a hint and keyboard focus is the answer. Hover only lightens the stone, and only on a
+ * pointer that can hover (a finger would leave it stuck); while a keyboard focus is showing, hover
+ * elsewhere does not light anything.
+ */
+@media(hover:hover){
+  .upgrade-card:hover{border-color:#5a5c4c;background:var(--rest-card-hi)}
+  .upgrade-card[aria-pressed=true]:hover{border-color:var(--rest-brass);background:#1d373b}
+  .rest-next:not(:disabled):hover{border-color:#ab9157;background:#332e1e}
+  .rest-panel:has(button:focus-visible) .upgrade-card:not(:focus-visible):not([aria-pressed=true]):hover{border-color:var(--rest-stone);background:var(--rest-card)}
+}
+.upgrade-card:focus-visible{border-color:var(--rest-brass-hi);background:#1a3439;box-shadow:0 0 0 2px #04080a,0 0 0 4px var(--rest-brass-hi),0 2px 0 4px #050a0b}
+.upgrade-card[aria-pressed=true]:focus-visible{box-shadow:0 0 0 2px #04080a,0 0 0 4px var(--rest-brass-hi),0 2px 0 4px #050a0b,inset 3px 0 0 var(--rest-brass-hi)}
+/* PRESS: the drop shadow goes and the contents sink 1px. The card's box does not move. */
+.upgrade-card:active{padding-top:9px;padding-bottom:7px;box-shadow:inset 0 2px 0 #00000066}
+.upgrade-card:focus-visible:active{box-shadow:0 0 0 2px #04080a,0 0 0 4px var(--rest-brass-hi),inset 0 2px 0 #0000004d}
+.rest-panel .upgrade-note{flex:none;font-family:'Noto Sans JP',sans-serif;font-size:10px;font-weight:500;line-height:1.4;color:var(--rest-faint);text-align:center;margin:0 0 8px;min-height:14px}
+/* NEXT: muted brass once a card is chosen, dark stone until then. */
+.rest-next{position:relative;flex:none;display:flex;align-items:center;justify-content:center;width:100%;min-height:44px;padding:10px 16px;
+  background:#2b2818;border:2px solid var(--rest-brass);box-shadow:0 2px 0 #04080a;color:#f0e5c4;font-family:'Noto Sans JP',sans-serif;font-size:12px;font-weight:700;line-height:1.2;letter-spacing:1.5px}
+.rest-next:disabled{background:#151b1c;border-color:#323b3b;box-shadow:none;color:#7d8a86}
+.rest-next:focus-visible{border-color:var(--rest-brass-hi);background:#38321f;box-shadow:0 0 0 2px #04080a,0 0 0 4px var(--rest-brass-hi)}
+.rest-next:not(:disabled):active{padding-top:11px;padding-bottom:9px;box-shadow:inset 0 2px 0 #0000004d}
+/* A narrower or shorter frame (phones, a 1280x680 window): 48px icons, smoothed, and a little less air. */
+@container rest (max-width:419px) or (max-height:719px){
+  .rest-panel{padding:10px}
+  .upgrade-card{grid-template-columns:52px minmax(0,1fr) 12px;column-gap:10px;padding:7px 10px 7px 7px}
+  .upgrade-card:active{padding-top:8px;padding-bottom:6px}
+  .upgrade-icon{width:52px;height:52px}
+  .upgrade-icon img{width:48px;height:48px;image-rendering:auto}
+  .upgrade-card strong{font-size:13px}
+  .upgrade-card small{font-size:11px;margin-top:4px}
+  .upgrade-mark{width:12px;height:12px}
+}
+/* A short frame (~560-600px): the gaps, the frame and the heading give way first; every line stays. */
+@container rest (max-height:619px){
+  .rest-head{margin-bottom:7px}
+  .rest-panel .rest-title{font-size:16px;margin-top:5px}
+  .rest-sub{margin-top:4px}
+  .rest-panel .rest-stats{margin-bottom:6px}
+  .rest-stats>span{padding:3px 6px}
+  .rest-panel .owned-upgrades{min-height:32px;margin-bottom:7px;padding:2px 5px}
+  .rest-panel .upgrade-list{gap:6px;margin-bottom:2px}
+  .upgrade-card{padding-top:5px;padding-bottom:5px}
+  .upgrade-card:active{padding-top:6px;padding-bottom:4px}
+  .rest-panel .upgrade-note{margin-bottom:6px}
+  .rest-next{min-height:42px;padding:8px 16px}
+  .rest-next:not(:disabled):active{padding-top:9px;padding-bottom:7px}
+  /* Four cards (after YOUTH): smaller wells, so the fourth card is not left below the fold. */
+  .upgrade-list[data-count="4"] .upgrade-card{grid-template-columns:44px minmax(0,1fr) 12px;padding-top:4px;padding-bottom:4px}
+  .upgrade-list[data-count="4"] .upgrade-card:active{padding-top:5px;padding-bottom:3px}
+  .upgrade-list[data-count="4"] .upgrade-icon{width:44px;height:44px}
+  .upgrade-list[data-count="4"] .upgrade-icon img{width:40px;height:40px}
+}
 /* DESKTOP OUTER SHELL -- Concept A "RUINS FRAME" (src/ui/desktopShell.ts). The game is centred at
    its 450x800 logical size (smaller only when the window is too short), a 36px brand line sits on
    top of it, the run status under it, and the ruins are anchored to its edges -- so a wider window

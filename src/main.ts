@@ -2,13 +2,12 @@ import Phaser from 'phaser';
 import { LEVEL_SELECT_DESTINATIONS, LEVEL_SELECT_GESTURE, type LevelDestination } from './data/levelSelect';
 import { approachExtra, BOSS_APPROACH } from './data/nimushi';
 import { soundLabel, titleMarkup, watchTitleLogo } from './ui/titleScreen';
-import { upgradeCardHtml } from './ui/upgradeCard';
+import { restPanelHtml } from './ui/restPanel';
 import './style.css';
 import { GameScene, type GameBridge } from './scenes/GameScene';
 import { GameModel } from './systems/GameModel';
 import { GameAudio, eventSound } from './systems/Audio';
 import { damageLabel } from './data/damage';
-import { UPGRADES } from './data/upgrades';
 import { HEALTH_RULES } from './systems/HealthSystem';
 import { PhysicsPanel } from './ui/PhysicsPanel';
 import { comboFeedback } from './systems/ComboFeedback';
@@ -450,18 +449,19 @@ function showSectionClear(model: GameModel, stage: string, areaCleared: string |
 function showUpgrade(model: GameModel) {
   mode = 'upgrade'; bridge.active = false; clearInput();
   const choices = model.upgrades.choices;
-  // One of each per run, so the owned list is a set rather than a tally.
-  const acquired = UPGRADES.filter(u => model.upgrades.has(u.id)).map(u => `<span title="${u.label}">${u.icon} ${u.name}</span>`).join('');
   const cleared = model.stage.boss ? 'FINAL' : `SECTION ${model.stage.label}`;
   const destination = model.stage.isFinalSection ? 'FINAL BOSS' : model.stage.isAreaFinale ? `AREA ${model.stage.progress.area + 1}` : nextSectionLabel(model);
   $('run-status').textContent = 'REST / SAFE ZONE';
-  setOverlay(`<div class="panel-content upgrade-content" role="dialog" aria-modal="true" aria-labelledby="rest-title"><div class="eyebrow">${cleared} CLEAR / REST POINT</div><h2 id="rest-title">CHOOSE ONE<span>安全地帯 · HPの自動回復はありません</span></h2><div class="rest-stats"><span>HP <b>${model.hp} / ${model.health.maxHp}</b></span><span>MAX HP <b>${model.health.maxHp}</b></span><span>LIFE UP <b>${model.health.overflowHealing} / ${HEALTH_RULES.overflowPerLife}</b></span><span>弾数上限 <b>${model.stats.maxAmmo}</b></span><span>NEXT <b>${destination}</b></span><span>SECTION <b>${model.stage.clearedSections + 1} / ${TOTAL_SECTIONS}</b></span></div><div class="owned-upgrades" aria-label="取得済み強化">${acquired || '<span>取得済み強化：なし</span>'}</div><div class="upgrade-list">${choices.map((u, i) => upgradeCardHtml(u, i)).join('')}</div><p id="selection-summary" class="upgrade-note" aria-live="polite">1つ選んでNEXTで確定。選択中は時間が停止します。</p><button id="upgrade-confirm" class="primary-button" disabled>NEXT · 選択してください</button></div>`);
+  // One of each per run, so what the run holds is a set rather than a tally (see restPanel.ts).
+  setOverlay(restPanelHtml({
+    choices, held: model.upgrades.acquired, cleared, destination,
+    hp: model.hp, maxHp: model.health.maxHp, lifeUp: model.health.overflowHealing, lifeUpPer: HEALTH_RULES.overflowPerLife,
+    maxAmmo: model.stats.maxAmmo, section: model.stage.clearedSections + 1, sections: TOTAL_SECTIONS,
+  }));
   choices.forEach((u, i) => { $(`upgrade-${i}`).onclick = () => {
     if (!model.selectUpgrade(u.id)) return;
-    choices.forEach((_, j) => {
-      $(`upgrade-${j}`).setAttribute('aria-pressed', String(i === j));
-      $(`upgrade-${j}`).querySelector('.upgrade-arrow')!.textContent = i === j ? '✓' : '○';
-    });
+    // The chosen card's mark is drawn by CSS from aria-pressed.
+    choices.forEach((_, j) => $(`upgrade-${j}`).setAttribute('aria-pressed', String(i === j)));
     $('selection-summary').textContent = `${u.name}を選択中 · NEXTで確定`;
     $('upgrade-confirm').removeAttribute('disabled'); $('upgrade-confirm').textContent = 'NEXT · 確定して進む';
     // Step the focus onto NEXT, so choosing and confirming are two presses of the same key and a

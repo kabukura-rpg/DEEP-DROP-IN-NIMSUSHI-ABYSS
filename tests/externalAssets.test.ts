@@ -98,19 +98,27 @@ describe('upgrade icons and the choice card', () => {
     expect(new Set(Object.values(UPGRADE_ICON_ASSETS)).size).toBe(20);
   });
 
-  it('falls back to the upgrade\'s own glyph where a file is missing, and when an image fails to load', () => {
+  // REST / UPGRADE UI V1: the card no longer puts the glyph (an emoji, drawn by the OS font) in the
+  // icon's place. upgradeIcon still reports a missing file as the glyph; the card shows an empty frame
+  // for it, and an image that fails to load removes itself the same way -- the name and line stay.
+  it('reports a missing file as the upgrade\'s glyph, and the card shows an empty frame for it, or for an image that fails to load', () => {
     const apple = UPGRADES.find(u => u.id === 'apple')!;
     expect(upgradeIcon(apple, {})).toEqual({ kind: 'glyph', text: apple.icon });
     expect(upgradeIcon(apple, { apple: null })).toEqual({ kind: 'glyph', text: apple.icon });
     const html = upgradeCardHtml(apple, 0);
-    expect(html).toContain(`data-fallback="${apple.icon}"`);
-    expect(html).toContain('onerror="this.replaceWith(document.createTextNode(this.dataset.fallback))"');
+    expect(html).toContain('onerror="this.remove()"');
+    expect(html).not.toContain(apple.icon);
+    const bare = upgradeCardHtml(apple, 0, { apple: null });
+    expect(bare).toContain('<span class="upgrade-icon"></span>');
+    expect(bare).not.toContain(apple.icon);
+    expect(bare).toContain(`<strong>${apple.name}</strong><small>${apple.short}</small>`);
   });
 
   it('keeps the card ICON / NAME / one short line, with the image in the icon slot', () => {
     for (const [i, u] of UPGRADES.entries()) {
       const html = upgradeCardHtml(u, i);
-      expect(html).toContain(`<span class="upgrade-icon"><img src="${UPGRADE_ICON_ASSETS[u.id]}" alt="" width="32" height="32"`);
+      // 64px: the artwork's own size, drawn at 64 or 48 by the REST panel's CSS (REST / UPGRADE UI V1; was 32).
+      expect(html).toContain(`<span class="upgrade-icon"><img src="${UPGRADE_ICON_ASSETS[u.id]}" alt="" width="64" height="64"`);
       expect(html).toContain(`<strong>${u.name}</strong><small>${u.short}</small>`);
       expect(html).toContain(`id="upgrade-${i}" aria-pressed="false"`);
       expect(html).not.toContain(u.description);
