@@ -235,8 +235,10 @@ describe('SHOP behaviour is unchanged', () => {
       // tests/airContainerArt.test.ts -- and after 1784c3e only by the floating labels' glyph styling (label()
       // takes a kind and draws through src/render/floatingText.ts; spawn, life and motion unchanged) --
       // tests/floatingText.test.ts -- and after defb7c5 only by the BOSS deep's image in the arena and the
-      // TIMEOUT/bodies Graphics split under it -- tests/bossAbyssArt.test.ts; nothing the SHOP reads or drives.
-      'scenes/GameScene.ts': '3fb55bb98204b7fa97936a7d70310c35d04025ff7f4a008486ae68f173179823',
+      // TIMEOUT/bodies Graphics split under it -- tests/bossAbyssArt.test.ts -- and after d712b67 only by the
+      // player's HURT / INVUL / COIN HIGH presentation (src/render/playerFeedbackVfx.ts) --
+      // tests/playerFeedbackVfx.test.ts; nothing the SHOP reads or drives.
+      'scenes/GameScene.ts': '0e7d7af2ae14fab921df6ef1db7b156871d9de568a6d92e36e414c92297d25d8',
     });
   });
 

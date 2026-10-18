@@ -196,6 +196,9 @@ describe('player: the image is kept behind every overlay', () => {
     expect(playerArtSource).toContain('if (pose !== this.currentPose) { this.currentPose = pose; this.started = model.elapsed;');
     // The image is used only when its frame exists and its sheet loaded; otherwise the body is drawn.
     expect(playerArtSource).toContain("const use = this.mode === 'prototype' && !!frame;");
-    expect(sceneSource).toContain('if (!art && !(p.invincible > 0 && Math.floor(p.invincible * 16) % 2)) {');
+    // The procedural body is still drawn only for a missing image. Since PLAYER FEEDBACK VFX V1 it
+    // follows the image's invul treatment instead of vanishing on the blink phase (playerFeedbackVfx.test.ts).
+    expect(sceneSource).toContain('    if (!art) {\n      // The procedural body follows the image');
+    expect(sceneSource).not.toContain('if (!art && !(p.invincible > 0');
   });
 });

@@ -3,6 +3,7 @@ import type { GameModel, GameEvent } from '../systems/GameModel';
 import type { PlayerArtMode } from '../dev/playerArtState';
 import { PLAYER_ANIMATIONS, PlayerAnimationState, playerAnimationFrame, type PlayerAnimation } from '../dev/playerAnimationState';
 import { PLAYER_ART_ASSETS, artFrameUsable, shownPose, type ArtMap } from './playerArtAssets';
+import { playerTreatment } from './playerFeedbackVfx';
 
 /**
  * PLAYER ART v1 (HUMAN APPROVED, docs/PLAYER-ART-v1-APPROVED.md) -- in the shipped game.
@@ -53,9 +54,9 @@ export class PlayerArt {
     target.__playerArt = control;
     scene.events.once(Phaser.Scenes.Events.SHUTDOWN, () => { if (target.__playerArt === control) delete target.__playerArt; });
   }
-  reset() { this.state.reset(); this.currentPose = null; this.forced = null; this.flipX = false; this.image.setVisible(false); }
+  reset() { this.state.reset(); this.currentPose = null; this.forced = null; this.flipX = false; this.image.setVisible(false).clearTint().setAlpha(1); }
   event(event: GameEvent, model: GameModel) { this.state.event(event, model); }
-  render(model: GameModel, shakeX: number, direction: number): boolean {
+  render(model: GameModel, shakeX: number, direction: number, hurtAge = Number.POSITIVE_INFINITY): boolean {
     if (direction !== 0) this.flipX = direction < 0;
     const pose = this.forced ?? shownPose(this.state.pose(model), this.currentPose);
     if (pose !== this.currentPose) { this.currentPose = pose; this.started = model.elapsed; this.startedWall = this.scene.game.loop.time; }
@@ -65,8 +66,11 @@ export class PlayerArt {
     const key = pose ? `${pose}_${String(this.currentFrame).padStart(2, '0')}` : '';
     const frame = pose ? artFrameUsable(manifest, key, group => this.scene.textures.exists(`player-art-${group}`)) : undefined;
     const use = this.mode === 'prototype' && !!frame;
-    const blink = model.hp > 0 && model.player.invincible > 0 && Math.floor(model.player.invincible * 16) % 2 !== 0;
-    this.image.setVisible(use && !blink);
+    // PLAYER FEEDBACK VFX V1: the old blink phase no longer hides the body -- it shows it pale and
+    // see-through (playerFeedbackVfx). Set on every frame, so a frame without a treatment is neutral.
+    const treatment = playerTreatment(model.hp, model.player.invincible, hurtAge);
+    this.image.setVisible(use).setAlpha(treatment.alpha);
+    if (treatment.tint === null) this.image.clearTint(); else this.image.setTint(treatment.tint);
     if (use && frame) {
       // Wall poses were authored against a RIGHT wall; flip only the image.
       const flip = pose === 'wall_contact' ? model.wallSide < 0 : pose === 'wall_kick' ? model.player.vx > 0 : this.flipX;

@@ -16,6 +16,7 @@ import { hazardBounds, hazardType, type Hazard } from '../data/hazards';
 import { TerrainWatch } from '../dev/TerrainWatch';
 import { SPEED_PROFILES } from '../data/speedProfiles';
 import { PlayerArt } from '../render/PlayerArt';
+import { drawCoinHighChips, drawHurtImpact, drawInvulShimmer, playerTreatment, tintColor } from '../render/playerFeedbackVfx';
 import { NIMUSHI_ART, nimushiArtBarrierOrbit, nimushiArtPlacement, nimushiArtShade } from '../render/NimushiArt';
 import { TOMATO_REVEAL_SECONDS, tomatoRevealFrame, tomatoRevealStart } from '../render/tomatoReveal';
 import type { Pickup } from '../data/pickups';
@@ -197,8 +198,8 @@ export class GameScene extends Phaser.Scene {
   private ledgePool: { left: Phaser.GameObjects.Image; center: Phaser.GameObjects.TileSprite; right: Phaser.GameObjects.Image }[] = [];
   /** When each TOMATO's entrance began (model seconds); -Infinity once skipped. Keyed by the pickup itself. */
   private tomatoSeen = new WeakMap<Pickup, number>();
-  private damageSource?: GameEvent['source'];
-  private damageTime = 0;
+  /** Seconds since the last accepted hit, on the render clock (PLAYER FEEDBACK VFX V1). Never feeds gameplay. */
+  private hurtAge = Number.POSITIVE_INFINITY;
   private labels: { text: Phaser.GameObjects.Text; y: number; life: number }[] = [];
   constructor(private bridge: GameBridge) { super('Game'); }
   preload() {
@@ -302,7 +303,7 @@ export class GameScene extends Phaser.Scene {
     this.playerArt?.reset();
     this.model = new GameModel(practice); this.accumulator = 0; this.particles = []; this.freeze = 0;
     for (const label of this.labels) label.text.destroy();
-    this.labels = []; this.flash = 0; this.shake = 0; this.damageTime = 0; this.damageSource = undefined; this.inputBuffer.clear();
+    this.labels = []; this.flash = 0; this.shake = 0; this.hurtAge = Number.POSITIVE_INFINITY; this.inputBuffer.clear();
   }
   /**
    * Hand SPACE and the arrows back to the page while a menu is up, and take them again after.
@@ -339,6 +340,8 @@ export class GameScene extends Phaser.Scene {
   update(_time: number, delta: number) {
     if (!this.graphics) return;
     const dt = Math.min(delta / 1000, 0.05);
+    // Before any event this frame, so the frame that takes a hit draws it at age 0.
+    this.hurtAge += dt;
     // Clear/death signals can arrive from a stage controller outside the simulation step.
     this.dispatchEvents();
     if (this.bridge.active && this.model.running) {
@@ -363,7 +366,6 @@ export class GameScene extends Phaser.Scene {
       this.particles = this.particles.filter(p => p.life > 0);
       for (const label of this.labels) { label.life -= dt; label.y -= dt * 28; label.text.setPosition(label.text.x, label.y - this.model.cameraY).setAlpha(Math.min(1, label.life * 3)); if (label.life <= 0) label.text.destroy(); }
       this.labels = this.labels.filter(label => label.life > 0);
-      this.damageTime = Math.max(0, this.damageTime - dt);
     }
     this.flash = Math.max(0, this.flash - dt); this.shake = Math.max(0, this.shake - dt * 30);
     this.draw();
@@ -393,7 +395,7 @@ export class GameScene extends Phaser.Scene {
     if (event.type === 'doodad') { this.burst(event.x, event.y, 0xb9ef70, 10); this.label(event.x, event.y - 20, 'RELOADED', 'system'); }
     if (event.type === 'coinVein') { this.burst(event.x, event.y, 0xffd479, 20); this.label(event.x, event.y - 24, `COIN +${event.value}`, 'reward'); }
     if (event.type === 'timeVoid' && event.value) this.label(event.x, event.y - 54, 'TIME VOID', 'system');
-    if (event.type === 'coinHigh' && event.value) { this.burst(event.x, event.y, 0xffe9a8, 26); this.label(event.x, event.y - 46, 'COIN HIGH', 'reward'); }
+    if (event.type === 'coinHigh' && event.value) this.label(event.x, event.y - 46, 'COIN HIGH', 'reward');
     if (event.type === 'explosion') this.burst(event.x, event.y, 0xffb066, 22);
     if (event.type === 'balloon') this.burst(event.x, event.y, 0xf497ab, 24);
     if (event.type === 'corpse') this.label(event.x, event.y - 20, `OMNOM ${event.value}/10`, 'system');
@@ -413,8 +415,8 @@ export class GameScene extends Phaser.Scene {
       this.label(event.x, event.y, event.stomp ? `BAM! +${event.value}` : `+${event.value}`, event.stomp ? 'impact' : 'reward', feedback.tier >= 8);
     }
     if (event.type === 'hurt') {
-      this.flash = 0.1; this.shake = 4; this.burst(event.x, event.y, 0xfc6e8c, 12);
-      this.damageSource = event.source; this.damageTime = 0.3;
+      // The impact is the player's own (drawHurtImpact): no screen flash, no square burst, no tether.
+      this.shake = 4; this.hurtAge = 0;
       if (event.source) this.label(event.source.x, event.source.y - 35, enemyType(event.source.kind).contactHint, 'warning');
     }
   }
@@ -977,11 +979,9 @@ export class GameScene extends Phaser.Scene {
       this.rect(spot.x - 2, dy + bob - 3, 4, 3, 0xdff0ff);
     }
     const p = m.player, x = Math.round(p.x), y = Math.round(p.y - cam);
-    // A halo while the HIGH runs, so the state is visible on the player and not only on the HUD.
-    if (high) {
-      const beat = 0.35 + Math.abs(Math.sin(this.model.elapsed * 7)) * 0.3;
-      g.lineStyle(2, 0xffe9a8, beat).strokeRoundedRect(x - 23, y - 28, 46, 56, 7);
-    }
+    // PLAYER FEEDBACK VFX V1, behind the body: INVUL's side strokes, then the HIGH's lower brass chips.
+    drawInvulShimmer(this.graphics, x, y, m.hp, p.invincible);
+    if (high) drawCoinHighChips(this.graphics, x, y, m.elapsed);
     if (m.upgrades.has('laserSight')) {
       // Down the line the next round would take, so a weapon that leans with the input leans too.
       const tilt = m.gun.module.horizontalAimFactor * Math.max(-1, Math.min(1, this.bridge.direction));
@@ -989,32 +989,27 @@ export class GameScene extends Phaser.Scene {
       this.graphics.lineStyle(1, 0xff6b7a, 0.45)
         .lineBetween(x, y + 16, x + Math.sin(tilt) * reach, y + 16 + Math.cos(tilt) * reach);
     }
-    if (p.invincible > 0) {
-      g.lineStyle(1.5, 0xfba4b9, 0.55).strokeRoundedRect(x - 20, y - 25, 40, 50, 5);
-      this.rect(x - 16, y - 30, 32, 3, 0x563744);
-      this.rect(x - 16, y - 30, 32 * p.invincible, 3, 0xffb5c7);
-    }
     if (m.jetpackActive) {
       const flare = 0.5 + Math.abs(Math.sin(this.model.elapsed * 22)) * 0.5;
       for (let i = 0; i < 3; i++) this.rect(x - 6 + i * 5, y + 18 + i, 4, 8 + i * 3, i === 1 ? 0xffe6ae : 0xffa85c, flare);
     }
-    const art = this.playerArt?.render(m, g.x, Math.max(-1, Math.min(1, this.bridge.direction + (this.keys?.right.isDown || this.keys?.d.isDown ? 1 : 0) - (this.keys?.left.isDown || this.keys?.a.isDown ? 1 : 0))));
-    if (!art && !(p.invincible > 0 && Math.floor(p.invincible * 16) % 2)) {
-      this.rect(x - 19, y - 21, 38, 43, 0xb9ef70, 0.035);
-      this.rect(x - 13, y - 14, 26, 21, 0xc8f58b); this.rect(x - 9, y - 19, 18, 5, 0xc8f58b);
-      this.rect(x - 10, y - 10, 20, 10, 0x243632); this.rect(x - 7, y - 8, 5, 4, 0xf2ffdb); this.rect(x + 3, y - 8, 5, 4, 0xf2ffdb);
-      this.rect(x - 8, y + 7, 6, 8, 0x88af63); this.rect(x + 3, y + 7, 6, 8, 0x88af63); this.rect(x - 3, y + 3, 6, 17, 0xe9eedc);
-      this.rect(x - 17, y, 5, 9, 0x85ac65); this.rect(x + 12, y, 5, 9, 0x85ac65);
+    const art = this.playerArt?.render(m, g.x, Math.max(-1, Math.min(1, this.bridge.direction + (this.keys?.right.isDown || this.keys?.d.isDown ? 1 : 0) - (this.keys?.left.isDown || this.keys?.a.isDown ? 1 : 0))), this.hurtAge);
+    if (!art) {
+      // The procedural body follows the image's treatment: never hidden, pale on the same blink phase.
+      const { alpha, tint } = playerTreatment(m.hp, p.invincible, this.hurtAge);
+      const body = (bx: number, by: number, w: number, h: number, color: number, a = 1) => this.rect(bx, by, w, h, tintColor(color, tint), a * alpha);
+      body(x - 19, y - 21, 38, 43, 0xb9ef70, 0.035);
+      body(x - 13, y - 14, 26, 21, 0xc8f58b); body(x - 9, y - 19, 18, 5, 0xc8f58b);
+      body(x - 10, y - 10, 20, 10, 0x243632); body(x - 7, y - 8, 5, 4, 0xf2ffdb); body(x + 3, y - 8, 5, 4, 0xf2ffdb);
+      body(x - 8, y + 7, 6, 8, 0x88af63); body(x + 3, y + 7, 6, 8, 0x88af63); body(x - 3, y + 3, 6, 17, 0xe9eedc);
+      body(x - 17, y, 5, 9, 0x85ac65); body(x + 12, y, 5, 9, 0x85ac65);
     }
     // In production this is still the original single Graphics object.
     const foreground = this.artForeground ?? g;
     if (foreground !== g) { foreground.clear().setPosition(g.x, g.y); this.graphics = foreground; }
+    // HURT's fragments sit in the space around the body, over the image, under particles and scanlines.
+    drawHurtImpact(foreground, x, y, this.hurtAge);
     for (const particle of this.particles) this.rect(particle.x, particle.y - cam, particle.size, particle.size, particle.color, Math.min(1, particle.life * 4));
-    if (this.damageTime > 0 && this.damageSource) {
-      const source = m.enemies.find(e => e.id === this.damageSource!.id) || this.damageSource;
-      foreground.lineStyle(2, 0xffb2c6, this.damageTime / 0.3).strokeCircle(source.x, source.y - cam, 29 + (0.3 - this.damageTime) * 30);
-      foreground.lineStyle(1, 0xffb2c6, this.damageTime / 0.6).lineBetween(x, y, source.x, source.y - cam);
-    }
     this.heatHaze(cam);
     if (this.flash > 0) this.rect(0, 0, 450, 800, 0xfa5277, this.flash);
     // Subtle scanlines keep the whole world at the same visual texture.

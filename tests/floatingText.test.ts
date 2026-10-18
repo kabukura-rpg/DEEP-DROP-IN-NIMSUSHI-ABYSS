@@ -34,13 +34,27 @@ const INVENTORY: [string, string, string][] = [
   ["if (event.source) this.label(event.source.x, event.source.y - 35, enemyType(event.source.kind).contactHint, '#ffc4cf', 12);", "'#ffc4cf', 12", "'warning'"],
 ];
 
+/**
+ * The one label line whose burst PLAYER FEEDBACK VFX V1 took out: COIN HIGH's 26 squares became the
+ * player-local brass chips (src/render/playerFeedbackVfx.ts). The label call itself is byte for byte.
+ */
+const COIN_HIGH_LINE = INVENTORY.find(([line]) => line.includes("'COIN HIGH'"))![0];
+const VFX_V1_LINES: Record<string, string> = {
+  [COIN_HIGH_LINE]: "if (event.type === 'coinHigh' && event.value) this.label(event.x, event.y - 46, 'COIN HIGH', 'reward');",
+};
+
 const effectBody = sceneSource.slice(sceneSource.indexOf('  private effect(event: GameEvent) {'), sceneSource.indexOf('  private label('));
 
 describe('floating text: inventory and timing are the baseline', () => {
   it('keeps every label line of 1784c3e, only its style arguments swapped for a kind', () => {
     for (const [line, before, after] of INVENTORY) {
       expect(line).toContain(before);
-      expect(effectBody).toContain(line.replace(before, after));
+      const now = VFX_V1_LINES[line];
+      if (!now) { expect(effectBody).toContain(line.replace(before, after)); continue; }
+      // Only the burst is gone: same trigger, same spawn point, same message, same kind.
+      expect(now).toBe(line.replace(before, after).replace('{ this.burst(event.x, event.y, 0xffe9a8, 26); ', '').replace("'reward'); }", "'reward');"));
+      expect(effectBody).toContain(now);
+      expect(effectBody).not.toContain('0xffe9a8, 26');
     }
     // ...and there are no others.
     expect(effectBody.split('this.label(').length - 1).toBe(INVENTORY.length);
