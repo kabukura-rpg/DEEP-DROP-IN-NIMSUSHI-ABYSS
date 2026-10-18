@@ -233,8 +233,9 @@ describe('SHOP behaviour is unchanged', () => {
       // 842d4c6 only by AREA 3's AIR CONTAINER image and the bubble Graphics split around it --
       // tests/airContainerArt.test.ts -- and after 1784c3e only by the floating labels' glyph styling (label()
       // takes a kind and draws through src/render/floatingText.ts; spawn, life and motion unchanged) --
-      // tests/floatingText.test.ts; nothing the SHOP reads or drives.
-      'scenes/GameScene.ts': 'b525415fd50f172a7997999a6f83371be5c812e99af8a244b88a24fda1f6e5ea',
+      // tests/floatingText.test.ts -- and after defb7c5 only by the BOSS deep's image in the arena and the
+      // TIMEOUT/bodies Graphics split under it -- tests/bossAbyssArt.test.ts; nothing the SHOP reads or drives.
+      'scenes/GameScene.ts': '3fb55bb98204b7fa97936a7d70310c35d04025ff7f4a008486ae68f173179823',
     });
   });
 

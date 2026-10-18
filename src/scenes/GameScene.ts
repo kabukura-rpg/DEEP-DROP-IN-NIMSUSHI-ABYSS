@@ -31,6 +31,7 @@ import { ENEMY_ART_PLACEMENT, ENEMY_ART_URLS, enemyArtFlipX, enemyArtKey, enemyA
 import { coinArt, coinFace, contentLoads, moduleArt, modulePlacement, shopDoorArt, veinArt } from '../render/contentArt';
 import { exitGateArt, exitGateLoads, exitGatePlacement } from '../render/exitGateArt';
 import { airContainerArt, airContainerLoads, airContainerPlacement } from '../render/airContainerArt';
+import { BOSS_ABYSS_KEY, bossAbyssArt, bossAbyssLoads, bossAbyssPlacement } from '../render/bossAbyssArt';
 import { addFloatingText, loadFloatingTextFont, type FloatingTextKind } from '../render/floatingText';
 import { CAVE_ENTRANCE_FRAMES, CAVE_SHELL_AREAS, CAVE_SHELL_GEOMETRY, CAVE_SHELL_KEYS, CAVE_SHELL_LIGHT, caveBackwallPlacement, caveCeilingArt, caveCeilingLoads, caveCeilingPlacement, caveEntrancePlacement, caveShellArt, caveShellLoads } from '../render/caveShellArt';
 import { ENVIRONMENT_ART, ENVIRONMENT_GEOMETRY, environmentArtArea, environmentArtId, chamberDrawn, beltLayout, breakBlockFrame, breakBlockSlices, environmentKeys, environmentLoads, environmentParts, collapseArt, collapseFrame, doodadArt, doodadFrame, doodadPlacement, type DoodadKeys, limboArt, limboLayout, reefArt, reefLayout, type ReefKeys, platformSlices, spikeFrame, spikeLayout, usesPlatformArt, wallTileX, wallTileY, type EnvironmentKeys } from '../render/environmentArt';
@@ -125,8 +126,8 @@ export class GameScene extends Phaser.Scene {
    *                  boxes were on `worldFrontLate`. `worldFrontLate` keeps what came before them (and
    *                  a broken container's debris); `worldFrontAir` takes the released bubbles that
    *                  followed them, up to the coins.
-   *   coinLayer      loose coins, between `worldFrontAir` and `graphics`, which keeps everything that
-   *                  followed them -- TIMEOUT bubbles, bodies, NIMUSHI and on.
+   *   coinLayer      loose coins, between `worldFrontAir` and `underAbyss`, which takes the TIMEOUT
+   *                  bubbles and bodies that followed them; `graphics` keeps NIMUSHI and on.
    */
   private veinLayer!: Phaser.GameObjects.Container;
   private veinImages: Phaser.GameObjects.Image[] = [];
@@ -167,6 +168,13 @@ export class GameScene extends Phaser.Scene {
   private worldFrontAir!: Phaser.GameObjects.Graphics;
   private coinLayer!: Phaser.GameObjects.Container;
   private coinImages: Phaser.GameObjects.Image[] = [];
+  /**
+   * THE NIMUSHI fight's deep from its image (render/bossAbyssArt), where the procedural band was: at the
+   * start of `graphics`, after the TIMEOUT bubbles and bodies. Those go on `underAbyss` below it, and
+   * `graphics` keeps the band (procedural fallback) and everything after it, so nothing changes place.
+   */
+  private underAbyss!: Phaser.GameObjects.Graphics;
+  private abyssArt!: Phaser.GameObjects.Image;
   private platformLayer!: Phaser.GameObjects.Container;
   /**
    * What an image set draws ON its ledges and blocks, in this order bottom to top: spike sockets,
@@ -204,6 +212,7 @@ export class GameScene extends Phaser.Scene {
     for (const [key, url] of contentLoads()) this.load.image(key, url);
     for (const [key, url] of exitGateLoads()) this.load.image(key, url);
     for (const [key, url] of airContainerLoads()) this.load.image(key, url);
+    for (const [key, url] of bossAbyssLoads()) this.load.image(key, url);
     for (const [key, url] of caveShellLoads()) this.load.image(key, url);
     for (const [key, url] of caveCeilingLoads()) this.load.image(key, url);
     PlayerArt.preload(this);
@@ -267,6 +276,9 @@ export class GameScene extends Phaser.Scene {
     this.airLayer = this.add.container(0, 0);
     this.worldFrontAir = this.add.graphics();
     this.coinLayer = this.add.container(0, 0);
+    this.underAbyss = this.add.graphics();
+    // One image, made once on its own texture; each frame only moves it and shows or hides it.
+    this.abyssArt = this.add.image(0, 0, this.textures.exists(BOSS_ABYSS_KEY) ? BOSS_ABYSS_KEY : '__MISSING').setOrigin(0).setVisible(false);
     this.graphics = this.add.graphics();
     // Ordering: world -> NIMUSHI's image -> everything drawn after its body -> the player's image ->
     // particles, damage flash and scanlines. Created in that order, so Phaser draws them in it.
@@ -564,6 +576,8 @@ export class GameScene extends Phaser.Scene {
     this.worldMidLate.clear().setPosition(g.x, g.y);
     this.worldFront.clear().setPosition(g.x, g.y); this.worldFrontVoid.clear().setPosition(g.x, g.y); this.worldFrontLate.clear().setPosition(g.x, g.y);
     this.worldFrontAir.clear().setPosition(g.x, g.y);
+    this.underAbyss.clear().setPosition(g.x, g.y);
+    this.abyssArt.setVisible(false);
     this.graphics = this.worldBack;
     const theme = m.stage.config.theme;
     const parts = environmentParts(artArea, key => this.textures.exists(key));
@@ -897,10 +911,10 @@ export class GameScene extends Phaser.Scene {
       this.rect(coin.x - 1 - (half / 2) * spin, cy - tall / 4, 1 + half * spin, tall / 2, 0xfff0c0, fade * 0.9);
     }
     for (let i = coinImages; i < this.coinImages.length; i++) this.coinImages[i].setVisible(false);
-    // Back on `graphics` for everything that followed the coins.
-    this.graphics = g;
     // TIMEOUT: stopped time left behind where a hit landed. Drawn under everything so the world it
     // is holding still reads normally through it.
+    // It and the bodies, which followed the coins, go under the deep's image: on `underAbyss`.
+    this.graphics = this.underAbyss;
     for (const bubble of m.timeoutBubbles) {
       const by = bubble.y - cam;
       if (by < -bubble.radius || by > 820 + bubble.radius) continue;
@@ -917,6 +931,8 @@ export class GameScene extends Phaser.Scene {
       this.rect(corpse.x - 7, cy - 7, 14, 4, 0x9b8a99, fade);
       this.rect(corpse.x - 3, cy - 9, 6, 3, 0xd8c8d4, fade * 0.8);
     }
+    // Back on `graphics` for the deep and everything that followed it.
+    this.graphics = g;
     this.boss(cam);
     this.enemyImagesUsed = 0;
     for (const enemy of m.enemies) if (enemy.alive) this.enemy(enemy, cam);
@@ -1786,7 +1802,14 @@ export class GameScene extends Phaser.Scene {
     // The rising deep. Drawn first and across the whole shaft: it is the floor of the arena and
     // the thing the player is being pushed away from.
     const edge = fight.boundaryY - cam;
-    if (edge < 830 && edge > -200) {
+    const sealKey = bossAbyssArt(this.model.abyssStage, key => this.textures.exists(key));
+    if (edge < 830 && edge > -200 && sealKey) {
+      // In the arena, from its image (render/bossAbyssArt): its row 22 on the band's top, with nothing
+      // procedural under or over it. Drawing only: where the deep is and what kills are the model's.
+      const at = bossAbyssPlacement(edge);
+      this.abyssArt.setPosition(this.graphics.x + at.x, at.y).setVisible(true);
+    } else if (edge < 830 && edge > -200) {
+      // The procedural deep, only when the image did not load or outside the arena.
       const depth = Math.max(0, 820 - edge);
       this.rect(-8, edge, 466, depth + 40, 0x2a0d18, 0.92);
       this.rect(-8, edge, 466, 5, 0xff4d7a, 0.8);

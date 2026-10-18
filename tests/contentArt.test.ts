@@ -288,13 +288,14 @@ describe('fallback', () => {
 describe('draw order', () => {
   it('puts each image layer where its procedural drawing was', () => {
     const create = sceneSource.slice(sceneSource.indexOf('this.worldBack = this.add.graphics();'), sceneSource.indexOf('this.afterBoss = this.add.graphics();'));
-    const order = ['this.worldMid =', 'this.veinLayer =', 'this.doodadLayer =', 'this.platformLayer =', 'this.worldFront =', 'this.contentLayer =', 'this.worldFrontLate =', 'this.coinLayer =', 'this.graphics = this.add.graphics();'];
+    const order = ['this.worldMid =', 'this.veinLayer =', 'this.doodadLayer =', 'this.platformLayer =', 'this.worldFront =', 'this.contentLayer =', 'this.worldFrontLate =', 'this.coinLayer =', 'this.underAbyss =', 'this.abyssArt =', 'this.graphics = this.add.graphics();'];
     const at = order.map(s => create.indexOf(s));
     expect(at.every(i => i >= 0), JSON.stringify(at)).toBe(true);
     expect([...at].sort((a, b) => a - b)).toEqual(at);
-    // In draw(): ledges .. TIMEVOID on worldFront, then crates/doors, then worldFrontLate up to the coins, then graphics.
+    // In draw(): ledges .. TIMEVOID on worldFront, then crates/doors, then worldFrontLate up to the coins,
+    // then TIMEOUT bubbles and bodies on underAbyss (under the BOSS deep's image), then graphics from the deep on.
     const draw = sceneSource.slice(sceneSource.indexOf('private draw() {'));
-    const steps = ['this.graphics = this.worldFront;', 'for (const item of m.pickups) {', 'this.timeVoid(m, cam);', 'this.graphics = this.worldFrontLate;', '// AREA 2 air containers.', '// Loose coins.', 'this.graphics = g;\n    // TIMEOUT', '// Bodies.', 'this.boss(cam);'];
+    const steps = ['this.graphics = this.worldFront;', 'for (const item of m.pickups) {', 'this.timeVoid(m, cam);', 'this.graphics = this.worldFrontLate;', '// AREA 2 air containers.', '// Loose coins.', '// TIMEOUT: stopped time', 'this.graphics = this.underAbyss;', 'for (const bubble of m.timeoutBubbles) {', '// Bodies.', 'this.graphics = g;\n    this.boss(cam);'];
     const pos = steps.map(s => draw.indexOf(s));
     expect(pos.every(i => i >= 0), JSON.stringify(pos)).toBe(true);
     expect([...pos].sort((a, b) => a - b)).toEqual(pos);
