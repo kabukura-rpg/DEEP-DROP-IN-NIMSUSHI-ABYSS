@@ -196,7 +196,8 @@ describe('SHOP panel CSS', () => {
     // Keyed on the panel being present, so closing the SHOP (an empty overlay) restores the HUD.
     // REST / UPGRADE UI V1 added the REST panel's own HUD hold-back, keyed the same way on its panel
     // (.rest-panel) and kept out of this block; the SHOP's rule and its selector are unchanged.
-    expect(rules(styleSource).filter(([sel, decl]) => /\.hud\b|#hud\b/.test(sel) && /opacity/.test(decl)).map(([sel]) => sel)).toEqual(['#game-frame:has(>.overlay>.shop-content)>.hud', '#game-frame:has(>.overlay>.rest-panel)>.hud']);
+    // GAME OVER / CLEAR / PAUSE UI V1 added PAUSE's, keyed the same way on its own panel (.run-pause).
+    expect(rules(styleSource).filter(([sel, decl]) => /\.hud\b|#hud\b/.test(sel) && /opacity/.test(decl)).map(([sel]) => sel)).toEqual(['#game-frame:has(>.overlay>.shop-content)>.hud', '#game-frame:has(>.overlay>.run-pause)>.hud', '#game-frame:has(>.overlay>.rest-panel)>.hud']);
   });
 });
 

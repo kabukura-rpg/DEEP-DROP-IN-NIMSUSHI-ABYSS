@@ -3,6 +3,7 @@ import { LEVEL_SELECT_DESTINATIONS, LEVEL_SELECT_GESTURE, type LevelDestination 
 import { approachExtra, BOSS_APPROACH } from './data/nimushi';
 import { soundLabel, titleMarkup, watchTitleLogo } from './ui/titleScreen';
 import { restPanelHtml } from './ui/restPanel';
+import { clearPanelHtml, gameOverPanelHtml, pausePanelHtml } from './ui/runPanel';
 import './style.css';
 import { GameScene, type GameBridge } from './scenes/GameScene';
 import { GameModel } from './systems/GameModel';
@@ -427,7 +428,7 @@ function pause() {
   if (!isPlayMode(mode)) return;
   pausedFrom = mode;
   mode = 'paused'; scene.model.paused = true; bridge.active = false; clearInput();
-  setOverlay(`<div class="panel-content"><div class="eyebrow">TAKE A BREATH</div><h2>PAUSED<span>ひと休み。</span></h2><p>深淵は、逃げない。</p><button id="resume" class="primary-button">つづける <span>↓</span></button><button id="restart" class="secondary-button">最初から</button><button id="home" class="text-button">タイトルへ</button></div>`);
+  setOverlay(pausePanelHtml());
   $('resume').onclick = resume; $('restart').onclick = () => start(scene.model.practice); $('home').onclick = showTitle;
 }
 function resume() { scene.model.paused = false; mode = pausedFrom; clearInput(); resumeInput(); setOverlay(''); }
@@ -564,7 +565,7 @@ function showClear(model: GameModel) {
   // and rest/upgrade selection are all already excluded. BOSS TIME is the fight on its own.
   const mmss = (seconds: number) => `${Math.floor(seconds / 60)}:${String(Math.floor(seconds % 60)).padStart(2, '0')}`;
   const clearTime = mmss(model.elapsed), bossTime = mmss(model.bossTime);
-  setOverlay(`<div class="panel-content result-content clear-content"><div class="eyebrow">RUN COMPLETE</div><h2>GAME CLEAR.<span>NIMUSHI DEFEATED</span></h2><div class="result-depth"><small>TOTAL DEPTH</small><strong>${depth}<span>m</span></strong></div><div class="result-stats"><div><span>TOTAL KILLS</span><b>${model.kills}</b></div><div><span>MAX COMBO</span><b>${model.maxCombo}</b></div><div><span>UPGRADES</span><b>${upgrades}</b></div><div><span>SCORE</span><b>${model.score.toLocaleString()}</b></div><div><span>CLEAR TIME</span><b>${clearTime}</b></div><div><span>BOSS TIME</span><b>${bossTime}</b></div></div><button id="play-again" class="primary-button">PLAY AGAIN <span>↻</span></button><button id="clear-home" class="text-button">タイトルへ</button></div>`);
+  setOverlay(clearPanelHtml({ depth, kills: model.kills, maxCombo: model.maxCombo, upgrades, score: model.score, clearTime, bossTime }));
   $('play-again').onclick = () => start();
   $('clear-home').onclick = showTitle;
 }
@@ -573,7 +574,7 @@ function showResult(model: GameModel) {
   const depth = Math.floor(model.totalDepth), newBest = !warpedRun && depth > best;
   recordBest(depth);
   $('run-status').textContent = 'SIGNAL LOST';
-  setOverlay(`<div class="panel-content result-content"><div class="eyebrow">SIGNAL LOST / GAME OVER</div><h2>NICE DIVE.<span>まだ、深くへ行ける。</span></h2><div class="result-depth"><small>DEPTH REACHED</small><strong>${depth}<span>m</span></strong>${newBest ? '<b>↗ NEW PERSONAL BEST</b>' : ''}</div><div class="result-stats"><div><span>KILLS</span><b>${model.kills}</b></div><div><span>MAX COMBO</span><b>${model.maxCombo}</b></div><div><span>SCORE</span><b>${model.score.toLocaleString()}</b></div><div><span>REACHED</span><b>${model.stage.label}</b></div></div><div class="death-cause"><small>DEFEATED BY</small><b>${damageLabel(model.health.deathCause?.cause)}</b></div><button id="retry" class="primary-button">もう一度潜る <span>↻</span></button><button id="share" class="secondary-button">結果をシェア ↗</button><button id="home" class="text-button">タイトルへ</button></div>`);
+  setOverlay(gameOverPanelHtml({ depth, newBest, kills: model.kills, maxCombo: model.maxCombo, score: model.score, reached: model.stage.label, cause: damageLabel(model.health.deathCause?.cause) }));
   $('retry').onclick = () => start(); $('home').onclick = showTitle;
   $('share').onclick = async () => {
     const text = `${depth}mまで潜った！\n\nKILLS：${model.kills}\nMAX COMBO：${model.maxCombo}\n\n#DEEPDROP`;

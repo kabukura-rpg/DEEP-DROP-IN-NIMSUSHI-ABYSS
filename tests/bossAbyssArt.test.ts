@@ -218,7 +218,9 @@ describe('nothing but the drawing changes', () => {
       'data/boss.ts': '3ea3234e72fc995cb11db998f843f2d870c0ee75cc3784b32944bfd0166c5b77',
       'data/bossPhysics.ts': '046a5d1996b8577e8a19e3a4debb130d3631de51b478eea7bac2644eb9456161',
       'data/balance.ts': 'd2eafd8ad7d906d973dcd62c62e920cb2aa9d00be211a999b067a6a5a797cfcd',
-      'main.ts': '39636b623e1915d9c0d9956931db725c32b44c80713341f1473c89a30457831f',
+      // Changed after f94f678 only by the GAME OVER / GAME CLEAR / PAUSE markup moving to src/ui/runPanel.ts
+      // (one import, three setOverlay lines) -- tests/runPanelUi.test.ts holds the rest of it to f94f678.
+      'main.ts': '428443c5b5b2d1cb088c59999e45bb317a62194edc5ef24c53727158a3dde2bd',
     });
   });
 
