@@ -237,8 +237,10 @@ describe('SHOP behaviour is unchanged', () => {
       // tests/floatingText.test.ts -- and after defb7c5 only by the BOSS deep's image in the arena and the
       // TIMEOUT/bodies Graphics split under it -- tests/bossAbyssArt.test.ts -- and after d712b67 only by the
       // player's HURT / INVUL / COIN HIGH presentation (src/render/playerFeedbackVfx.ts) --
-      // tests/playerFeedbackVfx.test.ts; nothing the SHOP reads or drives.
-      'scenes/GameScene.ts': '0e7d7af2ae14fab921df6ef1db7b156871d9de568a6d92e36e414c92297d25d8',
+      // tests/playerFeedbackVfx.test.ts -- and after 61bcbd9 only by NIMUSHI's spoken line moving out of
+      // the HUD and into the scene, on its own shell and glyphs under every hazard --
+      // tests/bossDialogue.test.ts; nothing the SHOP reads or drives.
+      'scenes/GameScene.ts': '2d453544e177d48f6bec2c77f5abd8d4a14d7e504710ff13601cf04d085471dd',
     });
   });
 

@@ -219,8 +219,10 @@ describe('nothing but the drawing changes', () => {
       'data/bossPhysics.ts': '046a5d1996b8577e8a19e3a4debb130d3631de51b478eea7bac2644eb9456161',
       'data/balance.ts': 'd2eafd8ad7d906d973dcd62c62e920cb2aa9d00be211a999b067a6a5a797cfcd',
       // Changed after f94f678 only by the GAME OVER / GAME CLEAR / PAUSE markup moving to src/ui/runPanel.ts
-      // (one import, three setOverlay lines) -- tests/runPanelUi.test.ts holds the rest of it to f94f678.
-      'main.ts': '428443c5b5b2d1cb088c59999e45bb317a62194edc5ef24c53727158a3dde2bd',
+      // (one import, three setOverlay lines), and after 61bcbd9 only by NIMUSHI's line moving into the
+      // scene -- main.ts now holds just the screen reader's copy of it -- tests/bossDialogue.test.ts.
+      // tests/runPanelUi.test.ts holds the rest of main.ts to f94f678 byte for byte.
+      'main.ts': 'ab6f9da4e17a0b26e5d1cac8f1d48508eb7da57f778f7ea831d7c8f034ccc258',
     });
   });
 

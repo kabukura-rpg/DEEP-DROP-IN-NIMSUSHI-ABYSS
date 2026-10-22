@@ -101,10 +101,18 @@ describe('PAUSE panel', () => {
 // main.ts: the logic is f94f678's, line for line.
 
 describe('gameplay semantics are unchanged', () => {
-  it('main.ts is f94f678 apart from the import and the three markup lines', () => {
+  it('main.ts is f94f678 apart from the RUN PANEL markup and NIMUSHI line relay', () => {
+    // BOSS DIALOGUE VFX V1: the line is drawn in the scene now (src/render/bossDialogue.ts) and
+    // main.ts keeps only the screen reader's copy of it, moved ahead of the numbers' cache whose key
+    // never carried bossLine. Reversed here, so the rest of main.ts is still f94f678 byte for byte.
+    const bossLineV0 = "  // NIMUSHI's own voice. Screen-space, dismissable, and never in the way of the controls.\n"
+      + "  const line = $('boss-line');\n  line.hidden = !model.bossLine;\n  if (model.bossLine) line.textContent = model.bossLine.text;\n";
     const normalised = mainSource
       .replace(/^import \{ clearPanelHtml, gameOverPanelHtml, pausePanelHtml \} from '.\/ui\/runPanel';\n/m, '')
-      .replace(/^ {2}setOverlay\((pausePanelHtml\(|clearPanelHtml\(|gameOverPanelHtml\().*$/gm, '  setOverlay(RUN_PANEL);');
+      .replace(/^ {2}setOverlay\((pausePanelHtml\(|clearPanelHtml\(|gameOverPanelHtml\().*$/gm, '  setOverlay(RUN_PANEL);')
+      .replace(/^\/\*\* The line the screen reader[^\n]*\nlet lastBossLine = '';\n/m, '')
+      .replace(/^ {2}\/\/ NIMUSHI's own voice\. The line itself is drawn in the scene now[\s\S]*?\n {2}\}\n/m, '')
+      .replace(/^ {2}const heat = \$\('heat'\);$/m, bossLineV0 + "  const heat = $('heat');");
     expect(normalised.match(/RUN_PANEL/g)).toHaveLength(3);
     // The same normalisation applied to f94f678's main.ts (its three inline template lines).
     expect(sha256(normalised)).toBe('b8dd11a76441b44936add3cc4571c2cd7667babfa6ba1210eabc408752312af7');

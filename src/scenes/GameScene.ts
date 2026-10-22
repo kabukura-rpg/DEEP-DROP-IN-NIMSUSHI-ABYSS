@@ -9,7 +9,7 @@ import { pickupType } from '../data/pickups';
 import { gunModule } from '../data/gunModules';
 import { AIR_CONTAINER_RULES, BREAK_BLOCK_RULES, LIMBO_HAZARD_RULES, SPIKE_PLATFORM_RULES } from '../data/structures';
 import { SAFE_ZONE_RULES } from '../data/safeZone';
-import { TAPIOCA_BARRIER } from '../data/nimushi';
+import { NIMUSHI_LINES, TAPIOCA_BARRIER } from '../data/nimushi';
 import type { SideCave } from '../data/sideCave';
 import type { AreaTheme } from '../data/areas';
 import { hazardBounds, hazardType, type Hazard } from '../data/hazards';
@@ -34,6 +34,7 @@ import { exitGateArt, exitGateLoads, exitGatePlacement } from '../render/exitGat
 import { airContainerArt, airContainerLoads, airContainerPlacement } from '../render/airContainerArt';
 import { BOSS_ABYSS_KEY, bossAbyssArt, bossAbyssLoads, bossAbyssPlacement } from '../render/bossAbyssArt';
 import { addFloatingText, loadFloatingTextFont, type FloatingTextKind } from '../render/floatingText';
+import { BOSS_DIALOGUE, BOSS_DIALOGUE_FONT, BOSS_DIALOGUE_WEIGHT, bossDialogueFontReady, bossDialogueMetrics, drawBossDialogueShell, loadBossDialogueFont } from '../render/bossDialogue';
 import { CAVE_ENTRANCE_FRAMES, CAVE_SHELL_AREAS, CAVE_SHELL_GEOMETRY, CAVE_SHELL_KEYS, CAVE_SHELL_LIGHT, caveBackwallPlacement, caveCeilingArt, caveCeilingLoads, caveCeilingPlacement, caveEntrancePlacement, caveShellArt, caveShellLoads } from '../render/caveShellArt';
 import { ENVIRONMENT_ART, ENVIRONMENT_GEOMETRY, environmentArtArea, environmentArtId, chamberDrawn, beltLayout, breakBlockFrame, breakBlockSlices, environmentKeys, environmentLoads, environmentParts, collapseArt, collapseFrame, doodadArt, doodadFrame, doodadPlacement, type DoodadKeys, limboArt, limboLayout, reefArt, reefLayout, type ReefKeys, platformSlices, spikeFrame, spikeLayout, usesPlatformArt, wallTileX, wallTileY, type EnvironmentKeys } from '../render/environmentArt';
 
@@ -176,6 +177,20 @@ export class GameScene extends Phaser.Scene {
    */
   private underAbyss!: Phaser.GameObjects.Graphics;
   private abyssArt!: Phaser.GameObjects.Image;
+  /**
+   * NIMUSHI'S VOICE (render/bossDialogue): the speech shell and its glyphs, made once, directly above
+   * the deep's image and below `graphics`. The line is therefore drawn over the arena, its wall and
+   * the COLLAPSED SEAL, and UNDER the cups, the beams, the pearls, NIMUSHI itself, the barrier, the
+   * attack tells, the enemies, the player and the floating labels -- a line can never cover what is
+   * about to hurt. Screen-space: neither object is ever repositioned by the camera or the shake.
+   *
+   * The baseline's `#boss-line` element stays in the HUD as the screen reader's copy of the same
+   * text (src/main.ts, src/style.css), visually hidden and with its `aria-live` intact.
+   */
+  private speechShell!: Phaser.GameObjects.Graphics;
+  private speechText!: Phaser.GameObjects.Text;
+  /** What the glyph raster currently holds: line, size, wrap and whether Noto Sans JP had arrived. */
+  private speechKey = '';
   private platformLayer!: Phaser.GameObjects.Container;
   /**
    * What an image set draws ON its ledges and blocks, in this order bottom to top: spike sockets,
@@ -222,6 +237,8 @@ export class GameScene extends Phaser.Scene {
   create() {
     // The floating labels' pixel font, asked for before the first label can need it (src/render/floatingText.ts).
     loadFloatingTextFont();
+    // NIMUSHI's Japanese, asked for the same way: the three lines it can ever say (src/render/bossDialogue.ts).
+    loadBossDialogueFont(`${NIMUSHI_LINES.wake}${NIMUSHI_LINES.rage}${NIMUSHI_LINES.dying}`);
     // Expose the recorder so a human who sees the terrain misbehave can dump the history at once.
     // DEV only; in a production build `terrainWatch` is null and this never runs.
     if (import.meta.env.DEV && this.terrainWatch) {
@@ -280,6 +297,10 @@ export class GameScene extends Phaser.Scene {
     this.underAbyss = this.add.graphics();
     // One image, made once on its own texture; each frame only moves it and shows or hides it.
     this.abyssArt = this.add.image(0, 0, this.textures.exists(BOSS_ABYSS_KEY) ? BOSS_ABYSS_KEY : '__MISSING').setOrigin(0).setVisible(false);
+    // NIMUSHI's voice: one Graphics for the shell, one Text for the glyphs, made here and reused for
+    // every line of the fight -- under the cups, the pearls, the king and the player, over the deep.
+    this.speechShell = this.add.graphics();
+    this.speechText = this.add.text(0, 0, '', { fontFamily: BOSS_DIALOGUE_FONT, fontStyle: BOSS_DIALOGUE_WEIGHT, fontSize: '14px', color: BOSS_DIALOGUE.ink, align: 'center', padding: { x: 0, y: 0 }, resolution: 2 }).setVisible(false);
     this.graphics = this.add.graphics();
     // Ordering: world -> NIMUSHI's image -> everything drawn after its body -> the player's image ->
     // particles, damage flash and scanlines. Created in that order, so Phaser draws them in it.
@@ -933,6 +954,9 @@ export class GameScene extends Phaser.Scene {
       this.rect(corpse.x - 7, cy - 7, 14, 4, 0x9b8a99, fade);
       this.rect(corpse.x - 3, cy - 9, 6, 3, 0xd8c8d4, fade * 0.8);
     }
+    // NIMUSHI's line, on its own shell and glyphs below `graphics`: drawn from the model alone, and
+    // behind every hazard the fight is about to put in front of the player.
+    this.bossSpeech();
     // Back on `graphics` for the deep and everything that followed it.
     this.graphics = g;
     this.boss(cam);
@@ -1782,6 +1806,39 @@ export class GameScene extends Phaser.Scene {
       this.rect(x, y, size, size, theme.rift.debris, 0.3);
     }
     this.rect(-8, 760, 466, 40, theme.rift.void, 0.35);
+  }
+  /**
+   * NIMUSHI's line (render/bossDialogue).
+   *
+   * Read straight off `model.bossLine` every frame: when the model drops the line -- its own 3.2
+   * seconds run out, ACTION skips it, or the run ends -- the very next frame has nothing to draw.
+   * No clock, no queue, no second copy, and nothing here can hold a line up or put one back.
+   *
+   * The glyphs are rasterised only when the line, the viewport's scale or the font's availability
+   * changes: three times in a whole fight, not sixty times a second. The shell is six rectangles on
+   * a Graphics that is cleared and refilled, which allocates nothing and uploads no texture.
+   */
+  private bossSpeech() {
+    const line = this.model.bossLine;
+    this.speechShell.clear();
+    // The fight only: the model freezes the timer the moment a run ends -- as it always has -- and
+    // the DOM panel went with the HUD the GAME OVER / GAME CLEAR card hides. Nothing is left frozen
+    // on the arena behind that card now either.
+    if (!line || this.model.state !== 'boss') { this.speechText.setVisible(false); return; }
+    const at = bossDialogueMetrics(this.scale.displaySize.width);
+    const key = `${line.text}|${at.font}|${at.lineSpacing}|${at.wrap}|${bossDialogueFontReady()}`;
+    if (key !== this.speechKey) {
+      this.speechKey = key;
+      this.speechText.setStyle({ fontSize: `${at.font}px`, lineSpacing: at.lineSpacing, wordWrap: { width: at.wrap, useAdvancedWrap: true } });
+      this.speechText.setText(line.text);
+      // `pixelArt` uploads every canvas texture NEAREST. The kana are the one thing in the scene that
+      // is not pixel art, so this raster -- and only this one -- keeps its antialiasing.
+      this.speechText.texture.setFilter(Phaser.Textures.FilterMode.LINEAR);
+    }
+    // The shell is measured from the glyphs themselves and grows upwards: its bottom edge never moves.
+    const height = Math.ceil(this.speechText.height + at.pad * 2), top = BOSS_DIALOGUE.bottom - height;
+    drawBossDialogueShell(this.speechShell, at.left, top, at.width, height);
+    this.speechText.setPosition(Math.round((450 - this.speechText.width) / 2), top + at.pad).setVisible(true);
   }
   /**
    * NIMUSHI, everything it has put in the air, and the deep closing in underneath.

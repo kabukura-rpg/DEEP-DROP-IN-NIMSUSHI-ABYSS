@@ -244,8 +244,9 @@ describe('player feedback VFX: overlap, layers, restoration', () => {
     expect(i('const art = this.playerArt?.render(')).toBeLessThan(i('drawHurtImpact(foreground, x, y, this.hurtAge);'));
     expect(i('drawHurtImpact(foreground, x, y, this.hurtAge);')).toBeLessThan(i('for (const particle of this.particles)'));
     expect(i('for (const particle of this.particles)')).toBeLessThan(i('if (this.flash > 0)'));
-    // No new Graphics, texture or image: the twelve layers of d712b67 and nothing else.
-    expect(sceneSource.split('this.add.graphics()').length - 1).toBe(12);
+    // No new Graphics, texture or image for the PLAYER's feedback: the twelve layers of d712b67, plus
+    // the one NIMUSHI's speech shell added after 61bcbd9 -- tests/bossDialogue.test.ts pins where it sits.
+    expect(sceneSource.split('this.add.graphics()').length - 1).toBe(13);
     for (const banned of ['.add.', 'generateTexture', '.textures', '.load.', 'new Phaser', 'postFX', 'preFX', 'setBlendMode', 'Math.random']) expect(vfxSource).not.toContain(banned);
   });
 
@@ -292,7 +293,10 @@ describe('player feedback VFX: gameplay and assets untouched', () => {
       'systems/ComboFeedback.ts': '1e2f0fb4f8a25e0aaed8a771e59a153fadfbea586d9d8949ced15b946a08a5fc',
       'systems/UpgradeSystem.ts': '1bd63f6652e12af2c232864d8c45026a500104d7bd01fe740f0e3ec617d843c3',
       'data/upgrades.ts': '60cb529a5fbb0de2455d5d49898cd221d8860bf9dce8f4173e88f198c79f373e',
-      'main.ts': '428443c5b5b2d1cb088c59999e45bb317a62194edc5ef24c53727158a3dde2bd',
+      // Changed after d712b67 only by the RUN PANEL markup move (tests/runPanelUi.test.ts) and by
+      // NIMUSHI's line moving into the scene, which leaves main.ts holding only the screen reader's
+      // copy of it -- tests/bossDialogue.test.ts. Nothing the player's own feedback reads or drives.
+      'main.ts': 'ab6f9da4e17a0b26e5d1cac8f1d48508eb7da57f778f7ea831d7c8f034ccc258',
     });
   });
 

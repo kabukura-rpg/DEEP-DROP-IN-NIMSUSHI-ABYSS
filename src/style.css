@@ -244,28 +244,14 @@
 }
 
 /*
- * NIMUSHI's voice. Screen-space and the right way up, exactly like every other piece of the HUD:
- * the ABYSS inverts the physics, never the interface.
+ * NIMUSHI's voice. The line is DRAWN IN THE SCENE now (src/render/bossDialogue.ts): screen-space and
+ * the right way up exactly as this panel was -- the ABYSS inverts the physics, never the interface --
+ * but behind the cups, the pearls, the king, its tells, the enemies, the player and the floating
+ * labels, so a bubble can no longer stand in front of what is about to hurt.
+ *
+ * The element stays, visually hidden, as the screen reader's copy: same aria-live, same text, no box.
  */
-.boss-line {
-  position: absolute;
-  left: 50%;
-  bottom: 27%;
-  transform: translateX(-50%);
-  max-width: 78%;
-  padding: 10px 16px;
-  border: 1px solid rgba(255, 143, 168, 0.55);
-  border-radius: 10px;
-  background: rgba(20, 8, 16, 0.86);
-  color: #ffd7e2;
-  font-size: 14px;
-  line-height: 1.45;
-  letter-spacing: 0.04em;
-  text-align: center;
-  white-space: pre-line;
-  pointer-events: none;
-  z-index: 6;
-}
+.boss-line{position:absolute;width:1px;height:1px;overflow:hidden;clip-path:inset(50%);white-space:nowrap;pointer-events:none}
 
 /*
  * The SECTION CLEAR card that leads into a REST POINT shares the REST overlay class (mode 'upgrade').

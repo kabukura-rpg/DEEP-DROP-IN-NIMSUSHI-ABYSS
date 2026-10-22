@@ -68,6 +68,8 @@ try { best = Number(localStorage.getItem('deep-drop-best') || 0); if (!Number.is
 type Mode = 'title' | 'playing' | 'paused' | 'upgrade' | 'boss' | 'over' | 'clear' | 'shop';
 let mode: Mode = 'title';
 let lastHud = '';
+/** The line the screen reader has already been given, so an unchanged one is never re-announced. */
+let lastBossLine = '';
 /**
  * The modes that accept gameplay input. The FINAL BOSS is ordinary play with a king in it, so it
  * must answer to exactly the same controls -- this mirrors GameModel.running, which is what the
@@ -585,6 +587,17 @@ function showResult(model: GameModel) {
 }
 function updateHud(model: GameModel) {
   physicsPanel?.updateTelemetry();
+  // NIMUSHI's own voice. The line itself is drawn in the scene now (src/render/bossDialogue.ts),
+  // behind everything in the arena that can hurt; this element is the screen reader's copy of it and
+  // is kept visually hidden. Updated AHEAD of the numbers' cache below, whose key has never carried
+  // bossLine: leaving it behind that would announce a line late, or keep announcing a dropped one.
+  const spoken = model.bossLine?.text ?? '';
+  if (spoken !== lastBossLine) {
+    lastBossLine = spoken;
+    const line = $('boss-line');
+    line.hidden = !spoken;
+    line.textContent = spoken;
+  }
   const key = [Math.floor(model.sectionDepth), Math.floor(model.totalDepth), model.state, model.stage.label, model.coins.walletCoins, model.coins.scoreCoins, !!model.exit, model.oxygen.enabled ? model.oxygen.remaining.toFixed(1) : '-', model.heat.enabled ? model.heat.value.toFixed(1) : '-', model.boss.enabled ? `${Math.ceil(model.boss.ratio * 100)}|${model.boss.phaseId}` : '-', model.hp, model.health.overflowHealing, model.stats.maxHp, model.ammo, model.stats.maxAmmo, model.gun.id, model.combo, model.multiplier, model.practice, Math.round(model.coinHigh.meter), model.coinHigh.active].join('|');
   if (key === lastHud) return; lastHud = key;
   // The FINAL BOSS banks no section metres, so showing sectionDepth there reads a flat 000m.
@@ -636,10 +649,6 @@ function updateHud(model: GameModel) {
     bossBar.dataset.state = model.boss.defeated ? 'down' : model.boss.rageActive ? 'climax' : 'fight';
     bossBar.setAttribute('aria-label', `NIMUSHI HP ${Math.ceil(model.boss.ratio * 100)}%`);
   }
-  // NIMUSHI's own voice. Screen-space, dismissable, and never in the way of the controls.
-  const line = $('boss-line');
-  line.hidden = !model.bossLine;
-  if (model.bossLine) line.textContent = model.bossLine.text;
   const heat = $('heat');
   heat.hidden = !model.heat.enabled;
   if (model.heat.enabled) {
