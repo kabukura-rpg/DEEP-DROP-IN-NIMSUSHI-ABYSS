@@ -328,7 +328,8 @@ describe('the fight itself is 61bcbd9\'s, to the byte and to the frame', () => {
 
   it('adds no PNG: the shipped image set is 61bcbd9\'s', () => {
     const pngs = Object.keys(import.meta.glob(['../src/**/*.png', '../public/**/*.png']));
-    expect(pngs).toHaveLength(164);
+    // The one image added since is the bodies' (after e948ece, tests/corpseArt.test.ts); none of this change's.
+    expect(pngs.filter(p => p !== '../src/assets/world/corpse-common-v1.png')).toHaveLength(164);
     expect(pngs.some(p => /dialogue|speech|bubble|line/i.test(p))).toBe(false);
     // The shell is drawn, the glyphs are rasterised from the live string: no atlas, no image, no file.
     for (const banned of ['.png', 'load.image', 'addCanvas', 'generateTexture', 'setDepth']) {

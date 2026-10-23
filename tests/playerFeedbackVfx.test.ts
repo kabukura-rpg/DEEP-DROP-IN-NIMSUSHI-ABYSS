@@ -302,7 +302,8 @@ describe('player feedback VFX: gameplay and assets untouched', () => {
 
   it('adds no PNG: the shipped image set is the d712b67 one', () => {
     const pngs = Object.keys(import.meta.glob(['../src/**/*.png', '../public/**/*.png']));
-    expect(pngs).toHaveLength(164);
+    // The one image added since is the bodies' (after e948ece, tests/corpseArt.test.ts); none of this change's.
+    expect(pngs.filter(p => p !== '../src/assets/world/corpse-common-v1.png')).toHaveLength(164);
     expect(pngs.some(p => /feedback|vfx|hurt|invul/i.test(p))).toBe(false);
   });
 

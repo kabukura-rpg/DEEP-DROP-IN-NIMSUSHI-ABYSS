@@ -33,6 +33,7 @@ import { coinArt, coinFace, contentLoads, moduleArt, modulePlacement, shopDoorAr
 import { exitGateArt, exitGateLoads, exitGatePlacement } from '../render/exitGateArt';
 import { airContainerArt, airContainerLoads, airContainerPlacement } from '../render/airContainerArt';
 import { BOSS_ABYSS_KEY, bossAbyssArt, bossAbyssLoads, bossAbyssPlacement } from '../render/bossAbyssArt';
+import { CORPSE_ART_KEY, corpseArt, corpseArtLoads, corpsePlacement } from '../render/corpseArt';
 import { addFloatingText, loadFloatingTextFont, type FloatingTextKind } from '../render/floatingText';
 import { BOSS_DIALOGUE, BOSS_DIALOGUE_FONT, BOSS_DIALOGUE_WEIGHT, bossDialogueFontReady, bossDialogueMetrics, drawBossDialogueShell, loadBossDialogueFont } from '../render/bossDialogue';
 import { CAVE_ENTRANCE_FRAMES, CAVE_SHELL_AREAS, CAVE_SHELL_GEOMETRY, CAVE_SHELL_KEYS, CAVE_SHELL_LIGHT, caveBackwallPlacement, caveCeilingArt, caveCeilingLoads, caveCeilingPlacement, caveEntrancePlacement, caveShellArt, caveShellLoads } from '../render/caveShellArt';
@@ -176,6 +177,13 @@ export class GameScene extends Phaser.Scene {
    * `graphics` keeps the band (procedural fallback) and everything after it, so nothing changes place.
    */
   private underAbyss!: Phaser.GameObjects.Graphics;
+  /**
+   * CORPSE ART (render/corpseArt): the bodies' image, one pooled image per body on screen, directly
+   * above `underAbyss` where the procedural bodies were its last drawing -- over the TIMEOUT bubbles,
+   * under the deep's image and everything after it. Nothing changes place.
+   */
+  private corpseLayer!: Phaser.GameObjects.Container;
+  private corpseImages: Phaser.GameObjects.Image[] = [];
   private abyssArt!: Phaser.GameObjects.Image;
   /**
    * NIMUSHI'S VOICE (render/bossDialogue): the speech shell and its glyphs, made once, directly above
@@ -229,6 +237,7 @@ export class GameScene extends Phaser.Scene {
     for (const [key, url] of exitGateLoads()) this.load.image(key, url);
     for (const [key, url] of airContainerLoads()) this.load.image(key, url);
     for (const [key, url] of bossAbyssLoads()) this.load.image(key, url);
+    for (const [key, url] of corpseArtLoads()) this.load.image(key, url);
     for (const [key, url] of caveShellLoads()) this.load.image(key, url);
     for (const [key, url] of caveCeilingLoads()) this.load.image(key, url);
     PlayerArt.preload(this);
@@ -295,6 +304,10 @@ export class GameScene extends Phaser.Scene {
     this.worldFrontAir = this.add.graphics();
     this.coinLayer = this.add.container(0, 0);
     this.underAbyss = this.add.graphics();
+    if (this.textures.exists(CORPSE_ART_KEY)) this.textures.get(CORPSE_ART_KEY).setFilter(Phaser.Textures.FilterMode.NEAREST);
+    this.corpseLayer = this.add.container(0, 0);
+    // Phaser destroys the layer and its images with the scene; only the pool's references are ours.
+    this.events.once(Phaser.Scenes.Events.SHUTDOWN, () => { this.corpseImages = []; });
     // One image, made once on its own texture; each frame only moves it and shows or hides it.
     this.abyssArt = this.add.image(0, 0, this.textures.exists(BOSS_ABYSS_KEY) ? BOSS_ABYSS_KEY : '__MISSING').setOrigin(0).setVisible(false);
     // NIMUSHI's voice: one Graphics for the shell, one Text for the glyphs, made here and reused for
@@ -946,14 +959,19 @@ export class GameScene extends Phaser.Scene {
       this.graphics.lineStyle(2, 0x9fe8f5, 0.5).strokeCircle(bubble.x, by, bubble.radius);
     }
     // Bodies. Inert scenery -- what they are worth is KNIFE AND FORK's and REST IN PIECES' business.
+    // The common body image (render/corpseArt) on `corpseLayer`, at the same alpha; null if missing (procedural).
+    const corpseKey = corpseArt(exists);
+    let corpseImages = 0;
     for (const corpse of m.corpses) {
       const cy = corpse.y - cam;
       if (cy < -20 || cy > 820) continue;
       const fade = corpse.life < 2 ? 0.3 + Math.abs(Math.sin(this.model.elapsed * 14)) * 0.5 : 0.9;
+      if (corpseKey) { this.corpseImage(corpseImages++, corpseKey, corpsePlacement(corpse.x, cy), fade, g.x); continue; }
       this.rect(corpse.x - 10, cy - 4, 20, 8, 0x6b5f6a, fade);
       this.rect(corpse.x - 7, cy - 7, 14, 4, 0x9b8a99, fade);
       this.rect(corpse.x - 3, cy - 9, 6, 3, 0xd8c8d4, fade * 0.8);
     }
+    for (let i = corpseImages; i < this.corpseImages.length; i++) this.corpseImages[i].setVisible(false);
     // NIMUSHI's line, on its own shell and glyphs below `graphics`: drawn from the model alone, and
     // behind every hazard the fight is about to put in front of the player.
     this.bossSpeech();
@@ -1229,6 +1247,12 @@ export class GameScene extends Phaser.Scene {
     let img = this.coinImages[index];
     if (!img) { img = this.add.image(0, 0, texture).setOrigin(0.5, 0); this.coinLayer.add(img); this.coinImages[index] = img; }
     img.setTexture(texture).setPosition(offsetX + face.x, face.y).setScale(face.scaleX, 1).setAlpha(fade).setVisible(true);
+  }
+  /** One body's image on `corpseLayer`: top-left at (x, y), native size, blinking by `fade`; pooled like the coins. */
+  private corpseImage(index: number, texture: string, at: { x: number; y: number }, fade: number, offsetX: number) {
+    let img = this.corpseImages[index];
+    if (!img) { img = this.add.image(0, 0, texture).setOrigin(0); this.corpseLayer.add(img); this.corpseImages[index] = img; }
+    img.setTexture(texture).setPosition(offsetX + at.x, at.y).setAlpha(fade).setVisible(true);
   }
   /**
    * One ordinary ledge from an AREA's 3-slice (render/environmentArt): caps at each end, the center
