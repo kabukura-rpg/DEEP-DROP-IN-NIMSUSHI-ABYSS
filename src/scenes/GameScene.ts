@@ -34,6 +34,7 @@ import { exitGateArt, exitGateLoads, exitGatePlacement } from '../render/exitGat
 import { airContainerArt, airContainerLoads, airContainerPlacement } from '../render/airContainerArt';
 import { BOSS_ABYSS_KEY, bossAbyssArt, bossAbyssLoads, bossAbyssPlacement } from '../render/bossAbyssArt';
 import { CORPSE_ART_KEY, corpseArt, corpseArtLoads, corpsePlacement } from '../render/corpseArt';
+import { DRONE_ART, drawDroneHull } from '../render/droneArt';
 import { addFloatingText, loadFloatingTextFont, type FloatingTextKind } from '../render/floatingText';
 import { BOSS_DIALOGUE, BOSS_DIALOGUE_FONT, BOSS_DIALOGUE_WEIGHT, bossDialogueFontReady, bossDialogueMetrics, drawBossDialogueShell, loadBossDialogueFont } from '../render/bossDialogue';
 import { CAVE_ENTRANCE_FRAMES, CAVE_SHELL_AREAS, CAVE_SHELL_GEOMETRY, CAVE_SHELL_KEYS, CAVE_SHELL_LIGHT, caveBackwallPlacement, caveCeilingArt, caveCeilingLoads, caveCeilingPlacement, caveEntrancePlacement, caveShellArt, caveShellLoads } from '../render/caveShellArt';
@@ -1016,9 +1017,8 @@ export class GameScene extends Phaser.Scene {
     if (m.upgrades.has('drone')) {
       const spot = m.dronePosition, dy = spot.y - cam;
       const bob = Math.sin(this.model.elapsed * 5) * 2;
-      this.rect(spot.x - 9, dy + bob, 18, 6, 0x8fb8d8);
-      this.rect(spot.x - 5, dy + bob + 6, 10, 3, 0x4a6b85);
-      this.rect(spot.x - 2, dy + bob - 3, 4, 3, 0xdff0ff);
+      // DRONE PIXEL VFX V1 (render/droneArt): eight rectangles in the same 18x12 envelope, same rounding.
+      drawDroneHull(this.graphics, Math.round(spot.x + DRONE_ART.originX), Math.round(dy + bob + DRONE_ART.originY));
     }
     const p = m.player, x = Math.round(p.x), y = Math.round(p.y - cam);
     // PLAYER FEEDBACK VFX V1, behind the body: INVUL's side strokes, then the HIGH's lower brass chips.

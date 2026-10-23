@@ -496,7 +496,8 @@ describe('gameplay invariance', () => {
 
   it('changes no source but GameScene.ts and the new render/corpseArt.ts', () => {
     const SOURCES = import.meta.glob(['../src/**/*.ts'], { query: '?raw', import: 'default', eager: true }) as Record<string, string>;
-    const keys = Object.keys(SOURCES).filter(k => k !== '../src/scenes/GameScene.ts' && k !== '../src/render/corpseArt.ts').sort();
+    // render/droneArt.ts is the DRONE's body, added after 7e4c59d (tests/droneArt.test.ts) -- not part of this change.
+    const keys = Object.keys(SOURCES).filter(k => k !== '../src/scenes/GameScene.ts' && k !== '../src/render/corpseArt.ts' && k !== '../src/render/droneArt.ts').sort();
     expect(keys).toHaveLength(84);
     // The same digest over the same 84 files, computed at e948ece.
     expect(sha256(keys.map(k => `${k}\n${sha256(SOURCES[k])}`).join('\n'))).toBe('c76a68e5af4272c829f36401cb39b73901ac539ec8f18fb9cb6aa4718c23b74c');
@@ -533,7 +534,15 @@ describe('gameplay invariance', () => {
   }
 `,
     ];
-    let source = sceneSource;
+    // The DRONE's body changed after 7e4c59d (tests/droneArt.test.ts): put its three rectangles back first.
+    let source = sceneSource
+      .replace("import { DRONE_ART, drawDroneHull } from '../render/droneArt';\n", '')
+      .replace(`      // DRONE PIXEL VFX V1 (render/droneArt): eight rectangles in the same 18x12 envelope, same rounding.
+      drawDroneHull(this.graphics, Math.round(spot.x + DRONE_ART.originX), Math.round(dy + bob + DRONE_ART.originY));
+`, `      this.rect(spot.x - 9, dy + bob, 18, 6, 0x8fb8d8);
+      this.rect(spot.x - 5, dy + bob + 6, 10, 3, 0x4a6b85);
+      this.rect(spot.x - 2, dy + bob - 3, 4, 3, 0xdff0ff);
+`);
     for (const block of ADDED) {
       expect(source.split(block).length - 1, block.slice(0, 60)).toBe(1);
       source = source.replace(block, '');

@@ -240,9 +240,10 @@ describe('SHOP behaviour is unchanged', () => {
       // tests/playerFeedbackVfx.test.ts -- and after 61bcbd9 only by NIMUSHI's spoken line moving out of
       // the HUD and into the scene, on its own shell and glyphs under every hazard --
       // tests/bossDialogue.test.ts -- and after e948ece only by the bodies' common image on its own pooled
-      // layer above the TIMEOUT bubbles (src/render/corpseArt.ts) -- tests/corpseArt.test.ts; nothing the
-      // SHOP reads or drives.
-      'scenes/GameScene.ts': 'cc9415debd78831f0b2370766cf740a214d6f06f9e7820bd0112435d7b173f5e',
+      // layer above the TIMEOUT bubbles (src/render/corpseArt.ts) -- tests/corpseArt.test.ts -- and after
+      // 7e4c59d only by the DRONE's eight-rectangle body (src/render/droneArt.ts) -- tests/droneArt.test.ts;
+      // nothing the SHOP reads or drives.
+      'scenes/GameScene.ts': 'b8e7c8bd6fb8fb830ad6d12194c5eef890579607f62faded4b15ccb74b3e27ef',
     });
   });
 
