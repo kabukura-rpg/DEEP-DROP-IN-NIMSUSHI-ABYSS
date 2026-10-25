@@ -35,6 +35,7 @@ import { airContainerArt, airContainerLoads, airContainerPlacement } from '../re
 import { BOSS_ABYSS_KEY, bossAbyssArt, bossAbyssLoads, bossAbyssPlacement } from '../render/bossAbyssArt';
 import { CORPSE_ART_KEY, corpseArt, corpseArtLoads, corpsePlacement } from '../render/corpseArt';
 import { DRONE_ART, drawDroneHull } from '../render/droneArt';
+import { BALLOON_ART, drawBalloonBody } from '../render/balloonArt';
 import { addFloatingText, loadFloatingTextFont, type FloatingTextKind } from '../render/floatingText';
 import { BOSS_DIALOGUE, BOSS_DIALOGUE_FONT, BOSS_DIALOGUE_WEIGHT, bossDialogueFontReady, bossDialogueMetrics, drawBossDialogueShell, loadBossDialogueFont } from '../render/bossDialogue';
 import { CAVE_ENTRANCE_FRAMES, CAVE_SHELL_AREAS, CAVE_SHELL_GEOMETRY, CAVE_SHELL_KEYS, CAVE_SHELL_LIGHT, caveBackwallPlacement, caveCeilingArt, caveCeilingLoads, caveCeilingPlacement, caveEntrancePlacement, caveShellArt, caveShellLoads } from '../render/caveShellArt';
@@ -1010,8 +1011,8 @@ export class GameScene extends Phaser.Scene {
     if (m.balloon?.alive) {
       const by = m.balloon.y - cam;
       this.graphics.lineStyle(1, 0xfba4b9, 0.5).lineBetween(m.balloon.x, by + 12, p0.x, p0.y - cam - 18);
-      this.graphics.fillStyle(0xf497ab, 0.92).fillCircle(m.balloon.x, by, 13);
-      this.graphics.fillStyle(0xffd2dd, 0.9).fillCircle(m.balloon.x - 4, by - 4, 4);
+      // HEART BALLOON PIXEL ART V1 (render/balloonArt): 51 rectangles inside the old radius-13 circle, alpha 1.
+      drawBalloonBody(this.graphics, Math.round(m.balloon.x + BALLOON_ART.originX), Math.round(by + BALLOON_ART.originY));
     }
     // DRONE: a companion, never a target, that fires when the player does.
     if (m.upgrades.has('drone')) {

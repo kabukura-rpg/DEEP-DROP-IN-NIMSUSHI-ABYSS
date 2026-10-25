@@ -241,9 +241,10 @@ describe('SHOP behaviour is unchanged', () => {
       // the HUD and into the scene, on its own shell and glyphs under every hazard --
       // tests/bossDialogue.test.ts -- and after e948ece only by the bodies' common image on its own pooled
       // layer above the TIMEOUT bubbles (src/render/corpseArt.ts) -- tests/corpseArt.test.ts -- and after
-      // 7e4c59d only by the DRONE's eight-rectangle body (src/render/droneArt.ts) -- tests/droneArt.test.ts;
-      // nothing the SHOP reads or drives.
-      'scenes/GameScene.ts': 'b8e7c8bd6fb8fb830ad6d12194c5eef890579607f62faded4b15ccb74b3e27ef',
+      // 7e4c59d only by the DRONE's eight-rectangle body (src/render/droneArt.ts) -- tests/droneArt.test.ts --
+      // and after 6d83590 only by the HEART BALLOON's 51-rectangle body (src/render/balloonArt.ts) --
+      // tests/balloonArt.test.ts; nothing the SHOP reads or drives.
+      'scenes/GameScene.ts': '54980aa5f4ba20ff4c2b1765a7c235d81c27b253478a6f1ebb7b705b7a09a284',
     });
   });
 

@@ -496,8 +496,9 @@ describe('gameplay invariance', () => {
 
   it('changes no source but GameScene.ts and the new render/corpseArt.ts', () => {
     const SOURCES = import.meta.glob(['../src/**/*.ts'], { query: '?raw', import: 'default', eager: true }) as Record<string, string>;
-    // render/droneArt.ts is the DRONE's body, added after 7e4c59d (tests/droneArt.test.ts) -- not part of this change.
-    const keys = Object.keys(SOURCES).filter(k => k !== '../src/scenes/GameScene.ts' && k !== '../src/render/corpseArt.ts' && k !== '../src/render/droneArt.ts').sort();
+    // render/droneArt.ts is the DRONE's body, added after 7e4c59d (tests/droneArt.test.ts), and render/balloonArt.ts the
+    // HEART BALLOON's, added after 6d83590 (tests/balloonArt.test.ts) -- neither is part of this change.
+    const keys = Object.keys(SOURCES).filter(k => k !== '../src/scenes/GameScene.ts' && k !== '../src/render/corpseArt.ts' && k !== '../src/render/droneArt.ts' && k !== '../src/render/balloonArt.ts').sort();
     expect(keys).toHaveLength(84);
     // The same digest over the same 84 files, computed at e948ece.
     expect(sha256(keys.map(k => `${k}\n${sha256(SOURCES[k])}`).join('\n'))).toBe('c76a68e5af4272c829f36401cb39b73901ac539ec8f18fb9cb6aa4718c23b74c');
@@ -534,8 +535,15 @@ describe('gameplay invariance', () => {
   }
 `,
     ];
-    // The DRONE's body changed after 7e4c59d (tests/droneArt.test.ts): put its three rectangles back first.
+    // The DRONE's body changed after 7e4c59d (tests/droneArt.test.ts) and the HEART BALLOON's after 6d83590
+    // (tests/balloonArt.test.ts): put the three rectangles and the two circles back first.
     let source = sceneSource
+      .replace("import { BALLOON_ART, drawBalloonBody } from '../render/balloonArt';\n", '')
+      .replace(`      // HEART BALLOON PIXEL ART V1 (render/balloonArt): 51 rectangles inside the old radius-13 circle, alpha 1.
+      drawBalloonBody(this.graphics, Math.round(m.balloon.x + BALLOON_ART.originX), Math.round(by + BALLOON_ART.originY));
+`, `      this.graphics.fillStyle(0xf497ab, 0.92).fillCircle(m.balloon.x, by, 13);
+      this.graphics.fillStyle(0xffd2dd, 0.9).fillCircle(m.balloon.x - 4, by - 4, 4);
+`)
       .replace("import { DRONE_ART, drawDroneHull } from '../render/droneArt';\n", '')
       .replace(`      // DRONE PIXEL VFX V1 (render/droneArt): eight rectangles in the same 18x12 envelope, same rounding.
       drawDroneHull(this.graphics, Math.round(spot.x + DRONE_ART.originX), Math.round(dy + bob + DRONE_ART.originY));

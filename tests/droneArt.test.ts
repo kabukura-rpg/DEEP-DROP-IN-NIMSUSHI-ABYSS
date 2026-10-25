@@ -224,7 +224,15 @@ describe('DRONE A changes nothing else', () => {
     const block = droneBlock();
     expect(sceneSource.split(block).length - 1).toBe(1);
     expect(sceneSource.split(IMPORT_LINE).length - 1).toBe(1);
-    const restored = sceneSource.replace(IMPORT_LINE, '').replace(block, BASELINE_BLOCK);
+    // The HEART BALLOON's body changed after 6d83590 (tests/balloonArt.test.ts): put its two circles back first.
+    const restored = sceneSource
+      .replace("import { BALLOON_ART, drawBalloonBody } from '../render/balloonArt';\n", '')
+      .replace(`      // HEART BALLOON PIXEL ART V1 (render/balloonArt): 51 rectangles inside the old radius-13 circle, alpha 1.
+      drawBalloonBody(this.graphics, Math.round(m.balloon.x + BALLOON_ART.originX), Math.round(by + BALLOON_ART.originY));
+`, `      this.graphics.fillStyle(0xf497ab, 0.92).fillCircle(m.balloon.x, by, 13);
+      this.graphics.fillStyle(0xffd2dd, 0.9).fillCircle(m.balloon.x - 4, by - 4, 4);
+`)
+      .replace(IMPORT_LINE, '').replace(block, BASELINE_BLOCK);
     expect(sha256(restored)).toBe('cc9415debd78831f0b2370766cf740a214d6f06f9e7820bd0112435d7b173f5e');
   });
 
