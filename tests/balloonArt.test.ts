@@ -6,6 +6,7 @@ import { GameModel } from '../src/systems/GameModel';
 import { BALLOON_TRACE_SCENARIOS, balloonTrace } from './balloonTrace';
 import sceneSource from '../src/scenes/GameScene.ts?raw';
 import balloonSource from '../src/render/balloonArt.ts?raw';
+import { isTitleAudioGateFile, withoutTitleAudioGate } from './titleAudioGateRestore';
 
 /**
  * HEART BALLOON PIXEL ART RUNTIME INTEGRATION V1. Candidate A of output/balloon-visual-selection-v1
@@ -305,10 +306,11 @@ describe('HEART BALLOON A changes nothing else', () => {
 
   it('leaves every other source byte-identical to 6d83590: model, upgrades, icons, DRONE, CORPSE, feedback, text, UI', () => {
     const SOURCES = import.meta.glob(['../src/**/*.ts'], { query: '?raw', import: 'default', eager: true }) as Record<string, string>;
-    const keys = Object.keys(SOURCES).filter(k => k !== '../src/scenes/GameScene.ts' && k !== '../src/render/balloonArt.ts').sort();
+    // TITLE AUDIO ENTRY GATE V1's two new files left out and its hunks taken back out (tests/titleAudioGateRestore.ts).
+    const keys = Object.keys(SOURCES).filter(k => k !== '../src/scenes/GameScene.ts' && k !== '../src/render/balloonArt.ts' && !isTitleAudioGateFile(k)).sort();
     expect(keys).toHaveLength(86);
     // The same digest over the same 86 files, computed on a git archive of 6d83590.
-    expect(sha256(keys.map(k => `${k}\n${sha256(SOURCES[k])}`).join('\n'))).toBe('1f195bb995e56a418ebdd568a41864f03ebf8270e3f21f1c4c8fb55d295d2d6c');
+    expect(sha256(keys.map(k => `${k}\n${sha256(withoutTitleAudioGate(k, SOURCES[k]))}`).join('\n'))).toBe('1f195bb995e56a418ebdd568a41864f03ebf8270e3f21f1c4c8fb55d295d2d6c');
     expect(UPGRADES.filter(u => u.id === 'heartBalloon')).toHaveLength(1);
   });
 

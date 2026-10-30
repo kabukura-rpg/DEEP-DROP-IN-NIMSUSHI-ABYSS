@@ -6,6 +6,7 @@ import { WORLD } from '../src/data/balance';
 import { entered, replaySignature } from './regressionSignature';
 import { STEP, fighting, tick } from './nimushi';
 import sceneSource from '../src/scenes/GameScene.ts?raw';
+import { withoutTitleAudioGate } from './titleAudioGateRestore';
 
 /**
  * BOSS ABYSS ART. One image, output/boss-abyss-floor-art-v1/assets/candidate-b-abyss-466x1082.png byte
@@ -207,7 +208,8 @@ describe('nothing but the drawing changes', () => {
       'data/boss.ts': sha256(src('data/boss.ts')),
       'data/bossPhysics.ts': sha256(src('data/bossPhysics.ts')),
       'data/balance.ts': sha256(src('data/balance.ts')),
-      'main.ts': sha256(src('main.ts')),
+      // With TITLE AUDIO ENTRY GATE V1 taken back out (tests/titleAudioGateRestore.ts).
+      'main.ts': sha256(withoutTitleAudioGate('main.ts', new TextDecoder().decode(src('main.ts')))),
     }).toEqual({
       'systems/GameModel.ts': 'd44534da247bb31183e8dca9e1760c8cc498ad0671f5d0d6da030da021554ab6',
       'systems/NimushiBossSystem.ts': 'c184b4d05cc9a063af6e7b486552c267b06752947f972dd2762ef1438d1ec3c6',

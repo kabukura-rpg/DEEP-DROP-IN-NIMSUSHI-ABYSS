@@ -1,7 +1,7 @@
 import Phaser from 'phaser';
 import { LEVEL_SELECT_DESTINATIONS, LEVEL_SELECT_GESTURE, type LevelDestination } from './data/levelSelect';
 import { approachExtra, BOSS_APPROACH } from './data/nimushi';
-import { soundLabel, titleMarkup, watchTitleLogo } from './ui/titleScreen';
+import { entryGateMarkup, soundLabel, titleMarkup, watchTitleLogo } from './ui/titleScreen';
 import { restPanelHtml } from './ui/restPanel';
 import { clearPanelHtml, gameOverPanelHtml, pausePanelHtml } from './ui/runPanel';
 import './style.css';
@@ -21,6 +21,8 @@ import { previewSideCave, SIDE_CAVE_FIXTURES } from './dev/sideCavePreview';
 import { installMenuKeys } from './ui/menuKeys';
 import { installGameAreaZoomGuard, installLevelSelectGesture } from './ui/touchGuards';
 import { AreaMusic, musicTrack } from './systems/Music';
+import { TitleMusic } from './systems/TitleMusic';
+import { installEntryGate } from './ui/entryGate';
 import { notesMarkup, recordMarkup, ruinsMarkup, shellMark } from './ui/desktopShell';
 
 const app = document.querySelector<HTMLDivElement>('#app')!;
@@ -50,7 +52,21 @@ export const audio = new GameAudio();
  * PAUSE, the menus and the ♪ switch without the simulation ever knowing it exists.
  */
 const music = new AreaMusic();
-audio.onUnlock = context => music.unlock(context);
+/** TITLE BGM: its own element and gain, preloading from now; silent until a gesture (systems/TitleMusic). */
+const titleMusic = new TitleMusic();
+audio.onUnlock = context => { music.unlock(context); titleMusic.attach(context); };
+/**
+ * TITLE AUDIO ENTRY GATE: false until the first press of this document. Never stored -- a reload is a
+ * new document, and the browser has to be asked again -- and never set back: a run that returns to the
+ * title finds the menu, not the gate.
+ */
+let entered = false;
+/**
+ * ♪ is the one sound switch, effects and music alike, and the title's BGM ON/OFF. Only the choice is
+ * remembered -- not whether the browser has let sound start, which no stored flag can know.
+ */
+const MUTED_KEY = 'deep-drop-muted-v1';
+try { audio.muted = localStorage.getItem(MUTED_KEY) === '1'; } catch { /* Storage is optional in private browsing. */ }
 let best = 0;
 /**
  * True while the run was started from TEST LEVEL SELECT. Such a run never writes PERSONAL BEST: its
@@ -115,6 +131,9 @@ const bridge: GameBridge = {
 };
 const scene = new GameScene(bridge);
 const game = new Phaser.Game({ type: Phaser.AUTO, parent: 'game', width: 450, height: 800, backgroundColor: '#10191c', pixelArt: true, antialias: false, scene: [scene], scale: { mode: Phaser.Scale.FIT, autoCenter: Phaser.Scale.CENTER_BOTH }, input: { activePointers: 4 }, audio: { noAudio: true }, callbacks: { postBoot: () => { ready = true; } } });
+// The title track is fetched once the scene's own art has loaded, never ahead of it (systems/TitleMusic).
+// READY has booted the scene's systems -- SceneManager boots them on the same event, registered first.
+game.events.once(Phaser.Core.Events.READY, () => scene.events.once(Phaser.Scenes.Events.CREATE, () => titleMusic.preload()));
 physicsPanel = new PhysicsPanel($('physics-tuning'), () => scene.model, () => { lastHud = ''; updateHud(scene.model); });
 // DEV only: `__bossTest()` for the dormant fight, or `__bossTest('phase3')` / `('rage')` to start
 // part-way in. The stretch shortcuts set NIMUSHI's HP as a debug fixture and let its own systems
@@ -300,6 +319,8 @@ function start(practice = false) {
   // DEV: a run asked for by seed is rebuilt here, before anything reads the model. Compiled out.
   if (import.meta.env.DEV) (window as unknown as { __roadSeedApply?: () => void }).__roadSeedApply?.();
   mode = 'playing'; resumeInput();
+  // The title track fades out beside the run rather than ahead of it: START is never held for it.
+  titleMusic.stop();
   comboAnimation?.cancel();
   if (practice) physicsPanel?.startPractice();
   if ($('overlay').classList.contains('title-overlay')) fadeOutTitle();
@@ -361,12 +382,15 @@ function showTitle() {
   $('practice-label').hidden = true;
   $('run-status').textContent = 'READY TO DESCEND';
   $('touch-controls').classList.remove('visible');
-  setOverlay(titleMarkup(audio.muted));
+  setOverlay(titleMarkup(audio.muted), entered ? undefined : () => entered ? null : document.getElementById('title-gate'));
   // Concept C: the overlay carries the whole title composition, and the HUD of the run waiting
   // behind it is hidden for as long as the title is up. Visual only -- no value in the run changes.
   $('overlay').classList.add('title-overlay'); $('game-frame').classList.add('title-screen');
   watchTitleLogo($('overlay'));
   $('title-sound').onclick = toggleSound;
+  if (!entered) closeTitleBehindGate();
+  // Back on the title from a run (GAME OVER, CLEAR, PAUSE): its track again, inside that button's press.
+  syncTitleMusic();
   $('start').onclick = () => start(); $('practice').onclick = () => start(true);
   // TEST LEVEL SELECT: hidden from the ordinary title. Tap the PLAYER on the ledge five times, or
   // open the page with `?levels`, and a LEVEL SELECT button appears above CONTROL LAB. Works the
@@ -406,6 +430,43 @@ function showTitle() {
     $('practice').insertAdjacentElement('afterend', picker);
     picker.insertAdjacentElement('beforebegin', button);
   }
+}
+/**
+ * The ENTRY GATE over the title: the Minimal Overlay veil and prompt, with the menu and footer hidden
+ * and inert until the first press (ui/entryGate.ts decides what counts as one).
+ */
+function closeTitleBehindGate() {
+  const screen = $('overlay').querySelector<HTMLElement>('.title-screen');
+  if (!screen) return;
+  const { shade, gate } = entryGateMarkup(window.matchMedia('(pointer: coarse)').matches);
+  screen.querySelector('.title-menu')?.insertAdjacentHTML('beforebegin', shade);
+  screen.insertAdjacentHTML('beforeend', gate);
+  screen.classList.add('entry');
+  screen.querySelectorAll<HTMLElement>('.title-menu, .title-footer').forEach(part => { part.inert = true; });
+}
+/**
+ * The first press: sound is asked for before anything else (it has to be inside the press), then the
+ * veil lifts. The menu is live at once but keeps no focus until the press is let go.
+ */
+function passEntryGate() {
+  if (entered) return;
+  entered = true;
+  syncTitleMusic();
+  const screen = $('overlay').querySelector<HTMLElement>('.title-screen');
+  if (!screen) return;
+  screen.querySelector('#title-gate')?.remove();
+  screen.querySelectorAll<HTMLElement>('.title-menu, .title-footer').forEach(part => { part.inert = false; });
+  screen.classList.remove('entry');
+  const shade = screen.querySelector('.title-shade');
+  window.setTimeout(() => shade?.remove(), 200);
+}
+/**
+ * The title track is wanted while the title menu is up, past the gate, with ♪ on -- and silent
+ * otherwise. Called from the gesture that changed one of those, so a play request is always inside one.
+ */
+function syncTitleMusic(fadeSeconds?: number) {
+  if (mode === 'title' && entered && !audio.muted) { audio.unlock(); titleMusic.request(); }
+  else titleMusic.stop(fadeSeconds);
 }
 /** TEST LEVEL SELECT: every SECTION and the ABYSS before the boss, one tap each. */
 function showLevelSelect() {
@@ -669,11 +730,18 @@ function updateHud(model: GameModel) {
 
 $('pause').onclick = pause;
 function toggleSound() {
-  audio.unlock(); audio.muted = !audio.muted; $('sound').textContent = audio.muted ? '♪̸' : '♪'; $('sound').setAttribute('aria-label', audio.muted ? 'サウンドをオンにする' : 'サウンドをオフにする'); $('sound').setAttribute('aria-pressed', String(audio.muted));
+  audio.unlock(); audio.muted = !audio.muted;
+  try { localStorage.setItem(MUTED_KEY, audio.muted ? '1' : '0'); } catch { /* The choice still holds for this page. */ }
+  renderSound();
+  syncTitleMusic(0.2);
+}
+function renderSound() {
+  $('sound').textContent = audio.muted ? '♪̸' : '♪'; $('sound').setAttribute('aria-label', audio.muted ? 'サウンドをオンにする' : 'サウンドをオフにする'); $('sound').setAttribute('aria-pressed', String(audio.muted));
   const titleSound = document.getElementById('title-sound');
   if (titleSound) { titleSound.textContent = soundLabel(audio.muted); titleSound.setAttribute('aria-pressed', String(audio.muted)); }
 }
 $('sound').onclick = toggleSound;
+renderSound();
 window.addEventListener('keydown', e => { if (inPlay() && ['Space', 'ArrowLeft', 'ArrowRight'].includes(e.code)) e.preventDefault(); if (e.code === 'Escape') { e.preventDefault(); if (inPlay()) pause(); else if (mode === 'paused') resume(); } });
 /**
  * The menu keys. One install for every overlay, because every overlay is a list of real buttons --
@@ -702,7 +770,7 @@ window.setInterval(() => music.sync(musicTrack({
   abyss: scene.model.state === 'boss' || (scene.model.state === 'shop' && scene.model.abyssStage !== 'none'),
   bossStarted: scene.model.boss.enabled && scene.model.boss.started,
 })), 100);
-document.addEventListener('visibilitychange', () => music.setHidden(document.hidden));
+document.addEventListener('visibilitychange', () => { music.setHidden(document.hidden); titleMusic.setHidden(document.hidden); });
 
 /**
  * TOUCH CONTROLS: three explicit buttons, and nothing else on screen that moves or shoots.
@@ -830,9 +898,29 @@ frame.addEventListener('pointerdown', e => {
   e.preventDefault(); audio.unlock();
   scene.requestShot();
 });
+/**
+ * The ENTRY GATE's input rules, ahead of every other listener on the page. The first press is used up
+ * whole; the title takes focus (START, as it always has) only once that press is let go; and while the
+ * title track is refused, each later press on the title asks again -- unless it is a press that leaves
+ * the title (START, CONTROL LAB, LEVEL SELECT) or the ♪ switch, which asks for itself.
+ */
+const leavesTitle = (target: EventTarget | null) => target instanceof Element && !!target.closest('.title-menu, #level-select, #title-sound, #sound');
+installEntryGate(window, {
+  isOpen: () => mode === 'title' && !entered && !!document.getElementById('title-gate'),
+  gate: () => document.getElementById('title-gate'),
+  covers: () => document.querySelector('#overlay .title-screen'),
+  isTitle: () => mode === 'title' && entered,
+  onEnter: passEntryGate,
+  onActivation: () => { if (titleMusic.state !== 'playing') syncTitleMusic(); },
+  onReleased: () => { if (mode === 'title') document.getElementById('start')?.focus({ preventScroll: true }); },
+  onTitleGesture: event => {
+    const target = event.type === 'keydown' ? document.activeElement : event.target;
+    if (!leavesTitle(target)) titleMusic.retry();
+  },
+});
 showTitle(); updateHud(scene.model);
-window.addEventListener('pagehide', () => { game.loop.sleep(); });
-window.addEventListener('pageshow', () => { game.loop.wake(); });
+window.addEventListener('pagehide', () => { game.loop.sleep(); titleMusic.setHidden(true); });
+window.addEventListener('pageshow', () => { game.loop.wake(); titleMusic.setHidden(document.hidden); });
 
 // The separate /tests/browser.html entry imports these for browser regression checks.
 // No test controls or fixtures are included by the production entry point.

@@ -298,6 +298,18 @@
 .title-sound:hover,.title-sound:focus-visible{color:var(--lime)}
 .title-screen .build-tag{font-size:calc(var(--u) * 10);letter-spacing:calc(var(--u) * .8);color:#7d9089;white-space:nowrap;pointer-events:none}
 @media(prefers-reduced-motion:reduce){.title-player{animation:none}}
+/* TITLE AUDIO ENTRY GATE -- Codex design A "Minimal Overlay" (src/ui/entryGate.ts). One flat veil over
+   the unchanged title and one prompt, breathing 1 <-> .65 and never going out. The menu and footer are
+   hidden (and inert) until the first press; the veil then lifts in 180ms and is removed. */
+.title-shade{position:absolute;inset:0;background:#03080b66;opacity:0;pointer-events:none;transition:opacity 180ms ease-out}
+.title-screen.entry .title-shade{opacity:1}
+.title-screen.entry .title-menu,.title-screen.entry .title-footer{visibility:hidden}
+.title-gate{position:absolute;inset:0;width:100%;height:100%;padding:0;border:0;background:transparent;color:#ece5cf;cursor:pointer;touch-action:none}
+.title-gate:focus-visible{outline:2px solid #d8c58e;outline-offset:-6px}
+.title-gate-prompt{position:absolute;left:0;right:0;top:72.5%;font:400 max(14px,calc(var(--u) * 19))/1.5 'Silkscreen','IBM Plex Mono',monospace;letter-spacing:calc(var(--u) * 1);animation:title-gate-breathe 2.8s ease-in-out infinite}
+.title-gate-prompt small{display:block;font:400 max(10px,calc(var(--u) * 10))/1.5 'IBM Plex Mono',monospace;color:#a4b2aa;letter-spacing:1px;margin-top:calc(var(--u) * 12)}
+@keyframes title-gate-breathe{0%,100%{opacity:1}50%{opacity:.65}}
+@media(prefers-reduced-motion:reduce){.title-gate-prompt{animation:none}}
 /*
  * THE RUN PANELS -- GAME OVER, GAME CLEAR and PAUSE (src/ui/runPanel.ts). The REST / SHOP pixel family:
  * a charcoal panel, a hard metal edge, muted brass corner studs, Silkscreen for the heading and the

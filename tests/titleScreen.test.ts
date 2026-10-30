@@ -41,7 +41,7 @@ describe('Concept C layers', () => {
     const html = titleMarkup(false);
     expect(html).toContain(`--title-bg:url('${TITLE_ASSETS.background}')`);
     expect(html).toContain(`<img src="${TITLE_ASSETS.logo}"`);
-    expect(mainSource).toContain('setOverlay(titleMarkup(audio.muted));');
+    expect(mainSource).toContain('setOverlay(titleMarkup(audio.muted), ');
     for (const source of [html, mainSource]) {
       expect(source).not.toMatch(/title-screen-redesign|ui-mock|clean-450|ui-layout-reference/);
     }

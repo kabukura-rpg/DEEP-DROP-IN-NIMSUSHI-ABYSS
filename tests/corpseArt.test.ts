@@ -10,6 +10,7 @@ import { StageGenerator, type Enemy } from '../src/systems/StageGenerator';
 import { CORPSE_TRACE_SCENARIOS, corpseTrace } from './corpseTrace';
 import { feedWindow, fighting, pin } from './nimushi';
 import sceneSource from '../src/scenes/GameScene.ts?raw';
+import { isTitleAudioGateFile, withoutTitleAudioGate } from './titleAudioGateRestore';
 
 /**
  * CORPSE PIXEL ART RUNTIME INTEGRATION V1. One image, output/corpse-art-audit-v1/candidates/
@@ -498,10 +499,11 @@ describe('gameplay invariance', () => {
     const SOURCES = import.meta.glob(['../src/**/*.ts'], { query: '?raw', import: 'default', eager: true }) as Record<string, string>;
     // render/droneArt.ts is the DRONE's body, added after 7e4c59d (tests/droneArt.test.ts), and render/balloonArt.ts the
     // HEART BALLOON's, added after 6d83590 (tests/balloonArt.test.ts) -- neither is part of this change.
-    const keys = Object.keys(SOURCES).filter(k => k !== '../src/scenes/GameScene.ts' && k !== '../src/render/corpseArt.ts' && k !== '../src/render/droneArt.ts' && k !== '../src/render/balloonArt.ts').sort();
+    const keys = Object.keys(SOURCES).filter(k => k !== '../src/scenes/GameScene.ts' && k !== '../src/render/corpseArt.ts' && k !== '../src/render/droneArt.ts' && k !== '../src/render/balloonArt.ts' && !isTitleAudioGateFile(k)).sort();
     expect(keys).toHaveLength(84);
-    // The same digest over the same 84 files, computed at e948ece.
-    expect(sha256(keys.map(k => `${k}\n${sha256(SOURCES[k])}`).join('\n'))).toBe('c76a68e5af4272c829f36401cb39b73901ac539ec8f18fb9cb6aa4718c23b74c');
+    // The same digest over the same 84 files, computed at e948ece -- TITLE AUDIO ENTRY GATE V1 taken back
+    // out first (tests/titleAudioGateRestore.ts).
+    expect(sha256(keys.map(k => `${k}\n${sha256(withoutTitleAudioGate(k, SOURCES[k]))}`).join('\n'))).toBe('c76a68e5af4272c829f36401cb39b73901ac539ec8f18fb9cb6aa4718c23b74c');
   });
 
   it('changes GameScene.ts only by the body image: take the additions out and it is e948ece\'s, byte for byte', () => {

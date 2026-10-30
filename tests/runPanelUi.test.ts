@@ -2,6 +2,7 @@ import { afterEach, describe, expect, it } from 'vitest';
 import { clearPanelHtml, gameOverPanelHtml, pausePanelHtml, type ClearView, type GameOverView } from '../src/ui/runPanel';
 import { damageLabel } from '../src/data/damage';
 import mainSource from '../src/main.ts?raw';
+import { withoutTitleAudioGate } from './titleAudioGateRestore';
 
 /**
  * GAME OVER / GAME CLEAR / PAUSE UI V1 -- the three run screens rebuilt in the REST / SHOP pixel family.
@@ -107,7 +108,8 @@ describe('gameplay semantics are unchanged', () => {
     // never carried bossLine. Reversed here, so the rest of main.ts is still f94f678 byte for byte.
     const bossLineV0 = "  // NIMUSHI's own voice. Screen-space, dismissable, and never in the way of the controls.\n"
       + "  const line = $('boss-line');\n  line.hidden = !model.bossLine;\n  if (model.bossLine) line.textContent = model.bossLine.text;\n";
-    const normalised = mainSource
+    // TITLE AUDIO ENTRY GATE V1 is taken back out first (tests/titleAudioGateRestore.ts).
+    const normalised = withoutTitleAudioGate('main.ts', mainSource)
       .replace(/^import \{ clearPanelHtml, gameOverPanelHtml, pausePanelHtml \} from '.\/ui\/runPanel';\n/m, '')
       .replace(/^ {2}setOverlay\((pausePanelHtml\(|clearPanelHtml\(|gameOverPanelHtml\().*$/gm, '  setOverlay(RUN_PANEL);')
       .replace(/^\/\*\* The line the screen reader[^\n]*\nlet lastBossLine = '';\n/m, '')

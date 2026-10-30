@@ -4,6 +4,7 @@ import playerArtSource from '../src/render/PlayerArt.ts?raw';
 import vfxSource from '../src/render/playerFeedbackVfx.ts?raw';
 import { GameModel } from '../src/systems/GameModel';
 import { CoinHighSystem } from '../src/systems/CoinHighSystem';
+import { withoutTitleAudioGate } from './titleAudioGateRestore';
 import {
   PLAYER_VFX, drawCoinHighChips, drawHurtImpact, drawInvulShimmer, invulPhaseOdd, playerTreatment, tintColor,
 } from '../src/render/playerFeedbackVfx';
@@ -282,7 +283,8 @@ describe('player feedback VFX: overlap, layers, restoration', () => {
 describe('player feedback VFX: gameplay and assets untouched', () => {
   it('changes no gameplay, animation, floating-text or player-asset source', async () => {
     const SOURCES = import.meta.glob(['../src/systems/HealthSystem.ts', '../src/systems/CoinHighSystem.ts', '../src/data/coinHigh.ts', '../src/systems/GameModel.ts', '../src/dev/playerAnimationState.ts', '../src/render/playerArtAssets.ts', '../src/render/floatingText.ts', '../src/systems/ComboFeedback.ts', '../src/systems/UpgradeSystem.ts', '../src/data/upgrades.ts', '../src/main.ts'], { query: '?raw', import: 'default', eager: true }) as Record<string, string>;
-    expect(Object.fromEntries(Object.entries(SOURCES).map(([path, text]) => [path.replace('../src/', ''), sha256(text)]))).toEqual({
+    // main.ts with TITLE AUDIO ENTRY GATE V1 taken back out (tests/titleAudioGateRestore.ts).
+    expect(Object.fromEntries(Object.entries(SOURCES).map(([path, text]) => [path.replace('../src/', ''), sha256(withoutTitleAudioGate(path, text))]))).toEqual({
       'systems/HealthSystem.ts': '5ec6789c4129bd379a1bd1cba7a3f0d329e44e2388dd1ceb7d7e4fc15fd478fd',
       'systems/CoinHighSystem.ts': 'c450f07056e74bae63eef975bddf3452c4cf1883c480628fadead473703f4476',
       'data/coinHigh.ts': '0ce32008f92bac78eb3925602bd6539fd42af0615412616af034e35bbad7561b',

@@ -6,6 +6,7 @@ import { GameModel } from '../src/systems/GameModel';
 import { DRONE_TRACE_SCENARIOS, droneTrace } from './droneTrace';
 import sceneSource from '../src/scenes/GameScene.ts?raw';
 import droneSource from '../src/render/droneArt.ts?raw';
+import { withoutTitleAudioGate } from './titleAudioGateRestore';
 
 /**
  * DRONE PIXEL VFX RUNTIME INTEGRATION V1. Candidate A of output/upgrade-attachments-audit-v1
@@ -238,7 +239,8 @@ describe('DRONE A changes nothing else', () => {
 
   it('leaves the model, the upgrades, their icons, the guns and the player presentation byte-identical to 7e4c59d', () => {
     const SOURCES = import.meta.glob(['../src/systems/GameModel.ts', '../src/data/upgrades.ts', '../src/data/upgradeIcons.ts', '../src/data/gunModules.ts', '../src/render/PlayerArt.ts', '../src/render/playerFeedbackVfx.ts', '../src/render/floatingText.ts', '../src/main.ts'], { query: '?raw', import: 'default', eager: true }) as Record<string, string>;
-    const got = Object.fromEntries(Object.entries(SOURCES).map(([path, text]) => [path.replace('../src/', ''), sha256(text)]));
+    // main.ts with TITLE AUDIO ENTRY GATE V1 taken back out (tests/titleAudioGateRestore.ts).
+    const got = Object.fromEntries(Object.entries(SOURCES).map(([path, text]) => [path.replace('../src/', ''), sha256(withoutTitleAudioGate(path, text))]));
     expect(got).toEqual({
       'systems/GameModel.ts': 'd44534da247bb31183e8dca9e1760c8cc498ad0671f5d0d6da030da021554ab6',
       'data/upgrades.ts': '60cb529a5fbb0de2455d5d49898cd221d8860bf9dce8f4173e88f198c79f373e',

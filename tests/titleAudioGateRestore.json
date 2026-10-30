@@ -1,0 +1,62 @@
+{
+ "main.ts": [
+  [
+   "import { approachExtra, BOSS_APPROACH } from './data/nimushi';\nimport { entryGateMarkup, soundLabel, titleMarkup, watchTitleLogo } from './ui/titleScreen';\n",
+   "import { approachExtra, BOSS_APPROACH } from './data/nimushi';\nimport { soundLabel, titleMarkup, watchTitleLogo } from './ui/titleScreen';\n"
+  ],
+  [
+   "import { AreaMusic, musicTrack } from './systems/Music';\nimport { TitleMusic } from './systems/TitleMusic';\nimport { installEntryGate } from './ui/entryGate';\n",
+   "import { AreaMusic, musicTrack } from './systems/Music';\n"
+  ],
+  [
+   "const music = new AreaMusic();\n/** TITLE BGM: its own element and gain, preloading from now; silent until a gesture (systems/TitleMusic). */\nconst titleMusic = new TitleMusic();\naudio.onUnlock = context => { music.unlock(context); titleMusic.attach(context); };\n/**\n * TITLE AUDIO ENTRY GATE: false until the first press of this document. Never stored -- a reload is a\n * new document, and the browser has to be asked again -- and never set back: a run that returns to the\n * title finds the menu, not the gate.\n */\nlet entered = false;\n/**\n * ♪ is the one sound switch, effects and music alike, and the title's BGM ON/OFF. Only the choice is\n * remembered -- not whether the browser has let sound start, which no stored flag can know.\n */\nconst MUTED_KEY = 'deep-drop-muted-v1';\ntry { audio.muted = localStorage.getItem(MUTED_KEY) === '1'; } catch { /* Storage is optional in private browsing. */ }\n",
+   "const music = new AreaMusic();\naudio.onUnlock = context => music.unlock(context);\n"
+  ],
+  [
+   "const game = new Phaser.Game({ type: Phaser.AUTO, parent: 'game', width: 450, height: 800, backgroundColor: '#10191c', pixelArt: true, antialias: false, scene: [scene], scale: { mode: Phaser.Scale.FIT, autoCenter: Phaser.Scale.CENTER_BOTH }, input: { activePointers: 4 }, audio: { noAudio: true }, callbacks: { postBoot: () => { ready = true; } } });\n// The title track is fetched once the scene's own art has loaded, never ahead of it (systems/TitleMusic).\n// READY has booted the scene's systems -- SceneManager boots them on the same event, registered first.\ngame.events.once(Phaser.Core.Events.READY, () => scene.events.once(Phaser.Scenes.Events.CREATE, () => titleMusic.preload()));\n",
+   "const game = new Phaser.Game({ type: Phaser.AUTO, parent: 'game', width: 450, height: 800, backgroundColor: '#10191c', pixelArt: true, antialias: false, scene: [scene], scale: { mode: Phaser.Scale.FIT, autoCenter: Phaser.Scale.CENTER_BOTH }, input: { activePointers: 4 }, audio: { noAudio: true }, callbacks: { postBoot: () => { ready = true; } } });\n"
+  ],
+  [
+   "  mode = 'playing'; resumeInput();\n  // The title track fades out beside the run rather than ahead of it: START is never held for it.\n  titleMusic.stop();\n",
+   "  mode = 'playing'; resumeInput();\n"
+  ],
+  [
+   "  $('touch-controls').classList.remove('visible');\n  setOverlay(titleMarkup(audio.muted), entered ? undefined : () => entered ? null : document.getElementById('title-gate'));\n",
+   "  $('touch-controls').classList.remove('visible');\n  setOverlay(titleMarkup(audio.muted));\n"
+  ],
+  [
+   "  $('title-sound').onclick = toggleSound;\n  if (!entered) closeTitleBehindGate();\n  // Back on the title from a run (GAME OVER, CLEAR, PAUSE): its track again, inside that button's press.\n  syncTitleMusic();\n",
+   "  $('title-sound').onclick = toggleSound;\n"
+  ],
+  [
+   "}\n/**\n * The ENTRY GATE over the title: the Minimal Overlay veil and prompt, with the menu and footer hidden\n * and inert until the first press (ui/entryGate.ts decides what counts as one).\n */\nfunction closeTitleBehindGate() {\n  const screen = $('overlay').querySelector<HTMLElement>('.title-screen');\n  if (!screen) return;\n  const { shade, gate } = entryGateMarkup(window.matchMedia('(pointer: coarse)').matches);\n  screen.querySelector('.title-menu')?.insertAdjacentHTML('beforebegin', shade);\n  screen.insertAdjacentHTML('beforeend', gate);\n  screen.classList.add('entry');\n  screen.querySelectorAll<HTMLElement>('.title-menu, .title-footer').forEach(part => { part.inert = true; });\n}\n/**\n * The first press: sound is asked for before anything else (it has to be inside the press), then the\n * veil lifts. The menu is live at once but keeps no focus until the press is let go.\n */\nfunction passEntryGate() {\n  if (entered) return;\n  entered = true;\n  syncTitleMusic();\n  const screen = $('overlay').querySelector<HTMLElement>('.title-screen');\n  if (!screen) return;\n  screen.querySelector('#title-gate')?.remove();\n  screen.querySelectorAll<HTMLElement>('.title-menu, .title-footer').forEach(part => { part.inert = false; });\n  screen.classList.remove('entry');\n  const shade = screen.querySelector('.title-shade');\n  window.setTimeout(() => shade?.remove(), 200);\n}\n/**\n * The title track is wanted while the title menu is up, past the gate, with ♪ on -- and silent\n * otherwise. Called from the gesture that changed one of those, so a play request is always inside one.\n */\nfunction syncTitleMusic(fadeSeconds?: number) {\n  if (mode === 'title' && entered && !audio.muted) { audio.unlock(); titleMusic.request(); }\n  else titleMusic.stop(fadeSeconds);\n}\n",
+   "}\n"
+  ],
+  [
+   "function toggleSound() {\n  audio.unlock(); audio.muted = !audio.muted;\n  try { localStorage.setItem(MUTED_KEY, audio.muted ? '1' : '0'); } catch { /* The choice still holds for this page. */ }\n  renderSound();\n  syncTitleMusic(0.2);\n}\nfunction renderSound() {\n  $('sound').textContent = audio.muted ? '♪̸' : '♪'; $('sound').setAttribute('aria-label', audio.muted ? 'サウンドをオンにする' : 'サウンドをオフにする'); $('sound').setAttribute('aria-pressed', String(audio.muted));\n",
+   "function toggleSound() {\n  audio.unlock(); audio.muted = !audio.muted; $('sound').textContent = audio.muted ? '♪̸' : '♪'; $('sound').setAttribute('aria-label', audio.muted ? 'サウンドをオンにする' : 'サウンドをオフにする'); $('sound').setAttribute('aria-pressed', String(audio.muted));\n"
+  ],
+  [
+   "$('sound').onclick = toggleSound;\nrenderSound();\n",
+   "$('sound').onclick = toggleSound;\n"
+  ],
+  [
+   "})), 100);\ndocument.addEventListener('visibilitychange', () => { music.setHidden(document.hidden); titleMusic.setHidden(document.hidden); });\n",
+   "})), 100);\ndocument.addEventListener('visibilitychange', () => music.setHidden(document.hidden));\n"
+  ],
+  [
+   "});\n/**\n * The ENTRY GATE's input rules, ahead of every other listener on the page. The first press is used up\n * whole; the title takes focus (START, as it always has) only once that press is let go; and while the\n * title track is refused, each later press on the title asks again -- unless it is a press that leaves\n * the title (START, CONTROL LAB, LEVEL SELECT) or the ♪ switch, which asks for itself.\n */\nconst leavesTitle = (target: EventTarget | null) => target instanceof Element && !!target.closest('.title-menu, #level-select, #title-sound, #sound');\ninstallEntryGate(window, {\n  isOpen: () => mode === 'title' && !entered && !!document.getElementById('title-gate'),\n  gate: () => document.getElementById('title-gate'),\n  covers: () => document.querySelector('#overlay .title-screen'),\n  isTitle: () => mode === 'title' && entered,\n  onEnter: passEntryGate,\n  onActivation: () => { if (titleMusic.state !== 'playing') syncTitleMusic(); },\n  onReleased: () => { if (mode === 'title') document.getElementById('start')?.focus({ preventScroll: true }); },\n  onTitleGesture: event => {\n    const target = event.type === 'keydown' ? document.activeElement : event.target;\n    if (!leavesTitle(target)) titleMusic.retry();\n  },\n});\n",
+   "});\n"
+  ],
+  [
+   "showTitle(); updateHud(scene.model);\nwindow.addEventListener('pagehide', () => { game.loop.sleep(); titleMusic.setHidden(true); });\nwindow.addEventListener('pageshow', () => { game.loop.wake(); titleMusic.setHidden(document.hidden); });\n",
+   "showTitle(); updateHud(scene.model);\nwindow.addEventListener('pagehide', () => { game.loop.sleep(); });\nwindow.addEventListener('pageshow', () => { game.loop.wake(); });\n"
+  ]
+ ],
+ "ui/titleScreen.ts": [
+  [
+   "\n/**\n * TITLE AUDIO ENTRY GATE, Codex design A \"Minimal Overlay\": the veil a fresh page opens under. Two\n * parts, both laid over the unchanged title above: a flat #03080b at 40% between the art and the menu,\n * and one full-frame button carrying the prompt, which is the only thing that can be pressed. A phone\n * (pointer:coarse) is told to tap, anything with a keyboard to press a key. The input rules are in\n * ui/entryGate.ts; the title itself is not redrawn.\n */\nexport const ENTRY_GATE = { keyboard: 'PRESS ANY KEY', touch: 'TAP TO ENTER', note: 'ENTER THE ABYSS' } as const;\nexport const entryPrompt = (coarse: boolean) => coarse ? ENTRY_GATE.touch : ENTRY_GATE.keyboard;\nexport function entryGateMarkup(coarse: boolean) {\n  return {\n    shade: `<div class=\"title-shade\" aria-hidden=\"true\"></div>`,\n    gate: `<button id=\"title-gate\" class=\"title-gate\" aria-label=\"タイトルメニューに入る。最初の操作ではゲームは開始しません。\"><span class=\"title-gate-prompt\"><span>${entryPrompt(coarse)}</span><small>${ENTRY_GATE.note}</small></span></button>`,\n  };\n}\n\n",
+   "\n"
+  ]
+ ]
+}

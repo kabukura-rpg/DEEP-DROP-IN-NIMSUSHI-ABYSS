@@ -54,6 +54,22 @@ export function titleMarkup(muted: boolean, build = BUILD) {
 }
 
 /**
+ * TITLE AUDIO ENTRY GATE, Codex design A "Minimal Overlay": the veil a fresh page opens under. Two
+ * parts, both laid over the unchanged title above: a flat #03080b at 40% between the art and the menu,
+ * and one full-frame button carrying the prompt, which is the only thing that can be pressed. A phone
+ * (pointer:coarse) is told to tap, anything with a keyboard to press a key. The input rules are in
+ * ui/entryGate.ts; the title itself is not redrawn.
+ */
+export const ENTRY_GATE = { keyboard: 'PRESS ANY KEY', touch: 'TAP TO ENTER', note: 'ENTER THE ABYSS' } as const;
+export const entryPrompt = (coarse: boolean) => coarse ? ENTRY_GATE.touch : ENTRY_GATE.keyboard;
+export function entryGateMarkup(coarse: boolean) {
+  return {
+    shade: `<div class="title-shade" aria-hidden="true"></div>`,
+    gate: `<button id="title-gate" class="title-gate" aria-label="タイトルメニューに入る。最初の操作ではゲームは開始しません。"><span class="title-gate-prompt"><span>${entryPrompt(coarse)}</span><small>${ENTRY_GATE.note}</small></span></button>`,
+  };
+}
+
+/**
  * A logo that fails to load falls back to the same words in text, so the title never shows a broken
  * image. The background and PLAYER need no such care: a missing one simply leaves the dark frame.
  */

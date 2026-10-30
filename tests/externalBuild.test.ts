@@ -16,7 +16,7 @@ describe('title and build tag', () => {
     expect(indexHtml).toContain(`<title>${TITLE.document}</title>`);
     // Concept C: the DEEP / DROP + NIMUSHI ABYSS logo image, with the same words as its text.
     expect(titleSource).toContain('<h2 class="title-logo"><img src="${TITLE_ASSETS.logo}" alt="" draggable="false"><span>${TITLE.main}<small>${TITLE.sub}</small></span></h2>');
-    expect(mainSource).toContain('setOverlay(titleMarkup(audio.muted));');
+    expect(mainSource).toContain('setOverlay(titleMarkup(audio.muted), ');
   });
 
   it('tags the build as a TEST BUILD with its version and commit', () => {
