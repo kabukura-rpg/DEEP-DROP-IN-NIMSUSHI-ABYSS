@@ -11,6 +11,7 @@ import { CORPSE_TRACE_SCENARIOS, corpseTrace } from './corpseTrace';
 import { feedWindow, fighting, pin } from './nimushi';
 import sceneSource from '../src/scenes/GameScene.ts?raw';
 import { isTitleAudioGateFile, withoutTitleAudioGate } from './titleAudioGateRestore';
+import { isJetpackArtFile, withoutJetpackArt } from './jetpackArtRestore';
 
 /**
  * CORPSE PIXEL ART RUNTIME INTEGRATION V1. One image, output/corpse-art-audit-v1/candidates/
@@ -498,8 +499,9 @@ describe('gameplay invariance', () => {
   it('changes no source but GameScene.ts and the new render/corpseArt.ts', () => {
     const SOURCES = import.meta.glob(['../src/**/*.ts'], { query: '?raw', import: 'default', eager: true }) as Record<string, string>;
     // render/droneArt.ts is the DRONE's body, added after 7e4c59d (tests/droneArt.test.ts), and render/balloonArt.ts the
-    // HEART BALLOON's, added after 6d83590 (tests/balloonArt.test.ts) -- neither is part of this change.
-    const keys = Object.keys(SOURCES).filter(k => k !== '../src/scenes/GameScene.ts' && k !== '../src/render/corpseArt.ts' && k !== '../src/render/droneArt.ts' && k !== '../src/render/balloonArt.ts' && !isTitleAudioGateFile(k)).sort();
+    // HEART BALLOON's, added after 6d83590 (tests/balloonArt.test.ts), and render/jetpackArt.ts the JETPACK's exhaust,
+    // added after dc51d0b (tests/jetpackArt.test.ts) -- none is part of this change.
+    const keys = Object.keys(SOURCES).filter(k => k !== '../src/scenes/GameScene.ts' && k !== '../src/render/corpseArt.ts' && k !== '../src/render/droneArt.ts' && k !== '../src/render/balloonArt.ts' && !isTitleAudioGateFile(k) && !isJetpackArtFile(k)).sort();
     expect(keys).toHaveLength(84);
     // The same digest over the same 84 files, computed at e948ece -- TITLE AUDIO ENTRY GATE V1 taken back
     // out first (tests/titleAudioGateRestore.ts).
@@ -538,8 +540,9 @@ describe('gameplay invariance', () => {
 `,
     ];
     // The DRONE's body changed after 7e4c59d (tests/droneArt.test.ts) and the HEART BALLOON's after 6d83590
-    // (tests/balloonArt.test.ts): put the three rectangles and the two circles back first.
-    let source = sceneSource
+    // (tests/balloonArt.test.ts), and the JETPACK's exhaust after dc51d0b (tests/jetpackArt.test.ts): put the three
+    // rectangles, the two circles and the three strips back first.
+    let source = withoutJetpackArt('scenes/GameScene.ts', sceneSource)
       .replace("import { BALLOON_ART, drawBalloonBody } from '../render/balloonArt';\n", '')
       .replace(`      // HEART BALLOON PIXEL ART V1 (render/balloonArt): 51 rectangles inside the old radius-13 circle, alpha 1.
       drawBalloonBody(this.graphics, Math.round(m.balloon.x + BALLOON_ART.originX), Math.round(by + BALLOON_ART.originY));

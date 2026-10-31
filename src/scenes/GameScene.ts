@@ -36,6 +36,7 @@ import { BOSS_ABYSS_KEY, bossAbyssArt, bossAbyssLoads, bossAbyssPlacement } from
 import { CORPSE_ART_KEY, corpseArt, corpseArtLoads, corpsePlacement } from '../render/corpseArt';
 import { DRONE_ART, drawDroneHull } from '../render/droneArt';
 import { BALLOON_ART, drawBalloonBody } from '../render/balloonArt';
+import { drawJetpackExhaust } from '../render/jetpackArt';
 import { addFloatingText, loadFloatingTextFont, type FloatingTextKind } from '../render/floatingText';
 import { BOSS_DIALOGUE, BOSS_DIALOGUE_FONT, BOSS_DIALOGUE_WEIGHT, bossDialogueFontReady, bossDialogueMetrics, drawBossDialogueShell, loadBossDialogueFont } from '../render/bossDialogue';
 import { CAVE_ENTRANCE_FRAMES, CAVE_SHELL_AREAS, CAVE_SHELL_GEOMETRY, CAVE_SHELL_KEYS, CAVE_SHELL_LIGHT, caveBackwallPlacement, caveCeilingArt, caveCeilingLoads, caveCeilingPlacement, caveEntrancePlacement, caveShellArt, caveShellLoads } from '../render/caveShellArt';
@@ -1033,8 +1034,8 @@ export class GameScene extends Phaser.Scene {
         .lineBetween(x, y + 16, x + Math.sin(tilt) * reach, y + 16 + Math.cos(tilt) * reach);
     }
     if (m.jetpackActive) {
-      const flare = 0.5 + Math.abs(Math.sin(this.model.elapsed * 22)) * 0.5;
-      for (let i = 0; i < 3; i++) this.rect(x - 6 + i * 5, y + 18 + i, 4, 8 + i * 3, i === 1 ? 0xffe6ae : 0xffa85c, flare);
+      // JETPACK PIXEL VFX V1 (render/jetpackArt): 12 rectangles a frame inside the old three strips, same flicker.
+      drawJetpackExhaust(this.graphics, x, y, this.model.elapsed);
     }
     const art = this.playerArt?.render(m, g.x, Math.max(-1, Math.min(1, this.bridge.direction + (this.keys?.right.isDown || this.keys?.d.isDown ? 1 : 0) - (this.keys?.left.isDown || this.keys?.a.isDown ? 1 : 0))), this.hurtAge);
     if (!art) {

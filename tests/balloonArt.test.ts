@@ -7,6 +7,7 @@ import { BALLOON_TRACE_SCENARIOS, balloonTrace } from './balloonTrace';
 import sceneSource from '../src/scenes/GameScene.ts?raw';
 import balloonSource from '../src/render/balloonArt.ts?raw';
 import { isTitleAudioGateFile, withoutTitleAudioGate } from './titleAudioGateRestore';
+import { isJetpackArtFile, withoutJetpackArt } from './jetpackArtRestore';
 
 /**
  * HEART BALLOON PIXEL ART RUNTIME INTEGRATION V1. Candidate A of output/balloon-visual-selection-v1
@@ -300,14 +301,16 @@ describe('HEART BALLOON A changes nothing else', () => {
     const block = balloonBlock();
     expect(sceneSource.split(block).length - 1).toBe(1);
     expect(sceneSource.split(IMPORT_LINE).length - 1).toBe(1);
-    const restored = sceneSource.replace(IMPORT_LINE, '').replace(block, BASELINE_BLOCK);
+    // The JETPACK's exhaust changed after dc51d0b (tests/jetpackArt.test.ts): put its three strips back first.
+    const restored = withoutJetpackArt('scenes/GameScene.ts', sceneSource).replace(IMPORT_LINE, '').replace(block, BASELINE_BLOCK);
     expect(sha256(restored)).toBe('b8e7c8bd6fb8fb830ad6d12194c5eef890579607f62faded4b15ccb74b3e27ef');
   });
 
   it('leaves every other source byte-identical to 6d83590: model, upgrades, icons, DRONE, CORPSE, feedback, text, UI', () => {
     const SOURCES = import.meta.glob(['../src/**/*.ts'], { query: '?raw', import: 'default', eager: true }) as Record<string, string>;
     // TITLE AUDIO ENTRY GATE V1's two new files left out and its hunks taken back out (tests/titleAudioGateRestore.ts).
-    const keys = Object.keys(SOURCES).filter(k => k !== '../src/scenes/GameScene.ts' && k !== '../src/render/balloonArt.ts' && !isTitleAudioGateFile(k)).sort();
+    // render/jetpackArt.ts is the JETPACK's exhaust, added after dc51d0b (tests/jetpackArt.test.ts) -- not part of this change.
+    const keys = Object.keys(SOURCES).filter(k => k !== '../src/scenes/GameScene.ts' && k !== '../src/render/balloonArt.ts' && !isTitleAudioGateFile(k) && !isJetpackArtFile(k)).sort();
     expect(keys).toHaveLength(86);
     // The same digest over the same 86 files, computed on a git archive of 6d83590.
     expect(sha256(keys.map(k => `${k}\n${sha256(withoutTitleAudioGate(k, SOURCES[k]))}`).join('\n'))).toBe('1f195bb995e56a418ebdd568a41864f03ebf8270e3f21f1c4c8fb55d295d2d6c');

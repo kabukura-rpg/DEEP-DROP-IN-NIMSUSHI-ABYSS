@@ -6,6 +6,7 @@ import { TITLE_MUSIC, TitleMusic, type TitleElement } from '../src/systems/Title
 import { AREA_MUSIC, MUSIC, musicTrack } from '../src/systems/Music';
 import { ENTRY_GATE, entryGateMarkup, entryPrompt, titleMarkup } from '../src/ui/titleScreen';
 import { TITLE_AUDIO_GATE_NEW_FILES, withoutTitleAudioGate } from './titleAudioGateRestore';
+import { isJetpackArtFile, withoutJetpackArt } from './jetpackArtRestore';
 
 const fs = await import(/* @vite-ignore */ 'node:' + 'fs') as {
   readFileSync: { (path: URL, encoding: 'utf8'): string; (path: URL): Uint8Array };
@@ -574,7 +575,10 @@ describe('gameplay is unchanged', () => {
     for (const dir of dirs) {
       for (const name of fs.readdirSync(new URL(`../src/${dir}/`, import.meta.url))) {
         if (dir === 'systems' && name === 'TitleMusic.ts') continue;
-        lines.push(`src/${dir}/${name} ${sha256(fs.readFileSync(new URL(`../src/${dir}/${name}`, import.meta.url)))}`);
+        // The JETPACK's exhaust came after dc51d0b (tests/jetpackArt.test.ts): its new file left out, GameScene.ts restored.
+        if (isJetpackArtFile(`${dir}/${name}`)) continue;
+        const text = fs.readFileSync(new URL(`../src/${dir}/${name}`, import.meta.url), 'utf8');
+        lines.push(`src/${dir}/${name} ${sha256(withoutJetpackArt(`${dir}/${name}`, text))}`);
       }
     }
     lines.sort();

@@ -7,6 +7,7 @@ import { DRONE_TRACE_SCENARIOS, droneTrace } from './droneTrace';
 import sceneSource from '../src/scenes/GameScene.ts?raw';
 import droneSource from '../src/render/droneArt.ts?raw';
 import { withoutTitleAudioGate } from './titleAudioGateRestore';
+import { withoutJetpackArt } from './jetpackArtRestore';
 
 /**
  * DRONE PIXEL VFX RUNTIME INTEGRATION V1. Candidate A of output/upgrade-attachments-audit-v1
@@ -225,8 +226,9 @@ describe('DRONE A changes nothing else', () => {
     const block = droneBlock();
     expect(sceneSource.split(block).length - 1).toBe(1);
     expect(sceneSource.split(IMPORT_LINE).length - 1).toBe(1);
-    // The HEART BALLOON's body changed after 6d83590 (tests/balloonArt.test.ts): put its two circles back first.
-    const restored = sceneSource
+    // The HEART BALLOON's body changed after 6d83590 (tests/balloonArt.test.ts) and the JETPACK's exhaust after dc51d0b
+    // (tests/jetpackArt.test.ts): put the circles and the three strips back first.
+    const restored = withoutJetpackArt('scenes/GameScene.ts', sceneSource)
       .replace("import { BALLOON_ART, drawBalloonBody } from '../render/balloonArt';\n", '')
       .replace(`      // HEART BALLOON PIXEL ART V1 (render/balloonArt): 51 rectangles inside the old radius-13 circle, alpha 1.
       drawBalloonBody(this.graphics, Math.round(m.balloon.x + BALLOON_ART.originX), Math.round(by + BALLOON_ART.originY));

@@ -4,6 +4,7 @@ import { SHOP_COIN_ASSET, SHOP_COIN_FILE, SHOP_ICON_ASSETS, SHOP_ICON_FILES, sho
 import { shopCardHtml, shopKind, shopPanelHtml } from '../src/ui/shopPanel';
 import { GameModel } from '../src/systems/GameModel';
 import mainSource from '../src/main.ts?raw';
+import { withoutJetpackArt } from './jetpackArtRestore';
 
 /**
  * SHOP UI v1 -- MINIMAL PIXEL SHOP. The six goods' icons and the SHOP coin from
@@ -221,7 +222,8 @@ describe('SHOP behaviour is unchanged', () => {
 
   it('leaves the shop, economy, model, menu-key and canvas sources byte-identical to ac4bd7c', async () => {
     const SOURCES = import.meta.glob(['../src/data/shop.ts', '../src/systems/ShopSystem.ts', '../src/systems/GameModel.ts', '../src/systems/CoinSystem.ts', '../src/ui/menuKeys.ts', '../src/scenes/GameScene.ts'], { query: '?raw', import: 'default', eager: true }) as Record<string, string>;
-    const got = Object.fromEntries(Object.entries(SOURCES).map(([path, text]) => [path.replace('../src/', ''), sha256(text)]));
+    // GameScene.ts with the JETPACK's exhaust (after dc51d0b) taken back out -- tests/jetpackArtRestore.ts.
+    const got = Object.fromEntries(Object.entries(SOURCES).map(([path, text]) => [path.replace('../src/', ''), sha256(withoutJetpackArt(path, text))]));
     expect(got).toEqual({
       'data/shop.ts': 'b49df42586702ea68251d2ff2965d8927df2347c4de9c32aebfe89fd8b1bfa42',
       'systems/ShopSystem.ts': '7c494026876a1a3e699b092bb042a3f696aa445a1a0757b3de34cef4a69c15c5',
