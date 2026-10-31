@@ -6,6 +6,8 @@
  * So the older "nothing else changed" pins keep their own digests: they are checked against the source with
  * the exhaust taken out, rather than re-pinned to whatever the source is now.
  */
+import { withoutJetpackBehaviorFix } from './jetpackBehaviorRestore';
+
 export const JETPACK_ART_NEW_FILES = ['render/jetpackArt.ts'] as const;
 
 export const JETPACK_IMPORT_LINE = "import { drawJetpackExhaust } from '../render/jetpackArt';\n";
@@ -22,8 +24,12 @@ export const JETPACK_BLOCK = `    if (m.jetpackActive) {
     }
 `;
 
-/** `path` as any test spells it: '../src/scenes/GameScene.ts', 'src/scenes/GameScene.ts' or 'scenes/GameScene.ts'. */
+/**
+ * `path` as any test spells it: '../src/scenes/GameScene.ts', 'src/scenes/GameScene.ts' or 'scenes/GameScene.ts'.
+ * JETPACK BEHAVIOR FIX V1 came after the art, so its hunks (tests/jetpackBehaviorRestore.ts) are reversed first.
+ */
 export function withoutJetpackArt(path: string, source: string) {
+  source = withoutJetpackBehaviorFix(path, source);
   if (path.replace(/^(\.\.\/)?(src\/)?/, '') !== 'scenes/GameScene.ts') return source;
   for (const now of [JETPACK_IMPORT_LINE, JETPACK_BLOCK]) {
     if (source.split(now).length !== 2) throw new Error(`jetpack art hunk not found exactly once in ${path}: ${now.slice(0, 80)}`);

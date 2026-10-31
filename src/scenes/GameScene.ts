@@ -1034,8 +1034,9 @@ export class GameScene extends Phaser.Scene {
         .lineBetween(x, y + 16, x + Math.sin(tilt) * reach, y + 16 + Math.cos(tilt) * reach);
     }
     if (m.jetpackActive) {
-      // JETPACK PIXEL VFX V1 (render/jetpackArt): 12 rectangles a frame inside the old three strips, same flicker.
-      drawJetpackExhaust(this.graphics, x, y, this.model.elapsed);
+      // JETPACK PIXEL VFX V1 (render/jetpackArt): 12 rectangles a frame inside the old three strips, same flicker,
+      // pointing along the pull it brakes against -- above the player once the ABYSS has turned the world over.
+      drawJetpackExhaust(this.graphics, x, y, this.model.elapsed, m.gravitySign);
     }
     const art = this.playerArt?.render(m, g.x, Math.max(-1, Math.min(1, this.bridge.direction + (this.keys?.right.isDown || this.keys?.d.isDown ? 1 : 0) - (this.keys?.left.isDown || this.keys?.a.isDown ? 1 : 0))), this.hurtAge);
     if (!art) {

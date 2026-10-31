@@ -9,6 +9,10 @@ import type Phaser from 'phaser';
  * the old strips (-6,18,4,8) / (-1,19,4,11) / (4,20,4,14). When it shows is the scene's `m.jetpackActive`
  * gate, untouched; the frame and the flicker read the model clock only. No new PNG, no body, no particle,
  * no glow, no fade. All sizes are native 450x800 world pixels.
+ *
+ * Under the ABYSS's reversed pull the jetpack brakes a climb instead of a fall, so the exhaust points the
+ * other way: every rectangle is mirrored about the player's centre line (output/jetpack-behavior-audit-v1,
+ * boss-direction-audit.md plan A). Same strips, colours, frames and flicker; nothing else moves.
  */
 export const JETPACK_ART = {
   /** The 14x16 envelope's top-left from the rounded player position, and its size. */
@@ -38,13 +42,18 @@ export const JETPACK_ART = {
 /** The frame shown at model time `elapsed`; the epsilon only settles float ties on a frame boundary. */
 export const jetpackFrame = (elapsed: number) => Math.floor((elapsed + 1e-8) / JETPACK_ART.frameSeconds) % 3;
 
-/** The exhaust under the rounded player position `x`/`y` (screen space), with dc51d0b's flicker alpha. */
-export function drawJetpackExhaust(g: Phaser.GameObjects.Graphics, x: number, y: number, elapsed: number) {
+/**
+ * The exhaust on the rounded player position `x`/`y` (screen space), with dc51d0b's flicker alpha: below the
+ * player under the ordinary pull, above it when `gravitySign` is -1 (a rectangle at offset o, height h, lands at
+ * y-o-h instead of y+o).
+ */
+export function drawJetpackExhaust(g: Phaser.GameObjects.Graphics, x: number, y: number, elapsed: number, gravitySign: 1 | -1 = 1) {
   const frame = JETPACK_ART.frames[jetpackFrame(elapsed)];
   const alpha = 0.5 + Math.abs(Math.sin(elapsed * 22)) * 0.5;
   // Indexed, not destructured: nothing is allocated per frame.
   for (let i = 0; i < frame.length; i++) {
     const r = frame[i];
-    g.fillStyle(r[4], alpha).fillRect(x + JETPACK_ART.originX + r[0], y + JETPACK_ART.originY + r[1], r[2], r[3]);
+    const o = JETPACK_ART.originY + r[1];
+    g.fillStyle(r[4], alpha).fillRect(x + JETPACK_ART.originX + r[0], gravitySign < 0 ? y - o - r[3] : y + o, r[2], r[3]);
   }
 }

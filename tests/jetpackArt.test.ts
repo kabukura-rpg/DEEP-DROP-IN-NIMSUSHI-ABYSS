@@ -5,6 +5,7 @@ import { UPGRADES, UPGRADE_TUNING } from '../src/data/upgrades';
 import { GameModel } from '../src/systems/GameModel';
 import { JETPACK_TRACE_SCENARIOS, jetpackTrace } from './jetpackTrace';
 import { JETPACK_BASELINE_BLOCK, JETPACK_BLOCK, JETPACK_IMPORT_LINE, isJetpackArtFile, withoutJetpackArt } from './jetpackArtRestore';
+import { withoutJetpackBehaviorFix } from './jetpackBehaviorRestore';
 import sceneSource from '../src/scenes/GameScene.ts?raw';
 import jetpackSource from '../src/render/jetpackArt.ts?raw';
 
@@ -189,17 +190,22 @@ describe('JETPACK A: the exhaust pixel art', () => {
     for (const frame of JETPACK_ART.frames) for (const row of frame) for (const v of row) expect(Number.isInteger(v)).toBe(true);
     const code = jetpackSource.slice(jetpackSource.indexOf('export function drawJetpackExhaust'));
     for (const banned of ['.add.', 'new ', 'generateTexture', '.textures', '.load.', 'postFX', 'preFX', 'setBlendMode', 'lineStyle', 'Circle', 'Math.random', 'Date', 'performance', 'particle', 'const [', '...', '.map(', '.forEach(']) expect(code, banned).not.toContain(banned);
-    for (const banned of ['.png', 'fillGradientStyle', 'setAlpha', 'setTint', 'Glow', 'blur(', 'gravity', 'jetpackFuel', 'grounded']) expect(jetpackSource, banned).not.toContain(banned);
+    // JETPACK BEHAVIOR FIX V1 passes the pull's sign in as an argument; the art still reads no model state itself.
+    for (const banned of ['.png', 'fillGradientStyle', 'setAlpha', 'setTint', 'Glow', 'blur(', 'gravity', 'jetpackFuel', 'grounded']) expect(jetpackSource.replaceAll('gravitySign', ''), banned).not.toContain(banned);
+    expect(code.slice(0, code.indexOf('{'))).toBe('export function drawJetpackExhaust(g: Phaser.GameObjects.Graphics, x: number, y: number, elapsed: number, gravitySign: 1 | -1 = 1) ');
   });
 });
 
 describe('JETPACK A in the scene: same gate, same place, same layer', () => {
   it('replaces only the inside of dc51d0b block: the same `m.jetpackActive` gate, the rounded player x/y, the model clock', () => {
-    expect(jetpackBlock()).toBe(JETPACK_BLOCK);
+    // JETPACK BEHAVIOR FIX V1's hunks reversed (tests/jetpackBehavior.test.ts covers them) give this commit's block.
+    expect(withoutJetpackBehaviorFix('scenes/GameScene.ts', jetpackBlock())).toBe(JETPACK_BLOCK);
     expect(JETPACK_BLOCK).toContain('drawJetpackExhaust(this.graphics, x, y, this.model.elapsed);');
-    // `jetpackActive` is the only gate, as before: no fuel, ground, AREA, BOSS or gravity check added.
+    // `jetpackActive` is the only gate, as before: no fuel, ground, AREA, BOSS or gravity check added. The pull's
+    // sign reaches the art as an argument (the exhaust's direction), never as a condition.
     expect(jetpackBlock().split('if (').length - 1).toBe(1);
-    expect(jetpackBlock()).not.toMatch(/grounded|jetpackFuel|gravity|boss|ammo/);
+    expect(jetpackBlock()).toContain('drawJetpackExhaust(this.graphics, x, y, this.model.elapsed, m.gravitySign);');
+    expect(jetpackBlock().replace('m.gravitySign);', '')).not.toMatch(/grounded|jetpackFuel|gravity|boss|ammo/);
     expect(between(drawMethod(), '    const p = m.player, x = Math.round(p.x)', '\n')).toBe('    const p = m.player, x = Math.round(p.x), y = Math.round(p.y - cam);');
   });
 
@@ -221,19 +227,24 @@ describe('JETPACK A in the scene: same gate, same place, same layer', () => {
     for (const area of [1, 2, 3, 4, 'boss'] as const) {
       const m = lit(model(true, area));
       expect(m.jetpackActive).toBe(true);
+      const y = Math.round(m.player.y - m.cameraY);
       for (const t of [0.01, 0.09, 0.17, 1.234]) {
         m.elapsed = t;
         const cand = s.frame(m), base = s.baseline(m);
         expect(cand.fills).toHaveLength(12); expect(base.fills).toHaveLength(3);
         expect(new Set(cand.fills.map(f => f.alpha))).toEqual(new Set(base.fills.map(f => f.alpha)));
         const old = raster(base.fills), now = raster(cand.fills);
-        for (const k of now.keys()) expect(old.has(k), k).toBe(true);
+        // In the fight the strips are the old ones mirrored about the player's centre line (JETPACK BEHAVIOR FIX V1).
+        for (const k of now.keys()) {
+          const [px, py] = k.split(',').map(Number);
+          expect(old.has(`${px},${area === 'boss' ? 2 * y - 1 - py : py}`), k).toBe(true);
+        }
         expect(cand.calls.some(c => c.op !== 'fillStyle' && c.op !== 'fillRect')).toBe(false);
       }
     }
   });
 
-  it('sits on the rounded player at every position, the same offset as dc51d0b, and the BOSS reversal does not move or flip it', () => {
+  it('sits on the rounded player at every position, the same offset as dc51d0b, mirrored above it under the BOSS reversal', () => {
     const s = sceneJetpack();
     const random = seeded(77);
     for (const area of [2, 'boss'] as const) {
@@ -246,11 +257,11 @@ describe('JETPACK A in the scene: same gate, same place, same layer', () => {
         const x = Math.round(m.player.x), y = Math.round(m.player.y - m.cameraY);
         const old = raster(s.baseline(m).fills), now = raster(s.frame(m).fills);
         expect(bounds(old)).toEqual({ x: x - 6, y: y + 18, w: 14, h: 16 });
-        const box = bounds(now);
-        expect([box.x, box.y]).toEqual([x - 6, y + 18]);
-        for (const k of now.keys()) { const [px, py] = k.split(',').map(Number); expect(inStrips(x, y, px, py), k).toBe(true); }
-        // Below the player under either pull: dc51d0b's direction, kept as found (BOSS mismatch: FOUND -- NOT FIXED).
-        expect(box.y).toBeGreaterThan(y);
+        const box = bounds(now), up = area === 'boss';
+        // Below the player under the ordinary pull, as dc51d0b; above it, the old envelope mirrored, under the reversed one.
+        expect([box.x, up ? box.y + box.h : box.y]).toEqual([x - 6, up ? y - 18 : y + 18]);
+        for (const k of now.keys()) { const [px, py] = k.split(',').map(Number); expect(inStrips(x, y, px, up ? 2 * y - 1 - py : py), k).toBe(true); }
+        if (up) expect(box.y + box.h).toBeLessThanOrEqual(y - 18); else expect(box.y).toBeGreaterThan(y);
       }
     }
   });
