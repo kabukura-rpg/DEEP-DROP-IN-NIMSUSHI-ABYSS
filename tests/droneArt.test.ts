@@ -8,6 +8,7 @@ import sceneSource from '../src/scenes/GameScene.ts?raw';
 import droneSource from '../src/render/droneArt.ts?raw';
 import { withoutTitleAudioGate } from './titleAudioGateRestore';
 import { withoutJetpackArt } from './jetpackArtRestore';
+import { withoutJetpackBehaviorFix } from './jetpackBehaviorRestore';
 
 /**
  * DRONE PIXEL VFX RUNTIME INTEGRATION V1. Candidate A of output/upgrade-attachments-audit-v1
@@ -211,7 +212,7 @@ describe('DRONE A in the scene: same spot, same bob, same envelope', () => {
     const order = [
       'this.graphics = this.afterEnemies;', '// BONES', 'for (const b of m.bullets) {', '// HEART BALLOON', '// DRONE: a companion',
       'drawDroneHull(this.graphics,', 'drawInvulShimmer(this.graphics, x, y, m.hp, p.invincible);', 'if (high) drawCoinHighChips(',
-      "if (m.upgrades.has('laserSight')) {", 'if (m.jetpackActive) {', 'const art = this.playerArt?.render(',
+      "if (m.upgrades.has('laserSight')) {", 'if (m.jetpackActive', 'const art = this.playerArt?.render(',
       'drawHurtImpact(foreground, x, y, this.hurtAge);', 'for (const particle of this.particles)',
     ];
     for (let k = 1; k < order.length; k++) expect(i(order[k - 1]), order[k]).toBeLessThan(i(order[k]));
@@ -242,7 +243,7 @@ describe('DRONE A changes nothing else', () => {
   it('leaves the model, the upgrades, their icons, the guns and the player presentation byte-identical to 7e4c59d', () => {
     const SOURCES = import.meta.glob(['../src/systems/GameModel.ts', '../src/data/upgrades.ts', '../src/data/upgradeIcons.ts', '../src/data/gunModules.ts', '../src/render/PlayerArt.ts', '../src/render/playerFeedbackVfx.ts', '../src/render/floatingText.ts', '../src/main.ts'], { query: '?raw', import: 'default', eager: true }) as Record<string, string>;
     // main.ts with TITLE AUDIO ENTRY GATE V1 taken back out (tests/titleAudioGateRestore.ts).
-    const got = Object.fromEntries(Object.entries(SOURCES).map(([path, text]) => [path.replace('../src/', ''), sha256(withoutTitleAudioGate(path, text))]));
+    const got = Object.fromEntries(Object.entries(SOURCES).map(([path, text]) => [path.replace('../src/', ''), sha256(withoutTitleAudioGate(path, withoutJetpackBehaviorFix(path, text)))]));
     expect(got).toEqual({
       'systems/GameModel.ts': 'd44534da247bb31183e8dca9e1760c8cc498ad0671f5d0d6da030da021554ab6',
       'data/upgrades.ts': '60cb529a5fbb0de2455d5d49898cd221d8860bf9dce8f4173e88f198c79f373e',

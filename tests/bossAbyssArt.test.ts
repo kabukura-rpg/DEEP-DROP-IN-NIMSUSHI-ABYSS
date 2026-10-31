@@ -7,6 +7,7 @@ import { entered, replaySignature } from './regressionSignature';
 import { STEP, fighting, tick } from './nimushi';
 import sceneSource from '../src/scenes/GameScene.ts?raw';
 import { withoutTitleAudioGate } from './titleAudioGateRestore';
+import { withoutJetpackBehaviorFix } from './jetpackBehaviorRestore';
 
 /**
  * BOSS ABYSS ART. One image, output/boss-abyss-floor-art-v1/assets/candidate-b-abyss-466x1082.png byte
@@ -199,7 +200,8 @@ describe('nothing but the drawing changes', () => {
   it('keeps every gameplay source byte-identical to defb7c5', () => {
     const src = (path: string) => readFileSync(new URL(`../src/${path}`, import.meta.url));
     expect({
-      'systems/GameModel.ts': sha256(src('systems/GameModel.ts')),
+      // JETPACK BEHAVIOR FIX V1 taken back out (tests/jetpackBehaviorRestore.ts); it changed only the jetpack flag.
+      'systems/GameModel.ts': sha256(withoutJetpackBehaviorFix('systems/GameModel.ts', new TextDecoder().decode(src('systems/GameModel.ts')))),
       'systems/NimushiBossSystem.ts': sha256(src('systems/NimushiBossSystem.ts')),
       'systems/HealthSystem.ts': sha256(src('systems/HealthSystem.ts')),
       'systems/PhysicsTuning.ts': sha256(src('systems/PhysicsTuning.ts')),
@@ -209,7 +211,7 @@ describe('nothing but the drawing changes', () => {
       'data/bossPhysics.ts': sha256(src('data/bossPhysics.ts')),
       'data/balance.ts': sha256(src('data/balance.ts')),
       // With TITLE AUDIO ENTRY GATE V1 taken back out (tests/titleAudioGateRestore.ts).
-      'main.ts': sha256(withoutTitleAudioGate('main.ts', new TextDecoder().decode(src('main.ts')))),
+      'main.ts': sha256(withoutTitleAudioGate('main.ts', withoutJetpackBehaviorFix('main.ts', new TextDecoder().decode(src('main.ts'))))),
     }).toEqual({
       'systems/GameModel.ts': 'd44534da247bb31183e8dca9e1760c8cc498ad0671f5d0d6da030da021554ab6',
       'systems/NimushiBossSystem.ts': 'c184b4d05cc9a063af6e7b486552c267b06752947f972dd2762ef1438d1ec3c6',

@@ -8,12 +8,15 @@ import { reachExit, clearViaExit } from './exitHelper';
 import { entered, generationSignature, replaySignature } from './regressionSignature';
 import sceneSource from '../src/scenes/GameScene.ts?raw';
 import mainSource from '../src/main.ts?raw';
-import modelSource from '../src/systems/GameModel.ts?raw';
+import modelSourceRaw from '../src/systems/GameModel.ts?raw';
 import generatorSource from '../src/systems/StageGenerator.ts?raw';
 import structuresSource from '../src/data/structures.ts?raw';
 import balanceSource from '../src/data/balance.ts?raw';
 import progressionSource from '../src/systems/StageProgressionSystem.ts?raw';
 import areasSource from '../src/data/areas.ts?raw';
+import { withoutJetpackBehaviorFix } from './jetpackBehaviorRestore';
+// JETPACK BEHAVIOR FIX V1 is reversed first (tests/jetpackBehaviorRestore.ts); it changed only the jetpack flag.
+const modelSource = withoutJetpackBehaviorFix('systems/GameModel.ts', modelSourceRaw);
 
 /**
  * SECTION EXIT GATE ART. One image, output/exit-gate-occlusion-v3/exit-gate-common-v3.png byte for

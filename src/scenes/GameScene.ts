@@ -1033,7 +1033,8 @@ export class GameScene extends Phaser.Scene {
       this.graphics.lineStyle(1, 0xff6b7a, 0.45)
         .lineBetween(x, y + 16, x + Math.sin(tilt) * reach, y + 16 + Math.cos(tilt) * reach);
     }
-    if (m.jetpackActive) {
+    // The model already takes the flag down when the world stops; the scene only refuses to draw a hover there.
+    if (m.jetpackActive && m.running && m.abyssStage !== 'inverting') {
       // JETPACK PIXEL VFX V1 (render/jetpackArt): 12 rectangles a frame inside the old three strips, same flicker,
       // pointing along the pull it brakes against -- above the player once the ABYSS has turned the world over.
       drawJetpackExhaust(this.graphics, x, y, this.model.elapsed, m.gravitySign);

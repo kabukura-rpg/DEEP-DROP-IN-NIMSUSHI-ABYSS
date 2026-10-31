@@ -26,7 +26,7 @@ const between = (text: string, from: string, to: string) => {
   return text.slice(a, b);
 };
 const drawMethod = () => between(sceneSource, '  private draw() {', '  private surface(');
-const jetpackBlock = () => between(drawMethod(), '    if (m.jetpackActive) {', '    const art = this.playerArt?.render(');
+const jetpackBlock = () => between(drawMethod(), '    if (m.jetpackActive', '    const art = this.playerArt?.render(');
 
 const SIDE = 0x693e38, WARM = 0xe99757, CORE = 0xffe6ae;
 /** output/jetpack-visual-design-v1/assets/candidate-A-reference.ts FRAMES, in its order. */
@@ -199,11 +199,14 @@ describe('JETPACK A: the exhaust pixel art', () => {
 describe('JETPACK A in the scene: same gate, same place, same layer', () => {
   it('replaces only the inside of dc51d0b block: the same `m.jetpackActive` gate, the rounded player x/y, the model clock', () => {
     // JETPACK BEHAVIOR FIX V1's hunks reversed (tests/jetpackBehavior.test.ts covers them) give this commit's block.
-    expect(withoutJetpackBehaviorFix('scenes/GameScene.ts', jetpackBlock())).toBe(JETPACK_BLOCK);
+    const restored = between(withoutJetpackBehaviorFix('scenes/GameScene.ts', sceneSource), '    if (m.jetpackActive) {', '    const art = this.playerArt?.render(');
+    expect(restored).toBe(JETPACK_BLOCK);
     expect(JETPACK_BLOCK).toContain('drawJetpackExhaust(this.graphics, x, y, this.model.elapsed);');
-    // `jetpackActive` is the only gate, as before: no fuel, ground, AREA, BOSS or gravity check added. The pull's
-    // sign reaches the art as an argument (the exhaust's direction), never as a condition.
+    // `jetpackActive` is still the gate: no fuel, ground, AREA, BOSS or gravity check added. JETPACK BEHAVIOR FIX V1
+    // adds only "the world is running and not mid-reversal" to it, and passes the pull's sign to the art as an
+    // argument (the exhaust's direction), never as a condition.
     expect(jetpackBlock().split('if (').length - 1).toBe(1);
+    expect(jetpackBlock()).toContain("    if (m.jetpackActive && m.running && m.abyssStage !== 'inverting') {\n");
     expect(jetpackBlock()).toContain('drawJetpackExhaust(this.graphics, x, y, this.model.elapsed, m.gravitySign);');
     expect(jetpackBlock().replace('m.gravitySign);', '')).not.toMatch(/grounded|jetpackFuel|gravity|boss|ammo/);
     expect(between(drawMethod(), '    const p = m.player, x = Math.round(p.x)', '\n')).toBe('    const p = m.player, x = Math.round(p.x), y = Math.round(p.y - cam);');
@@ -272,7 +275,7 @@ describe('JETPACK A in the scene: same gate, same place, same layer', () => {
     const order = [
       'this.graphics = this.afterEnemies;', '// BONES', 'for (const b of m.bullets) {', '// HEART BALLOON', 'drawBalloonBody(this.graphics,',
       '// DRONE: a companion', 'drawDroneHull(this.graphics,', 'drawInvulShimmer(this.graphics, x, y, m.hp, p.invincible);',
-      'if (high) drawCoinHighChips(', "if (m.upgrades.has('laserSight')) {", 'if (m.jetpackActive) {', 'drawJetpackExhaust(this.graphics, x, y,',
+      'if (high) drawCoinHighChips(', "if (m.upgrades.has('laserSight')) {", 'if (m.jetpackActive', 'drawJetpackExhaust(this.graphics, x, y,',
       'const art = this.playerArt?.render(', 'const foreground = this.artForeground ?? g;', 'drawHurtImpact(foreground, x, y, this.hurtAge);',
     ];
     for (let k = 1; k < order.length; k++) expect(i(order[k - 1]), order[k]).toBeLessThan(i(order[k]));
@@ -295,7 +298,7 @@ describe('JETPACK A changes nothing else', () => {
     const keys = Object.keys(SOURCES).filter(k => k !== '../src/scenes/GameScene.ts' && !isJetpackArtFile(k)).sort();
     expect(keys).toHaveLength(89);
     // The same digest over the same 89 files, computed with `git show dc51d0b:<path>`.
-    expect(sha256(keys.map(k => `${k}\n${sha256(SOURCES[k])}`).join('\n'))).toBe('9806b16ae1ea7b74b4bb9df82324e398816a8b50f03ab5d7334f6f4d5be7ff3d');
+    expect(sha256(keys.map(k => `${k}\n${sha256(withoutJetpackBehaviorFix(k, SOURCES[k]))}`).join('\n'))).toBe('9806b16ae1ea7b74b4bb9df82324e398816a8b50f03ab5d7334f6f4d5be7ff3d');
     expect(UPGRADES.filter(u => u.id === 'safetyJetpack')).toHaveLength(1);
   });
 
@@ -310,7 +313,7 @@ describe('JETPACK A changes nothing else', () => {
     expect(pngs.filter(p => /jet|exhaust|flame/i.test(p))).toEqual(['../src/assets/upgrades/safety-jetpack.png']);
   });
 
-  it('plays exactly as dc51d0b: the same hover, fuel, refills, flag, CHARGE, fall, hits, SECTION returns and reversal', () => {
+  it('plays exactly as dc51d0b: the same hover, fuel, refills, CHARGE, fall, hits, SECTION returns and reversal; the flag as fixed', () => {
     // Golden values produced by tests/jetpackTrace.ts on a git archive of dc51d0b.
     const GOLDEN: Record<string, ReturnType<typeof jetpackTrace>> = {
       'area1 plain': { digest: '7660a23a8be9457e', activeSteps: 0, starts: 0, stops: 0, refills: 0, emptyActive: 0, groundedActive: 0, kills: 5, hits: 0, sections: 3 },
@@ -328,9 +331,50 @@ describe('JETPACK A changes nothing else', () => {
       'boss reversed jetpack': { digest: 'f1e7ebd55b71fca3', activeSteps: 1469, starts: 12, stops: 12, refills: 0, emptyActive: 3, groundedActive: 0, kills: 1, hits: 0, sections: 3 },
       'boss reversed stacked': { digest: '1ae237dc05aa6a05', activeSteps: 1771, starts: 15, stops: 13, refills: 2, emptyActive: 3, groundedActive: 0, kills: 5, hits: 29, sections: 3 },
     };
-    const got = Object.fromEntries(Object.entries(JETPACK_TRACE_SCENARIOS).map(([name, s]) => [name, jetpackTrace(s)]));
-    expect(got).toEqual(GOLDEN);
-    // The flag outlives the hover on the ground (groundedActive): dc51d0b behaviour, kept (FOUND -- NOT FIXED).
-    expect(got['area1 jetpack'].groundedActive).toBeGreaterThan(0);
+    // JETPACK BEHAVIOR FIX V1 changes the active flag and nothing else. GOLDEN stays as 19adbd4 (= dc51d0b) recorded
+    // it; everything else the trace hashes -- position, velocity, grounded, gravity, CHARGE, fuel, every event, HP,
+    // score, combo, bullets, enemies, upgrades, camera -- must still be exactly 19adbd4 with the flag left out
+    // (BASELINE_STATE, produced by the same trace on 19adbd4's model), and only the flag's own counters may move.
+    const BASELINE_STATE: Record<string, string> = {
+      'area1 plain': '004b62de4bac2995',
+      'area1 jetpack': '7ce31f1d1cbfd515',
+      'area1 jetpack mortal': '83ceb126402256c1',
+      'area1 low fuel': 'e9b55bfb47536cc2',
+      'area1 no fuel': '9bea1d9c1ad8ce05',
+      'area1 sections x3': 'c48ac474d075fc12',
+      'area2 jetpack': 'a384dd5a7c3b0dc4',
+      'area2 jetpack+drone': 'ce6f2b057a31ed3c',
+      'area3 jetpack': '3108b7d08909cb5b',
+      'area3 jetpack+balloon': 'a424a0b1bcf2c41b',
+      'area4 jetpack': '45bc22c1229bc12d',
+      'area4 stacked hurt': 'c7b6078527240595',
+      'boss reversed jetpack': 'a677a702860c9f15',
+      'boss reversed stacked': 'aa0bd0833297e3a8',
+    };
+    const FIXED: Record<string, Partial<ReturnType<typeof jetpackTrace>>> = {
+      'area1 jetpack': { digest: '51d28bcab870c771', activeSteps: 1701, stops: 15, groundedActive: 0 },
+      'area1 jetpack mortal': { digest: '6300cb2886fbec74', activeSteps: 1534, stops: 15, groundedActive: 0 },
+      'area1 low fuel': { digest: '49d610fc5ac6666c', activeSteps: 703, stops: 10, groundedActive: 0 },
+      'area1 no fuel': { digest: '9fe106f4660c63b1', activeSteps: 660, stops: 8, groundedActive: 0 },
+      'area1 sections x3': { digest: '9ceda19dacda48f0', activeSteps: 3199, groundedActive: 0 },
+      'area2 jetpack': { digest: 'f7149e6facce9845', activeSteps: 651, groundedActive: 0 },
+      'area2 jetpack+drone': { digest: 'b1c317136166b740', activeSteps: 626, groundedActive: 0 },
+      'area3 jetpack': { digest: '07c076287887ec2a', activeSteps: 1132, groundedActive: 0 },
+      'area3 jetpack+balloon': { digest: 'e1945aaffdf1a8a5', activeSteps: 1098, stops: 11, groundedActive: 0 },
+      'area4 jetpack': { digest: '995c4e6b11bbfb62', activeSteps: 1810, groundedActive: 0 },
+      'area4 stacked hurt': { digest: '012c047414ab4128', activeSteps: 1443 },
+      'boss reversed jetpack': { digest: '7fb1ddcfb2619209', activeSteps: 1443 },
+      'boss reversed stacked': { digest: '173ad23d79880d94', activeSteps: 1744, stops: 14 },
+    };
+    const FLAG_ONLY = ['digest', 'activeSteps', 'starts', 'stops', 'emptyActive', 'groundedActive'];
+    for (const [name, s] of Object.entries(JETPACK_TRACE_SCENARIOS)) {
+      expect(jetpackTrace(s, { flag: false }).digest, name).toBe(BASELINE_STATE[name]);
+      expect(jetpackTrace(s), name).toEqual({ ...GOLDEN[name], ...FIXED[name] });
+      for (const k of Object.keys(FIXED[name] ?? {})) expect(FLAG_ONLY, `${name} ${k}`).toContain(k);
+    }
+    expect(Object.keys(BASELINE_STATE).sort()).toEqual(Object.keys(GOLDEN).sort());
+    // The flag no longer outlives the hover on the ground (it did at 19adbd4: GOLDEN groundedActive > 0).
+    expect(GOLDEN['area1 jetpack'].groundedActive).toBeGreaterThan(0);
+    for (const name of Object.keys(GOLDEN)) expect({ ...GOLDEN[name], ...FIXED[name] }.groundedActive, name).toBe(0);
   }, 120_000);
 });

@@ -490,7 +490,8 @@ let pausedFrom: 'playing' | 'boss' = 'playing';
 function pause() {
   if (!isPlayMode(mode)) return;
   pausedFrom = mode;
-  mode = 'paused'; scene.model.paused = true; bridge.active = false; clearInput();
+  // The scene stops stepping the model, so the jetpack's flag is taken down here; resuming never restores it.
+  mode = 'paused'; scene.model.paused = true; scene.model.jetpackActive = false; bridge.active = false; clearInput();
   setOverlay(pausePanelHtml());
   $('resume').onclick = resume; $('restart').onclick = () => start(scene.model.practice); $('home').onclick = showTitle;
 }

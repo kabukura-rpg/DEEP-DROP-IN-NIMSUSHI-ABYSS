@@ -27,11 +27,55 @@ export function drawJetpackExhaust(g: Phaser.GameObjects.Graphics, x: number, y:
     `    g.fillStyle(r[4], alpha).fillRect(x + JETPACK_ART.originX + r[0], y + JETPACK_ART.originY + r[1], r[2], r[3]);`],
   ],
   'scenes/GameScene.ts': [
-    [`      // JETPACK PIXEL VFX V1 (render/jetpackArt): 12 rectangles a frame inside the old three strips, same flicker,
+    // ISSUE 2: the gate refuses a stopped world. ISSUE 1: the pull's sign reaches the art.
+    [`    // The model already takes the flag down when the world stops; the scene only refuses to draw a hover there.
+    if (m.jetpackActive && m.running && m.abyssStage !== 'inverting') {
+      // JETPACK PIXEL VFX V1 (render/jetpackArt): 12 rectangles a frame inside the old three strips, same flicker,
       // pointing along the pull it brakes against -- above the player once the ABYSS has turned the world over.
       drawJetpackExhaust(this.graphics, x, y, this.model.elapsed, m.gravitySign);`,
-    `      // JETPACK PIXEL VFX V1 (render/jetpackArt): 12 rectangles a frame inside the old three strips, same flicker.
+    `    if (m.jetpackActive) {
+      // JETPACK PIXEL VFX V1 (render/jetpackArt): 12 rectangles a frame inside the old three strips, same flicker.
       drawJetpackExhaust(this.graphics, x, y, this.model.elapsed);`],
+  ],
+  // ISSUE 2: the flag's lifecycle. Nothing but assignments of `jetpackActive` and their comments.
+  'systems/GameModel.ts': [
+    [`  /**
+   * True when the last simulation step ran the jetpack's fuel branch and it still applies at the end of that
+   * step: airborne, CHARGE dry, the world running. For the view and the tests; nothing simulates off it. It is
+   * the hover being paid for, not a force on every frame -- below the cap the fuel burns with nothing to brake.
+   * Anything that ends the hover (landing, a reload, a stop of the world) takes it down at once.
+   */
+  jetpackActive = false;`, `  /** True on the frames the jetpack is actually holding the player up, for the view and the tests. */
+  jetpackActive = false;`],
+    [`  step(dt: number, direction: number, firing: boolean) {
+    // Every step decides the jetpack afresh: only \`fireGun\` raises it, and a step that never reaches that
+    // branch -- standing, kicking off a wall, the world held still -- must not carry the last one's.
+    this.jetpackActive = false;
+`, `  step(dt: number, direction: number, firing: boolean) {
+`],
+    [`    // The hover raised early in this step only stands if the step ended still dry, in the air and in play: a
+    // landing, a CHARGE refill or a door into the REST point or a shop has ended it since. (The seal clears it
+    // itself as the reversal begins.)
+    if (this.jetpackActive && (p.grounded !== -1 || this.ammo > 0 || !this.running)) this.jetpackActive = false;
+`, ''],
+    [`    this.state = 'upgrade';
+    this.jetpackActive = false;
+`, `    this.state = 'upgrade';
+`],
+    [`    this.player.vy = 0;
+    this.jetpackActive = false;
+    this.events.push({ type: 'gravityFlip'`, `    this.player.vy = 0;
+    this.events.push({ type: 'gravityFlip'`],
+    [`this.state = 'clear'; this.jetpackActive = false; this.emit('clear'`, `this.state = 'clear'; this.emit('clear'`],
+    [`    // A full magazine is the gunboots back in business: whatever was hovering has stopped.
+    this.jetpackActive = false;
+`, ''],
+    [`this.state = 'over'; this.jetpackActive = false; this.emit('over'`, `this.state = 'over'; this.emit('over'`],
+  ],
+  'main.ts': [
+    [`  // The scene stops stepping the model, so the jetpack's flag is taken down here; resuming never restores it.
+  mode = 'paused'; scene.model.paused = true; scene.model.jetpackActive = false; bridge.active = false;`,
+    `  mode = 'paused'; scene.model.paused = true; bridge.active = false;`],
   ],
 };
 

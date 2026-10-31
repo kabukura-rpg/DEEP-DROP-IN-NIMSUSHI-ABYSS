@@ -10,12 +10,15 @@ import { fighting, inWindow, pin, shootEye, STEP } from './nimushi';
 import { entered, generationSignature, replaySignature } from './regressionSignature';
 import sceneSource from '../src/scenes/GameScene.ts?raw';
 import mainSource from '../src/main.ts?raw';
-import modelSource from '../src/systems/GameModel.ts?raw';
+import modelSourceRaw from '../src/systems/GameModel.ts?raw';
 import generatorSource from '../src/systems/StageGenerator.ts?raw';
 import structuresSource from '../src/data/structures.ts?raw';
 import balanceSource from '../src/data/balance.ts?raw';
 import areasSource from '../src/data/areas.ts?raw';
 import oxygenSource from '../src/systems/OxygenSystem.ts?raw';
+import { withoutJetpackBehaviorFix } from './jetpackBehaviorRestore';
+// JETPACK BEHAVIOR FIX V1 is reversed first (tests/jetpackBehaviorRestore.ts); it changed only the jetpack flag.
+const modelSource = withoutJetpackBehaviorFix('systems/GameModel.ts', modelSourceRaw);
 
 /**
  * AREA 3 AIR CONTAINER ART. One image, output/area3-air-container-art-v1/runtime/area3-air-a-intact.png

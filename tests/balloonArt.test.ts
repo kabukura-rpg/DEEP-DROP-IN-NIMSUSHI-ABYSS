@@ -8,6 +8,7 @@ import sceneSource from '../src/scenes/GameScene.ts?raw';
 import balloonSource from '../src/render/balloonArt.ts?raw';
 import { isTitleAudioGateFile, withoutTitleAudioGate } from './titleAudioGateRestore';
 import { isJetpackArtFile, withoutJetpackArt } from './jetpackArtRestore';
+import { withoutJetpackBehaviorFix } from './jetpackBehaviorRestore';
 
 /**
  * HEART BALLOON PIXEL ART RUNTIME INTEGRATION V1. Candidate A of output/balloon-visual-selection-v1
@@ -285,7 +286,7 @@ ${TETHER}      // HEART BALLOON PIXEL ART V1 (render/balloonArt): 51 rectangles 
     const order = [
       'this.graphics = this.afterEnemies;', '// BONES', 'for (const b of m.bullets) {', '// HEART BALLOON', '.lineBetween(m.balloon.x, by + 12,',
       'drawBalloonBody(this.graphics,', '// DRONE: a companion', 'drawDroneHull(this.graphics,', 'drawInvulShimmer(this.graphics, x, y, m.hp, p.invincible);',
-      'if (high) drawCoinHighChips(', "if (m.upgrades.has('laserSight')) {", 'if (m.jetpackActive) {', 'const art = this.playerArt?.render(',
+      'if (high) drawCoinHighChips(', "if (m.upgrades.has('laserSight')) {", 'if (m.jetpackActive', 'const art = this.playerArt?.render(',
       'const foreground = this.artForeground ?? g;', 'drawHurtImpact(foreground, x, y, this.hurtAge);', 'for (const particle of this.particles)',
     ];
     for (let k = 1; k < order.length; k++) expect(i(order[k - 1]), order[k]).toBeLessThan(i(order[k]));
@@ -313,7 +314,7 @@ describe('HEART BALLOON A changes nothing else', () => {
     const keys = Object.keys(SOURCES).filter(k => k !== '../src/scenes/GameScene.ts' && k !== '../src/render/balloonArt.ts' && !isTitleAudioGateFile(k) && !isJetpackArtFile(k)).sort();
     expect(keys).toHaveLength(86);
     // The same digest over the same 86 files, computed on a git archive of 6d83590.
-    expect(sha256(keys.map(k => `${k}\n${sha256(withoutTitleAudioGate(k, SOURCES[k]))}`).join('\n'))).toBe('1f195bb995e56a418ebdd568a41864f03ebf8270e3f21f1c4c8fb55d295d2d6c');
+    expect(sha256(keys.map(k => `${k}\n${sha256(withoutTitleAudioGate(k, withoutJetpackBehaviorFix(k, SOURCES[k])))}`).join('\n'))).toBe('1f195bb995e56a418ebdd568a41864f03ebf8270e3f21f1c4c8fb55d295d2d6c');
     expect(UPGRADES.filter(u => u.id === 'heartBalloon')).toHaveLength(1);
   });
 

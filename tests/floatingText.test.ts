@@ -1,5 +1,6 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import sceneSource from '../src/scenes/GameScene.ts?raw';
+import { withoutJetpackBehaviorFix } from './jetpackBehaviorRestore';
 import {
   FLOATING_TEXT_CJK_FONT, FLOATING_TEXT_CJK_SIZE, FLOATING_TEXT_COLORS, FLOATING_TEXT_FONT, FLOATING_TEXT_FONT_PROBE, FLOATING_TEXT_OUTLINE, FLOATING_TEXT_SIZES,
   addFloatingText, floatingTextStyle, inkFloatingText, usesPixelFont, type FloatingTextKind,
@@ -78,7 +79,8 @@ describe('floating text: inventory and timing are the baseline', () => {
 
   it('leaves the values the labels show where they were made: model, combo, enemies untouched', async () => {
     const SOURCES = import.meta.glob(['../src/systems/GameModel.ts', '../src/systems/ComboFeedback.ts', '../src/data/combo.ts', '../src/data/enemies.ts'], { query: '?raw', import: 'default', eager: true }) as Record<string, string>;
-    expect(Object.fromEntries(Object.entries(SOURCES).map(([path, text]) => [path.replace('../src/', ''), sha256(text)]))).toEqual({
+    // JETPACK BEHAVIOR FIX V1 is reversed first (tests/jetpackBehaviorRestore.ts); it changed only the jetpack flag.
+    expect(Object.fromEntries(Object.entries(SOURCES).map(([path, text]) => [path.replace('../src/', ''), sha256(withoutJetpackBehaviorFix(path, text))]))).toEqual({
       'systems/GameModel.ts': 'd44534da247bb31183e8dca9e1760c8cc498ad0671f5d0d6da030da021554ab6',
       'systems/ComboFeedback.ts': '1e2f0fb4f8a25e0aaed8a771e59a153fadfbea586d9d8949ced15b946a08a5fc',
       'data/combo.ts': '5f557d18b5115ac28dc763a5bf378940e1dde73b9fb950c237db4f56f1782c7c',

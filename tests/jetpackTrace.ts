@@ -36,7 +36,13 @@ const EVENTS = new Set<string>(['jetpack', 'shot', 'empty', 'land', 'kill', 'hur
 /** `enter` moves a fresh model (upgrades already granted) to where the run starts. `fuel` overrides the tank after entering (low-fuel runs). */
 export interface JetpackRun { enter: (g: GameModel) => void; held: UpgradeId[]; seconds?: number; sections?: number; invincible?: boolean; seeds?: number; fuel?: number }
 
-export function jetpackTrace({ enter, held, seconds = 10, sections = 1, invincible = true, seeds = 3, fuel }: JetpackRun): JetpackTrace {
+/**
+ * `flag: false` leaves the active flag out of the digest (JETPACK BEHAVIOR FIX V1 changes that flag and nothing else,
+ * so the rest is compared against 19adbd4 on its own). `observe` sees the model after every step, with that step's events.
+ */
+export interface TraceOptions { flag?: boolean; observe?: (g: GameModel, events: readonly { type: string }[]) => void }
+
+export function jetpackTrace({ enter, held, seconds = 10, sections = 1, invincible = true, seeds = 3, fuel }: JetpackRun, { flag = true, observe }: TraceOptions = {}): JetpackTrace {
   const hash = fnv();
   let activeSteps = 0, starts = 0, stops = 0, refills = 0, emptyActive = 0, groundedActive = 0, kills = 0, hits = 0, sectionsPlayed = 0;
   for (let seed = 1; seed <= seeds; seed++) {
@@ -52,7 +58,7 @@ export function jetpackTrace({ enter, held, seconds = 10, sections = 1, invincib
         // SECTION CLEAR -> REST -> NEXT through the model's own path; the tank refills at the opening.
         if (!g.completeSection()) break;
         g.selectUpgrade(g.upgrades.choices[0].id); g.confirmUpgrade();
-        hash.update(`next|${g.stage.label}|${g.state}|${g.jetpackFuel}|${g.jetpackActive}|`);
+        hash.update(`next|${g.stage.label}|${g.state}|${g.jetpackFuel}|${flag ? g.jetpackActive : ''}|`);
       }
       sectionsPlayed++;
       for (let i = 0; i < 120 * seconds; i++) {
@@ -75,7 +81,8 @@ export function jetpackTrace({ enter, held, seconds = 10, sections = 1, invincib
         if (active && g.jetpackFuel <= 0) emptyActive++;
         if (active && p.grounded !== -1) groundedActive++;
         wasActive = active; lastFuel = g.jetpackFuel;
-        hash.update(`${i}|p${r3(p.x)},${r3(p.y)},${r3(p.vy)},${p.grounded}|g${g.gravitySign}|a${g.ammo}|j${r3(g.jetpackFuel)},${active ? 1 : 0}|`);
+        hash.update(`${i}|p${r3(p.x)},${r3(p.y)},${r3(p.vy)},${p.grounded}|g${g.gravitySign}|a${g.ammo}|j${r3(g.jetpackFuel)},${flag ? (active ? 1 : 0) : ''}|`);
+        observe?.(g, g.events);
         for (const ev of g.events) {
           if (!EVENTS.has(ev.type)) continue;
           if (ev.type === 'kill') kills++;

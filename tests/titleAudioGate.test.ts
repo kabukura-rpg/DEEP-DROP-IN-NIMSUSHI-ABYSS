@@ -7,6 +7,7 @@ import { AREA_MUSIC, MUSIC, musicTrack } from '../src/systems/Music';
 import { ENTRY_GATE, entryGateMarkup, entryPrompt, titleMarkup } from '../src/ui/titleScreen';
 import { TITLE_AUDIO_GATE_NEW_FILES, withoutTitleAudioGate } from './titleAudioGateRestore';
 import { isJetpackArtFile, withoutJetpackArt } from './jetpackArtRestore';
+import { withoutJetpackBehaviorFix } from './jetpackBehaviorRestore';
 
 const fs = await import(/* @vite-ignore */ 'node:' + 'fs') as {
   readFileSync: { (path: URL, encoding: 'utf8'): string; (path: URL): Uint8Array };
@@ -558,7 +559,7 @@ describe('Codex A "Minimal Overlay" -- and nothing of B', () => {
 describe('gameplay is unchanged', () => {
   it('main.ts, titleScreen.ts and style.css are 03698bd byte for byte once the gate is taken back out', () => {
     const read = (path: string) => fs.readFileSync(new URL(`../src/${path}`, import.meta.url), 'utf8');
-    expect(sha256(withoutTitleAudioGate('main.ts', read('main.ts')))).toBe('ab6f9da4e17a0b26e5d1cac8f1d48508eb7da57f778f7ea831d7c8f034ccc258');
+    expect(sha256(withoutTitleAudioGate('main.ts', withoutJetpackBehaviorFix('main.ts', read('main.ts'))))).toBe('ab6f9da4e17a0b26e5d1cac8f1d48508eb7da57f778f7ea831d7c8f034ccc258');
     expect(sha256(withoutTitleAudioGate('ui/titleScreen.ts', read('ui/titleScreen.ts')))).toBe('b663febf6c41bbc71639839a5a67a8a7f704fbad634e881413f48be4909fa7db');
     // The stylesheet only gained one block, right after the title's own reduced-motion rule.
     const start = css.indexOf('/* TITLE AUDIO ENTRY GATE');

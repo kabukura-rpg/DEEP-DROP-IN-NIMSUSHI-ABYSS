@@ -124,7 +124,12 @@ export class GameModel {
   private nextCorpseId = 1;
   /** SAFETY JETPACK's remaining hover, in seconds. Refilled wherever CHARGE is. */
   jetpackFuel: number = UPGRADE_TUNING.safetyJetpack.fuelSeconds;
-  /** True on the frames the jetpack is actually holding the player up, for the view and the tests. */
+  /**
+   * True when the last simulation step ran the jetpack's fuel branch and it still applies at the end of that
+   * step: airborne, CHARGE dry, the world running. For the view and the tests; nothing simulates off it. It is
+   * the hover being paid for, not a force on every frame -- below the cap the fuel burns with nothing to brake.
+   * Anything that ends the hover (landing, a reload, a stop of the world) takes it down at once.
+   */
   jetpackActive = false;
   /** HEART BALLOON, while this SECTION still has one. */
   balloon: { x: number; y: number; alive: boolean } | null = null;
@@ -847,6 +852,9 @@ export class GameModel {
     else this.growMaxCharge(CHARGE_AMMO_BONUS);
   }
   step(dt: number, direction: number, firing: boolean) {
+    // Every step decides the jetpack afresh: only `fireGun` raises it, and a step that never reaches that
+    // branch -- standing, kicking off a wall, the world held still -- must not carry the last one's.
+    this.jetpackActive = false;
     if (!this.running) return;
     if (this.bossLine) {
       this.bossLine.timer -= dt;
@@ -1322,6 +1330,10 @@ export class GameModel {
     // otherwise grow the list for as long as they stay in there. Culling live rounds by camera band
     // is the world's job, so that half waits until time runs again.
     this.bullets = this.bullets.filter(b => b.alive && (frozen || !this.aheadOfCamera(b.y, 150)));
+    // The hover raised early in this step only stands if the step ended still dry, in the air and in play: a
+    // landing, a CHARGE refill or a door into the REST point or a shop has ended it since. (The seal clears it
+    // itself as the reversal begins.)
+    if (this.jetpackActive && (p.grounded !== -1 || this.ammo > 0 || !this.running)) this.jetpackActive = false;
     if (frozen) return;
     this.platforms = this.platforms.filter(f => !this.behindCamera(f.y, 180));
     // A GHOST comes from behind the view on purpose, and one still waiting in the wall may be waiting
@@ -2012,6 +2024,7 @@ export class GameModel {
   completeSection(sectionId = this.stage.id) {
     if (this.practice || this.state !== 'playing' || this.paused || !this.upgrades.begin(sectionId)) return false;
     this.state = 'upgrade';
+    this.jetpackActive = false;
     this.events.push({ type: 'upgrade', x: this.player.x, y: this.player.y, stage: this.stage.label, areaCleared: this.stage.isAreaFinale ? this.stage.areaName : null });
     return true;
   }
@@ -2132,6 +2145,7 @@ export class GameModel {
     this.inversionTimer = ABYSS.hold + ABYSS.reverse;
     this.inversionFlipped = false;
     this.player.vy = 0;
+    this.jetpackActive = false;
     this.events.push({ type: 'gravityFlip', x: this.player.x, y: this.player.y, value: 0 });
   }
   /**
@@ -2293,7 +2307,7 @@ export class GameModel {
     // Capture the fight length before the system is torn down; the result screen reads it after.
     this.bossClearTime = this.boss.elapsed;
     this.boss.reset();
-    this.state = 'clear'; this.emit('clear', this.player.x, this.player.y);
+    this.state = 'clear'; this.jetpackActive = false; this.emit('clear', this.player.x, this.player.y);
     return true;
   }
   private bossClearTime = 0;
@@ -2624,6 +2638,8 @@ export class GameModel {
     // so it is available in LIMBO, where a doodad is the only one of those that exists.
     // MEASUREMENT REQUIRED: the original's own reset sources are not documented.
     this.jetpackFuel = UPGRADE_TUNING.safetyJetpack.fuelSeconds;
+    // A full magazine is the gunboots back in business: whatever was hovering has stopped.
+    this.jetpackActive = false;
   }
   /**
    * Bank the chain. The tier table decides what a landing at this COMBO is worth; the DEEPEST tier
@@ -2663,7 +2679,7 @@ export class GameModel {
     this.wallJumpUsed = 0;
     this.wallTouchAge = Infinity;
   }
-  private finish() { if (this.state === 'over' || this.state === 'clear') return; this.state = 'over'; this.emit('over', this.player.x, this.player.y); }
+  private finish() { if (this.state === 'over' || this.state === 'clear') return; this.state = 'over'; this.jetpackActive = false; this.emit('over', this.player.x, this.player.y); }
   private generate() {
     // THE ABYSS lays its own terrain, by hand in the staging room and from the stretch recipe in
     // the arena. The SECTION generator has no business in either.
