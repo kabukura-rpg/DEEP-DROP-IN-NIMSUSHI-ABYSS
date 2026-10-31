@@ -267,6 +267,13 @@ export class GameModel {
   /** Raw ACTION state last step, so a held button jumps once rather than every frame. */
   private actionHeld = false;
   /**
+   * The page took ACTION away (PAUSE, a menu, a screen change: main.ts `clearInput`). Whatever was held is
+   * over, so the next press the run sees is a fresh one -- even one made before the first step after it.
+   * Only the press history moves: nothing is stepped, fired, refilled or timed. A key still physically held
+   * is kept from coming back as a press by the scene (GameScene, keydown-SPACE), not here.
+   */
+  cancelAction() { this.actionHeld = false; }
+  /**
    * Which wall the last WALL JUMP left from, so the same one cannot be ridden forever. Cleared by
    * touching the other wall or by any ordinary landing.
    */

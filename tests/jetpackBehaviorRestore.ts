@@ -5,6 +5,8 @@
  * `withoutJetpackArt` (tests/jetpackArtRestore.ts) reverses these first, so the older "nothing else changed"
  * pins keep their own digests and still prove the fix touched nothing they cover.
  */
+import { withoutInputCancelFix } from './inputCancelRestore';
+
 export const JETPACK_BEHAVIOR_HUNKS: Record<string, [string, string][]> = {
   'render/jetpackArt.ts': [
     [` * no glow, no fade. All sizes are native 450x800 world pixels.
@@ -83,6 +85,8 @@ export const JETPACK_BEHAVIOR_FILES = Object.keys(JETPACK_BEHAVIOR_HUNKS);
 
 /** `path` as any test spells it: '../src/main.ts', 'src/main.ts' or 'main.ts'. */
 export function withoutJetpackBehaviorFix(path: string, source: string) {
+  // The input-cancellation fix (tests/inputCancelRestore.ts) came after this one, so it goes back out first.
+  source = withoutInputCancelFix(path, source);
   const pairs = JETPACK_BEHAVIOR_HUNKS[path.replace(/^(\.\.\/)?(src\/)?/, '')];
   if (!pairs) return source;
   let restored = source;

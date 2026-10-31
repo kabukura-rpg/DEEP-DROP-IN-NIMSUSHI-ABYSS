@@ -331,7 +331,14 @@ export class GameScene extends Phaser.Scene {
     this.artForeground = this.add.graphics();
     this.keys = this.input.keyboard!.addKeys({ left: 'LEFT', right: 'RIGHT', a: 'A', d: 'D', space: 'SPACE' }) as Record<string, Phaser.Input.Keyboard.Key>;
     this.applyCapture();
-    this.input.keyboard!.on('keydown-SPACE', () => this.requestShot());
+    // Phaser re-arms a key that `resetKeys` let go of on its next keydown, and a SPACE held through PAUSE or a
+    // menu keeps sending the browser's auto-repeat -- which would come back as a brand-new press (a jump, a
+    // skipped line). A repeat can only reach here after a reset, never in ordinary play (Phaser swallows repeats
+    // of a key it still has down), so it is the cancelled hold: kept up until the key is really let go.
+    this.input.keyboard!.on('keydown-SPACE', (event: KeyboardEvent) => {
+      if (event.repeat) { this.keys.space.reset(); return; }
+      this.requestShot();
+    });
     for (const key of ['LEFT', 'A']) this.input.keyboard!.on(`keydown-${key}`, () => { if (this.acceptsKeys) this.inputBuffer.move(-1); });
     for (const key of ['RIGHT', 'D']) this.input.keyboard!.on(`keydown-${key}`, () => { if (this.acceptsKeys) this.inputBuffer.move(1); });
     this.draw();
@@ -373,7 +380,7 @@ export class GameScene extends Phaser.Scene {
   /** True when a key press belongs to the run rather than to a menu that just closed. */
   private get acceptsKeys() { return this.bridge.active && performance.now() >= this.bridge.suppressUntil; }
   requestShot() { if (this.acceptsKeys) this.inputBuffer.shoot(); }
-  resetKeys() { this.input.keyboard?.resetKeys(); this.bridge.firing = false; this.bridge.direction = 0; this.inputBuffer.clear(); }
+  resetKeys() { this.input.keyboard?.resetKeys(); this.bridge.firing = false; this.bridge.direction = 0; this.inputBuffer.clear(); this.model.cancelAction(); }
   update(_time: number, delta: number) {
     if (!this.graphics) return;
     const dt = Math.min(delta / 1000, 0.05);
