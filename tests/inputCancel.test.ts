@@ -3,6 +3,7 @@ import { GameModel } from '../src/systems/GameModel';
 import { previewSideCave } from '../src/dev/sideCavePreview';
 import { ABYSS } from '../src/data/abyss';
 import { INPUT_CANCEL_FILES, withoutInputCancelFix } from './inputCancelRestore';
+import { isTapiocaProjectileArtFile } from './tapiocaProjectileArtRestore';
 import { pipeline, type Pipeline, type Snapshot, type Variant } from './inputPipeline';
 
 /**
@@ -47,7 +48,8 @@ describe('the fix touches two sources, and only the lines listed', () => {
       expect(sha256(withoutInputCancelFix(path, SOURCES[`../src/${path}`])), path).toBe(digest);
     }
     // main.ts, InputBuffer, the art, the gate, upgrades, data: computed with `git show dae7a93:<path>`.
-    const keys = Object.keys(SOURCES).filter(k => !(k.replace('../src/', '') in AT_DAE7A93)).sort();
+    // render/tapiocaProjectileArt.ts is the BOSS pearl's art, added after 959a5f4 (tests/tapiocaProjectileArt.test.ts).
+    const keys = Object.keys(SOURCES).filter(k => !(k.replace('../src/', '') in AT_DAE7A93) && !isTapiocaProjectileArtFile(k)).sort();
     expect(keys).toHaveLength(89);
     expect(sha256(keys.map(k => `${k}\n${sha256(SOURCES[k])}`).join('\n'))).toBe('963262454bb6aee20bc09c15467824024f1efdaca20880e3c58f35dffda8b184');
   });

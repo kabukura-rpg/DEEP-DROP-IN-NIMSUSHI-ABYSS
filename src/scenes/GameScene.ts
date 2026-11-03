@@ -37,6 +37,7 @@ import { CORPSE_ART_KEY, corpseArt, corpseArtLoads, corpsePlacement } from '../r
 import { DRONE_ART, drawDroneHull } from '../render/droneArt';
 import { BALLOON_ART, drawBalloonBody } from '../render/balloonArt';
 import { drawJetpackExhaust } from '../render/jetpackArt';
+import { TAPIOCA_PROJECTILE_ART, drawTapiocaProjectile } from '../render/tapiocaProjectileArt';
 import { addFloatingText, loadFloatingTextFont, type FloatingTextKind } from '../render/floatingText';
 import { BOSS_DIALOGUE, BOSS_DIALOGUE_FONT, BOSS_DIALOGUE_WEIGHT, bossDialogueFontReady, bossDialogueMetrics, drawBossDialogueShell, loadBossDialogueFont } from '../render/bossDialogue';
 import { CAVE_ENTRANCE_FRAMES, CAVE_SHELL_AREAS, CAVE_SHELL_GEOMETRY, CAVE_SHELL_KEYS, CAVE_SHELL_LIGHT, caveBackwallPlacement, caveCeilingArt, caveCeilingLoads, caveCeilingPlacement, caveEntrancePlacement, caveShellArt, caveShellLoads } from '../render/caveShellArt';
@@ -1942,6 +1943,9 @@ export class GameScene extends Phaser.Scene {
       const py = pearl.y - cam;
       if (py < -30 || py > 840) continue;
       // A pale rim first: a dark pearl on a dark shaft has to read as a THING coming at the player.
+      // BOSS TAPIOCA PROJECTILE PIXEL ART V1 (render/tapiocaProjectileArt): the TRIPLE SHOT pearl as 17 rectangles
+      // inside the old rim's 22x22, same three colours. Any other size keeps the three circles.
+      if (pearl.size === TAPIOCA_PROJECTILE_ART.size) { drawTapiocaProjectile(this.graphics, pearl.x, py); continue; }
       this.graphics.fillStyle(0xffe9c4, 0.85).fillCircle(pearl.x, py, pearl.size + 2);
       this.graphics.fillStyle(0x1b1016, 0.95).fillCircle(pearl.x, py, pearl.size);
       this.graphics.fillStyle(0x6b4a58, 0.8).fillCircle(pearl.x - pearl.size * 0.3, py - pearl.size * 0.3, pearl.size * 0.4);

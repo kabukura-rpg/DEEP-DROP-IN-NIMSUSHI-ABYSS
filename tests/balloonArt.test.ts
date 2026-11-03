@@ -9,6 +9,7 @@ import balloonSource from '../src/render/balloonArt.ts?raw';
 import { isTitleAudioGateFile, withoutTitleAudioGate } from './titleAudioGateRestore';
 import { isJetpackArtFile, withoutJetpackArt } from './jetpackArtRestore';
 import { withoutJetpackBehaviorFix } from './jetpackBehaviorRestore';
+import { isTapiocaProjectileArtFile } from './tapiocaProjectileArtRestore';
 
 /**
  * HEART BALLOON PIXEL ART RUNTIME INTEGRATION V1. Candidate A of output/balloon-visual-selection-v1
@@ -311,7 +312,8 @@ describe('HEART BALLOON A changes nothing else', () => {
     const SOURCES = import.meta.glob(['../src/**/*.ts'], { query: '?raw', import: 'default', eager: true }) as Record<string, string>;
     // TITLE AUDIO ENTRY GATE V1's two new files left out and its hunks taken back out (tests/titleAudioGateRestore.ts).
     // render/jetpackArt.ts is the JETPACK's exhaust, added after dc51d0b (tests/jetpackArt.test.ts) -- not part of this change.
-    const keys = Object.keys(SOURCES).filter(k => k !== '../src/scenes/GameScene.ts' && k !== '../src/render/balloonArt.ts' && !isTitleAudioGateFile(k) && !isJetpackArtFile(k)).sort();
+    // render/tapiocaProjectileArt.ts is the BOSS pearl's art, added after 959a5f4 (tests/tapiocaProjectileArt.test.ts).
+    const keys = Object.keys(SOURCES).filter(k => k !== '../src/scenes/GameScene.ts' && k !== '../src/render/balloonArt.ts' && !isTitleAudioGateFile(k) && !isJetpackArtFile(k) && !isTapiocaProjectileArtFile(k)).sort();
     expect(keys).toHaveLength(86);
     // The same digest over the same 86 files, computed on a git archive of 6d83590.
     expect(sha256(keys.map(k => `${k}\n${sha256(withoutTitleAudioGate(k, withoutJetpackBehaviorFix(k, SOURCES[k])))}`).join('\n'))).toBe('1f195bb995e56a418ebdd568a41864f03ebf8270e3f21f1c4c8fb55d295d2d6c');

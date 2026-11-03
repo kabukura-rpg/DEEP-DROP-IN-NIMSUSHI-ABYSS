@@ -4,7 +4,12 @@
  *
  * `withoutJetpackBehaviorFix` (tests/jetpackBehaviorRestore.ts) reverses these first, so every older "nothing else
  * changed" pin keeps its own digest and still proves the earlier changes touched nothing they cover.
+ *
+ * BOSS TAPIOCA PROJECTILE PIXEL ART V1 came after the fix, so its hunks (tests/tapiocaProjectileArtRestore.ts) are
+ * reversed first here.
  */
+import { withoutTapiocaProjectileArt } from './tapiocaProjectileArtRestore';
+
 export const INPUT_CANCEL_HUNKS: Record<string, [string, string][]> = {
   'systems/GameModel.ts': [
     [`  private actionHeld = false;
@@ -35,6 +40,7 @@ export const INPUT_CANCEL_FILES = Object.keys(INPUT_CANCEL_HUNKS);
 
 /** `path` as any test spells it: '../src/main.ts', 'src/main.ts' or 'main.ts'. */
 export function withoutInputCancelFix(path: string, source: string) {
+  source = withoutTapiocaProjectileArt(path, source);
   const pairs = INPUT_CANCEL_HUNKS[path.replace(/^(\.\.\/)?(src\/)?/, '')];
   if (!pairs) return source;
   let restored = source;

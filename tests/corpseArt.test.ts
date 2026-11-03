@@ -13,6 +13,7 @@ import sceneSource from '../src/scenes/GameScene.ts?raw';
 import { isTitleAudioGateFile, withoutTitleAudioGate } from './titleAudioGateRestore';
 import { isJetpackArtFile, withoutJetpackArt } from './jetpackArtRestore';
 import { withoutJetpackBehaviorFix } from './jetpackBehaviorRestore';
+import { isTapiocaProjectileArtFile } from './tapiocaProjectileArtRestore';
 
 /**
  * CORPSE PIXEL ART RUNTIME INTEGRATION V1. One image, output/corpse-art-audit-v1/candidates/
@@ -502,7 +503,8 @@ describe('gameplay invariance', () => {
     // render/droneArt.ts is the DRONE's body, added after 7e4c59d (tests/droneArt.test.ts), and render/balloonArt.ts the
     // HEART BALLOON's, added after 6d83590 (tests/balloonArt.test.ts), and render/jetpackArt.ts the JETPACK's exhaust,
     // added after dc51d0b (tests/jetpackArt.test.ts) -- none is part of this change.
-    const keys = Object.keys(SOURCES).filter(k => k !== '../src/scenes/GameScene.ts' && k !== '../src/render/corpseArt.ts' && k !== '../src/render/droneArt.ts' && k !== '../src/render/balloonArt.ts' && !isTitleAudioGateFile(k) && !isJetpackArtFile(k)).sort();
+    // render/tapiocaProjectileArt.ts, the BOSS pearl's art, came after 959a5f4 (tests/tapiocaProjectileArt.test.ts).
+    const keys = Object.keys(SOURCES).filter(k => k !== '../src/scenes/GameScene.ts' && k !== '../src/render/corpseArt.ts' && k !== '../src/render/droneArt.ts' && k !== '../src/render/balloonArt.ts' && !isTitleAudioGateFile(k) && !isJetpackArtFile(k) && !isTapiocaProjectileArtFile(k)).sort();
     expect(keys).toHaveLength(84);
     // The same digest over the same 84 files, computed at e948ece -- TITLE AUDIO ENTRY GATE V1 taken back
     // out first (tests/titleAudioGateRestore.ts).
