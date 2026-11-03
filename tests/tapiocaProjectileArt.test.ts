@@ -48,9 +48,11 @@ const SPEC = {
 } as const;
 
 type Op = { op: 'style'; color: number; alpha: number } | { op: 'rect'; x: number; y: number; w: number; h: number } | { op: 'circle'; x: number; y: number; r: number };
-function recorder() {
+/** A recording Graphics; `tx`/`ty` are its own translation (the scene's shake / cameraX offset, as g.x / g.y). */
+function recorder(tx = 0, ty = 0) {
   const ops: Op[] = [];
   const g = {
+    x: tx, y: ty,
     fillStyle(color: number, alpha = 1) { ops.push({ op: 'style', color, alpha }); return g; },
     fillRect(x: number, y: number, w: number, h: number) { ops.push({ op: 'rect', x, y, w, h }); return g; },
     fillCircle(x: number, y: number, r: number) { ops.push({ op: 'circle', x, y, r }); return g; },
@@ -278,6 +280,93 @@ describe('TAPIOCA A in the scene: same pearls, same cull, same place in the draw
     // nothing here turns them on.
     expect([TAPIOCA_SHOWER.size, FULL_SCREEN_TAPIOCA.size, FULL_SCREEN_TAPIOCA.enabled]).toEqual([9, 9, false]);
     for (const phase of ABYSS_PHASES) expect([...phase.attacks].sort()).toEqual(['enemySummon', 'tripleShot']);
+  });
+});
+
+/**
+ * CANVAS SUBPIXEL FIX. The scene translates its Graphics by the shake (and, in SIDE CAVEs, cameraX), often by a
+ * fraction of a pixel. 2ffc1b0 drew the rects at integer LOCAL coordinates, so on screen they sat at integer + fraction:
+ * WebGL fills by pixel centre and showed hard edges, Canvas 2D antialiased the fractional edge one pixel outside the
+ * old rim's raster square. The rects now start on the screen pixel WebGL already filled.
+ */
+describe('TAPIOCA A under a fractional Graphics translation (Canvas subpixel fix)', () => {
+  /** 2ffc1b0's local left/top, and the first pixel WebGL's centre rule fills for an edge at e + t. */
+  const before = (c: number) => Math.round(c) - 11;
+  const webglFirst = (edge: number, t: number) => Math.ceil(edge + t - 0.5);
+  const translations = [0, -0.52, 0.52, 0.5, -0.5, 0.25, -13.25, 13.25, 1.999, -2.0001, 3, -3.75];
+  type Rect = Extract<Op, { op: 'rect' }>;
+  const screenBox = (ops: Op[], tx: number, ty: number) => bounds(raster(fills(ops).map(f => ({ ...f, x: Math.round(f.x + tx), y: Math.round(f.y + ty) }))));
+
+  it('is 2ffc1b0 call for call with no translation, and with any whole-pixel one', () => {
+    const random = seeded(5);
+    for (let i = 0; i < 300; i++) {
+      const x = 20 + random() * 410 + (i % 5 === 0 ? 0.5 : 0), y = random() * 800, [tx, ty] = [[0, 0], [3, -2], [-7, 0]][i % 3];
+      const r = recorder(tx, ty), old = recorder();
+      drawTapiocaProjectile(r.g, x, y);
+      // 2ffc1b0's helper ignored the translation: its call list is this one with no translation.
+      drawTapiocaProjectile(old.g, x, y);
+      expect(old.ops.filter(o => o.op === 'rect')[0]).toMatchObject({ x: before(x) + 6, y: before(y) });
+      expect(r.ops).toEqual(old.ops);
+    }
+  });
+
+  it('puts every rect edge on a whole screen pixel: no fractional edge for Canvas 2D to antialias', () => {
+    const random = seeded(17);
+    for (let i = 0; i < 600; i++) {
+      const x = 20 + random() * 410 + (i % 5 === 0 ? 0.5 : 0), y = random() * 800;
+      const tx = translations[i % translations.length], ty = i % 4 === 0 ? -0.75 : 0;
+      const r = recorder(tx, ty);
+      drawTapiocaProjectile(r.g, x, y);
+      for (const o of r.ops) if (o.op === 'rect') {
+        // The renderer adds the translation back; the screen edge is a whole pixel (to float precision).
+        for (const v of [o.x + tx, o.y + ty]) expect(Math.abs(v - Math.round(v)), `${x} ${tx}`).toBeLessThan(1e-9);
+        expect(Number.isInteger(o.w) && Number.isInteger(o.h)).toBe(true);
+      }
+    }
+  });
+
+  it("keeps WebGL's pixels: the screen square is exactly the one 2ffc1b0's rects filled by pixel centre", () => {
+    const random = seeded(29);
+    for (let i = 0; i < 600; i++) {
+      const x = 20 + random() * 410 + (i % 7 === 0 ? 0.5 : 0), y = random() * 800 + (i % 9 === 0 ? 0.5 : 0);
+      const tx = translations[i % translations.length], ty = i % 4 === 0 ? 0.5 : 0;
+      const r = recorder(tx, ty);
+      drawTapiocaProjectile(r.g, x, y);
+      expect(screenBox(r.ops, tx, ty)).toEqual({ x: webglFirst(before(x), tx), y: webglFirst(before(y), ty), w: 22, h: 22 });
+    }
+  });
+
+  it("stays inside the old rim circle's raster square floor(c - 11 + t)..ceil(c + 11 + t) at every translation", () => {
+    const random = seeded(41);
+    for (let i = 0; i < 2000; i++) {
+      const x = 20 + random() * 410 + (i % 5 === 0 ? 0.5 : 0), y = random() * 800 + (i % 3 === 0 ? 0.5 : 0);
+      const tx = i < 600 ? translations[i % translations.length] : (random() - 0.5) * 8, ty = i % 4 === 0 ? (random() - 0.5) * 2 : 0;
+      const r = recorder(tx, ty);
+      drawTapiocaProjectile(r.g, x, y);
+      const box = screenBox(r.ops, tx, ty);
+      expect(box.x).toBeGreaterThanOrEqual(Math.floor(x - 11 + tx)); expect(box.x + box.w).toBeLessThanOrEqual(Math.ceil(x + 11 + tx));
+      expect(box.y).toBeGreaterThanOrEqual(Math.floor(y - 11 + ty)); expect(box.y + box.h).toBeLessThanOrEqual(Math.ceil(y + 11 + ty));
+    }
+  });
+
+  it('keeps the 17 rects, 3 colours, order and pixel map at any translation: only the whole square moves', () => {
+    const at = (tx: number) => { const r = recorder(tx, 0); drawTapiocaProjectile(r.g, 200.3, 400.7); return r.ops; };
+    const zero = at(0);
+    for (const tx of translations) {
+      const ops = at(tx);
+      expect(ops.map(o => o.op)).toEqual(zero.map(o => o.op));
+      expect(ops.filter(o => o.op === 'style')).toEqual(zero.filter(o => o.op === 'style'));
+      const shift = (ops[1] as Rect).x - (zero[1] as Rect).x;
+      ops.forEach((o, k) => { if (o.op === 'rect') { const z = zero[k] as Rect; expect(o.x - z.x).toBeCloseTo(shift, 9); expect([o.y - z.y, o.w, o.h]).toEqual([0, z.w, z.h]); } });
+    }
+  });
+
+  it('reads the translation only: the Graphics is not moved, no camera or global setting is touched', () => {
+    const r = recorder(-0.52, 0.25);
+    drawTapiocaProjectile(r.g, 100.4, 300.6);
+    expect([(r.g as unknown as { x: number }).x, (r.g as unknown as { y: number }).y]).toEqual([-0.52, 0.25]);
+    const code = artSource.slice(artSource.indexOf('const snap'));
+    for (const banned of ['setPosition', '.x =', '.y =', 'new ', 'roundPixels', 'cameras', 'setScroll', 'Math.random']) expect(code, banned).not.toContain(banned);
   });
 });
 
