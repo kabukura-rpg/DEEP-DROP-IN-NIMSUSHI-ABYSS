@@ -38,6 +38,7 @@ import { DRONE_ART, drawDroneHull } from '../render/droneArt';
 import { BALLOON_ART, drawBalloonBody } from '../render/balloonArt';
 import { drawJetpackExhaust } from '../render/jetpackArt';
 import { TAPIOCA_PROJECTILE_ART, drawTapiocaProjectile } from '../render/tapiocaProjectileArt';
+import { drawTimeoutArt } from '../render/timeoutArt';
 import { addFloatingText, loadFloatingTextFont, type FloatingTextKind } from '../render/floatingText';
 import { BOSS_DIALOGUE, BOSS_DIALOGUE_FONT, BOSS_DIALOGUE_WEIGHT, bossDialogueFontReady, bossDialogueMetrics, drawBossDialogueShell, loadBossDialogueFont } from '../render/bossDialogue';
 import { CAVE_ENTRANCE_FRAMES, CAVE_SHELL_AREAS, CAVE_SHELL_GEOMETRY, CAVE_SHELL_KEYS, CAVE_SHELL_LIGHT, caveBackwallPlacement, caveCeilingArt, caveCeilingLoads, caveCeilingPlacement, caveEntrancePlacement, caveShellArt, caveShellLoads } from '../render/caveShellArt';
@@ -966,8 +967,8 @@ export class GameScene extends Phaser.Scene {
       const by = bubble.y - cam;
       if (by < -bubble.radius || by > 820 + bubble.radius) continue;
       const pulse = 0.1 + Math.abs(Math.sin(this.model.elapsed * 1.4 + bubble.id)) * 0.06;
-      this.graphics.fillStyle(0x9fe8f5, pulse).fillCircle(bubble.x, by, bubble.radius);
-      this.graphics.lineStyle(2, 0x9fe8f5, 0.5).strokeCircle(bubble.x, by, bubble.radius);
+      // TIMEOUT AREA PIXEL ART V1 (render/timeoutArt): the same cyan disc and rim as 2px steps, rim at .5 + .5 * pulse.
+      drawTimeoutArt(this.graphics, bubble.x, by, pulse);
     }
     // Bodies. Inert scenery -- what they are worth is KNIFE AND FORK's and REST IN PIECES' business.
     // The common body image (render/corpseArt) on `corpseLayer`, at the same alpha; null if missing (procedural).

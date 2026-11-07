@@ -4,6 +4,7 @@ import { JETPACK_ART, drawJetpackExhaust } from '../src/render/jetpackArt';
 import { GameModel } from '../src/systems/GameModel';
 import { JETPACK_BEHAVIOR_FILES, withoutJetpackBehaviorFix } from './jetpackBehaviorRestore';
 import { isTapiocaProjectileArtFile } from './tapiocaProjectileArtRestore';
+import { isTimeoutArtFile } from './timeoutArtRestore';
 import { spawnEnemy } from '../src/data/enemies';
 import { JETPACK_TRACE_SCENARIOS, jetpackTrace } from './jetpackTrace';
 import sceneSource from '../src/scenes/GameScene.ts?raw';
@@ -150,7 +151,7 @@ describe('JETPACK BEHAVIOR FIX V1 changes nothing else', () => {
     for (const path of JETPACK_BEHAVIOR_FILES) expect(Object.keys(AT_19ADBD4), path).toContain(path);
     for (const [path, digest] of Object.entries(AT_19ADBD4)) expect(sha256(withoutJetpackBehaviorFix(path, SOURCES[`../src/${path}`])), path).toBe(digest);
     // The other 87 sources, computed with `git show 19adbd4:<path>` (the BOSS pearl's art, added after 959a5f4, left out).
-    const keys = Object.keys(SOURCES).filter(k => !(k.replace('../src/', '') in AT_19ADBD4) && !isTapiocaProjectileArtFile(k)).sort();
+    const keys = Object.keys(SOURCES).filter(k => !(k.replace('../src/', '') in AT_19ADBD4) && !isTapiocaProjectileArtFile(k) && !isTimeoutArtFile(k)).sort();
     expect(keys).toHaveLength(87);
     expect(sha256(keys.map(k => `${k}\n${sha256(SOURCES[k])}`).join('\n'))).toBe('53791ad480e20030ff11cb128cc40b1a27381e2fe8c488ffeb18fabb45994026');
   });

@@ -6,7 +6,11 @@
  *
  * `withoutInputCancelFix` (tests/inputCancelRestore.ts) reverses these first, so every older "nothing else changed" pin
  * keeps its own digest and still proves the earlier changes touched nothing they cover.
+ *
+ * TIMEOUT AREA PIXEL ART V1 came after the pearl art, so its hunks (tests/timeoutArtRestore.ts) are reversed first here.
  */
+import { withoutTimeoutArt } from './timeoutArtRestore';
+
 export const TAPIOCA_ART_NEW_FILES = ['render/tapiocaProjectileArt.ts'] as const;
 
 export const TAPIOCA_ART_HUNKS: Record<string, [string, string][]> = {
@@ -26,6 +30,7 @@ import { TAPIOCA_PROJECTILE_ART, drawTapiocaProjectile } from '../render/tapioca
 
 /** `path` as any test spells it: '../src/scenes/GameScene.ts', 'src/scenes/GameScene.ts' or 'scenes/GameScene.ts'. */
 export function withoutTapiocaProjectileArt(path: string, source: string) {
+  source = withoutTimeoutArt(path, source);
   const pairs = TAPIOCA_ART_HUNKS[path.replace(/^(\.\.\/)?(src\/)?/, '')];
   if (!pairs) return source;
   let restored = source;
