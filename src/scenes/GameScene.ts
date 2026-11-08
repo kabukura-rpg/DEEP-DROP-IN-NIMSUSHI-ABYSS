@@ -39,6 +39,7 @@ import { BALLOON_ART, drawBalloonBody } from '../render/balloonArt';
 import { drawJetpackExhaust } from '../render/jetpackArt';
 import { TAPIOCA_PROJECTILE_ART, drawTapiocaProjectile } from '../render/tapiocaProjectileArt';
 import { drawTimeoutArt } from '../render/timeoutArt';
+import { drawAirBubbleArt } from '../render/airBubbleArt';
 import { addFloatingText, loadFloatingTextFont, type FloatingTextKind } from '../render/floatingText';
 import { BOSS_DIALOGUE, BOSS_DIALOGUE_FONT, BOSS_DIALOGUE_WEIGHT, bossDialogueFontReady, bossDialogueMetrics, drawBossDialogueShell, loadBossDialogueFont } from '../render/bossDialogue';
 import { CAVE_ENTRANCE_FRAMES, CAVE_SHELL_AREAS, CAVE_SHELL_GEOMETRY, CAVE_SHELL_KEYS, CAVE_SHELL_LIGHT, caveBackwallPlacement, caveCeilingArt, caveCeilingLoads, caveCeilingPlacement, caveEntrancePlacement, caveShellArt, caveShellLoads } from '../render/caveShellArt';
@@ -938,8 +939,8 @@ export class GameScene extends Phaser.Scene {
       const by = bubble.y - cam;
       if (by < -40 || by > 850) continue;
       const fade = bubble.life < 1 ? 0.35 + Math.abs(Math.sin(this.model.elapsed * 18)) * 0.5 : 0.92;
-      this.graphics.lineStyle(2, 0x9fe8f5, fade).strokeCircle(bubble.x, by, 9);
-      this.rect(bubble.x - 4, by - 5, 3, 3, 0xffffff, fade * 0.8);
+      // AIR BUBBLES VISUAL DESIGN V1 (render/airBubbleArt): the same cyan ring and glint as 2px steps, at the same fade.
+      drawAirBubbleArt(this.graphics, bubble.x, by, fade);
     }
     // Loose coins.
     let coinImages = 0;

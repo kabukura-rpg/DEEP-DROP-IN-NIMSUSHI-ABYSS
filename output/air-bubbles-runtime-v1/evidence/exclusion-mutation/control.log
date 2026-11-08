@@ -1,0 +1,32 @@
+
+ RUN  v3.2.7 <scratch-copy>
+
+ ✓ tests/titleAudioGate.test.ts (46 tests) 95ms
+ ✓ tests/inputCancel.test.ts (34 tests) 1142ms
+ ✓ tests/airBubbleArt.test.ts (21 tests) 1638ms
+   ✓ AIR A changes nothing else > plays exactly as 5969f37: release, climb, catch, expiry and SECTIONs in every fixture run  1604ms
+ ✓ tests/jetpackBehavior.test.ts (21 tests) 1763ms
+   ✓ ISSUE 2: the hover ends when the hover ends > every step of every trace run obeys the contract: lit exactly when the fuel branch ran and still applies  1653ms
+ ✓ tests/timeoutArt.test.ts (22 tests) 2101ms
+   ✓ TIMEOUT A changes nothing else > plays exactly as e9b0e2a: natural REST pick -> 1-2 caveBat hit (seed 813), and every fixture run  1705ms
+ ✓ tests/balloonArt.test.ts (17 tests) 2437ms
+   ✓ HEART BALLOON A in the scene: same place, same tether, same layer > sits on the model centre at every position: inside the old circle, the box rounded from the centre  495ms
+   ✓ HEART BALLOON A changes nothing else > plays exactly as 6d83590: the same balloon, pops, blasts, kills, fall, SECTION returns and reversal  1841ms
+ ✓ tests/corpseArt.test.ts (25 tests) 2987ms
+   ✓ where bodies come from (unchanged) > AREA 4 lays none: no kind it can field leaves one, in any SECTION or seed  1456ms
+   ✓ gameplay invariance > plays every body exactly as e948ece did: spawn, motion, life, eating, blasts, OMNOM, HP, score, chain, coins  1386ms
+ ✓ tests/jetpackArt.test.ts (17 tests) 3483ms
+   ✓ JETPACK A in the scene: same gate, same place, same layer > sits on the rounded player at every position, the same offset as dc51d0b, mirrored above it under the BOSS reversal  1142ms
+   ✓ JETPACK A changes nothing else > plays exactly as dc51d0b: the same hover, fuel, refills, CHARGE, fall, hits, SECTION returns and reversal; the flag as fixed  2164ms
+ ✓ tests/tapiocaProjectileArt.test.ts (20 tests) 10073ms
+   ✓ TAPIOCA A in the scene: same pearls, same cull, same place in the draw > stays inside the old rim's raster square on every frame: floor(c - 11) .. ceil(c + 11), both axes  372ms
+   ✓ TAPIOCA A under a fractional Graphics translation (Canvas subpixel fix) > puts every rect edge on a whole screen pixel: no fractional edge for Canvas 2D to antialias  416ms
+   ✓ TAPIOCA A under a fractional Graphics translation (Canvas subpixel fix) > keeps WebGL's pixels: the screen square is exactly the one 2ffc1b0's rects filled by pixel centre  391ms
+   ✓ TAPIOCA A under a fractional Graphics translation (Canvas subpixel fix) > stays inside the old rim circle's raster square floor(c - 11 + t)..ceil(c + 11 + t) at every translation  1188ms
+   ✓ TAPIOCA A changes nothing else > plays exactly as 959a5f4: the same pearls, flights, shoot-downs, hits and phases, seed for seed  7604ms
+
+ Test Files  9 passed (9)
+      Tests  223 passed (223)
+   Start at  08:18:56
+   Duration  11.34s (transform 1.64s, setup 0ms, collect 7.20s, tests 25.72s, environment 1ms, prepare 1.00s)
+

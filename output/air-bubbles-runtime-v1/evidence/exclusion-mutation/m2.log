@@ -1,0 +1,137 @@
+
+ RUN  v3.2.7 <scratch-copy>
+
+ ✓ tests/titleAudioGate.test.ts (46 tests) 89ms
+ ✓ tests/inputCancel.test.ts (34 tests) 1226ms
+ ❯ tests/airBubbleArt.test.ts (21 tests | 3 failed) 1901ms
+   × AIR A: the stepped ring > is candidate A exactly: the approved module's draw calls, byte for byte 9ms
+     → expected [ [ 's', 10479862, 1 ], …(15) ] to deeply equal [ [ 's', 10479861, 1 ], …(15) ]
+   ✓ AIR A: the stepped ring > is the approved pattern: 12 ring and 2 glint rects covering exactly its r and h cells, each pixel once 3ms
+   × AIR A: the stepped ring > keeps the old colour and size: #9fe8f5 ring, 20px across like the old r9 + 2px stroke; glint #f0ffff at .9 2ms
+     → expected { ring: 10479862, …(2) } to deeply equal { ring: 10479861, …(2) }
+   × AIR A: the stepped ring > draws 2 styles and 14 rects per bubble, ring at fade then glint at .9 * fade; no stroke or circle 2ms
+     → expected [ { op: 'style', …(2) }, …(1) ] to deeply equal [ { op: 'style', …(2) }, …(1) ]
+   ✓ AIR A: the stepped ring > allocates nothing per frame: indexed loops over module arrays, no Phaser value imports 1ms
+   ✓ AIR A on the screen pixel grid > snaps only the centre: every final screen edge is a whole pixel at any translation, within .5px of the model 20ms
+   ✓ AIR A on the screen pixel grid > keeps the shape at any translation: only the whole bubble moves, by whole pixels 0ms
+   ✓ AIR A on the screen pixel grid > stays inside the old ring's envelope: within r10 + half a pixel of the unrounded centre 3ms
+   ✓ AIR A on the screen pixel grid > reads the translation only: the Graphics is not moved 0ms
+   ✓ AIR A in the scene: same bubbles, same cull, same fade, same layer > replaces only the stroke and glint lines: loop, cull, screen y and fade are 5969f37's 0ms
+   ✓ AIR A in the scene: same bubbles, same cull, same fade, same layer > draws nothing with no bubble, and 16 commands per visible bubble, oldest first (1 / 3 / 4 / 5 / 12) 3ms
+   ✓ AIR A in the scene: same bubbles, same cull, same fade, same layer > culls exactly the bubbles 5969f37 culled, by their centre against [-40, 850] 1ms
+   ✓ AIR A in the scene: same bubbles, same cull, same fade, same layer > fades as before: .92 while alive, .35 + |sin(elapsed * 18)| * .5 in its last second, for ring and old stroke alike 2ms
+   ✓ AIR A in the scene: same bubbles, same cull, same fade, same layer > keeps the old overlap: each bubble painted on its own, so a burst at one centre stacks as before 1ms
+   ✓ AIR A in the scene: same bubbles, same cull, same fade, same layer > keeps draw()'s order: containers, worldFrontAir, BUBBLES, coins, TIMEOUT -- and no new layer or texture 3ms
+   ✓ AIR A in the scene: same bubbles, same cull, same fade, same layer > draws without touching the model: bubbles are left as found 2ms
+   ✓ AIR A changes nothing else > is 5969f37 GameScene.ts byte for byte once its two hunks are put back 1ms
+   ✓ AIR A changes nothing else > leaves every other source byte-identical to 5969f37: model, oxygen, containers, TIMEOUT art, UI, audio 1ms
+   ✓ AIR A changes nothing else > adds no PNG and no texture: the shipped image set is 5969f37's 0ms
+   ✓ AIR A changes nothing else > keeps the AIR rules: 3-5 per container, 4.2 s, 5 s of air, armed after .08 s, rising to 96 px/s 0ms
+   ✓ AIR A changes nothing else > plays exactly as 5969f37: release, climb, catch, expiry and SECTIONs in every fixture run  1846ms
+ ✓ tests/jetpackBehavior.test.ts (21 tests) 2037ms
+   ✓ ISSUE 2: the hover ends when the hover ends > every step of every trace run obeys the contract: lit exactly when the fuel branch ran and still applies  1917ms
+ ✓ tests/timeoutArt.test.ts (22 tests) 2212ms
+   ✓ TIMEOUT A changes nothing else > plays exactly as e9b0e2a: natural REST pick -> 1-2 caveBat hit (seed 813), and every fixture run  1797ms
+ ✓ tests/balloonArt.test.ts (17 tests) 2596ms
+   ✓ HEART BALLOON A in the scene: same place, same tether, same layer > sits on the model centre at every position: inside the old circle, the box rounded from the centre  575ms
+   ✓ HEART BALLOON A changes nothing else > plays exactly as 6d83590: the same balloon, pops, blasts, kills, fall, SECTION returns and reversal  1916ms
+ ✓ tests/corpseArt.test.ts (25 tests) 3107ms
+   ✓ where bodies come from (unchanged) > AREA 4 lays none: no kind it can field leaves one, in any SECTION or seed  1848ms
+   ✓ gameplay invariance > plays every body exactly as e948ece did: spawn, motion, life, eating, blasts, OMNOM, HP, score, chain, coins  1089ms
+ ✓ tests/jetpackArt.test.ts (17 tests) 3556ms
+   ✓ JETPACK A in the scene: same gate, same place, same layer > sits on the rounded player at every position, the same offset as dc51d0b, mirrored above it under the BOSS reversal  1337ms
+   ✓ JETPACK A changes nothing else > plays exactly as dc51d0b: the same hover, fuel, refills, CHARGE, fall, hits, SECTION returns and reversal; the flag as fixed  2049ms
+ ✓ tests/tapiocaProjectileArt.test.ts (20 tests) 9499ms
+   ✓ TAPIOCA A in the scene: same pearls, same cull, same place in the draw > stays inside the old rim's raster square on every frame: floor(c - 11) .. ceil(c + 11), both axes  367ms
+   ✓ TAPIOCA A under a fractional Graphics translation (Canvas subpixel fix) > puts every rect edge on a whole screen pixel: no fractional edge for Canvas 2D to antialias  534ms
+   ✓ TAPIOCA A under a fractional Graphics translation (Canvas subpixel fix) > keeps WebGL's pixels: the screen square is exactly the one 2ffc1b0's rects filled by pixel centre  392ms
+   ✓ TAPIOCA A under a fractional Graphics translation (Canvas subpixel fix) > stays inside the old rim circle's raster square floor(c - 11 + t)..ceil(c + 11 + t) at every translation  1181ms
+   ✓ TAPIOCA A changes nothing else > plays exactly as 959a5f4: the same pearls, flights, shoot-downs, hits and phases, seed for seed  6851ms
+
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 3 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  tests/airBubbleArt.test.ts > AIR A: the stepped ring > is candidate A exactly: the approved module's draw calls, byte for byte
+AssertionError: expected [ [ 's', 10479862, 1 ], …(15) ] to deeply equal [ [ 's', 10479861, 1 ], …(15) ]
+
+- Expected
++ Received
+
+@@ -1,9 +1,9 @@
+  [
+    [
+      "s",
+-     10479861,
++     10479862,
+      1,
+    ],
+    [
+      -4,
+      -10,
+
+ ❯ tests/airBubbleArt.test.ts:120:25
+    118|     const { g, ops } = recorder();
+    119|     drawAirBubbleArt(g, 0, 0, 1);
+    120|     expect(asSpec(ops)).toEqual(SPEC_OPS);
+       |                         ^
+    121|   });
+    122| 
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/3]⎯
+
+ FAIL  tests/airBubbleArt.test.ts > AIR A: the stepped ring > keeps the old colour and size: #9fe8f5 ring, 20px across like the old r9 + 2px stroke; glint #f0ffff at .9
+AssertionError: expected { ring: 10479862, …(2) } to deeply equal { ring: 10479861, …(2) }
+
+- Expected
++ Received
+
+  {
+    "glint": 15794175,
+    "glintShare": 0.9,
+-   "ring": 10479861,
++   "ring": 10479862,
+  }
+
+ ❯ tests/airBubbleArt.test.ts:138:28
+    136| 
+    137|   it('keeps the old colour and size: #9fe8f5 ring, 20px across like th…
+    138|     expect(AIR_BUBBLE_ART).toEqual({ ring: 0x9fe8f5, glint: 0xf0ffff, …
+       |                            ^
+    139|     for (const r of [...AIR_BUBBLE_GEOMETRY.ring, ...AIR_BUBBLE_GEOMET…
+    140|   });
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[2/3]⎯
+
+ FAIL  tests/airBubbleArt.test.ts > AIR A: the stepped ring > draws 2 styles and 14 rects per bubble, ring at fade then glint at .9 * fade; no stroke or circle
+AssertionError: expected [ { op: 'style', …(2) }, …(1) ] to deeply equal [ { op: 'style', …(2) }, …(1) ]
+
+- Expected
++ Received
+
+@@ -1,9 +1,9 @@
+  [
+    {
+      "alpha": 0.92,
+-     "color": 10479861,
++     "color": 10479862,
+      "op": "style",
+    },
+    {
+      "alpha": 0.8280000000000001,
+      "color": 15794175,
+
+ ❯ tests/airBubbleArt.test.ts:147:27
+    145|       drawAirBubbleArt(g, 225, 350, fade);
+    146|       expect(ops).toHaveLength(16);
+    147|       expect(styles(ops)).toEqual([{ op: 'style', color: 0x9fe8f5, alp…
+       |                           ^
+    148|       expect(ops[13]).toMatchObject({ op: 'style' });
+    149|       expect(ops.some(o => ['strokeCircle', 'lineStyle'].includes(o.op…
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[3/3]⎯
+
+
+ Test Files  1 failed | 8 passed (9)
+      Tests  3 failed | 220 passed (223)
+   Start at  08:19:19
+   Duration  10.74s (transform 1.70s, setup 0ms, collect 7.07s, tests 26.22s, environment 1ms, prepare 747ms)
+

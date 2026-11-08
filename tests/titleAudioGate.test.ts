@@ -10,6 +10,7 @@ import { isJetpackArtFile, withoutJetpackArt } from './jetpackArtRestore';
 import { withoutJetpackBehaviorFix } from './jetpackBehaviorRestore';
 import { isTapiocaProjectileArtFile } from './tapiocaProjectileArtRestore';
 import { isTimeoutArtFile } from './timeoutArtRestore';
+import { isAirBubbleArtFile } from './airBubbleArtRestore';
 
 const fs = await import(/* @vite-ignore */ 'node:' + 'fs') as {
   readFileSync: { (path: URL, encoding: 'utf8'): string; (path: URL): Uint8Array };
@@ -581,7 +582,7 @@ describe('gameplay is unchanged', () => {
         // The JETPACK's exhaust came after dc51d0b (tests/jetpackArt.test.ts): its new file left out, GameScene.ts restored.
         if (isJetpackArtFile(`${dir}/${name}`)) continue;
         // So did the BOSS pearl's art, after 959a5f4 (tests/tapiocaProjectileArt.test.ts).
-        if (isTapiocaProjectileArtFile(`${dir}/${name}`) || isTimeoutArtFile(`${dir}/${name}`)) continue;
+        if (isTapiocaProjectileArtFile(`${dir}/${name}`) || isTimeoutArtFile(`${dir}/${name}`) || isAirBubbleArtFile(`${dir}/${name}`)) continue;
         const text = fs.readFileSync(new URL(`../src/${dir}/${name}`, import.meta.url), 'utf8');
         lines.push(`src/${dir}/${name} ${sha256(withoutJetpackArt(`${dir}/${name}`, text))}`);
       }

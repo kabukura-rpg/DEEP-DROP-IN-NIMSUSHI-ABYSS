@@ -1,0 +1,445 @@
+
+ RUN  v3.2.7 <scratch-copy>
+
+ ❯ tests/titleAudioGate.test.ts (46 tests | 1 failed) 91ms
+   ✓ ENTRY GATE: the first key > opens on a keydown and the press never reaches the page 1ms
+   ✓ ENTRY GATE: the first key > eats the opening key's repeats and its keyup, and only then hands the title its focus 1ms
+   ✓ ENTRY GATE: the first key > never starts from a held ENTER / SPACE: every repeat on the title is consumed 0ms
+   ✓ ENTRY GATE: the first key > a key already held when the page opened repeats into it without opening it 0ms
+   ✓ ENTRY GATE: the first key > takes any ordinary key, ESCAPE included, but not a modifier, Tab, a function key or a shortcut 0ms
+   ✓ ENTRY GATE: the first key > lets no click reach START behind the veil -- not even a scripted one, which inert does not stop 0ms
+   ✓ ENTRY GATE: the first key > after a key opened it, a click with no press before it (a screen reader activating START) is not eaten 0ms
+   ✓ ENTRY GATE: the first key > ignores synthetic input 0ms
+   ✓ ENTRY GATE: the first tap or click > opens on pointerdown, and its pointerup and click never reach START 0ms
+   ✓ ENTRY GATE: the first tap or click > a touch: pointerdown, pointerup, touchend and the late click are one gesture -- sound is asked for again on each release 0ms
+   ✓ ENTRY GATE: the first tap or click > a finger that moves off and lifts elsewhere, or is cancelled, is still the same gesture 0ms
+   ✓ ENTRY GATE: the first tap or click > a second finger during the opening tap is part of it, never a START 0ms
+   ✓ ENTRY GATE: the first tap or click > only a press on the veil opens it: the header ♪ and the page around the game are left alone 0ms
+   ✓ ENTRY GATE: the first tap or click > the second tap of a quick double tap on the prompt is part of the opening, not a START (DOUBLE_TAP 350ms / 40px) 0ms
+   ✓ ENTRY GATE: the first tap or click > assistive technology clicking the veil opens it too, once 0ms
+   ✓ ENTRY GATE: the first tap or click > a blur lets go of a held key or pointer without letting its late click through 0ms
+   ✓ ENTRY GATE: the first tap or click > later presses on the title are reported (the title music retries on them); the opening press is not 0ms
+   ✓ TITLE BGM: Beneath_the_Mossy_Stone > ships the user's file byte for byte from src/assets/audio, apart from every AREA track 4ms
+   ✓ TITLE BGM: Beneath_the_Mossy_Stone > loops, preloads once the game's own art is in (not ahead of it), and makes no sound until a gesture wires it in 0ms
+   ✓ TITLE BGM: Beneath_the_Mossy_Stone > a preload arriving after a press has asked for the track leaves it playing (no reload) 1ms
+   ✓ TITLE BGM: Beneath_the_Mossy_Stone > wires one source for its whole life, however often it is attached 0ms
+   ✓ TITLE BGM: Beneath_the_Mossy_Stone > asks to play synchronously inside the request, then reports playing only once it really plays 2ms
+   ✓ TITLE BGM: Beneath_the_Mossy_Stone > never plays twice: a request while playing does nothing 1ms
+   ✓ TITLE BGM: Beneath_the_Mossy_Stone > a refusal is "blocked", kept as a wish, and retried by the next gesture -- never on its own 53ms
+   ✓ TITLE BGM: Beneath_the_Mossy_Stone > a context that is not running is not "playing", and is asked to resume inside the request 1ms
+   ✓ TITLE BGM: Beneath_the_Mossy_Stone > a file that failed to load leaves the game alone, and is reloaded by the next request 1ms
+   ✓ TITLE BGM: Beneath_the_Mossy_Stone > START: fades out over 0.5-1s without holding anything up, then pauses and rewinds 2ms
+   ✓ TITLE BGM: Beneath_the_Mossy_Stone > a late answer to an old request never brings the music back after START 0ms
+   ✓ TITLE BGM: Beneath_the_Mossy_Stone > back on the title during the fade-out picks the music up again rather than letting it stop 0ms
+   ✓ TITLE BGM: Beneath_the_Mossy_Stone > a hidden tab pauses it and keeps the wish; visible again asks once; never revives a stopped track 4ms
+   ✓ TITLE BGM: Beneath_the_Mossy_Stone > sits at the shared music volume, under its own gain: the AREA tracks and effects are not touched 0ms
+   ✓ the gate in the game (main.ts) > asks for the title music inside the opening press, before the veil is touched 1ms
+   ✓ the gate in the game (main.ts) > shows the gate on a fresh page only: `entered` is set once and never stored or reset 0ms
+   ✓ the gate in the game (main.ts) > keeps START out of reach behind the gate: hidden, inert, and no 60ms auto-focus onto it 1ms
+   ✓ the gate in the game (main.ts) > installs the gate on the window before the title is shown 0ms
+   ✓ the gate in the game (main.ts) > START fades the title music beside the run: one stop, no await, the run starts as before 0ms
+   ✓ the gate in the game (main.ts) > returns to the title menu with its music -- from GAME OVER, CLEAR and PAUSE alike, through showTitle 0ms
+   ✓ the gate in the game (main.ts) > ♪ is the BGM ON/OFF: one switch, saved alone, and it stops or asks for the title music at once 0ms
+   ✓ the gate in the game (main.ts) > follows the page into the background and back, and never retries on a press that leaves the title 0ms
+   ✓ the gate in the game (main.ts) > wires the title track into the same AudioContext, inside the first unlock 0ms
+   ✓ Codex A "Minimal Overlay" -- and nothing of B > says PRESS ANY KEY with a keyboard, TAP TO ENTER on a phone 0ms
+   ✓ Codex A "Minimal Overlay" -- and nothing of B > a flat #03080b at 40%, the prompt at 72.5% breathing 1 <-> .65 over 2.8s, lifting in 180ms 0ms
+   ✓ Codex A "Minimal Overlay" -- and nothing of B > has no B element: no gradient veil, no descent mark, the logo under the veil like everything else 0ms
+   ✓ Codex A "Minimal Overlay" -- and nothing of B > leaves the title it covers untouched: the same markup, the same title rules 0ms
+   ✓ gameplay is unchanged > main.ts, titleScreen.ts and style.css are 03698bd byte for byte once the gate is taken back out 1ms
+   × gameplay is unchanged > every source in systems / scenes / render / data / dev is byte-identical to 03698bd (the new TitleMusic.ts aside) 12ms
+     → expected '47e62c8e261dfbf57d57b115392eed685f028…' to be '7868f7cf14df609633e0b7ee13471977d9935…' // Object.is equality
+ ❯ tests/inputCancel.test.ts (34 tests | 1 failed) 1032ms
+   × the fix touches two sources, and only the lines listed > reversing its hunks gives dae7a93 byte for byte; every other source is dae7a93 as it was 13ms
+     → scenes/GameScene.ts: expected 'ffe05efb784d277600a6500f3052b774ab28e…' to be '97007dc835149d8d19e331cabf54e8665d406…' // Object.is equality
+   ✓ GameModel.cancelAction: the press history and nothing else > clears actionHeld and changes no other value anywhere in the model -- no step, no timer, no event 17ms
+   ✓ GameModel.cancelAction: the press history and nothing else > the very next step after a cancel reads a held ACTION as a fresh press (the swallowed jump, at model level) 3ms
+   ✓ GameModel.cancelAction: the press history and nothing else > a hold the model is stepped straight through a SECTION start is still one press: no automatic re-jump 13ms
+   ✓ ordinary play, no screen in between: candidate == dae7a93 frame for frame > tap, release, hold through a landing with OS auto-repeat, mash 78ms
+   ✓ ordinary play, no screen in between: candidate == dae7a93 frame for frame > SPACE with LEFT/RIGHT/A/D held and swapped at the same time 23ms
+   ✓ ordinary play, no screen in between: candidate == dae7a93 frame for frame > touch FIRE: hold, release, two fingers with one cancelled, a captured finger dragged off-screen, a mouse click on the frame 22ms
+   ✓ ordinary play, no screen in between: candidate == dae7a93 frame for frame > keyboard and touch together: neither source letting go ends the other one's hold 13ms
+   ✓ ordinary play, no screen in between: candidate == dae7a93 frame for frame > JETPACK + DRONE + HEART BALLOON, CHARGE run dry and hovering on the fuel: same fuel, flag and flight 75ms
+   ✓ ordinary play, no screen in between: candidate == dae7a93 frame for frame > PAUSE and RESUME with nothing held 17ms
+   ✓ PAUSE / RESUME > ISSUE A: let go during PAUSE, press again before the first step after RESUME -> the jump happens (dae7a93 swallowed it) 10ms
+   ✓ PAUSE / RESUME > SPACE held into PAUSE and still held through RESUME: no new press until it is let go -- then exactly one 100ms
+   ✓ PAUSE / RESUME > every layer agrees while a cancelled SPACE is still held after RESUME 5ms
+   ✓ PAUSE / RESUME > let go AND pressed again during PAUSE, held through RESUME: a press the menu had is not the run's 5ms
+   ✓ PAUSE / RESUME > let go during PAUSE, pressed a few frames after RESUME: one jump either way (dae7a93 recovered here too) 12ms
+   ✓ PAUSE / RESUME > SPACE confirming RESUME on the focused button (down, up, click) starts nothing 4ms
+   ✓ PAUSE / RESUME > a fresh press during the 260ms guard still counts on the raw key, once -- the guard only stops the tap buffer 5ms
+   ✓ PAUSE / RESUME > window blur pauses; the keyup lost while unfocused leaves nothing behind; focus alone does not resume 5ms
+   ✓ SECTION / REST > held into SECTION CLEAR and still held after NEXT: no automatic jump on the new ledge (dae7a93 re-jumped) 139ms
+   ✓ SECTION / REST > let go in the REST point, pressed before the first step of the next SECTION: the press is seen 9ms
+   ✓ SECTION / REST > released before the SECTION ended: the next SECTION plays exactly as dae7a93 22ms
+   ✓ SECTION / REST > three SECTIONs in a row, held across each: never a jump the player did not press 32ms
+   ✓ SHOP (SIDE CAVE and STAGING) > SIDE CAVE: held in, let go on the shelf, pressed before the first step out -> seen; held out -> not a press 16ms
+   ✓ SHOP (SIDE CAVE and STAGING) > STAGING SHOP: shopping cancels input and nothing else -- back to boss mode, staging, ordinary gravity 8ms
+   ✓ ABYSS: the reversal and the fight > held from STAGING through GRAVITY REVERSED into the fight: the arena's cancel ends it -- no carried press 165ms
+   ✓ ABYSS: the reversal and the fight > pressed and let go inside the reversal: nothing happens there and nothing is carried; the next press counts 8ms
+   ✓ ABYSS: the reversal and the fight > the fight itself, nothing cancelled: JETPACK under the reversed pull runs as dae7a93 74ms
+   ✓ GAME OVER / CLEAR / TITLE > held through GAME OVER and RETRY: the new run starts clean and the held key is not a press 101ms
+   ✓ GAME OVER / CLEAR / TITLE > CLEAR -> PLAY AGAIN and PAUSE -> title -> START leave no input behind 5ms
+   ✓ touch > a finger let go during PAUSE and put down before the first step after RESUME: seen (dae7a93 swallowed it) 10ms
+   ✓ touch > a finger held through PAUSE stays dropped as before; its late pointerup clears nothing new; a new finger presses 13ms
+   ✓ touch > keyboard and a finger both held into PAUSE: after RESUME neither is ACTION; a new touch is one press 4ms
+   ✓ JETPACK across a cancel (ISSUE B untouched) > hovering, PAUSE with SPACE held, RESUME still held: the hover stops until ACTION is pressed again, then burns dt per step 4ms
+   ✓ JETPACK across a cancel (ISSUE B untouched) > below the cap the fuel still burns dt with nothing to brake, and not owning it burns nothing (dae7a93 rule) 1ms
+ ❯ tests/airBubbleArt.test.ts (21 tests | 3 failed) 1581ms
+   ✓ AIR A: the stepped ring > is candidate A exactly: the approved module's draw calls, byte for byte 1ms
+   ✓ AIR A: the stepped ring > is the approved pattern: 12 ring and 2 glint rects covering exactly its r and h cells, each pixel once 1ms
+   ✓ AIR A: the stepped ring > keeps the old colour and size: #9fe8f5 ring, 20px across like the old r9 + 2px stroke; glint #f0ffff at .9 1ms
+   ✓ AIR A: the stepped ring > draws 2 styles and 14 rects per bubble, ring at fade then glint at .9 * fade; no stroke or circle 1ms
+   ✓ AIR A: the stepped ring > allocates nothing per frame: indexed loops over module arrays, no Phaser value imports 0ms
+   ✓ AIR A on the screen pixel grid > snaps only the centre: every final screen edge is a whole pixel at any translation, within .5px of the model 17ms
+   ✓ AIR A on the screen pixel grid > keeps the shape at any translation: only the whole bubble moves, by whole pixels 4ms
+   ✓ AIR A on the screen pixel grid > stays inside the old ring's envelope: within r10 + half a pixel of the unrounded centre 4ms
+   ✓ AIR A on the screen pixel grid > reads the translation only: the Graphics is not moved 0ms
+   × AIR A in the scene: same bubbles, same cull, same fade, same layer > replaces only the stroke and glint lines: loop, cull, screen y and fade are 5969f37's 12ms
+     → expected '    this.graphics = this.worldFrontAi…' to be '    this.graphics = this.worldFrontAi…' // Object.is equality
+   ✓ AIR A in the scene: same bubbles, same cull, same fade, same layer > draws nothing with no bubble, and 16 commands per visible bubble, oldest first (1 / 3 / 4 / 5 / 12) 8ms
+   × AIR A in the scene: same bubbles, same cull, same fade, same layer > culls exactly the bubbles 5969f37 culled, by their centre against [-40, 850] 7ms
+     → y 851: expected true to be false // Object.is equality
+   ✓ AIR A in the scene: same bubbles, same cull, same fade, same layer > fades as before: .92 while alive, .35 + |sin(elapsed * 18)| * .5 in its last second, for ring and old stroke alike 4ms
+   ✓ AIR A in the scene: same bubbles, same cull, same fade, same layer > keeps the old overlap: each bubble painted on its own, so a burst at one centre stacks as before 0ms
+   ✓ AIR A in the scene: same bubbles, same cull, same fade, same layer > keeps draw()'s order: containers, worldFrontAir, BUBBLES, coins, TIMEOUT -- and no new layer or texture 1ms
+   ✓ AIR A in the scene: same bubbles, same cull, same fade, same layer > draws without touching the model: bubbles are left as found 1ms
+   × AIR A changes nothing else > is 5969f37 GameScene.ts byte for byte once its two hunks are put back 3ms
+     → expected 'c09af2fd26a576d7f1e21fc6b24bd8c9d205c…' to be '572a407ce813d46d0c16b4ccf44fe1e71c692…' // Object.is equality
+   ✓ AIR A changes nothing else > leaves every other source byte-identical to 5969f37: model, oxygen, containers, TIMEOUT art, UI, audio 1ms
+   ✓ AIR A changes nothing else > adds no PNG and no texture: the shipped image set is 5969f37's 0ms
+   ✓ AIR A changes nothing else > keeps the AIR rules: 3-5 per container, 4.2 s, 5 s of air, armed after .08 s, rising to 96 px/s 0ms
+   ✓ AIR A changes nothing else > plays exactly as 5969f37: release, climb, catch, expiry and SECTIONs in every fixture run  1512ms
+ ❯ tests/jetpackBehavior.test.ts (21 tests | 1 failed) 1804ms
+   ✓ ISSUE 1: the exhaust points along the pull it brakes against > under the ordinary pull draws 19adbd4 call for call, with or without the sign 15ms
+   ✓ ISSUE 1: the exhaust points along the pull it brakes against > under the reversed pull mirrors every rectangle about the centre line: same x, size, colour, alpha, order 21ms
+   ✓ ISSUE 1: the exhaust points along the pull it brakes against > keeps 3 frames of 12 rectangles at 80ms and the flicker alpha under either pull 1ms
+   ✓ ISSUE 1: the exhaust points along the pull it brakes against > stays inside the mirrored 14x16 envelope x=[-6,8) y=[-34,-18), and only the mirrored strips 6ms
+   ✓ ISSUE 1: the exhaust points along the pull it brakes against > the scene passes the model's own gravity sign and nothing else new 1ms
+   ✓ ISSUE 1: the exhaust points along the pull it brakes against > in the fight, lit by the model's own step: the cap brakes the climb to -130 and the exhaust sits above the player 13ms
+   ✓ ISSUE 1: the exhaust points along the pull it brakes against > in STAGING (ordinary pull) the exhaust stays below, as 19adbd4 2ms
+   × JETPACK BEHAVIOR FIX V1 changes nothing else > every touched source is 19adbd4 byte for byte once its hunks are reversed 13ms
+     → scenes/GameScene.ts: expected '9e7469b6dd9d79dc2bbab969daae37c04d751…' to be 'd6639bc1b20143a5aad010bac1df995e8745a…' // Object.is equality
+   ✓ ISSUE 2: the hover ends when the hover ends > held through a landing: on the landing step itself the flag is down; CHARGE, fuel, velocity and events as before 7ms
+   ✓ ISSUE 2: the hover ends when the hover ends > on the ground, held 1 / 10 / 120 steps or released: down, no fuel burned, no jump from holding 3ms
+   ✓ ISSUE 2: the hover ends when the hover ends > a fresh press on the ground jumps (flag down), the air then shoots, and an empty magazine brings the hover back 2ms
+   ✓ ISSUE 2: the hover ends when the hover ends > released in the air: down on the next step, fuel kept, and still down on landing 1ms
+   ✓ ISSUE 2: the hover ends when the hover ends > never lights without fuel, without the upgrade, or with CHARGE left 8ms
+   ✓ ISSUE 2: the hover ends when the hover ends > keeps the last fuel tick lit (fuel 0, cap applied), and the hover below the cap 3ms
+   ✓ ISSUE 2: the hover ends when the hover ends > a stomp ends it on the stomp step: bounce, kill, refill unchanged 2ms
+   ✓ ISSUE 2: the hover ends when the hover ends > REST takes it down as it opens; the next SECTION opens with it down and the tank full 4ms
+   ✓ ISSUE 2: the hover ends when the hover ends > GAME OVER and GAME CLEAR take it down; a refused transition leaves a live hover alone 4ms
+   ✓ ISSUE 2: the hover ends when the hover ends > PAUSE: main.pause takes it down with `paused`, resume never raises it, a paused step leaves it down 10ms
+   ✓ ISSUE 2: the hover ends when the hover ends > the scene draws nothing while the world is stopped or mid-reversal, even if handed a raised flag 4ms
+   ✓ ISSUE 2: the hover ends when the hover ends > through the seal: down the step the reversal begins, dark through the hold, decided afresh in the fight 11ms
+   ✓ ISSUE 2: the hover ends when the hover ends > every step of every trace run obeys the contract: lit exactly when the fuel branch ran and still applies  1673ms
+ ❯ tests/timeoutArt.test.ts (22 tests | 1 failed) 2059ms
+   ✓ TIMEOUT A: the stepped disc > is candidate A exactly: 53 field and 120 rim rects, the reference geometry byte for byte 1ms
+   ✓ TIMEOUT A: the stepped disc > is cut from the model's own circle: radius 96, 2px grid, one colour #9fe8f5 0ms
+   ✓ TIMEOUT A: the stepped disc > puts every edge on the 2px grid from the centre, every size a whole even number 15ms
+   ✓ TIMEOUT A: the stepped disc > covers exactly the cells whose farthest corner is within 96 (field: within 94), each pixel once, no overlap 96ms
+   ✓ TIMEOUT A: the stepped disc > draws 2 styles and 173 rects per bubble: field at pulse, then rim at .5 + .5 * pulse, same colour 0ms
+   ✓ TIMEOUT A: the stepped disc > allocates nothing per frame: indexed loops over module-built arrays, no Phaser value imports 1ms
+   ✓ TIMEOUT A on the screen pixel grid > snaps only the centre: every final screen edge is a whole pixel at any translation, within .5px of the model 237ms
+   ✓ TIMEOUT A on the screen pixel grid > keeps the shape at any translation: only the whole disc moves, by whole pixels 19ms
+   ✓ TIMEOUT A on the screen pixel grid > stays inside the old ring's envelope: within r97 of the unrounded centre 20ms
+   ✓ TIMEOUT A on the screen pixel grid > reads the translation only: the Graphics is not moved 0ms
+   ✓ TIMEOUT A in the scene: same bubbles, same cull, same pulse, same layer > replaces only the fill and stroke lines: loop, cull, screen y and pulse are e9b0e2a's 0ms
+   ✓ TIMEOUT A in the scene: same bubbles, same cull, same pulse, same layer > draws nothing with no bubble, and 175 commands per visible bubble, oldest first (1 / 3 / 6 / 12) 2ms
+   ✓ TIMEOUT A in the scene: same bubbles, same cull, same pulse, same layer > culls exactly the bubbles e9b0e2a culled, by their centre against [-r, 820 + r] 1ms
+   ✓ TIMEOUT A in the scene: same bubbles, same cull, same pulse, same layer > pulses as before: |sin(elapsed * 1.4 + id)|, period pi / 1.4 (~2.244 s); field .10-.16, rim .55-.58 16ms
+   ✓ TIMEOUT A in the scene: same bubbles, same cull, same pulse, same layer > keeps the old overlap: each bubble painted on its own, so two overlapping fields stack as before 1ms
+   ✓ TIMEOUT A in the scene: same bubbles, same cull, same pulse, same layer > keeps draw()'s order: coins, underAbyss, BUBBLES, bodies, deep, speech, boss -- and no new layer or texture 7ms
+   ✓ TIMEOUT A in the scene: same bubbles, same cull, same pulse, same layer > draws without touching the model: bubbles, ids and radii are left as found 3ms
+   × TIMEOUT A changes nothing else > is e9b0e2a GameScene.ts byte for byte once its two hunks are put back 16ms
+     → expected '83a6c7826913fd0fae309741e600e04460014…' to be '8929a36b85d0519e9f7be48ff58f0d6e54240…' // Object.is equality
+   ✓ TIMEOUT A changes nothing else > leaves every other source byte-identical to e9b0e2a: model, upgrades, systems, other art, UI, audio 7ms
+   ✓ TIMEOUT A changes nothing else > adds no PNG and no texture: the shipped image set is e9b0e2a's 1ms
+   ✓ TIMEOUT A changes nothing else > keeps TIMEOUT itself: radius 96, one bubble per surviving hit, the closed-circle hit test, cleared at a SECTION 9ms
+   ✓ TIMEOUT A changes nothing else > plays exactly as e9b0e2a: natural REST pick -> 1-2 caveBat hit (seed 813), and every fixture run  1604ms
+ ❯ tests/balloonArt.test.ts (17 tests | 1 failed) 2349ms
+   ✓ HEART BALLOON A: the 26x26 pixel art > is the spec table exactly: 51 rectangles, order, offsets, sizes, colours, alpha 1 4ms
+   ✓ HEART BALLOON A: the 26x26 pixel art > paints the normative map of balloon-A.json, pixel for pixel 1ms
+   ✓ HEART BALLOON A: the 26x26 pixel art > uses five colours: a dark key, a shade, the old body pink, the old highlight pink and a specular 1ms
+   ✓ HEART BALLOON A: the 26x26 pixel art > stays inside the old radius-13 circle and fills its 26x26 box 15ms
+   ✓ HEART BALLOON A: the 26x26 pixel art > is outlined all round: every edge pixel of the disc is the dark key, nothing inside it is 5ms
+   ✓ HEART BALLOON A: the 26x26 pixel art > draws with integer rectangles only, nothing allocated, nothing but Graphics fills 4ms
+   ✓ HEART BALLOON A in the scene: same place, same tether, same layer > replaces only the two circles: the block keeps 6d83590 gate, centre and tether 1ms
+   ✓ HEART BALLOON A in the scene: same place, same tether, same layer > draws nothing without the upgrade, or once the balloon has popped, in any AREA or the fight 36ms
+   ✓ HEART BALLOON A in the scene: same place, same tether, same layer > draws the tether first, with exactly 6d83590 style and ends, then 51 opaque rectangles and no circle 11ms
+   ✓ HEART BALLOON A in the scene: same place, same tether, same layer > sits on the model centre at every position: inside the old circle, the box rounded from the centre  525ms
+   ✓ HEART BALLOON A in the scene: same place, same tether, same layer > rides the model unchanged: player + (0, -46 x gravity), below the player under the BOSS reversal 8ms
+   ✓ HEART BALLOON A in the scene: same place, same tether, same layer > keeps the after-enemies draw order: bullets, tether, balloon, DRONE, INVUL, HIGH, sight, jetpack, player, HURT 1ms
+   × HEART BALLOON A changes nothing else > is 6d83590 GameScene.ts byte for byte once the two circles and the import are put back 10ms
+     → expected '96261a8a0c73f6e6707b73e0f35d9f35d21ac…' to be 'b8e7c8bd6fb8fb830ad6d12194c5eef890579…' // Object.is equality
+   ✓ HEART BALLOON A changes nothing else > leaves every other source byte-identical to 6d83590: model, upgrades, icons, DRONE, CORPSE, feedback, text, UI 5ms
+   ✓ HEART BALLOON A changes nothing else > keeps every HEART BALLOON rule: touch radius 16, blast 82 / 3, fall x0.82 0ms
+   ✓ HEART BALLOON A changes nothing else > adds no PNG: the shipped image set is the 6d83590 one, the balloon only as its upgrade icon 0ms
+   ✓ HEART BALLOON A changes nothing else > plays exactly as 6d83590: the same balloon, pops, blasts, kills, fall, SECTION returns and reversal  1717ms
+ ❯ tests/corpseArt.test.ts (25 tests | 1 failed) 2853ms
+   ✓ the image > registers exactly one, from src/assets/world, under its own key, loaded with the scene 2ms
+   ✓ the image > ships byte for byte as delivered: SHA-256, 20x12, 8-bit RGBA, hard alpha, five colours 1ms
+   ✓ the image > is filtered NEAREST and drawn at native size: no scale, flip, rotation or tint, ever 0ms
+   ✓ geometry and anchor > is the body's nominal 20x12, pivoted at (10, 8); the gameplay geometry is e948ece's 0ms
+   ✓ geometry and anchor > lands on whole pixels from fractional positions, and never moves the body to get there 5ms
+   ✓ geometry and anchor > keeps its opaque texels inside the procedural drawing's footprint at every sub-pixel offset 2ms
+   ✓ render layer > sits on its own layer directly above underAbyss: over the TIMEOUT bubbles, under the deep and everything after 2ms
+   ✓ render layer > draws in draw() where the bodies always were: after the TIMEOUT bubbles, before the speech and the deep 1ms
+   ✓ render layer > builds one pool image per body on screen at most, and reuses them frame after frame 11ms
+   ✓ fallback and no double drawing > with the image missing, draws e948ece's three rectangles exactly, and makes no image 10ms
+   ✓ fallback and no double drawing > with the image, draws only the image: no rectangle under or over it 2ms
+   ✓ mapping > one key for every body: no enemy, AREA, BOSS or upgrade variant 4ms
+   ✓ lifecycle, through the real model > kill -> laid -> falling -> eaten -> gone, and a SECTION change clears it: image always matches the array 11ms
+   ✓ lifecycle, through the real model > blinks by e948ece's alpha in its last two seconds, and leaves when its life does 33ms
+   ✓ lifecycle, through the real model > follows the shake and cameraX through the layer offset, as the rectangles did 1ms
+   ✓ lifecycle, through the real model > draws exactly the bodies inside the -20..820 guard, endpoints included 1ms
+   ✓ OMNOM and consumption sync > ten bodies: OMNOM 1..9 then 0, one heart, each image gone the frame its body is eaten 6ms
+   ✓ OMNOM and consumption sync > touching any opaque texel of the image is inside KNIFE AND FORK's reach: the art never promises less than the rule 5ms
+   ✓ OMNOM and consumption sync > a body shot by REST IN PIECES is claimed once, explodes once, and its image leaves with it 4ms
+   ✓ where bodies come from (unchanged) > AREA 4 lays none: no kind it can field leaves one, in any SECTION or seed  1502ms
+   ✓ where bodies come from (unchanged) > AREA 1-3 lay them from their own rosters 11ms
+   ✓ where bodies come from (unchanged) > the BOSS: only phase 1's summoned CAVE BAT leaves one; clones are not in any rotation 12ms
+   ✓ gameplay invariance > plays every body exactly as e948ece did: spawn, motion, life, eating, blasts, OMNOM, HP, score, chain, coins  1212ms
+   ✓ gameplay invariance > changes no source but GameScene.ts and the new render/corpseArt.ts 5ms
+   × gameplay invariance > changes GameScene.ts only by the body image: take the additions out and it is e948ece's, byte for byte 10ms
+     → expected '6a0d7605753ef9186c2c9788981690be2468e…' to be '2d453544e177d48f6bec2c77f5abd8d4a14d7…' // Object.is equality
+ ❯ tests/jetpackArt.test.ts (17 tests | 1 failed) 3326ms
+   ✓ JETPACK A: the exhaust pixel art > is the spec table exactly: 3 frames of 12 rectangles, order, offsets, sizes, colours 3ms
+   ✓ JETPACK A: the exhaust pixel art > uses three colours, drawn side, then warm, then core in every strip 1ms
+   ✓ JETPACK A: the exhaust pixel art > paints each strip as dark sides, a 3px bright core, warm flame and a 2px dark tip, 6/9/12 -> 8/11/14 -> 7/10/13 long 4ms
+   ✓ JETPACK A: the exhaust pixel art > never paints outside dc51d0b strips, and frame 1 fills each strip to its old length 7ms
+   ✓ JETPACK A: the exhaust pixel art > steps a frame every 80ms of model time, three to a 240ms loop, the reference formula at every tick 59ms
+   ✓ JETPACK A: the exhaust pixel art > keeps dc51d0b flicker on every rectangle: 0.5 + |sin(22t)| x 0.5 3ms
+   ✓ JETPACK A: the exhaust pixel art > draws with integer rectangles only, nothing allocated, nothing but Graphics fills, no state read but the clock 4ms
+   ✓ JETPACK A in the scene: same gate, same place, same layer > replaces only the inside of dc51d0b block: the same `m.jetpackActive` gate, the rounded player x/y, the model clock 4ms
+   ✓ JETPACK A in the scene: same gate, same place, same layer > draws nothing without the upgrade, or with it while the flag is down, in any AREA or the fight 52ms
+   ✓ JETPACK A in the scene: same gate, same place, same layer > when lit through the model, draws 12 rectangles inside the old three strips at the old flicker, in every AREA and the fight 54ms
+   ✓ JETPACK A in the scene: same gate, same place, same layer > sits on the rounded player at every position, the same offset as dc51d0b, mirrored above it under the BOSS reversal  1122ms
+   ✓ JETPACK A in the scene: same gate, same place, same layer > keeps the after-enemies draw order: bullets, balloon, DRONE, INVUL, HIGH, sight, jetpack, player, HURT 2ms
+   × JETPACK A changes nothing else > is dc51d0b GameScene.ts byte for byte once the three strips and the import are put back 28ms
+     → expected '033f83def52fbb96612116a053ca5ec7c4e16…' to be '54980aa5f4ba20ff4c2b1765a7c235d81c27b…' // Object.is equality
+   ✓ JETPACK A changes nothing else > leaves every other source byte-identical to dc51d0b: model, upgrades, TITLE AUDIO, DRONE, BALLOON, CORPSE, feedback, text, UI 9ms
+   ✓ JETPACK A changes nothing else > keeps every SAFETY JETPACK rule: 4 s of fuel, fall held to a quarter of terminal speed 0ms
+   ✓ JETPACK A changes nothing else > adds no PNG: the shipped image set is the dc51d0b one 0ms
+   ✓ JETPACK A changes nothing else > plays exactly as dc51d0b: the same hover, fuel, refills, CHARGE, fall, hits, SECTION returns and reversal; the flag as fixed  1972ms
+ ❯ tests/tapiocaProjectileArt.test.ts (20 tests | 1 failed) 9392ms
+   ✓ TAPIOCA A: the seventeen rectangles > is candidate A exactly: 7 rim, 7 core, 3 highlight rects, in that order, with the 959a5f4 colours and alphas 2ms
+   ✓ TAPIOCA A: the seventeen rectangles > paints this 22x22 pixel map: stepped cream rim, dark core, plum highlight up and left 6ms
+   ✓ TAPIOCA A: the seventeen rectangles > draws integer rectangles only, through Graphics fills, with nothing allocated 50ms
+   ✓ TAPIOCA A in the scene: same pearls, same cull, same place in the draw > replaces only the three circles of a size-9 pearl: loop, cull and screen y are 959a5f4's 0ms
+   ✓ TAPIOCA A in the scene: same pearls, same cull, same place in the draw > draws 17 rects and 3 styles per visible pearl, nothing for a culled one, and the old circles for any other size 1ms
+   ✓ TAPIOCA A in the scene: same pearls, same cull, same place in the draw > draws a pearl in every model state the loop sees: in flight, at its last frame of life, shot down this frame 0ms
+   ✓ TAPIOCA A in the scene: same pearls, same cull, same place in the draw > stays inside the old rim's raster square on every frame: floor(c - 11) .. ceil(c + 11), both axes  376ms
+   ✓ TAPIOCA A in the scene: same pearls, same cull, same place in the draw > keeps boss()'s draw order: deep, ... beams, PEARLS, bossBody, barrier, tells, body art 4ms
+   ✓ TAPIOCA A in the scene: same pearls, same cull, same place in the draw > touches no other projectile: player rounds, barrier pearls, cups, beams and enemies draw as at 959a5f4 1ms
+   ✓ TAPIOCA A under a fractional Graphics translation (Canvas subpixel fix) > is 2ffc1b0 call for call with no translation, and with any whole-pixel one 33ms
+   ✓ TAPIOCA A under a fractional Graphics translation (Canvas subpixel fix) > puts every rect edge on a whole screen pixel: no fractional edge for Canvas 2D to antialias  402ms
+   ✓ TAPIOCA A under a fractional Graphics translation (Canvas subpixel fix) > keeps WebGL's pixels: the screen square is exactly the one 2ffc1b0's rects filled by pixel centre  340ms
+   ✓ TAPIOCA A under a fractional Graphics translation (Canvas subpixel fix) > stays inside the old rim circle's raster square floor(c - 11 + t)..ceil(c + 11 + t) at every translation  1156ms
+   ✓ TAPIOCA A under a fractional Graphics translation (Canvas subpixel fix) > keeps the 17 rects, 3 colours, order and pixel map at any translation: only the whole square moves 5ms
+   ✓ TAPIOCA A under a fractional Graphics translation (Canvas subpixel fix) > reads the translation only: the Graphics is not moved, no camera or global setting is touched 0ms
+   × TAPIOCA A changes nothing else > is 959a5f4 GameScene.ts byte for byte once its two hunks are put back 9ms
+     → expected 'd99224a7a68ab6656a58289dabb524c59c565…' to be 'd61e22b3460d3a47af281442757820551db64…' // Object.is equality
+   ✓ TAPIOCA A changes nothing else > leaves every other source byte-identical to 959a5f4: model, boss system, attacks, physics, art, UI, audio 4ms
+   ✓ TAPIOCA A changes nothing else > adds no PNG and no texture: the shipped image set is 959a5f4's 1ms
+   ✓ TAPIOCA A changes nothing else > plays exactly as 959a5f4: the same pearls, flights, shoot-downs, hits and phases, seed for seed  6984ms
+   ✓ TAPIOCA A changes nothing else > draws without touching the model: a full fight frame-by-frame leaves every pearl as it found it 17ms
+
+⎯⎯⎯⎯⎯⎯ Failed Tests 11 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  tests/airBubbleArt.test.ts > AIR A in the scene: same bubbles, same cull, same fade, same layer > replaces only the stroke and glint lines: loop, cull, screen y and fade are 5969f37's
+AssertionError: expected '    this.graphics = this.worldFrontAi…' to be '    this.graphics = this.worldFrontAi…' // Object.is equality
+
+- Expected
++ Received
+
+      this.graphics = this.worldFrontAir;
+      for (const bubble of m.bubbles) {
+        const by = bubble.y - cam;
+-       if (by < -40 || by > 850) continue;
++       if (by < -40 || by > 851) continue;
+        const fade = bubble.life < 1 ? 0.35 + Math.abs(Math.sin(this.model.elapsed * 18)) * 0.5 : 0.92;
+        // AIR BUBBLES VISUAL DESIGN V1 (render/airBubbleArt): the same cyan ring and glint as 2px steps, at the same fade.
+        drawAirBubbleArt(this.graphics, bubble.x, by, fade);
+      }
+
+
+ ❯ tests/airBubbleArt.test.ts:206:27
+    204| describe('AIR A in the scene: same bubbles, same cull, same fade, same…
+    205|   it('replaces only the stroke and glint lines: loop, cull, screen y a…
+    206|     expect(bubbleBlock()).toBe(`    this.graphics = this.worldFrontAir;
+       |                           ^
+    207|     for (const bubble of m.bubbles) {
+    208|       const by = bubble.y - cam;
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/11]⎯
+
+ FAIL  tests/airBubbleArt.test.ts > AIR A in the scene: same bubbles, same cull, same fade, same layer > culls exactly the bubbles 5969f37 culled, by their centre against [-40, 850]
+AssertionError: y 851: expected true to be false // Object.is equality
+
+- Expected
++ Received
+
+- false
++ true
+
+ ❯ tests/airBubbleArt.test.ts:232:55
+    230|     for (const cam of [0, 1234.5]) for (const y of [-41, -40, -39.5, 0…
+    231|       const list = [bubble(4, 225, y + cam)];
+    232|       expect(s.frame(list, cam).length > 0, `y ${y}`).toBe(s.baseline(…
+       |                                                       ^
+    233|     }
+    234|   });
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[2/11]⎯
+
+ FAIL  tests/airBubbleArt.test.ts > AIR A changes nothing else > is 5969f37 GameScene.ts byte for byte once its two hunks are put back
+AssertionError: expected 'c09af2fd26a576d7f1e21fc6b24bd8c9d205c…' to be '572a407ce813d46d0c16b4ccf44fe1e71c692…' // Object.is equality
+
+Expected: "572a407ce813d46d0c16b4ccf44fe1e71c692fd19843ee6a3ed3431478661cdc"
+Received: "c09af2fd26a576d7f1e21fc6b24bd8c9d205ca5acfcf4dd5f3148e539186c347"
+
+ ❯ tests/airBubbleArt.test.ts:279:77
+    277|     expect(Object.keys(AIR_BUBBLE_ART_HUNKS)).toEqual(['scenes/GameSce…
+    278|     expect(sha256(sceneSource)).not.toBe('572a407ce813d46d0c16b4ccf44f…
+    279|     expect(sha256(withoutAirBubbleArt('scenes/GameScene.ts', sceneSour…
+       |                                                                             ^
+    280|     expect(withoutAirBubbleArt('scenes/GameScene.ts', sceneSource).spl…
+    281|   });
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[3/11]⎯
+
+ FAIL  tests/balloonArt.test.ts > HEART BALLOON A changes nothing else > is 6d83590 GameScene.ts byte for byte once the two circles and the import are put back
+AssertionError: expected '96261a8a0c73f6e6707b73e0f35d9f35d21ac…' to be 'b8e7c8bd6fb8fb830ad6d12194c5eef890579…' // Object.is equality
+
+Expected: "b8e7c8bd6fb8fb830ad6d12194c5eef890579607f62faded4b15ccb74b3e27ef"
+Received: "96261a8a0c73f6e6707b73e0f35d9f35d21ac27c527a5d25cf3a6193942c1d10"
+
+ ❯ tests/balloonArt.test.ts:310:30
+    308|     // The JETPACK's exhaust changed after dc51d0b (tests/jetpackArt.t…
+    309|     const restored = withoutJetpackArt('scenes/GameScene.ts', sceneSou…
+    310|     expect(sha256(restored)).toBe('b8e7c8bd6fb8fb830ad6d12194c5eef8905…
+       |                              ^
+    311|   });
+    312| 
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[4/11]⎯
+
+ FAIL  tests/corpseArt.test.ts > gameplay invariance > changes GameScene.ts only by the body image: take the additions out and it is e948ece's, byte for byte
+AssertionError: expected '6a0d7605753ef9186c2c9788981690be2468e…' to be '2d453544e177d48f6bec2c77f5abd8d4a14d7…' // Object.is equality
+
+Expected: "2d453544e177d48f6bec2c77f5abd8d4a14d7e504710ff13601cf04d085471dd"
+Received: "6a0d7605753ef9186c2c9788981690be2468ea5b723756bf167b33cc09693100"
+
+ ❯ tests/corpseArt.test.ts:568:28
+    566|       source = source.replace(block, '');
+    567|     }
+    568|     expect(sha256(source)).toBe('2d453544e177d48f6bec2c77f5abd8d4a14d7…
+       |                            ^
+    569|   });
+    570| });
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[5/11]⎯
+
+ FAIL  tests/inputCancel.test.ts > the fix touches two sources, and only the lines listed > reversing its hunks gives dae7a93 byte for byte; every other source is dae7a93 as it was
+AssertionError: scenes/GameScene.ts: expected 'ffe05efb784d277600a6500f3052b774ab28e…' to be '97007dc835149d8d19e331cabf54e8665d406…' // Object.is equality
+
+Expected: "97007dc835149d8d19e331cabf54e8665d4067ab5ab5ec6aaf8e911054c1a38b"
+Received: "ffe05efb784d277600a6500f3052b774ab28ee69783608f8cb9a698ebce4947b"
+
+ ❯ tests/inputCancel.test.ts:50:84
+     48|     for (const [path, digest] of Object.entries(AT_DAE7A93)) {
+     49|       expect(sha256(SOURCES[`../src/${path}`]), `${path} is changed`).…
+     50|       expect(sha256(withoutInputCancelFix(path, SOURCES[`../src/${path…
+       |                                                                                    ^
+     51|     }
+     52|     // main.ts, InputBuffer, the art, the gate, upgrades, data: comput…
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[6/11]⎯
+
+ FAIL  tests/jetpackArt.test.ts > JETPACK A changes nothing else > is dc51d0b GameScene.ts byte for byte once the three strips and the import are put back
+AssertionError: expected '033f83def52fbb96612116a053ca5ec7c4e16…' to be '54980aa5f4ba20ff4c2b1765a7c235d81c27b…' // Object.is equality
+
+Expected: "54980aa5f4ba20ff4c2b1765a7c235d81c27b253478a6f1ebb7b705b7a09a284"
+Received: "033f83def52fbb96612116a053ca5ec7c4e16eb59a9a079db9e464ff17aa7412"
+
+ ❯ tests/jetpackArt.test.ts:296:75
+    294|   it('is dc51d0b GameScene.ts byte for byte once the three strips and …
+    295|     expect(sceneSource.split(JETPACK_IMPORT_LINE).length - 1).toBe(1);
+    296|     expect(sha256(withoutJetpackArt('scenes/GameScene.ts', sceneSource…
+       |                                                                           ^
+    297|   });
+    298| 
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[7/11]⎯
+
+ FAIL  tests/jetpackBehavior.test.ts > JETPACK BEHAVIOR FIX V1 changes nothing else > every touched source is 19adbd4 byte for byte once its hunks are reversed
+AssertionError: scenes/GameScene.ts: expected '9e7469b6dd9d79dc2bbab969daae37c04d751…' to be 'd6639bc1b20143a5aad010bac1df995e8745a…' // Object.is equality
+
+Expected: "d6639bc1b20143a5aad010bac1df995e8745a0be51bb0abb64ebc8fbb5cc3f1a"
+Received: "9e7469b6dd9d79dc2bbab969daae37c04d7519afe86ff9d86d8923a2dc9441b4"
+
+ ❯ tests/jetpackBehavior.test.ts:153:143
+    151|     };
+    152|     for (const path of JETPACK_BEHAVIOR_FILES) expect(Object.keys(AT_1…
+    153|     for (const [path, digest] of Object.entries(AT_19ADBD4)) expect(sh…
+       |                                                                                                                                               ^
+    154|     // The other 87 sources, computed with `git show 19adbd4:<path>` (…
+    155|     const keys = Object.keys(SOURCES).filter(k => !(k.replace('../src/…
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[8/11]⎯
+
+ FAIL  tests/tapiocaProjectileArt.test.ts > TAPIOCA A changes nothing else > is 959a5f4 GameScene.ts byte for byte once its two hunks are put back
+AssertionError: expected 'd99224a7a68ab6656a58289dabb524c59c565…' to be 'd61e22b3460d3a47af281442757820551db64…' // Object.is equality
+
+Expected: "d61e22b3460d3a47af281442757820551db64e5f203becdd04883a242b069d26"
+Received: "d99224a7a68ab6656a58289dabb524c59c565d6b542861f82e16947449512577"
+
+ ❯ tests/tapiocaProjectileArt.test.ts:379:85
+    377|     expect(Object.keys(TAPIOCA_ART_HUNKS)).toEqual(['scenes/GameScene.…
+    378|     expect(sha256(sceneSource)).not.toBe('d61e22b3460d3a47af2814427578…
+    379|     expect(sha256(withoutTapiocaProjectileArt('scenes/GameScene.ts', s…
+       |                                                                                     ^
+    380|     expect(withoutTapiocaProjectileArt('scenes/GameScene.ts', sceneSou…
+    381|   });
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[9/11]⎯
+
+ FAIL  tests/timeoutArt.test.ts > TIMEOUT A changes nothing else > is e9b0e2a GameScene.ts byte for byte once its two hunks are put back
+AssertionError: expected '83a6c7826913fd0fae309741e600e04460014…' to be '8929a36b85d0519e9f7be48ff58f0d6e54240…' // Object.is equality
+
+Expected: "8929a36b85d0519e9f7be48ff58f0d6e542408fcd63c4ac891414e4db46ddc31"
+Received: "83a6c7826913fd0fae309741e600e04460014671ae366358dd4ff31745e83264"
+
+ ❯ tests/timeoutArt.test.ts:276:75
+    274|     expect(Object.keys(TIMEOUT_ART_HUNKS)).toEqual(['scenes/GameScene.…
+    275|     expect(sha256(sceneSource)).not.toBe('8929a36b85d0519e9f7be48ff58f…
+    276|     expect(sha256(withoutTimeoutArt('scenes/GameScene.ts', sceneSource…
+       |                                                                           ^
+    277|     expect(withoutTimeoutArt('scenes/GameScene.ts', sceneSource).split…
+    278|   });
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[10/11]⎯
+
+ FAIL  tests/titleAudioGate.test.ts > gameplay is unchanged > every source in systems / scenes / render / data / dev is byte-identical to 03698bd (the new TitleMusic.ts aside)
+AssertionError: expected '47e62c8e261dfbf57d57b115392eed685f028…' to be '7868f7cf14df609633e0b7ee13471977d9935…' // Object.is equality
+
+Expected: "7868f7cf14df609633e0b7ee13471977d9935c498860ebd841d612ddd4d43fc9"
+Received: "47e62c8e261dfbf57d57b115392eed685f028655083d6dbda6d6971dc5c93297"
+
+ ❯ tests/titleAudioGate.test.ts:593:45
+    591|     expect(lines).toHaveLength(76);
+    592|     // `git ls-tree -r 03698bd` over the same five folders, each file'…
+    593|     expect(sha256(lines.join('\n') + '\n')).toBe('7868f7cf14df609633e0…
+       |                                             ^
+    594|   });
+    595| });
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[11/11]⎯
+
+
+ Test Files  9 failed (9)
+      Tests  11 failed | 212 passed (223)
+   Start at  08:19:30
+   Duration  10.63s (transform 1.61s, setup 0ms, collect 6.79s, tests 24.49s, environment 1ms, prepare 752ms)
+

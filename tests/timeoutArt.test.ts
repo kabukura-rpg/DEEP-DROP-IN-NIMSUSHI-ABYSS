@@ -4,6 +4,7 @@ import { TIMEOUT_ART, TIMEOUT_GEOMETRY, drawTimeoutArt } from '../src/render/tim
 import { UPGRADE_TUNING } from '../src/data/upgrades';
 import { GameModel } from '../src/systems/GameModel';
 import { TIMEOUT_ART_HUNKS, isTimeoutArtFile, withoutTimeoutArt } from './timeoutArtRestore';
+import { isAirBubbleArtFile } from './airBubbleArtRestore';
 import { TIMEOUT_TRACE_SCENARIOS, naturalTimeoutRun, timeoutTrace } from './timeoutTrace';
 import sceneSource from '../src/scenes/GameScene.ts?raw';
 import artSource from '../src/render/timeoutArt.ts?raw';
@@ -279,7 +280,7 @@ describe('TIMEOUT A changes nothing else', () => {
   it('leaves every other source byte-identical to e9b0e2a: model, upgrades, systems, other art, UI, audio', () => {
     const SOURCES = import.meta.glob(['../src/**/*.ts'], { query: '?raw', import: 'default', eager: true }) as Record<string, string>;
     expect(Object.keys(SOURCES).filter(isTimeoutArtFile)).toEqual(['../src/render/timeoutArt.ts']);
-    const keys = Object.keys(SOURCES).filter(k => k !== '../src/scenes/GameScene.ts' && !isTimeoutArtFile(k)).sort();
+    const keys = Object.keys(SOURCES).filter(k => k !== '../src/scenes/GameScene.ts' && !isTimeoutArtFile(k) && !isAirBubbleArtFile(k)).sort();
     expect(keys).toHaveLength(91);
     // The same digest over the same 91 files, computed on a git archive of e9b0e2a.
     expect(sha256(keys.map(k => `${k}\n${sha256(SOURCES[k])}`).join('\n'))).toBe('73de93aaffc772b5bff359aa9cf6456cedb3803fb3e129d316b644db8d71d539');

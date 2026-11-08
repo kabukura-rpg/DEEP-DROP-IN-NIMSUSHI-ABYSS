@@ -1,0 +1,4 @@
+# Regenerable builds and capture images stay on disk only; their sha256 is in evidence/untracked-artifacts.sha256.
+builds/
+smoke/
+visual/

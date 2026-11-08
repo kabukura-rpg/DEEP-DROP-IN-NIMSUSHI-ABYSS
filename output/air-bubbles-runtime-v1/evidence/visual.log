@@ -1,0 +1,48 @@
+webgl 1440x1000@1 rows 20 failures 0
+webgl 1280x680@1 rows 40 failures 0
+webgl 390x844@1 rows 60 failures 0
+webgl 360x640@1 rows 80 failures 0
+webgl 390x844@2 rows 100 failures 0
+canvas-accel 1440x1000@1 rows 20 failures 0
+canvas-accel 1280x680@1 rows 40 failures 0
+canvas-accel 390x844@1 rows 60 failures 0
+canvas-accel 360x640@1 rows 80 failures 0
+canvas-accel 390x844@2 rows 100 failures 0
+canvas-soft 1440x1000@1 rows 20 failures 0
+canvas-soft 1280x680@1 rows 40 failures 0
+canvas-soft 390x844@1 rows 60 failures 0
+canvas-soft 360x640@1 rows 80 failures 0
+canvas-soft 390x844@2 rows 100 failures 0
+{
+ "summary": {
+  "webgl": {
+   "frames": 100,
+   "candVsA_native0": 100,
+   "candVsA_page0": 100,
+   "baseVsCur0": 100,
+   "outsideMask0": 100,
+   "withBubbles": 95,
+   "noBubbleFull0": 5
+  },
+  "canvas-accel": {
+   "frames": 100,
+   "candVsA_native0": 100,
+   "candVsA_page0": 100,
+   "baseVsCur0": 100,
+   "outsideMask0": 100,
+   "withBubbles": 95,
+   "noBubbleFull0": 5
+  },
+  "canvas-soft": {
+   "frames": 100,
+   "candVsA_native0": 100,
+   "candVsA_page0": 100,
+   "baseVsCur0": 100,
+   "outsideMask0": 100,
+   "withBubbles": 95,
+   "noBubbleFull0": 5
+  }
+ },
+ "failures": 0
+}
+exit 0

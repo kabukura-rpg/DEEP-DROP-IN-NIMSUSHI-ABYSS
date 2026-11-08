@@ -1,0 +1,1104 @@
+[
+ {
+  "build": "prod-base",
+  "mode": "webgl",
+  "width": 1440,
+  "height": 1000,
+  "mobile": false,
+  "chrome": "Chrome/156.0.8078.80",
+  "natural": {
+   "gateBefore": true,
+   "playsBeforeGate": 0,
+   "titleAudio": {
+    "plays": [
+     "The_Mossy_Monolith-DmE9OPhx.mp3",
+     "Beneath_the_Mossy_Stone-DpxJboql.mp3"
+    ],
+    "playing": [
+     "Beneath_the_Mossy_Stone-DpxJboql.mp3"
+    ]
+   },
+   "afterStart": {
+    "state": "playing",
+    "stage": "1-1",
+    "hp": 4,
+    "playing": [
+     "The_Mossy_Monolith-DmE9OPhx.mp3"
+    ]
+   },
+   "controls": {
+    "x0": 225,
+    "x1": 410,
+    "x2": 94.99999999999937,
+    "after": {
+     "y": 1754.85,
+     "ammo": 8,
+     "depth": 65.75,
+     "state": "playing",
+     "hp": 4,
+     "stage": "1-1"
+    },
+    "events": {
+     "shot": 8,
+     "jump": 0,
+     "land": 1,
+     "hurt": 0,
+     "containerBreak": 0,
+     "oxygen": 0,
+     "timeVoid": 0,
+     "section": 0
+    }
+   },
+   "ok": true
+  },
+  "env": {
+   "renderer": "WebGL",
+   "gl": "ANGLE (Google, Vulkan 1.3.0 (SwiftShader Device (LLVM 10.0.0) (0x0000C0DE)), SwiftShader driver)",
+   "dpr": 1,
+   "viewport": [
+    1440,
+    1000
+   ],
+   "canvasCss": [
+    496,
+    100,
+    448,
+    800
+   ],
+   "canvasPx": [
+    450,
+    800
+   ],
+   "coarse": false,
+   "touch": "none",
+   "ua": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/156.0.0.0 Safari/537.36",
+   "after": {
+    "renderer": "WebGL",
+    "gl": "ANGLE (Google, Vulkan 1.3.0 (SwiftShader Device (LLVM 10.0.0) (0x0000C0DE)), SwiftShader driver)",
+    "dpr": 1,
+    "viewport": [
+     1440,
+     1000
+    ],
+    "canvasCss": [
+     496,
+     100,
+     448,
+     800
+    ],
+    "canvasPx": [
+     450,
+     800
+    ],
+    "coarse": false,
+    "touch": "none",
+    "ua": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/156.0.0.0 Safari/537.36"
+   }
+  },
+  "air": {
+   "stage": "3-1",
+   "state": "playing",
+   "oxygen": true,
+   "bubbles": 0,
+   "release": {
+    "count": 3,
+    "sameStep": true,
+    "ids": [
+     1,
+     2,
+     3
+    ],
+    "events": 1,
+    "slots": 66,
+    "life": [
+     4.15,
+     4.15,
+     4.15
+    ],
+    "arm": [
+     0.03,
+     0.03,
+     0.03
+    ]
+   },
+   "rise": {
+    "ys": [
+     [
+      267.95,
+      272.36,
+      268.31
+     ],
+     [
+      239.15,
+      243.56,
+      239.51
+     ],
+     [
+      186.35,
+      190.76,
+      186.71
+     ],
+     [
+      157.55,
+      161.96,
+      157.91
+     ]
+    ],
+    "rising": true,
+    "slotsPerBubble": [
+     22,
+     22,
+     22,
+     22
+    ]
+   },
+   "trailingEdge": {
+    "simSecondsToEmpty": 3.683,
+    "cam": [
+     68.63,
+     68.63
+    ]
+   },
+   "expiry": {
+    "released": 3,
+    "blinkLife": [
+     0.967,
+     0.967,
+     0.967
+    ],
+    "blinkMinScreenY": 411.23,
+    "simSecondsToEmpty": 4.217,
+    "slotsAfter": 0
+   },
+   "catch": {
+    "before": {
+     "n": 3,
+     "oxygen": 3.5250000000000017
+    },
+    "after": {
+     "n": 0,
+     "oxygen": 11.566666666666691
+    },
+    "oxygenEvents": 3,
+    "targetGone": true
+   },
+   "section": {
+    "before": {
+     "stage": "3-1",
+     "bubbles": 3
+    },
+    "ok": true,
+    "state": "upgrade",
+    "after": {
+     "stage": "3-2",
+     "state": "playing",
+     "bubbles": 0,
+     "containers": 0,
+     "slots": 0
+    },
+    "afterProbe": {
+     "frozenStart": false,
+     "frozenEnd": false,
+     "worldDelta": 0.6,
+     "elapsedDelta": 0.6
+    }
+   }
+  },
+  "timeout": {
+   "ok": true,
+   "hp": 3,
+   "bubbles": [
+    {
+     "id": 1,
+     "x": 225,
+     "y": 502.835,
+     "radius": 96
+    }
+   ],
+   "inside": {
+    "frozenStart": true,
+    "frozenEnd": true,
+    "worldDelta": 0,
+    "elapsedDelta": 0.8
+   },
+   "airFrozen": {
+    "n": 3,
+    "still": true,
+    "frozen": true
+   },
+   "pulse": {
+    "at": [
+     660.2666666666667,
+     346
+    ],
+    "samples": [
+     "45,88,99",
+     "49,93,103",
+     "46,90,101",
+     "42,84,95"
+    ],
+    "distinct": 4
+   },
+   "outside": {
+    "frozenStart": false,
+    "frozenEnd": false,
+    "worldDelta": 0.5,
+    "elapsedDelta": 0.5
+   },
+   "overlap": {
+    "air": [
+     64,
+     63,
+     59.2
+    ],
+    "r": 96,
+    "slots": 66,
+    "n": 3
+   },
+   "reentered": {
+    "frozenStart": true,
+    "frozenEnd": true,
+    "worldDelta": 0,
+    "elapsedDelta": 0.5
+   }
+  },
+  "errors": {
+   "exceptions": [],
+   "console": []
+  }
+ },
+ {
+  "build": "prod-base",
+  "mode": "webgl",
+  "width": 390,
+  "height": 844,
+  "mobile": true,
+  "chrome": "Chrome/156.0.8078.80",
+  "natural": {
+   "gateBefore": true,
+   "playsBeforeGate": 0,
+   "titleAudio": {
+    "plays": [
+     "The_Mossy_Monolith-DmE9OPhx.mp3",
+     "Beneath_the_Mossy_Stone-DpxJboql.mp3",
+     "Beneath_the_Mossy_Stone-DpxJboql.mp3",
+     "Beneath_the_Mossy_Stone-DpxJboql.mp3"
+    ],
+    "playing": [
+     "Beneath_the_Mossy_Stone-DpxJboql.mp3"
+    ]
+   },
+   "afterStart": {
+    "state": "playing",
+    "stage": "1-1",
+    "hp": 4,
+    "playing": [
+     "The_Mossy_Monolith-DmE9OPhx.mp3"
+    ]
+   },
+   "controls": {
+    "x0": 225,
+    "x1": 410,
+    "x2": 83.33333333333269,
+    "after": {
+     "y": 1047,
+     "ammo": 8,
+     "depth": 36.125,
+     "state": "playing",
+     "hp": 3,
+     "stage": "1-1"
+    },
+    "events": {
+     "shot": 8,
+     "jump": 3,
+     "land": 4,
+     "hurt": 1,
+     "containerBreak": 0,
+     "oxygen": 0,
+     "timeVoid": 0,
+     "section": 0
+    }
+   },
+   "ok": true
+  },
+  "env": {
+   "renderer": "WebGL",
+   "gl": "ANGLE (Google, Vulkan 1.3.0 (SwiftShader Device (LLVM 10.0.0) (0x0000C0DE)), SwiftShader driver)",
+   "dpr": 1,
+   "viewport": [
+    390,
+    844
+   ],
+   "canvasCss": [
+    1,
+    77,
+    388,
+    692.328125
+   ],
+   "canvasPx": [
+    450,
+    800
+   ],
+   "coarse": true,
+   "touch": "flex",
+   "ua": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/156.0.0.0 Safari/537.36",
+   "after": {
+    "renderer": "WebGL",
+    "gl": "ANGLE (Google, Vulkan 1.3.0 (SwiftShader Device (LLVM 10.0.0) (0x0000C0DE)), SwiftShader driver)",
+    "dpr": 1,
+    "viewport": [
+     390,
+     844
+    ],
+    "canvasCss": [
+     1,
+     77,
+     388,
+     692.328125
+    ],
+    "canvasPx": [
+     450,
+     800
+    ],
+    "coarse": true,
+    "touch": "flex",
+    "ua": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/156.0.0.0 Safari/537.36"
+   }
+  },
+  "air": {
+   "stage": "3-1",
+   "state": "playing",
+   "oxygen": true,
+   "bubbles": 0,
+   "release": {
+    "count": 4,
+    "sameStep": true,
+    "ids": [
+     1,
+     2,
+     3,
+     4
+    ],
+    "events": 1,
+    "slots": 88,
+    "life": [
+     4.15,
+     4.15,
+     4.15,
+     4.15
+    ],
+    "arm": [
+     0.03,
+     0.03,
+     0.03,
+     0.03
+    ]
+   },
+   "rise": {
+    "ys": [
+     [
+      289.05,
+      285.3,
+      289.1,
+      286.91
+     ],
+     [
+      260.25,
+      256.5,
+      260.3,
+      258.11
+     ],
+     [
+      217.05,
+      213.3,
+      217.1,
+      214.91
+     ],
+     [
+      188.25,
+      184.5,
+      188.3,
+      186.11
+     ]
+    ],
+    "rising": true,
+    "slotsPerBubble": [
+     22,
+     22,
+     22,
+     22
+    ]
+   },
+   "trailingEdge": {
+    "simSecondsToEmpty": 3.683,
+    "cam": [
+     68.63,
+     68.63
+    ]
+   },
+   "expiry": {
+    "released": 4,
+    "blinkLife": [
+     0.983,
+     0.983,
+     0.983,
+     0.983
+    ],
+    "blinkMinScreenY": 413.21,
+    "simSecondsToEmpty": 4.25,
+    "slotsAfter": 0
+   },
+   "catch": {
+    "before": {
+     "n": 3,
+     "oxygen": 3.5000000000000018
+    },
+    "after": {
+     "n": 0,
+     "oxygen": 11.608333333333356
+    },
+    "oxygenEvents": 3,
+    "targetGone": true
+   },
+   "section": {
+    "before": {
+     "stage": "3-1",
+     "bubbles": 3
+    },
+    "ok": true,
+    "state": "upgrade",
+    "after": {
+     "stage": "3-2",
+     "state": "playing",
+     "bubbles": 0,
+     "containers": 0,
+     "slots": 0
+    },
+    "afterProbe": {
+     "frozenStart": false,
+     "frozenEnd": false,
+     "worldDelta": 0.6,
+     "elapsedDelta": 0.6
+    }
+   }
+  },
+  "timeout": {
+   "ok": true,
+   "hp": 3,
+   "bubbles": [
+    {
+     "id": 1,
+     "x": 225,
+     "y": 501.89,
+     "radius": 96
+    }
+   ],
+   "inside": {
+    "frozenStart": true,
+    "frozenEnd": true,
+    "worldDelta": 0,
+    "elapsedDelta": 0.8
+   },
+   "airFrozen": {
+    "n": 3,
+    "still": true,
+    "frozen": true
+   },
+   "pulse": {
+    "at": [
+     143.26666666666668,
+     289.8908984375
+    ],
+    "samples": [
+     "46,90,101",
+     "49,93,103",
+     "46,90,101",
+     "41,84,94"
+    ],
+    "distinct": 3
+   },
+   "outside": {
+    "frozenStart": false,
+    "frozenEnd": false,
+    "worldDelta": 0.5,
+    "elapsedDelta": 0.5
+   },
+   "overlap": {
+    "air": [
+     55,
+     56.8,
+     56.6
+    ],
+    "r": 96,
+    "slots": 66,
+    "n": 3
+   },
+   "reentered": {
+    "frozenStart": true,
+    "frozenEnd": true,
+    "worldDelta": 0,
+    "elapsedDelta": 0.5
+   }
+  },
+  "errors": {
+   "exceptions": [],
+   "console": []
+  }
+ },
+ {
+  "build": "prod-base",
+  "mode": "canvas-accel",
+  "width": 1440,
+  "height": 1000,
+  "mobile": false,
+  "chrome": "Chrome/156.0.8078.80",
+  "natural": {
+   "gateBefore": true,
+   "playsBeforeGate": 0,
+   "titleAudio": {
+    "plays": [
+     "The_Mossy_Monolith-DmE9OPhx.mp3",
+     "Beneath_the_Mossy_Stone-DpxJboql.mp3"
+    ],
+    "playing": [
+     "Beneath_the_Mossy_Stone-DpxJboql.mp3"
+    ]
+   },
+   "afterStart": {
+    "state": "playing",
+    "stage": "1-1",
+    "hp": 4,
+    "playing": [
+     "The_Mossy_Monolith-DmE9OPhx.mp3"
+    ]
+   },
+   "controls": {
+    "x0": 225,
+    "x1": 410,
+    "x2": 94.99999999999937,
+    "after": {
+     "y": 1404,
+     "ammo": 8,
+     "depth": 51,
+     "state": "playing",
+     "hp": 4,
+     "stage": "1-1"
+    },
+    "events": {
+     "shot": 8,
+     "jump": 0,
+     "land": 2,
+     "hurt": 0,
+     "containerBreak": 0,
+     "oxygen": 0,
+     "timeVoid": 0,
+     "section": 0
+    }
+   },
+   "ok": true
+  },
+  "env": {
+   "renderer": "Canvas",
+   "gl": null,
+   "dpr": 1,
+   "viewport": [
+    1440,
+    1000
+   ],
+   "canvasCss": [
+    496,
+    100,
+    448,
+    800
+   ],
+   "canvasPx": [
+    450,
+    800
+   ],
+   "coarse": false,
+   "touch": "none",
+   "ua": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/156.0.0.0 Safari/537.36",
+   "after": {
+    "renderer": "Canvas",
+    "gl": null,
+    "dpr": 1,
+    "viewport": [
+     1440,
+     1000
+    ],
+    "canvasCss": [
+     496,
+     100,
+     448,
+     800
+    ],
+    "canvasPx": [
+     450,
+     800
+    ],
+    "coarse": false,
+    "touch": "none",
+    "ua": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/156.0.0.0 Safari/537.36"
+   }
+  },
+  "air": {
+   "stage": "3-1",
+   "state": "playing",
+   "oxygen": true,
+   "bubbles": 0,
+   "release": {
+    "count": 5,
+    "sameStep": true,
+    "ids": [
+     1,
+     2,
+     3,
+     4,
+     5
+    ],
+    "events": 1,
+    "slots": 110,
+    "life": [
+     4.133,
+     4.133,
+     4.133,
+     4.133,
+     4.133
+    ],
+    "arm": [
+     0.013,
+     0.013,
+     0.013,
+     0.013,
+     0.013
+    ]
+   },
+   "rise": {
+    "ys": [
+     [
+      278.95,
+      283.09,
+      279.15,
+      279.83,
+      279.4
+     ],
+     [
+      250.15,
+      254.29,
+      250.35,
+      251.03,
+      250.6
+     ],
+     [
+      203.75,
+      207.89,
+      203.95,
+      204.63,
+      204.2
+     ],
+     [
+      174.95,
+      179.09,
+      175.15,
+      175.83,
+      175.4
+     ]
+    ],
+    "rising": true,
+    "slotsPerBubble": [
+     22,
+     22,
+     22,
+     22
+    ]
+   },
+   "trailingEdge": {
+    "simSecondsToEmpty": 3.667,
+    "cam": [
+     68.63,
+     68.63
+    ]
+   },
+   "expiry": {
+    "released": 3,
+    "blinkLife": [
+     0.95,
+     0.95,
+     0.95
+    ],
+    "blinkMinScreenY": 410.04,
+    "simSecondsToEmpty": 4.217,
+    "slotsAfter": 0
+   },
+   "catch": {
+    "before": {
+     "n": 4,
+     "oxygen": 3.5000000000000018
+    },
+    "after": {
+     "n": 0,
+     "oxygen": 11.600000000000023
+    },
+    "oxygenEvents": 4,
+    "targetGone": true
+   },
+   "section": {
+    "before": {
+     "stage": "3-1",
+     "bubbles": 4
+    },
+    "ok": true,
+    "state": "upgrade",
+    "after": {
+     "stage": "3-2",
+     "state": "playing",
+     "bubbles": 0,
+     "containers": 0,
+     "slots": 0
+    },
+    "afterProbe": {
+     "frozenStart": false,
+     "frozenEnd": false,
+     "worldDelta": 0.6,
+     "elapsedDelta": 0.6
+    }
+   }
+  },
+  "timeout": {
+   "ok": true,
+   "hp": 3,
+   "bubbles": [
+    {
+     "id": 1,
+     "x": 225,
+     "y": 501.89,
+     "radius": 96
+    }
+   ],
+   "inside": {
+    "frozenStart": true,
+    "frozenEnd": true,
+    "worldDelta": 0,
+    "elapsedDelta": 0.8
+   },
+   "airFrozen": {
+    "n": 4,
+    "still": true,
+    "frozen": true
+   },
+   "pulse": {
+    "at": [
+     660.2666666666667,
+     346
+    ],
+    "samples": [
+     "45,89,99",
+     "49,94,104",
+     "49,94,104",
+     "45,89,99"
+    ],
+    "distinct": 2
+   },
+   "outside": {
+    "frozenStart": false,
+    "frozenEnd": false,
+    "worldDelta": 0.5,
+    "elapsedDelta": 0.5
+   },
+   "overlap": {
+    "air": [
+     59.7,
+     56.4,
+     58.8,
+     56.2
+    ],
+    "r": 96,
+    "slots": 88,
+    "n": 4
+   },
+   "reentered": {
+    "frozenStart": true,
+    "frozenEnd": true,
+    "worldDelta": 0,
+    "elapsedDelta": 0.5
+   }
+  },
+  "errors": {
+   "exceptions": [],
+   "console": []
+  }
+ },
+ {
+  "build": "prod-base",
+  "mode": "canvas-accel",
+  "width": 360,
+  "height": 640,
+  "mobile": true,
+  "chrome": "Chrome/156.0.8078.80",
+  "natural": {
+   "gateBefore": true,
+   "playsBeforeGate": 0,
+   "titleAudio": {
+    "plays": [
+     "The_Mossy_Monolith-DmE9OPhx.mp3",
+     "Beneath_the_Mossy_Stone-DpxJboql.mp3",
+     "Beneath_the_Mossy_Stone-DpxJboql.mp3",
+     "Beneath_the_Mossy_Stone-DpxJboql.mp3"
+    ],
+    "playing": [
+     "Beneath_the_Mossy_Stone-DpxJboql.mp3"
+    ]
+   },
+   "afterStart": {
+    "state": "playing",
+    "stage": "1-1",
+    "hp": 4,
+    "playing": [
+     "The_Mossy_Monolith-DmE9OPhx.mp3"
+    ]
+   },
+   "controls": {
+    "x0": 225,
+    "x1": 410,
+    "x2": 89.16783333333265,
+    "after": {
+     "y": 1156,
+     "ammo": 8,
+     "depth": 40.666666666666664,
+     "state": "playing",
+     "hp": 4,
+     "stage": "1-1"
+    },
+    "events": {
+     "shot": 8,
+     "jump": 2,
+     "land": 3,
+     "hurt": 0,
+     "containerBreak": 0,
+     "oxygen": 0,
+     "timeVoid": 0,
+     "section": 0
+    }
+   },
+   "ok": true
+  },
+  "env": {
+   "renderer": "Canvas",
+   "gl": null,
+   "dpr": 1,
+   "viewport": [
+    360,
+    640
+   ],
+   "canvasCss": [
+    22.9375,
+    77,
+    314.125,
+    561
+   ],
+   "canvasPx": [
+    450,
+    800
+   ],
+   "coarse": true,
+   "touch": "flex",
+   "ua": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/156.0.0.0 Safari/537.36",
+   "after": {
+    "renderer": "Canvas",
+    "gl": null,
+    "dpr": 1,
+    "viewport": [
+     360,
+     640
+    ],
+    "canvasCss": [
+     22.9375,
+     77,
+     314.125,
+     561
+    ],
+    "canvasPx": [
+     450,
+     800
+    ],
+    "coarse": true,
+    "touch": "flex",
+    "ua": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/156.0.0.0 Safari/537.36"
+   }
+  },
+  "air": {
+   "stage": "3-1",
+   "state": "playing",
+   "oxygen": true,
+   "bubbles": 0,
+   "release": {
+    "count": 3,
+    "sameStep": true,
+    "ids": [
+     1,
+     2,
+     3
+    ],
+    "events": 1,
+    "slots": 66,
+    "life": [
+     4.15,
+     4.15,
+     4.15
+    ],
+    "arm": [
+     0.03,
+     0.03,
+     0.03
+    ]
+   },
+   "rise": {
+    "ys": [
+     [
+      288.83,
+      289.67,
+      291.15
+     ],
+     [
+      260.03,
+      260.87,
+      262.35
+     ],
+     [
+      220.03,
+      220.87,
+      222.35
+     ],
+     [
+      191.23,
+      192.07,
+      193.55
+     ]
+    ],
+    "rising": true,
+    "slotsPerBubble": [
+     22,
+     22,
+     22,
+     22
+    ]
+   },
+   "trailingEdge": {
+    "simSecondsToEmpty": 3.667,
+    "cam": [
+     68.63,
+     68.63
+    ]
+   },
+   "expiry": {
+    "released": 5,
+    "blinkLife": [
+     0.95,
+     0.95,
+     0.95,
+     0.95,
+     0.95
+    ],
+    "blinkMinScreenY": 411.55,
+    "simSecondsToEmpty": 4.267,
+    "slotsAfter": 0
+   },
+   "catch": {
+    "before": {
+     "n": 3,
+     "oxygen": 3.5000000000000018
+    },
+    "after": {
+     "n": 0,
+     "oxygen": 11.608333333333356
+    },
+    "oxygenEvents": 3,
+    "targetGone": true
+   },
+   "section": {
+    "before": {
+     "stage": "3-1",
+     "bubbles": 4
+    },
+    "ok": true,
+    "state": "upgrade",
+    "after": {
+     "stage": "3-2",
+     "state": "playing",
+     "bubbles": 0,
+     "containers": 0,
+     "slots": 0
+    },
+    "afterProbe": {
+     "frozenStart": false,
+     "frozenEnd": false,
+     "worldDelta": 0.6,
+     "elapsedDelta": 0.6
+    }
+   }
+  },
+  "timeout": {
+   "ok": true,
+   "hp": 3,
+   "bubbles": [
+    {
+     "id": 1,
+     "x": 225,
+     "y": 501.89,
+     "radius": 96
+    }
+   ],
+   "inside": {
+    "frozenStart": true,
+    "frozenEnd": true,
+    "worldDelta": 0,
+    "elapsedDelta": 0.8
+   },
+   "airFrozen": {
+    "n": 4,
+    "still": true,
+    "frozen": true
+   },
+   "pulse": {
+    "at": [
+     138.11666666666667,
+     249.5075
+    ],
+    "samples": [
+     "47,91,101",
+     "49,94,104",
+     "49,94,104",
+     "46,89,100"
+    ],
+    "distinct": 3
+   },
+   "outside": {
+    "frozenStart": false,
+    "frozenEnd": false,
+    "worldDelta": 0.5,
+    "elapsedDelta": 0.5
+   },
+   "overlap": {
+    "air": [
+     46.6,
+     50.6,
+     50,
+     50.9
+    ],
+    "r": 96,
+    "slots": 88,
+    "n": 4
+   },
+   "reentered": {
+    "frozenStart": true,
+    "frozenEnd": true,
+    "worldDelta": 0,
+    "elapsedDelta": 0.5
+   }
+  },
+  "errors": {
+   "exceptions": [],
+   "console": []
+  }
+ }
+]

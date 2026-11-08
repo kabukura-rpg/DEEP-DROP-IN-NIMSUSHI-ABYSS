@@ -1,0 +1,8 @@
+webgl Current frames 7205 int p50/p99 16.7 16.8 >25 0 cpu p95 0.60 gc {"minor":366,"major":35,"minorMs":54.34,"majorMs":31.74,"maxPauseMs":2.496} heap MB 6.55 -> 7.38 floor 7.11 7.77
+webgl A frames 7202 int p50/p99 16.7 16.8 >25 1 cpu p95 0.50 gc {"minor":234,"major":35,"minorMs":42.77,"majorMs":33.36,"maxPauseMs":2.323} heap MB 6.39 -> 7.38 floor 6.65 7.78
+webgl A frames 7204 int p50/p99 16.7 16.8 >25 0 cpu p95 0.50 gc {"minor":235,"major":34,"minorMs":41.78,"majorMs":32.98,"maxPauseMs":1.387} heap MB 6.47 -> 7.38 floor 7.04 7.41
+webgl Current frames 7204 int p50/p99 16.7 16.8 >25 0 cpu p95 0.60 gc {"minor":363,"major":35,"minorMs":57.32,"majorMs":34.82,"maxPauseMs":2.862} heap MB 6.58 -> 7.39 floor 6.82 7.96
+canvas-accel Current frames 7206 int p50/p99 16.7 16.8 >25 0 cpu p95 0.80 gc {"minor":284,"major":72,"minorMs":62.16,"majorMs":72.94,"maxPauseMs":3.35} heap MB 5.94 -> 6.87 floor 6.73 7.63
+canvas-accel A frames 7204 int p50/p99 16.7 16.8 >25 0 cpu p95 0.80 gc {"minor":277,"major":73,"minorMs":65.49,"majorMs":74.03,"maxPauseMs":1.311} heap MB 6.02 -> 6.88 floor 6.49 10.33
+canvas-accel A frames 7204 int p50/p99 16.7 16.8 >25 0 cpu p95 0.80 gc {"minor":282,"major":72,"minorMs":65.92,"majorMs":71.75,"maxPauseMs":1.405} heap MB 5.92 -> 6.89 floor 6.44 8.48
+canvas-accel Current frames 7204 int p50/p99 16.7 16.8 >25 0 cpu p95 0.80 gc {"minor":324,"major":73,"minorMs":74.36,"majorMs":72.95,"maxPauseMs":1.577} heap MB 5.87 -> 6.86 floor 6.57 7.05

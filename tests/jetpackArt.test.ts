@@ -8,6 +8,7 @@ import { JETPACK_BASELINE_BLOCK, JETPACK_BLOCK, JETPACK_IMPORT_LINE, isJetpackAr
 import { withoutJetpackBehaviorFix } from './jetpackBehaviorRestore';
 import { isTapiocaProjectileArtFile } from './tapiocaProjectileArtRestore';
 import { isTimeoutArtFile } from './timeoutArtRestore';
+import { isAirBubbleArtFile } from './airBubbleArtRestore';
 import sceneSource from '../src/scenes/GameScene.ts?raw';
 import jetpackSource from '../src/render/jetpackArt.ts?raw';
 
@@ -298,7 +299,7 @@ describe('JETPACK A changes nothing else', () => {
   it('leaves every other source byte-identical to dc51d0b: model, upgrades, TITLE AUDIO, DRONE, BALLOON, CORPSE, feedback, text, UI', () => {
     const SOURCES = import.meta.glob(['../src/**/*.ts'], { query: '?raw', import: 'default', eager: true }) as Record<string, string>;
     // render/tapiocaProjectileArt.ts is the BOSS pearl's art, added after 959a5f4 (tests/tapiocaProjectileArt.test.ts).
-    const keys = Object.keys(SOURCES).filter(k => k !== '../src/scenes/GameScene.ts' && !isJetpackArtFile(k) && !isTapiocaProjectileArtFile(k) && !isTimeoutArtFile(k)).sort();
+    const keys = Object.keys(SOURCES).filter(k => k !== '../src/scenes/GameScene.ts' && !isJetpackArtFile(k) && !isTapiocaProjectileArtFile(k) && !isTimeoutArtFile(k) && !isAirBubbleArtFile(k)).sort();
     expect(keys).toHaveLength(89);
     // The same digest over the same 89 files, computed with `git show dc51d0b:<path>`.
     expect(sha256(keys.map(k => `${k}\n${sha256(withoutJetpackBehaviorFix(k, SOURCES[k]))}`).join('\n'))).toBe('9806b16ae1ea7b74b4bb9df82324e398816a8b50f03ab5d7334f6f4d5be7ff3d');

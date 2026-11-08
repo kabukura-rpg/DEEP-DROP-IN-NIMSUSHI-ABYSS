@@ -8,6 +8,7 @@ import { fighting, round } from './nimushi';
 import { tapiocaTrace } from './tapiocaTrace';
 import { TAPIOCA_ART_HUNKS, isTapiocaProjectileArtFile, withoutTapiocaProjectileArt } from './tapiocaProjectileArtRestore';
 import { isTimeoutArtFile } from './timeoutArtRestore';
+import { isAirBubbleArtFile } from './airBubbleArtRestore';
 import sceneSource from '../src/scenes/GameScene.ts?raw';
 import artSource from '../src/render/tapiocaProjectileArt.ts?raw';
 
@@ -382,7 +383,7 @@ describe('TAPIOCA A changes nothing else', () => {
   it('leaves every other source byte-identical to 959a5f4: model, boss system, attacks, physics, art, UI, audio', () => {
     const SOURCES = import.meta.glob(['../src/**/*.ts'], { query: '?raw', import: 'default', eager: true }) as Record<string, string>;
     expect(Object.keys(SOURCES).filter(isTapiocaProjectileArtFile)).toEqual(['../src/render/tapiocaProjectileArt.ts']);
-    const keys = Object.keys(SOURCES).filter(k => k !== '../src/scenes/GameScene.ts' && !isTapiocaProjectileArtFile(k) && !isTimeoutArtFile(k)).sort();
+    const keys = Object.keys(SOURCES).filter(k => k !== '../src/scenes/GameScene.ts' && !isTapiocaProjectileArtFile(k) && !isTimeoutArtFile(k) && !isAirBubbleArtFile(k)).sort();
     expect(keys).toHaveLength(90);
     // The same digest over the same 90 files, computed on a git archive of 959a5f4.
     expect(sha256(keys.map(k => `${k}\n${sha256(SOURCES[k])}`).join('\n'))).toBe('1cecbc7b32c13d3916729660256b162c2ec888d9590e08017812bc2606b1c370');

@@ -1,0 +1,8573 @@
+{
+ "chrome": "Chrome/156.0.8078.80",
+ "rows": [
+  {
+   "mode": "webgl",
+   "width": 360,
+   "height": 640,
+   "round": 0,
+   "build": "Current",
+   "scenario": "air0",
+   "env": {
+    "renderer": "WebGL",
+    "gl": "ANGLE (Google, Vulkan 1.3.0 (SwiftShader Device (LLVM 10.0.0) (0x0000C0DE)), SwiftShader driver)",
+    "dpr": 1,
+    "canvasPx": [
+     450,
+     800
+    ]
+   },
+   "state": {
+    "bubbles": 0,
+    "drawn": 0,
+    "timeout": 0,
+    "slots": 0
+   },
+   "cpuDraw": {
+    "n": 240,
+    "mean": 0.30541667143503826,
+    "p50": 0.2999999523162842,
+    "p95": 0.40000009536743164,
+    "p99": 0.5,
+    "max": 0.5
+   },
+   "cpuTotal": {
+    "n": 240,
+    "mean": 0.41208333770434064,
+    "p50": 0.3999999761581421,
+    "p95": 0.5,
+    "p99": 0.6000000238418579,
+    "max": 0.6000000238418579
+   },
+   "interval": {
+    "n": 240,
+    "mean": 16.66625,
+    "p50": 16.699999999999818,
+    "p95": 16.700000000000728,
+    "p99": 16.800000000000182,
+    "max": 16.800000000000182
+   },
+   "over25": 0,
+   "gpuFlush": {
+    "n": 120,
+    "mean": 0.3950000067551931,
+    "p50": 0.3999999761581421,
+    "p95": 0.5,
+    "p99": 0.5,
+    "max": 0.6000000238418579
+   },
+   "gc": {
+    "minor": 24,
+    "major": 1,
+    "minorMs": 3.737,
+    "majorMs": 1.237
+   },
+   "allocKiBPerFrame": 78.8,
+   "heapAfterGC": {
+    "before": 6469048,
+    "after": 6866756,
+    "delta": 397708
+   }
+  },
+  {
+   "mode": "webgl",
+   "width": 360,
+   "height": 640,
+   "round": 0,
+   "build": "Current",
+   "scenario": "air4",
+   "env": {
+    "renderer": "WebGL",
+    "gl": "ANGLE (Google, Vulkan 1.3.0 (SwiftShader Device (LLVM 10.0.0) (0x0000C0DE)), SwiftShader driver)",
+    "dpr": 1,
+    "canvasPx": [
+     450,
+     800
+    ]
+   },
+   "state": {
+    "bubbles": 4,
+    "drawn": 4,
+    "timeout": 0,
+    "slots": 88
+   },
+   "cpuDraw": {
+    "n": 240,
+    "mean": 0.31500000357627866,
+    "p50": 0.2999999523162842,
+    "p95": 0.40000009536743164,
+    "p99": 0.5,
+    "max": 0.5
+   },
+   "cpuTotal": {
+    "n": 240,
+    "mean": 0.4454166685541471,
+    "p50": 0.5,
+    "p95": 0.5,
+    "p99": 0.6000000238418579,
+    "max": 0.6999999284744263
+   },
+   "interval": {
+    "n": 240,
+    "mean": 16.735833333333343,
+    "p50": 16.69999999999891,
+    "p95": 16.700000000000728,
+    "p99": 16.799999999999272,
+    "max": 33.29999999999927
+   },
+   "over25": 1,
+   "gpuFlush": {
+    "n": 120,
+    "mean": 0.4558333386977514,
+    "p50": 0.5,
+    "p95": 0.6000000238418579,
+    "p99": 0.6000000238418579,
+    "max": 1
+   },
+   "gc": {
+    "minor": 45,
+    "major": 1,
+    "minorMs": 4.709,
+    "majorMs": 0.71
+   },
+   "allocKiBPerFrame": 179.1,
+   "heapAfterGC": {
+    "before": 6830608,
+    "after": 6932140,
+    "delta": 101532
+   }
+  },
+  {
+   "mode": "webgl",
+   "width": 360,
+   "height": 640,
+   "round": 0,
+   "build": "Current",
+   "scenario": "air12",
+   "env": {
+    "renderer": "WebGL",
+    "gl": "ANGLE (Google, Vulkan 1.3.0 (SwiftShader Device (LLVM 10.0.0) (0x0000C0DE)), SwiftShader driver)",
+    "dpr": 1,
+    "canvasPx": [
+     450,
+     800
+    ]
+   },
+   "state": {
+    "bubbles": 12,
+    "drawn": 12,
+    "timeout": 0,
+    "slots": 264
+   },
+   "cpuDraw": {
+    "n": 240,
+    "mean": 0.280833338201046,
+    "p50": 0.2999999523162842,
+    "p95": 0.3999999761581421,
+    "p99": 0.40000009536743164,
+    "max": 0.40000009536743164
+   },
+   "cpuTotal": {
+    "n": 240,
+    "mean": 0.4704166665673256,
+    "p50": 0.5,
+    "p95": 0.6000000238418579,
+    "p99": 0.6000000238418579,
+    "max": 1
+   },
+   "interval": {
+    "n": 240,
+    "mean": 16.666250000000005,
+    "p50": 16.700000000000728,
+    "p95": 16.700000000000728,
+    "p99": 16.799999999999272,
+    "max": 16.80000000000291
+   },
+   "over25": 0,
+   "gpuFlush": {
+    "n": 120,
+    "mean": 0.4658333291610082,
+    "p50": 0.5,
+    "p95": 0.6000000238418579,
+    "p99": 0.6000000238418579,
+    "max": 0.6000000238418579
+   },
+   "gc": {
+    "minor": 69,
+    "major": 1,
+    "minorMs": 6.947,
+    "majorMs": 0.822
+   },
+   "allocKiBPerFrame": 376.8,
+   "heapAfterGC": {
+    "before": 6963496,
+    "after": 6976948,
+    "delta": 13452
+   }
+  },
+  {
+   "mode": "webgl",
+   "width": 360,
+   "height": 640,
+   "round": 0,
+   "build": "Current",
+   "scenario": "timeoutAir",
+   "env": {
+    "renderer": "WebGL",
+    "gl": "ANGLE (Google, Vulkan 1.3.0 (SwiftShader Device (LLVM 10.0.0) (0x0000C0DE)), SwiftShader driver)",
+    "dpr": 1,
+    "canvasPx": [
+     450,
+     800
+    ]
+   },
+   "state": {
+    "bubbles": 4,
+    "drawn": 4,
+    "timeout": 1,
+    "slots": 88
+   },
+   "cpuDraw": {
+    "n": 240,
+    "mean": 0.3045833388964335,
+    "p50": 0.2999999523162842,
+    "p95": 0.40000009536743164,
+    "p99": 0.5,
+    "max": 0.7000000476837158
+   },
+   "cpuTotal": {
+    "n": 240,
+    "mean": 0.43500000089406965,
+    "p50": 0.40000009536743164,
+    "p95": 0.5999999046325684,
+    "p99": 0.6000000238418579,
+    "max": 0.8000000715255737
+   },
+   "interval": {
+    "n": 240,
+    "mean": 16.666250000000005,
+    "p50": 16.69999999999709,
+    "p95": 16.700000000004366,
+    "p99": 16.80000000000291,
+    "max": 16.80000000000291
+   },
+   "over25": 0,
+   "gpuFlush": {
+    "n": 120,
+    "mean": 0.41833333174387616,
+    "p50": 0.3999999761581421,
+    "p95": 0.5,
+    "p99": 0.6000000238418579,
+    "max": 0.6000000238418579
+   },
+   "gc": {
+    "minor": 31,
+    "major": 1,
+    "minorMs": 3.475,
+    "majorMs": 0.939
+   },
+   "allocKiBPerFrame": 193.3,
+   "heapAfterGC": {
+    "before": 6918260,
+    "after": 7062140,
+    "delta": 143880
+   }
+  },
+  {
+   "mode": "webgl",
+   "width": 360,
+   "height": 640,
+   "round": 0,
+   "build": "Current",
+   "scenario": "cycle",
+   "env": {
+    "renderer": "WebGL",
+    "gl": "ANGLE (Google, Vulkan 1.3.0 (SwiftShader Device (LLVM 10.0.0) (0x0000C0DE)), SwiftShader driver)",
+    "dpr": 1,
+    "canvasPx": [
+     450,
+     800
+    ]
+   },
+   "state": {
+    "bubbles": 4,
+    "drawn": 4,
+    "timeout": 0,
+    "slots": 88
+   },
+   "cpuDraw": {
+    "n": 239,
+    "mean": 0,
+    "p50": 0,
+    "p95": 0,
+    "p99": 0,
+    "max": 0
+   },
+   "cpuTotal": {
+    "n": 239,
+    "mean": 0.4121338937073073,
+    "p50": 0.3999999761581421,
+    "p95": 0.5,
+    "p99": 0.5,
+    "max": 0.6000000238418579
+   },
+   "interval": {
+    "n": 239,
+    "mean": 16.666108786610867,
+    "p50": 16.69999999999709,
+    "p95": 16.799999999995634,
+    "p99": 16.80000000000291,
+    "max": 16.80000000000291
+   },
+   "over25": 0,
+   "gpuFlush": {
+    "n": 120,
+    "mean": 0.4308333327372869,
+    "p50": 0.3999999761581421,
+    "p95": 0.5,
+    "p99": 0.6000000238418579,
+    "max": 0.6000000238418579
+   },
+   "gc": {
+    "minor": 37,
+    "major": 1,
+    "minorMs": 4.128,
+    "majorMs": 0.807
+   },
+   "allocKiBPerFrame": 170,
+   "heapAfterGC": {
+    "before": 6995640,
+    "after": 7098260,
+    "delta": 102620
+   }
+  },
+  {
+   "mode": "webgl",
+   "width": 360,
+   "height": 640,
+   "round": 0,
+   "build": "A",
+   "scenario": "air0",
+   "env": {
+    "renderer": "WebGL",
+    "gl": "ANGLE (Google, Vulkan 1.3.0 (SwiftShader Device (LLVM 10.0.0) (0x0000C0DE)), SwiftShader driver)",
+    "dpr": 1,
+    "canvasPx": [
+     450,
+     800
+    ]
+   },
+   "state": {
+    "bubbles": 0,
+    "drawn": 0,
+    "timeout": 0,
+    "slots": 0
+   },
+   "cpuDraw": {
+    "n": 240,
+    "mean": 0.32708333631356556,
+    "p50": 0.30000007152557373,
+    "p95": 0.5,
+    "p99": 0.5,
+    "max": 0.7000000476837158
+   },
+   "cpuTotal": {
+    "n": 240,
+    "mean": 0.43250000327825544,
+    "p50": 0.3999999761581421,
+    "p95": 0.6000000238418579,
+    "p99": 0.6000000238418579,
+    "max": 0.8000000715255737
+   },
+   "interval": {
+    "n": 240,
+    "mean": 16.735416666666637,
+    "p50": 16.699999999999818,
+    "p95": 16.700000000000728,
+    "p99": 16.800000000000182,
+    "max": 33.40000000000009
+   },
+   "over25": 1,
+   "gpuFlush": {
+    "n": 120,
+    "mean": 0.3999999940395355,
+    "p50": 0.3999999761581421,
+    "p95": 0.5,
+    "p99": 0.5,
+    "max": 0.5999999046325684
+   },
+   "gc": {
+    "minor": 18,
+    "major": 1,
+    "minorMs": 2.511,
+    "majorMs": 1.145
+   },
+   "allocKiBPerFrame": 123.4,
+   "heapAfterGC": {
+    "before": 6471248,
+    "after": 6845164,
+    "delta": 373916
+   }
+  },
+  {
+   "mode": "webgl",
+   "width": 360,
+   "height": 640,
+   "round": 0,
+   "build": "A",
+   "scenario": "air4",
+   "env": {
+    "renderer": "WebGL",
+    "gl": "ANGLE (Google, Vulkan 1.3.0 (SwiftShader Device (LLVM 10.0.0) (0x0000C0DE)), SwiftShader driver)",
+    "dpr": 1,
+    "canvasPx": [
+     450,
+     800
+    ]
+   },
+   "state": {
+    "bubbles": 4,
+    "drawn": 4,
+    "timeout": 0,
+    "slots": 304
+   },
+   "cpuDraw": {
+    "n": 240,
+    "mean": 0.3033333341280619,
+    "p50": 0.2999999523162842,
+    "p95": 0.3999999761581421,
+    "p99": 0.5,
+    "max": 0.6999999284744263
+   },
+   "cpuTotal": {
+    "n": 240,
+    "mean": 0.39749999741713204,
+    "p50": 0.3999999761581421,
+    "p95": 0.5,
+    "p99": 0.6000000238418579,
+    "max": 0.6999999284744263
+   },
+   "interval": {
+    "n": 240,
+    "mean": 16.66583333333334,
+    "p50": 16.69999999999891,
+    "p95": 16.700000000000728,
+    "p99": 16.80000000000109,
+    "max": 16.80000000000109
+   },
+   "over25": 0,
+   "gpuFlush": {
+    "n": 120,
+    "mean": 0.3950000067551931,
+    "p50": 0.3999999761581421,
+    "p95": 0.5,
+    "p99": 0.5,
+    "max": 0.5
+   },
+   "gc": {
+    "minor": 23,
+    "major": 1,
+    "minorMs": 3.207,
+    "majorMs": 0.848
+   },
+   "allocKiBPerFrame": 133.5,
+   "heapAfterGC": {
+    "before": 6805532,
+    "after": 6918036,
+    "delta": 112504
+   }
+  },
+  {
+   "mode": "webgl",
+   "width": 360,
+   "height": 640,
+   "round": 0,
+   "build": "A",
+   "scenario": "air12",
+   "env": {
+    "renderer": "WebGL",
+    "gl": "ANGLE (Google, Vulkan 1.3.0 (SwiftShader Device (LLVM 10.0.0) (0x0000C0DE)), SwiftShader driver)",
+    "dpr": 1,
+    "canvasPx": [
+     450,
+     800
+    ]
+   },
+   "state": {
+    "bubbles": 12,
+    "drawn": 12,
+    "timeout": 0,
+    "slots": 912
+   },
+   "cpuDraw": {
+    "n": 240,
+    "mean": 0.2975000038743019,
+    "p50": 0.2999999523162842,
+    "p95": 0.3999999761581421,
+    "p99": 0.40000009536743164,
+    "max": 0.40000009536743164
+   },
+   "cpuTotal": {
+    "n": 240,
+    "mean": 0.38833333452542623,
+    "p50": 0.3999999761581421,
+    "p95": 0.5,
+    "p99": 0.5,
+    "max": 0.5
+   },
+   "interval": {
+    "n": 240,
+    "mean": 16.66583333333333,
+    "p50": 16.700000000000728,
+    "p95": 16.700000000000728,
+    "p99": 16.80000000000291,
+    "max": 16.80000000000291
+   },
+   "over25": 0,
+   "gpuFlush": {
+    "n": 120,
+    "mean": 0.38833333750565846,
+    "p50": 0.3999999761581421,
+    "p95": 0.5,
+    "p99": 0.5,
+    "max": 0.5
+   },
+   "gc": {
+    "minor": 24,
+    "major": 1,
+    "minorMs": 3.163,
+    "majorMs": 0.889
+   },
+   "allocKiBPerFrame": 148,
+   "heapAfterGC": {
+    "before": 6954216,
+    "after": 6967596,
+    "delta": 13380
+   }
+  },
+  {
+   "mode": "webgl",
+   "width": 360,
+   "height": 640,
+   "round": 0,
+   "build": "A",
+   "scenario": "timeoutAir",
+   "env": {
+    "renderer": "WebGL",
+    "gl": "ANGLE (Google, Vulkan 1.3.0 (SwiftShader Device (LLVM 10.0.0) (0x0000C0DE)), SwiftShader driver)",
+    "dpr": 1,
+    "canvasPx": [
+     450,
+     800
+    ]
+   },
+   "state": {
+    "bubbles": 4,
+    "drawn": 4,
+    "timeout": 1,
+    "slots": 304
+   },
+   "cpuDraw": {
+    "n": 240,
+    "mean": 0.2987500016887983,
+    "p50": 0.2999999523162842,
+    "p95": 0.3999999761581421,
+    "p99": 0.5,
+    "max": 0.5
+   },
+   "cpuTotal": {
+    "n": 240,
+    "mean": 0.3999999990065893,
+    "p50": 0.3999999761581421,
+    "p95": 0.5,
+    "p99": 0.5,
+    "max": 0.5999999046325684
+   },
+   "interval": {
+    "n": 240,
+    "mean": 16.665833333333346,
+    "p50": 16.700000000000728,
+    "p95": 16.799999999999272,
+    "p99": 16.80000000000291,
+    "max": 16.80000000000291
+   },
+   "over25": 0,
+   "gpuFlush": {
+    "n": 120,
+    "mean": 0.3883333404858907,
+    "p50": 0.3999999761581421,
+    "p95": 0.5,
+    "p99": 0.5,
+    "max": 0.5
+   },
+   "gc": {
+    "minor": 24,
+    "major": 1,
+    "minorMs": 3.287,
+    "majorMs": 0.894
+   },
+   "allocKiBPerFrame": 156.1,
+   "heapAfterGC": {
+    "before": 6909096,
+    "after": 7046748,
+    "delta": 137652
+   }
+  },
+  {
+   "mode": "webgl",
+   "width": 360,
+   "height": 640,
+   "round": 0,
+   "build": "A",
+   "scenario": "cycle",
+   "env": {
+    "renderer": "WebGL",
+    "gl": "ANGLE (Google, Vulkan 1.3.0 (SwiftShader Device (LLVM 10.0.0) (0x0000C0DE)), SwiftShader driver)",
+    "dpr": 1,
+    "canvasPx": [
+     450,
+     800
+    ]
+   },
+   "state": {
+    "bubbles": 4,
+    "drawn": 4,
+    "timeout": 0,
+    "slots": 304
+   },
+   "cpuDraw": {
+    "n": 239,
+    "mean": 0,
+    "p50": 0,
+    "p95": 0,
+    "p99": 0,
+    "max": 0
+   },
+   "cpuTotal": {
+    "n": 239,
+    "mean": 0.3979079523844699,
+    "p50": 0.3999999761581421,
+    "p95": 0.5,
+    "p99": 0.6000000238418579,
+    "max": 0.6000000238418579
+   },
+   "interval": {
+    "n": 239,
+    "mean": 16.666527196652734,
+    "p50": 16.69999999999709,
+    "p95": 16.700000000004366,
+    "p99": 16.80000000000291,
+    "max": 16.80000000000291
+   },
+   "over25": 0,
+   "gpuFlush": {
+    "n": 120,
+    "mean": 0.3891666660706202,
+    "p50": 0.3999999761581421,
+    "p95": 0.5,
+    "p99": 0.5,
+    "max": 0.5
+   },
+   "gc": {
+    "minor": 20,
+    "major": 1,
+    "minorMs": 2.628,
+    "majorMs": 2.446
+   },
+   "allocKiBPerFrame": 135.5,
+   "heapAfterGC": {
+    "before": 6951556,
+    "after": 7080388,
+    "delta": 128832
+   }
+  },
+  {
+   "mode": "webgl",
+   "width": 360,
+   "height": 640,
+   "round": 1,
+   "build": "A",
+   "scenario": "air0",
+   "env": {
+    "renderer": "WebGL",
+    "gl": "ANGLE (Google, Vulkan 1.3.0 (SwiftShader Device (LLVM 10.0.0) (0x0000C0DE)), SwiftShader driver)",
+    "dpr": 1,
+    "canvasPx": [
+     450,
+     800
+    ]
+   },
+   "state": {
+    "bubbles": 0,
+    "drawn": 0,
+    "timeout": 0,
+    "slots": 0
+   },
+   "cpuDraw": {
+    "n": 240,
+    "mean": 0.31583333015441895,
+    "p50": 0.2999999523162842,
+    "p95": 0.40000009536743164,
+    "p99": 0.5,
+    "max": 0.6000000238418579
+   },
+   "cpuTotal": {
+    "n": 240,
+    "mean": 0.4266666640837987,
+    "p50": 0.3999999761581421,
+    "p95": 0.5,
+    "p99": 0.6000000238418579,
+    "max": 0.7000000476837158
+   },
+   "interval": {
+    "n": 240,
+    "mean": 16.66583333333331,
+    "p50": 16.699999999999818,
+    "p95": 16.700000000000728,
+    "p99": 16.800000000000182,
+    "max": 16.800000000000182
+   },
+   "over25": 0,
+   "gpuFlush": {
+    "n": 120,
+    "mean": 0.4091666599114736,
+    "p50": 0.3999999761581421,
+    "p95": 0.5,
+    "p99": 0.5,
+    "max": 0.5
+   },
+   "gc": {
+    "minor": 18,
+    "major": 1,
+    "minorMs": 2.449,
+    "majorMs": 1.062
+   },
+   "allocKiBPerFrame": 123.1,
+   "heapAfterGC": {
+    "before": 6474808,
+    "after": 6848532,
+    "delta": 373724
+   }
+  },
+  {
+   "mode": "webgl",
+   "width": 360,
+   "height": 640,
+   "round": 1,
+   "build": "A",
+   "scenario": "air4",
+   "env": {
+    "renderer": "WebGL",
+    "gl": "ANGLE (Google, Vulkan 1.3.0 (SwiftShader Device (LLVM 10.0.0) (0x0000C0DE)), SwiftShader driver)",
+    "dpr": 1,
+    "canvasPx": [
+     450,
+     800
+    ]
+   },
+   "state": {
+    "bubbles": 4,
+    "drawn": 4,
+    "timeout": 0,
+    "slots": 304
+   },
+   "cpuDraw": {
+    "n": 240,
+    "mean": 0.3087500015894572,
+    "p50": 0.2999999523162842,
+    "p95": 0.40000009536743164,
+    "p99": 0.5,
+    "max": 0.6000000238418579
+   },
+   "cpuTotal": {
+    "n": 240,
+    "mean": 0.39666666438182197,
+    "p50": 0.3999999761581421,
+    "p95": 0.5,
+    "p99": 0.5,
+    "max": 0.6999999284744263
+   },
+   "interval": {
+    "n": 240,
+    "mean": 16.66583333333334,
+    "p50": 16.69999999999891,
+    "p95": 16.700000000000728,
+    "p99": 16.80000000000109,
+    "max": 16.80000000000109
+   },
+   "over25": 0,
+   "gpuFlush": {
+    "n": 120,
+    "mean": 0.40250000456968943,
+    "p50": 0.3999999761581421,
+    "p95": 0.5,
+    "p99": 0.5,
+    "max": 0.5
+   },
+   "gc": {
+    "minor": 24,
+    "major": 1,
+    "minorMs": 3.251,
+    "majorMs": 0.785
+   },
+   "allocKiBPerFrame": 133.2,
+   "heapAfterGC": {
+    "before": 6808736,
+    "after": 6921472,
+    "delta": 112736
+   }
+  },
+  {
+   "mode": "webgl",
+   "width": 360,
+   "height": 640,
+   "round": 1,
+   "build": "A",
+   "scenario": "air12",
+   "env": {
+    "renderer": "WebGL",
+    "gl": "ANGLE (Google, Vulkan 1.3.0 (SwiftShader Device (LLVM 10.0.0) (0x0000C0DE)), SwiftShader driver)",
+    "dpr": 1,
+    "canvasPx": [
+     450,
+     800
+    ]
+   },
+   "state": {
+    "bubbles": 12,
+    "drawn": 12,
+    "timeout": 0,
+    "slots": 912
+   },
+   "cpuDraw": {
+    "n": 240,
+    "mean": 0.3091666638851166,
+    "p50": 0.2999999523162842,
+    "p95": 0.40000009536743164,
+    "p99": 0.5,
+    "max": 0.5
+   },
+   "cpuTotal": {
+    "n": 240,
+    "mean": 0.4070833310484886,
+    "p50": 0.3999999761581421,
+    "p95": 0.5,
+    "p99": 0.6000000238418579,
+    "max": 0.6000000238418579
+   },
+   "interval": {
+    "n": 240,
+    "mean": 16.66583333333333,
+    "p50": 16.69999999999709,
+    "p95": 16.799999999999272,
+    "p99": 16.799999999999272,
+    "max": 16.80000000000291
+   },
+   "over25": 0,
+   "gpuFlush": {
+    "n": 120,
+    "mean": 0.42250000139077504,
+    "p50": 0.3999999761581421,
+    "p95": 0.5,
+    "p99": 0.6000000238418579,
+    "max": 0.6000000238418579
+   },
+   "gc": {
+    "minor": 24,
+    "major": 1,
+    "minorMs": 3.388,
+    "majorMs": 0.939
+   },
+   "allocKiBPerFrame": 147.5,
+   "heapAfterGC": {
+    "before": 6954392,
+    "after": 6967112,
+    "delta": 12720
+   }
+  },
+  {
+   "mode": "webgl",
+   "width": 360,
+   "height": 640,
+   "round": 1,
+   "build": "A",
+   "scenario": "timeoutAir",
+   "env": {
+    "renderer": "WebGL",
+    "gl": "ANGLE (Google, Vulkan 1.3.0 (SwiftShader Device (LLVM 10.0.0) (0x0000C0DE)), SwiftShader driver)",
+    "dpr": 1,
+    "canvasPx": [
+     450,
+     800
+    ]
+   },
+   "state": {
+    "bubbles": 4,
+    "drawn": 4,
+    "timeout": 1,
+    "slots": 304
+   },
+   "cpuDraw": {
+    "n": 240,
+    "mean": 0.3254166672627131,
+    "p50": 0.30000007152557373,
+    "p95": 0.40000009536743164,
+    "p99": 0.5,
+    "max": 0.7999999523162842
+   },
+   "cpuTotal": {
+    "n": 240,
+    "mean": 0.4320833330353101,
+    "p50": 0.3999999761581421,
+    "p95": 0.5,
+    "p99": 0.6000000238418579,
+    "max": 0.7999999523162842
+   },
+   "interval": {
+    "n": 240,
+    "mean": 16.666250000000005,
+    "p50": 16.700000000000728,
+    "p95": 16.700000000000728,
+    "p99": 16.799999999999272,
+    "max": 16.80000000000291
+   },
+   "over25": 0,
+   "gpuFlush": {
+    "n": 120,
+    "mean": 0.39833333492279055,
+    "p50": 0.3999999761581421,
+    "p95": 0.5,
+    "p99": 0.5,
+    "max": 0.6000000238418579
+   },
+   "gc": {
+    "minor": 24,
+    "major": 1,
+    "minorMs": 3.26,
+    "majorMs": 0.918
+   },
+   "allocKiBPerFrame": 156.3,
+   "heapAfterGC": {
+    "before": 6913636,
+    "after": 7050496,
+    "delta": 136860
+   }
+  },
+  {
+   "mode": "webgl",
+   "width": 360,
+   "height": 640,
+   "round": 1,
+   "build": "A",
+   "scenario": "cycle",
+   "env": {
+    "renderer": "WebGL",
+    "gl": "ANGLE (Google, Vulkan 1.3.0 (SwiftShader Device (LLVM 10.0.0) (0x0000C0DE)), SwiftShader driver)",
+    "dpr": 1,
+    "canvasPx": [
+     450,
+     800
+    ]
+   },
+   "state": {
+    "bubbles": 4,
+    "drawn": 4,
+    "timeout": 0,
+    "slots": 304
+   },
+   "cpuDraw": {
+    "n": 239,
+    "mean": 0,
+    "p50": 0,
+    "p95": 0,
+    "p99": 0,
+    "max": 0
+   },
+   "cpuTotal": {
+    "n": 239,
+    "mean": 0.41380752928586184,
+    "p50": 0.3999999761581421,
+    "p95": 0.5,
+    "p99": 0.6000000238418579,
+    "max": 0.7000000476837158
+   },
+   "interval": {
+    "n": 239,
+    "mean": 16.66569037656903,
+    "p50": 16.69999999999709,
+    "p95": 16.799999999995634,
+    "p99": 16.80000000000291,
+    "max": 16.80000000000291
+   },
+   "over25": 0,
+   "gpuFlush": {
+    "n": 120,
+    "mean": 0.3983333309491475,
+    "p50": 0.3999999761581421,
+    "p95": 0.5,
+    "p99": 0.5999999046325684,
+    "max": 0.5999999046325684
+   },
+   "gc": {
+    "minor": 20,
+    "major": 1,
+    "minorMs": 2.945,
+    "majorMs": 0.955
+   },
+   "allocKiBPerFrame": 135.3,
+   "heapAfterGC": {
+    "before": 6956172,
+    "after": 7078176,
+    "delta": 122004
+   }
+  },
+  {
+   "mode": "webgl",
+   "width": 360,
+   "height": 640,
+   "round": 1,
+   "build": "Current",
+   "scenario": "air0",
+   "env": {
+    "renderer": "WebGL",
+    "gl": "ANGLE (Google, Vulkan 1.3.0 (SwiftShader Device (LLVM 10.0.0) (0x0000C0DE)), SwiftShader driver)",
+    "dpr": 1,
+    "canvasPx": [
+     450,
+     800
+    ]
+   },
+   "state": {
+    "bubbles": 0,
+    "drawn": 0,
+    "timeout": 0,
+    "slots": 0
+   },
+   "cpuDraw": {
+    "n": 240,
+    "mean": 0.31250000447034837,
+    "p50": 0.30000007152557373,
+    "p95": 0.3999999761581421,
+    "p99": 0.40000009536743164,
+    "max": 0.5
+   },
+   "cpuTotal": {
+    "n": 240,
+    "mean": 0.4154166648785273,
+    "p50": 0.3999999761581421,
+    "p95": 0.5,
+    "p99": 0.5999999046325684,
+    "max": 0.6000000238418579
+   },
+   "interval": {
+    "n": 240,
+    "mean": 16.66624999999997,
+    "p50": 16.699999999999818,
+    "p95": 16.700000000000728,
+    "p99": 16.800000000000182,
+    "max": 16.800000000000182
+   },
+   "over25": 0,
+   "gpuFlush": {
+    "n": 120,
+    "mean": 0.39166667064030963,
+    "p50": 0.3999999761581421,
+    "p95": 0.5,
+    "p99": 0.5,
+    "max": 0.5
+   },
+   "gc": {
+    "minor": 12,
+    "major": 1,
+    "minorMs": 1.892,
+    "majorMs": 0.957
+   },
+   "allocKiBPerFrame": 78.9,
+   "heapAfterGC": {
+    "before": 6469328,
+    "after": 6861732,
+    "delta": 392404
+   }
+  },
+  {
+   "mode": "webgl",
+   "width": 360,
+   "height": 640,
+   "round": 1,
+   "build": "Current",
+   "scenario": "air4",
+   "env": {
+    "renderer": "WebGL",
+    "gl": "ANGLE (Google, Vulkan 1.3.0 (SwiftShader Device (LLVM 10.0.0) (0x0000C0DE)), SwiftShader driver)",
+    "dpr": 1,
+    "canvasPx": [
+     450,
+     800
+    ]
+   },
+   "state": {
+    "bubbles": 4,
+    "drawn": 4,
+    "timeout": 0,
+    "slots": 88
+   },
+   "cpuDraw": {
+    "n": 240,
+    "mean": 0.3029166653752327,
+    "p50": 0.2999999523162842,
+    "p95": 0.40000009536743164,
+    "p99": 0.40000009536743164,
+    "max": 0.5
+   },
+   "cpuTotal": {
+    "n": 240,
+    "mean": 0.4287499984105428,
+    "p50": 0.3999999761581421,
+    "p95": 0.5,
+    "p99": 0.6000000238418579,
+    "max": 0.6000000238418579
+   },
+   "interval": {
+    "n": 240,
+    "mean": 16.66583333333333,
+    "p50": 16.69999999999891,
+    "p95": 16.799999999999272,
+    "p99": 16.80000000000109,
+    "max": 16.80000000000109
+   },
+   "over25": 0,
+   "gpuFlush": {
+    "n": 120,
+    "mean": 0.4166666616996129,
+    "p50": 0.3999999761581421,
+    "p95": 0.5,
+    "p99": 0.6000000238418579,
+    "max": 0.6000000238418579
+   },
+   "gc": {
+    "minor": 29,
+    "major": 1,
+    "minorMs": 3.91,
+    "majorMs": 1.131
+   },
+   "allocKiBPerFrame": 180.1,
+   "heapAfterGC": {
+    "before": 6827620,
+    "after": 6926920,
+    "delta": 99300
+   }
+  },
+  {
+   "mode": "webgl",
+   "width": 360,
+   "height": 640,
+   "round": 1,
+   "build": "Current",
+   "scenario": "air12",
+   "env": {
+    "renderer": "WebGL",
+    "gl": "ANGLE (Google, Vulkan 1.3.0 (SwiftShader Device (LLVM 10.0.0) (0x0000C0DE)), SwiftShader driver)",
+    "dpr": 1,
+    "canvasPx": [
+     450,
+     800
+    ]
+   },
+   "state": {
+    "bubbles": 12,
+    "drawn": 12,
+    "timeout": 0,
+    "slots": 264
+   },
+   "cpuDraw": {
+    "n": 240,
+    "mean": 0.27333333194255827,
+    "p50": 0.2999999523162842,
+    "p95": 0.3999999761581421,
+    "p99": 0.40000009536743164,
+    "max": 0.5
+   },
+   "cpuTotal": {
+    "n": 240,
+    "mean": 0.4712499981125196,
+    "p50": 0.5,
+    "p95": 0.6000000238418579,
+    "p99": 0.7000000476837158,
+    "max": 0.8999999761581421
+   },
+   "interval": {
+    "n": 240,
+    "mean": 16.66583333333333,
+    "p50": 16.700000000000728,
+    "p95": 16.700000000000728,
+    "p99": 16.799999999999272,
+    "max": 16.80000000000291
+   },
+   "over25": 0,
+   "gpuFlush": {
+    "n": 120,
+    "mean": 0.4641666680574417,
+    "p50": 0.5,
+    "p95": 0.5999999046325684,
+    "p99": 0.6000000238418579,
+    "max": 0.6000000238418579
+   },
+   "gc": {
+    "minor": 60,
+    "major": 1,
+    "minorMs": 6.713,
+    "majorMs": 0.927
+   },
+   "allocKiBPerFrame": 377.4,
+   "heapAfterGC": {
+    "before": 6957096,
+    "after": 6970344,
+    "delta": 13248
+   }
+  },
+  {
+   "mode": "webgl",
+   "width": 360,
+   "height": 640,
+   "round": 1,
+   "build": "Current",
+   "scenario": "timeoutAir",
+   "env": {
+    "renderer": "WebGL",
+    "gl": "ANGLE (Google, Vulkan 1.3.0 (SwiftShader Device (LLVM 10.0.0) (0x0000C0DE)), SwiftShader driver)",
+    "dpr": 1,
+    "canvasPx": [
+     450,
+     800
+    ]
+   },
+   "state": {
+    "bubbles": 4,
+    "drawn": 4,
+    "timeout": 1,
+    "slots": 88
+   },
+   "cpuDraw": {
+    "n": 240,
+    "mean": 0.28666666547457376,
+    "p50": 0.2999999523162842,
+    "p95": 0.3999999761581421,
+    "p99": 0.40000009536743164,
+    "max": 0.5
+   },
+   "cpuTotal": {
+    "n": 240,
+    "mean": 0.41916666825612386,
+    "p50": 0.3999999761581421,
+    "p95": 0.5,
+    "p99": 0.5,
+    "max": 0.6000000238418579
+   },
+   "interval": {
+    "n": 240,
+    "mean": 16.665833333333314,
+    "p50": 16.69999999999709,
+    "p95": 16.799999999999272,
+    "p99": 16.80000000000291,
+    "max": 16.80000000000291
+   },
+   "over25": 0,
+   "gpuFlush": {
+    "n": 120,
+    "mean": 0.4466666628917058,
+    "p50": 0.40000009536743164,
+    "p95": 0.5,
+    "p99": 0.6000000238418579,
+    "max": 0.6000000238418579
+   },
+   "gc": {
+    "minor": 32,
+    "major": 1,
+    "minorMs": 3.862,
+    "majorMs": 1.008
+   },
+   "allocKiBPerFrame": 193.5,
+   "heapAfterGC": {
+    "before": 6908140,
+    "after": 7052328,
+    "delta": 144188
+   }
+  },
+  {
+   "mode": "webgl",
+   "width": 360,
+   "height": 640,
+   "round": 1,
+   "build": "Current",
+   "scenario": "cycle",
+   "env": {
+    "renderer": "WebGL",
+    "gl": "ANGLE (Google, Vulkan 1.3.0 (SwiftShader Device (LLVM 10.0.0) (0x0000C0DE)), SwiftShader driver)",
+    "dpr": 1,
+    "canvasPx": [
+     450,
+     800
+    ]
+   },
+   "state": {
+    "bubbles": 4,
+    "drawn": 4,
+    "timeout": 0,
+    "slots": 88
+   },
+   "cpuDraw": {
+    "n": 239,
+    "mean": 0,
+    "p50": 0,
+    "p95": 0,
+    "p99": 0,
+    "max": 0
+   },
+   "cpuTotal": {
+    "n": 239,
+    "mean": 0.4292887045249779,
+    "p50": 0.3999999761581421,
+    "p95": 0.5999999046325684,
+    "p99": 0.6000000238418579,
+    "max": 0.8000000715255737
+   },
+   "interval": {
+    "n": 239,
+    "mean": 16.6661087866109,
+    "p50": 16.69999999999709,
+    "p95": 16.799999999995634,
+    "p99": 16.80000000000291,
+    "max": 16.80000000000291
+   },
+   "over25": 0,
+   "gpuFlush": {
+    "n": 120,
+    "mean": 0.4266666660706202,
+    "p50": 0.3999999761581421,
+    "p95": 0.5,
+    "p99": 0.6000000238418579,
+    "max": 0.6000000238418579
+   },
+   "gc": {
+    "minor": 38,
+    "major": 1,
+    "minorMs": 4.463,
+    "majorMs": 0.972
+   },
+   "allocKiBPerFrame": 173.3,
+   "heapAfterGC": {
+    "before": 6987044,
+    "after": 7090508,
+    "delta": 103464
+   }
+  },
+  {
+   "mode": "webgl",
+   "width": 360,
+   "height": 640,
+   "round": 2,
+   "build": "Current",
+   "scenario": "air0",
+   "env": {
+    "renderer": "WebGL",
+    "gl": "ANGLE (Google, Vulkan 1.3.0 (SwiftShader Device (LLVM 10.0.0) (0x0000C0DE)), SwiftShader driver)",
+    "dpr": 1,
+    "canvasPx": [
+     450,
+     800
+    ]
+   },
+   "state": {
+    "bubbles": 0,
+    "drawn": 0,
+    "timeout": 0,
+    "slots": 0
+   },
+   "cpuDraw": {
+    "n": 240,
+    "mean": 0.31416666209697724,
+    "p50": 0.2999999523162842,
+    "p95": 0.40000009536743164,
+    "p99": 0.5,
+    "max": 0.6000000238418579
+   },
+   "cpuTotal": {
+    "n": 240,
+    "mean": 0.4204166685541471,
+    "p50": 0.3999999761581421,
+    "p95": 0.5,
+    "p99": 0.6000000238418579,
+    "max": 0.6999999284744263
+   },
+   "interval": {
+    "n": 240,
+    "mean": 16.66624999999998,
+    "p50": 16.699999999999818,
+    "p95": 16.700000000000273,
+    "p99": 16.799999999999955,
+    "max": 16.800000000000182
+   },
+   "over25": 0,
+   "gpuFlush": {
+    "n": 120,
+    "mean": 0.40166666905085247,
+    "p50": 0.3999999761581421,
+    "p95": 0.5,
+    "p99": 0.5,
+    "max": 0.5
+   },
+   "gc": {
+    "minor": 12,
+    "major": 1,
+    "minorMs": 1.901,
+    "majorMs": 1.05
+   },
+   "allocKiBPerFrame": 79.7,
+   "heapAfterGC": {
+    "before": 6484076,
+    "after": 6881336,
+    "delta": 397260
+   }
+  },
+  {
+   "mode": "webgl",
+   "width": 360,
+   "height": 640,
+   "round": 2,
+   "build": "Current",
+   "scenario": "air4",
+   "env": {
+    "renderer": "WebGL",
+    "gl": "ANGLE (Google, Vulkan 1.3.0 (SwiftShader Device (LLVM 10.0.0) (0x0000C0DE)), SwiftShader driver)",
+    "dpr": 1,
+    "canvasPx": [
+     450,
+     800
+    ]
+   },
+   "state": {
+    "bubbles": 4,
+    "drawn": 4,
+    "timeout": 0,
+    "slots": 88
+   },
+   "cpuDraw": {
+    "n": 240,
+    "mean": 0.29416667222976683,
+    "p50": 0.2999999523162842,
+    "p95": 0.3999999761581421,
+    "p99": 0.40000009536743164,
+    "max": 0.6000000238418579
+   },
+   "cpuTotal": {
+    "n": 240,
+    "mean": 0.42083333681027096,
+    "p50": 0.3999999761581421,
+    "p95": 0.5,
+    "p99": 0.5,
+    "max": 0.6999999284744263
+   },
+   "interval": {
+    "n": 240,
+    "mean": 16.666249999999998,
+    "p50": 16.69999999999891,
+    "p95": 16.799999999999272,
+    "p99": 16.80000000000109,
+    "max": 16.80000000000109
+   },
+   "over25": 0,
+   "gpuFlush": {
+    "n": 120,
+    "mean": 0.39583333432674406,
+    "p50": 0.3999999761581421,
+    "p95": 0.5,
+    "p99": 0.5,
+    "max": 0.5
+   },
+   "gc": {
+    "minor": 29,
+    "major": 1,
+    "minorMs": 3.839,
+    "majorMs": 0.842
+   },
+   "allocKiBPerFrame": 178.7,
+   "heapAfterGC": {
+    "before": 6837896,
+    "after": 6942644,
+    "delta": 104748
+   }
+  },
+  {
+   "mode": "webgl",
+   "width": 360,
+   "height": 640,
+   "round": 2,
+   "build": "Current",
+   "scenario": "air12",
+   "env": {
+    "renderer": "WebGL",
+    "gl": "ANGLE (Google, Vulkan 1.3.0 (SwiftShader Device (LLVM 10.0.0) (0x0000C0DE)), SwiftShader driver)",
+    "dpr": 1,
+    "canvasPx": [
+     450,
+     800
+    ]
+   },
+   "state": {
+    "bubbles": 12,
+    "drawn": 12,
+    "timeout": 0,
+    "slots": 264
+   },
+   "cpuDraw": {
+    "n": 240,
+    "mean": 0.28124999850988386,
+    "p50": 0.2999999523162842,
+    "p95": 0.3999999761581421,
+    "p99": 0.40000009536743164,
+    "max": 0.40000009536743164
+   },
+   "cpuTotal": {
+    "n": 240,
+    "mean": 0.46833333422740303,
+    "p50": 0.5,
+    "p95": 0.6000000238418579,
+    "p99": 0.6999999284744263,
+    "max": 0.9000000953674316
+   },
+   "interval": {
+    "n": 240,
+    "mean": 16.66583333333333,
+    "p50": 16.700000000000728,
+    "p95": 16.799999999999272,
+    "p99": 16.80000000000291,
+    "max": 16.80000000000291
+   },
+   "over25": 0,
+   "gpuFlush": {
+    "n": 120,
+    "mean": 0.46499999761581423,
+    "p50": 0.5,
+    "p95": 0.5999999046325684,
+    "p99": 0.6000000238418579,
+    "max": 0.6000000238418579
+   },
+   "gc": {
+    "minor": 61,
+    "major": 1,
+    "minorMs": 6.737,
+    "majorMs": 0.872
+   },
+   "allocKiBPerFrame": 378.1,
+   "heapAfterGC": {
+    "before": 6974096,
+    "after": 6987344,
+    "delta": 13248
+   }
+  },
+  {
+   "mode": "webgl",
+   "width": 360,
+   "height": 640,
+   "round": 2,
+   "build": "Current",
+   "scenario": "timeoutAir",
+   "env": {
+    "renderer": "WebGL",
+    "gl": "ANGLE (Google, Vulkan 1.3.0 (SwiftShader Device (LLVM 10.0.0) (0x0000C0DE)), SwiftShader driver)",
+    "dpr": 1,
+    "canvasPx": [
+     450,
+     800
+    ]
+   },
+   "state": {
+    "bubbles": 4,
+    "drawn": 4,
+    "timeout": 1,
+    "slots": 88
+   },
+   "cpuDraw": {
+    "n": 240,
+    "mean": 0.2904166683554649,
+    "p50": 0.2999999523162842,
+    "p95": 0.3999999761581421,
+    "p99": 0.40000009536743164,
+    "max": 0.5
+   },
+   "cpuTotal": {
+    "n": 240,
+    "mean": 0.4179166679581006,
+    "p50": 0.3999999761581421,
+    "p95": 0.5,
+    "p99": 0.6000000238418579,
+    "max": 0.6000000238418579
+   },
+   "interval": {
+    "n": 240,
+    "mean": 16.66624999999999,
+    "p50": 16.69999999999709,
+    "p95": 16.799999999999272,
+    "p99": 16.799999999999272,
+    "max": 16.80000000000291
+   },
+   "over25": 0,
+   "gpuFlush": {
+    "n": 120,
+    "mean": 0.4100000033775965,
+    "p50": 0.3999999761581421,
+    "p95": 0.5,
+    "p99": 0.5,
+    "max": 0.5
+   },
+   "gc": {
+    "minor": 31,
+    "major": 1,
+    "minorMs": 3.743,
+    "majorMs": 0.94
+   },
+   "allocKiBPerFrame": 192.1,
+   "heapAfterGC": {
+    "before": 6920344,
+    "after": 7067872,
+    "delta": 147528
+   }
+  },
+  {
+   "mode": "webgl",
+   "width": 360,
+   "height": 640,
+   "round": 2,
+   "build": "Current",
+   "scenario": "cycle",
+   "env": {
+    "renderer": "WebGL",
+    "gl": "ANGLE (Google, Vulkan 1.3.0 (SwiftShader Device (LLVM 10.0.0) (0x0000C0DE)), SwiftShader driver)",
+    "dpr": 1,
+    "canvasPx": [
+     450,
+     800
+    ]
+   },
+   "state": {
+    "bubbles": 4,
+    "drawn": 4,
+    "timeout": 0,
+    "slots": 88
+   },
+   "cpuDraw": {
+    "n": 239,
+    "mean": 0,
+    "p50": 0,
+    "p95": 0,
+    "p99": 0,
+    "max": 0
+   },
+   "cpuTotal": {
+    "n": 239,
+    "mean": 0.4401673662113844,
+    "p50": 0.40000009536743164,
+    "p95": 0.5999999046325684,
+    "p99": 0.6000000238418579,
+    "max": 0.6000000238418579
+   },
+   "interval": {
+    "n": 239,
+    "mean": 16.666108786610867,
+    "p50": 16.69999999999709,
+    "p95": 16.799999999995634,
+    "p99": 16.80000000000291,
+    "max": 16.80000000000291
+   },
+   "over25": 0,
+   "gpuFlush": {
+    "n": 120,
+    "mean": 0.4341666708389918,
+    "p50": 0.40000009536743164,
+    "p95": 0.5,
+    "p99": 0.6000000238418579,
+    "max": 0.6000000238418579
+   },
+   "gc": {
+    "minor": 38,
+    "major": 1,
+    "minorMs": 4.46,
+    "majorMs": 0.836
+   },
+   "allocKiBPerFrame": 172.1,
+   "heapAfterGC": {
+    "before": 6999052,
+    "after": 7107040,
+    "delta": 107988
+   }
+  },
+  {
+   "mode": "webgl",
+   "width": 360,
+   "height": 640,
+   "round": 2,
+   "build": "A",
+   "scenario": "air0",
+   "env": {
+    "renderer": "WebGL",
+    "gl": "ANGLE (Google, Vulkan 1.3.0 (SwiftShader Device (LLVM 10.0.0) (0x0000C0DE)), SwiftShader driver)",
+    "dpr": 1,
+    "canvasPx": [
+     450,
+     800
+    ]
+   },
+   "state": {
+    "bubbles": 0,
+    "drawn": 0,
+    "timeout": 0,
+    "slots": 0
+   },
+   "cpuDraw": {
+    "n": 240,
+    "mean": 0.33208333402872087,
+    "p50": 0.30000007152557373,
+    "p95": 0.40000009536743164,
+    "p99": 0.5,
+    "max": 0.6000000238418579
+   },
+   "cpuTotal": {
+    "n": 240,
+    "mean": 0.4429166619976362,
+    "p50": 0.40000009536743164,
+    "p95": 0.6000000238418579,
+    "p99": 0.6000000238418579,
+    "max": 0.7999999523162842
+   },
+   "interval": {
+    "n": 240,
+    "mean": 16.666249999999973,
+    "p50": 16.699999999999818,
+    "p95": 16.800000000000182,
+    "p99": 16.800000000000182,
+    "max": 16.800000000000182
+   },
+   "over25": 0,
+   "gpuFlush": {
+    "n": 120,
+    "mean": 0.423333340883255,
+    "p50": 0.3999999761581421,
+    "p95": 0.5,
+    "p99": 0.5999999046325684,
+    "max": 0.6000000238418579
+   },
+   "gc": {
+    "minor": 18,
+    "major": 1,
+    "minorMs": 2.515,
+    "majorMs": 0.869
+   },
+   "allocKiBPerFrame": 123.1,
+   "heapAfterGC": {
+    "before": 6497268,
+    "after": 6883872,
+    "delta": 386604
+   }
+  },
+  {
+   "mode": "webgl",
+   "width": 360,
+   "height": 640,
+   "round": 2,
+   "build": "A",
+   "scenario": "air4",
+   "env": {
+    "renderer": "WebGL",
+    "gl": "ANGLE (Google, Vulkan 1.3.0 (SwiftShader Device (LLVM 10.0.0) (0x0000C0DE)), SwiftShader driver)",
+    "dpr": 1,
+    "canvasPx": [
+     450,
+     800
+    ]
+   },
+   "state": {
+    "bubbles": 4,
+    "drawn": 4,
+    "timeout": 0,
+    "slots": 304
+   },
+   "cpuDraw": {
+    "n": 240,
+    "mean": 0.30375000337759656,
+    "p50": 0.2999999523162842,
+    "p95": 0.40000009536743164,
+    "p99": 0.5,
+    "max": 0.5
+   },
+   "cpuTotal": {
+    "n": 240,
+    "mean": 0.4004166712363561,
+    "p50": 0.3999999761581421,
+    "p95": 0.5,
+    "p99": 0.6000000238418579,
+    "max": 0.7000000476837158
+   },
+   "interval": {
+    "n": 240,
+    "mean": 16.66583333333333,
+    "p50": 16.69999999999891,
+    "p95": 16.799999999999272,
+    "p99": 16.80000000000109,
+    "max": 16.80000000000109
+   },
+   "over25": 0,
+   "gpuFlush": {
+    "n": 120,
+    "mean": 0.4525000015894572,
+    "p50": 0.5,
+    "p95": 0.6000000238418579,
+    "p99": 0.7999999523162842,
+    "max": 0.8999999761581421
+   },
+   "gc": {
+    "minor": 23,
+    "major": 1,
+    "minorMs": 3.13,
+    "majorMs": 2.343
+   },
+   "allocKiBPerFrame": 132,
+   "heapAfterGC": {
+    "before": 6834660,
+    "after": 6949232,
+    "delta": 114572
+   }
+  },
+  {
+   "mode": "webgl",
+   "width": 360,
+   "height": 640,
+   "round": 2,
+   "build": "A",
+   "scenario": "air12",
+   "env": {
+    "renderer": "WebGL",
+    "gl": "ANGLE (Google, Vulkan 1.3.0 (SwiftShader Device (LLVM 10.0.0) (0x0000C0DE)), SwiftShader driver)",
+    "dpr": 1,
+    "canvasPx": [
+     450,
+     800
+    ]
+   },
+   "state": {
+    "bubbles": 12,
+    "drawn": 12,
+    "timeout": 0,
+    "slots": 912
+   },
+   "cpuDraw": {
+    "n": 240,
+    "mean": 0.4225000033775965,
+    "p50": 0.3999999761581421,
+    "p95": 0.7000000476837158,
+    "p99": 0.8999999761581421,
+    "max": 1.100000023841858
+   },
+   "cpuTotal": {
+    "n": 240,
+    "mean": 0.543333334227403,
+    "p50": 0.5,
+    "p95": 0.8999999761581421,
+    "p99": 1.100000023841858,
+    "max": 1.3000000715255737
+   },
+   "interval": {
+    "n": 240,
+    "mean": 17.846666666666653,
+    "p50": 16.700000000000728,
+    "p95": 16.799999999999272,
+    "p99": 50.099999999998545,
+    "max": 133.29999999999927
+   },
+   "over25": 5,
+   "gpuFlush": {
+    "n": 120,
+    "mean": 0.4466666648785273,
+    "p50": 0.40000009536743164,
+    "p95": 0.6000000238418579,
+    "p99": 0.6000000238418579,
+    "max": 0.7000000476837158
+   },
+   "gc": {
+    "minor": 24,
+    "major": 1,
+    "minorMs": 3.685,
+    "majorMs": 1.029
+   },
+   "allocKiBPerFrame": 147.7,
+   "heapAfterGC": {
+    "before": 6983536,
+    "after": 6996292,
+    "delta": 12756
+   }
+  },
+  {
+   "mode": "webgl",
+   "width": 360,
+   "height": 640,
+   "round": 2,
+   "build": "A",
+   "scenario": "timeoutAir",
+   "env": {
+    "renderer": "WebGL",
+    "gl": "ANGLE (Google, Vulkan 1.3.0 (SwiftShader Device (LLVM 10.0.0) (0x0000C0DE)), SwiftShader driver)",
+    "dpr": 1,
+    "canvasPx": [
+     450,
+     800
+    ]
+   },
+   "state": {
+    "bubbles": 4,
+    "drawn": 4,
+    "timeout": 1,
+    "slots": 304
+   },
+   "cpuDraw": {
+    "n": 240,
+    "mean": 0.3425000016887983,
+    "p50": 0.30000007152557373,
+    "p95": 0.5,
+    "p99": 0.5,
+    "max": 0.6000000238418579
+   },
+   "cpuTotal": {
+    "n": 240,
+    "mean": 0.4541666646798452,
+    "p50": 0.40000009536743164,
+    "p95": 0.6000000238418579,
+    "p99": 0.7000000476837158,
+    "max": 0.8000000715255737
+   },
+   "interval": {
+    "n": 240,
+    "mean": 16.87416666666665,
+    "p50": 16.69999999999709,
+    "p95": 16.799999999999272,
+    "p99": 16.80000000000291,
+    "max": 66.59999999999854
+   },
+   "over25": 1,
+   "gpuFlush": {
+    "n": 120,
+    "mean": 0.4724999984105428,
+    "p50": 0.5,
+    "p95": 0.7999999523162842,
+    "p99": 0.8999999761581421,
+    "max": 1
+   },
+   "gc": {
+    "minor": 24,
+    "major": 1,
+    "minorMs": 3.111,
+    "majorMs": 1.009
+   },
+   "allocKiBPerFrame": 156.6,
+   "heapAfterGC": {
+    "before": 6937420,
+    "after": 7077344,
+    "delta": 139924
+   }
+  },
+  {
+   "mode": "webgl",
+   "width": 360,
+   "height": 640,
+   "round": 2,
+   "build": "A",
+   "scenario": "cycle",
+   "env": {
+    "renderer": "WebGL",
+    "gl": "ANGLE (Google, Vulkan 1.3.0 (SwiftShader Device (LLVM 10.0.0) (0x0000C0DE)), SwiftShader driver)",
+    "dpr": 1,
+    "canvasPx": [
+     450,
+     800
+    ]
+   },
+   "state": {
+    "bubbles": 4,
+    "drawn": 4,
+    "timeout": 0,
+    "slots": 304
+   },
+   "cpuDraw": {
+    "n": 239,
+    "mean": 0,
+    "p50": 0,
+    "p95": 0,
+    "p99": 0,
+    "max": 0
+   },
+   "cpuTotal": {
+    "n": 239,
+    "mean": 0.47907949740916617,
+    "p50": 0.5,
+    "p95": 0.6000000238418579,
+    "p99": 0.8000000715255737,
+    "max": 1
+   },
+   "interval": {
+    "n": 239,
+    "mean": 16.944769874477,
+    "p50": 16.69999999999709,
+    "p95": 16.799999999995634,
+    "p99": 16.80000000000291,
+    "max": 66.60000000000582
+   },
+   "over25": 2,
+   "gpuFlush": {
+    "n": 120,
+    "mean": 0.4333333363135656,
+    "p50": 0.40000009536743164,
+    "p95": 0.5,
+    "p99": 0.6000000238418579,
+    "max": 0.6000000238418579
+   },
+   "gc": {
+    "minor": 20,
+    "major": 1,
+    "minorMs": 2.739,
+    "majorMs": 1.604
+   },
+   "allocKiBPerFrame": 135.6,
+   "heapAfterGC": {
+    "before": 6980544,
+    "after": 7109464,
+    "delta": 128920
+   }
+  },
+  {
+   "mode": "webgl",
+   "width": 1440,
+   "height": 1000,
+   "round": 0,
+   "build": "Current",
+   "scenario": "air12",
+   "env": {
+    "renderer": "WebGL",
+    "gl": "ANGLE (Google, Vulkan 1.3.0 (SwiftShader Device (LLVM 10.0.0) (0x0000C0DE)), SwiftShader driver)",
+    "dpr": 1,
+    "canvasPx": [
+     450,
+     800
+    ]
+   },
+   "state": {
+    "bubbles": 12,
+    "drawn": 12,
+    "timeout": 0,
+    "slots": 264
+   },
+   "cpuDraw": {
+    "n": 240,
+    "mean": 0.35958333512147267,
+    "p50": 0.3999999761581421,
+    "p95": 0.5,
+    "p99": 0.7000000476837158,
+    "max": 0.7999999523162842
+   },
+   "cpuTotal": {
+    "n": 240,
+    "mean": 0.5920833319425582,
+    "p50": 0.6000000238418579,
+    "p95": 0.8000000715255737,
+    "p99": 1.100000023841858,
+    "max": 1.3000000715255737
+   },
+   "interval": {
+    "n": 240,
+    "mean": 17.360833333333325,
+    "p50": 16.699999999999818,
+    "p95": 16.800000000000182,
+    "p99": 50,
+    "max": 66.69999999999982
+   },
+   "over25": 6,
+   "gpuFlush": {
+    "n": 120,
+    "mean": 0.5758333305517832,
+    "p50": 0.5,
+    "p95": 1.100000023841858,
+    "p99": 1.100000023841858,
+    "max": 1.2000000476837158
+   },
+   "gc": {
+    "minor": 70,
+    "major": 1,
+    "minorMs": 8.852,
+    "majorMs": 0.909
+   },
+   "allocKiBPerFrame": 380.6,
+   "heapAfterGC": {
+    "before": 6458164,
+    "after": 6854480,
+    "delta": 396316
+   }
+  },
+  {
+   "mode": "webgl",
+   "width": 1440,
+   "height": 1000,
+   "round": 0,
+   "build": "Current",
+   "scenario": "timeoutAir",
+   "env": {
+    "renderer": "WebGL",
+    "gl": "ANGLE (Google, Vulkan 1.3.0 (SwiftShader Device (LLVM 10.0.0) (0x0000C0DE)), SwiftShader driver)",
+    "dpr": 1,
+    "canvasPx": [
+     450,
+     800
+    ]
+   },
+   "state": {
+    "bubbles": 4,
+    "drawn": 4,
+    "timeout": 1,
+    "slots": 88
+   },
+   "cpuDraw": {
+    "n": 240,
+    "mean": 0.37875000288089117,
+    "p50": 0.3999999761581421,
+    "p95": 0.6000000238418579,
+    "p99": 0.7000000476837158,
+    "max": 1.100000023841858
+   },
+   "cpuTotal": {
+    "n": 240,
+    "mean": 0.5333333338300387,
+    "p50": 0.5,
+    "p95": 0.8999999761581421,
+    "p99": 1,
+    "max": 1.2000000476837158
+   },
+   "interval": {
+    "n": 240,
+    "mean": 16.735416666666666,
+    "p50": 16.69999999999891,
+    "p95": 16.700000000000728,
+    "p99": 16.80000000000109,
+    "max": 33.29999999999927
+   },
+   "over25": 1,
+   "gpuFlush": {
+    "n": 120,
+    "mean": 0.5199999978144964,
+    "p50": 0.5,
+    "p95": 0.7000000476837158,
+    "p99": 0.8999999761581421,
+    "max": 1
+   },
+   "gc": {
+    "minor": 31,
+    "major": 1,
+    "minorMs": 4.448,
+    "majorMs": 1.104
+   },
+   "allocKiBPerFrame": 191.6,
+   "heapAfterGC": {
+    "before": 6822824,
+    "after": 6946000,
+    "delta": 123176
+   }
+  },
+  {
+   "mode": "webgl",
+   "width": 1440,
+   "height": 1000,
+   "round": 0,
+   "build": "A",
+   "scenario": "air12",
+   "env": {
+    "renderer": "WebGL",
+    "gl": "ANGLE (Google, Vulkan 1.3.0 (SwiftShader Device (LLVM 10.0.0) (0x0000C0DE)), SwiftShader driver)",
+    "dpr": 1,
+    "canvasPx": [
+     450,
+     800
+    ]
+   },
+   "state": {
+    "bubbles": 12,
+    "drawn": 12,
+    "timeout": 0,
+    "slots": 912
+   },
+   "cpuDraw": {
+    "n": 240,
+    "mean": 0.38625000367561974,
+    "p50": 0.3999999761581421,
+    "p95": 0.5,
+    "p99": 0.7000000476837158,
+    "max": 0.7999999523162842
+   },
+   "cpuTotal": {
+    "n": 240,
+    "mean": 0.5170833324392636,
+    "p50": 0.5,
+    "p95": 0.6999999284744263,
+    "p99": 0.7999999523162842,
+    "max": 1
+   },
+   "interval": {
+    "n": 240,
+    "mean": 16.874583333333312,
+    "p50": 16.699999999999818,
+    "p95": 16.800000000000182,
+    "p99": 16.800000000000182,
+    "max": 50
+   },
+   "over25": 2,
+   "gpuFlush": {
+    "n": 120,
+    "mean": 0.45583333472410836,
+    "p50": 0.5,
+    "p95": 0.6000000238418579,
+    "p99": 0.7000000476837158,
+    "max": 0.8999999761581421
+   },
+   "gc": {
+    "minor": 23,
+    "major": 1,
+    "minorMs": 3.726,
+    "majorMs": 1.185
+   },
+   "allocKiBPerFrame": 151,
+   "heapAfterGC": {
+    "before": 6492944,
+    "after": 6873908,
+    "delta": 380964
+   }
+  },
+  {
+   "mode": "webgl",
+   "width": 1440,
+   "height": 1000,
+   "round": 0,
+   "build": "A",
+   "scenario": "timeoutAir",
+   "env": {
+    "renderer": "WebGL",
+    "gl": "ANGLE (Google, Vulkan 1.3.0 (SwiftShader Device (LLVM 10.0.0) (0x0000C0DE)), SwiftShader driver)",
+    "dpr": 1,
+    "canvasPx": [
+     450,
+     800
+    ]
+   },
+   "state": {
+    "bubbles": 4,
+    "drawn": 4,
+    "timeout": 1,
+    "slots": 304
+   },
+   "cpuDraw": {
+    "n": 240,
+    "mean": 0.347500001390775,
+    "p50": 0.30000007152557373,
+    "p95": 0.5,
+    "p99": 0.6999999284744263,
+    "max": 0.7000000476837158
+   },
+   "cpuTotal": {
+    "n": 240,
+    "mean": 0.44791666517655054,
+    "p50": 0.40000009536743164,
+    "p95": 0.6999999284744263,
+    "p99": 0.8000000715255737,
+    "max": 0.8999999761581421
+   },
+   "interval": {
+    "n": 240,
+    "mean": 17.84625,
+    "p50": 16.69999999999891,
+    "p95": 16.80000000000109,
+    "p99": 50,
+    "max": 83.30000000000109
+   },
+   "over25": 11,
+   "gpuFlush": {
+    "n": 120,
+    "mean": 0.46500000059604646,
+    "p50": 0.40000009536743164,
+    "p95": 0.6000000238418579,
+    "p99": 1,
+    "max": 1
+   },
+   "gc": {
+    "minor": 24,
+    "major": 1,
+    "minorMs": 3.472,
+    "majorMs": 1.085
+   },
+   "allocKiBPerFrame": 158.2,
+   "heapAfterGC": {
+    "before": 6843000,
+    "after": 6966776,
+    "delta": 123776
+   }
+  },
+  {
+   "mode": "webgl",
+   "width": 1440,
+   "height": 1000,
+   "round": 1,
+   "build": "A",
+   "scenario": "air12",
+   "env": {
+    "renderer": "WebGL",
+    "gl": "ANGLE (Google, Vulkan 1.3.0 (SwiftShader Device (LLVM 10.0.0) (0x0000C0DE)), SwiftShader driver)",
+    "dpr": 1,
+    "canvasPx": [
+     450,
+     800
+    ]
+   },
+   "state": {
+    "bubbles": 12,
+    "drawn": 12,
+    "timeout": 0,
+    "slots": 912
+   },
+   "cpuDraw": {
+    "n": 240,
+    "mean": 0.33375000208616257,
+    "p50": 0.30000007152557373,
+    "p95": 0.40000009536743164,
+    "p99": 0.6000000238418579,
+    "max": 0.7000000476837158
+   },
+   "cpuTotal": {
+    "n": 240,
+    "mean": 0.45208333134651185,
+    "p50": 0.40000009536743164,
+    "p95": 0.6000000238418579,
+    "p99": 0.7000000476837158,
+    "max": 0.8999999761581421
+   },
+   "interval": {
+    "n": 240,
+    "mean": 16.665833333333314,
+    "p50": 16.699999999999818,
+    "p95": 16.799999999999272,
+    "p99": 16.800000000000182,
+    "max": 16.800000000000182
+   },
+   "over25": 0,
+   "gpuFlush": {
+    "n": 120,
+    "mean": 0.43333333532015483,
+    "p50": 0.3999999761581421,
+    "p95": 0.5999999046325684,
+    "p99": 0.6000000238418579,
+    "max": 0.7999999523162842
+   },
+   "gc": {
+    "minor": 33,
+    "major": 1,
+    "minorMs": 4.386,
+    "majorMs": 0.913
+   },
+   "allocKiBPerFrame": 150.3,
+   "heapAfterGC": {
+    "before": 6480712,
+    "after": 6858584,
+    "delta": 377872
+   }
+  },
+  {
+   "mode": "webgl",
+   "width": 1440,
+   "height": 1000,
+   "round": 1,
+   "build": "A",
+   "scenario": "timeoutAir",
+   "env": {
+    "renderer": "WebGL",
+    "gl": "ANGLE (Google, Vulkan 1.3.0 (SwiftShader Device (LLVM 10.0.0) (0x0000C0DE)), SwiftShader driver)",
+    "dpr": 1,
+    "canvasPx": [
+     450,
+     800
+    ]
+   },
+   "state": {
+    "bubbles": 4,
+    "drawn": 4,
+    "timeout": 1,
+    "slots": 304
+   },
+   "cpuDraw": {
+    "n": 240,
+    "mean": 0.309583335618178,
+    "p50": 0.30000007152557373,
+    "p95": 0.40000009536743164,
+    "p99": 0.5,
+    "max": 0.6000000238418579
+   },
+   "cpuTotal": {
+    "n": 240,
+    "mean": 0.39875000367561975,
+    "p50": 0.3999999761581421,
+    "p95": 0.5,
+    "p99": 0.6000000238418579,
+    "max": 0.9000000953674316
+   },
+   "interval": {
+    "n": 240,
+    "mean": 16.66583333333334,
+    "p50": 16.69999999999891,
+    "p95": 16.700000000000728,
+    "p99": 16.799999999999272,
+    "max": 16.80000000000109
+   },
+   "over25": 0,
+   "gpuFlush": {
+    "n": 120,
+    "mean": 0.3874999980131785,
+    "p50": 0.3999999761581421,
+    "p95": 0.5,
+    "p99": 0.5,
+    "max": 0.5
+   },
+   "gc": {
+    "minor": 24,
+    "major": 1,
+    "minorMs": 3.346,
+    "majorMs": 0.971
+   },
+   "allocKiBPerFrame": 159.9,
+   "heapAfterGC": {
+    "before": 6830436,
+    "after": 6953840,
+    "delta": 123404
+   }
+  },
+  {
+   "mode": "webgl",
+   "width": 1440,
+   "height": 1000,
+   "round": 1,
+   "build": "Current",
+   "scenario": "air12",
+   "env": {
+    "renderer": "WebGL",
+    "gl": "ANGLE (Google, Vulkan 1.3.0 (SwiftShader Device (LLVM 10.0.0) (0x0000C0DE)), SwiftShader driver)",
+    "dpr": 1,
+    "canvasPx": [
+     450,
+     800
+    ]
+   },
+   "state": {
+    "bubbles": 12,
+    "drawn": 12,
+    "timeout": 0,
+    "slots": 264
+   },
+   "cpuDraw": {
+    "n": 240,
+    "mean": 0.3274999976158142,
+    "p50": 0.30000007152557373,
+    "p95": 0.40000009536743164,
+    "p99": 0.5,
+    "max": 0.6000000238418579
+   },
+   "cpuTotal": {
+    "n": 240,
+    "mean": 0.5437499985098839,
+    "p50": 0.5,
+    "p95": 0.7000000476837158,
+    "p99": 0.8999999761581421,
+    "max": 1.100000023841858
+   },
+   "interval": {
+    "n": 240,
+    "mean": 16.66583333333331,
+    "p50": 16.699999999999818,
+    "p95": 16.700000000000728,
+    "p99": 16.800000000000182,
+    "max": 16.800000000000182
+   },
+   "over25": 0,
+   "gpuFlush": {
+    "n": 120,
+    "mean": 0.49166666766007744,
+    "p50": 0.5,
+    "p95": 0.6000000238418579,
+    "p99": 0.6000000238418579,
+    "max": 0.7000000476837158
+   },
+   "gc": {
+    "minor": 68,
+    "major": 1,
+    "minorMs": 7.965,
+    "majorMs": 2.598
+   },
+   "allocKiBPerFrame": 380.8,
+   "heapAfterGC": {
+    "before": 6475504,
+    "after": 6870136,
+    "delta": 394632
+   }
+  },
+  {
+   "mode": "webgl",
+   "width": 1440,
+   "height": 1000,
+   "round": 1,
+   "build": "Current",
+   "scenario": "timeoutAir",
+   "env": {
+    "renderer": "WebGL",
+    "gl": "ANGLE (Google, Vulkan 1.3.0 (SwiftShader Device (LLVM 10.0.0) (0x0000C0DE)), SwiftShader driver)",
+    "dpr": 1,
+    "canvasPx": [
+     450,
+     800
+    ]
+   },
+   "state": {
+    "bubbles": 4,
+    "drawn": 4,
+    "timeout": 1,
+    "slots": 88
+   },
+   "cpuDraw": {
+    "n": 240,
+    "mean": 0.29874999821186066,
+    "p50": 0.2999999523162842,
+    "p95": 0.3999999761581421,
+    "p99": 0.5,
+    "max": 0.5999999046325684
+   },
+   "cpuTotal": {
+    "n": 240,
+    "mean": 0.4316666687528292,
+    "p50": 0.3999999761581421,
+    "p95": 0.5999999046325684,
+    "p99": 0.6000000238418579,
+    "max": 0.7000000476837158
+   },
+   "interval": {
+    "n": 240,
+    "mean": 16.666250000000005,
+    "p50": 16.69999999999891,
+    "p95": 16.799999999999272,
+    "p99": 16.80000000000109,
+    "max": 16.80000000000109
+   },
+   "over25": 0,
+   "gpuFlush": {
+    "n": 120,
+    "mean": 0.4675000011920929,
+    "p50": 0.5,
+    "p95": 0.7000000476837158,
+    "p99": 0.8999999761581421,
+    "max": 1
+   },
+   "gc": {
+    "minor": 31,
+    "major": 1,
+    "minorMs": 3.899,
+    "majorMs": 0.932
+   },
+   "allocKiBPerFrame": 193.3,
+   "heapAfterGC": {
+    "before": 6843016,
+    "after": 6968992,
+    "delta": 125976
+   }
+  },
+  {
+   "mode": "webgl",
+   "width": 1440,
+   "height": 1000,
+   "round": 2,
+   "build": "Current",
+   "scenario": "air12",
+   "env": {
+    "renderer": "WebGL",
+    "gl": "ANGLE (Google, Vulkan 1.3.0 (SwiftShader Device (LLVM 10.0.0) (0x0000C0DE)), SwiftShader driver)",
+    "dpr": 1,
+    "canvasPx": [
+     450,
+     800
+    ]
+   },
+   "state": {
+    "bubbles": 12,
+    "drawn": 12,
+    "timeout": 0,
+    "slots": 264
+   },
+   "cpuDraw": {
+    "n": 240,
+    "mean": 0.3450000062584877,
+    "p50": 0.30000007152557373,
+    "p95": 0.5,
+    "p99": 0.6000000238418579,
+    "max": 0.8000000715255737
+   },
+   "cpuTotal": {
+    "n": 240,
+    "mean": 0.5520833333333334,
+    "p50": 0.5,
+    "p95": 0.7000000476837158,
+    "p99": 1,
+    "max": 1.3000000715255737
+   },
+   "interval": {
+    "n": 240,
+    "mean": 16.665833333333328,
+    "p50": 16.699999999999818,
+    "p95": 16.799999999999955,
+    "p99": 16.800000000000182,
+    "max": 16.800000000000182
+   },
+   "over25": 0,
+   "gpuFlush": {
+    "n": 120,
+    "mean": 0.5516666650772095,
+    "p50": 0.5,
+    "p95": 0.7000000476837158,
+    "p99": 1.100000023841858,
+    "max": 1.1999999284744263
+   },
+   "gc": {
+    "minor": 49,
+    "major": 1,
+    "minorMs": 6.022,
+    "majorMs": 1.265
+   },
+   "allocKiBPerFrame": 381.9,
+   "heapAfterGC": {
+    "before": 6459648,
+    "after": 6851400,
+    "delta": 391752
+   }
+  },
+  {
+   "mode": "webgl",
+   "width": 1440,
+   "height": 1000,
+   "round": 2,
+   "build": "Current",
+   "scenario": "timeoutAir",
+   "env": {
+    "renderer": "WebGL",
+    "gl": "ANGLE (Google, Vulkan 1.3.0 (SwiftShader Device (LLVM 10.0.0) (0x0000C0DE)), SwiftShader driver)",
+    "dpr": 1,
+    "canvasPx": [
+     450,
+     800
+    ]
+   },
+   "state": {
+    "bubbles": 4,
+    "drawn": 4,
+    "timeout": 1,
+    "slots": 88
+   },
+   "cpuDraw": {
+    "n": 240,
+    "mean": 0.2983333349227905,
+    "p50": 0.2999999523162842,
+    "p95": 0.40000009536743164,
+    "p99": 0.40000009536743164,
+    "max": 0.5
+   },
+   "cpuTotal": {
+    "n": 240,
+    "mean": 0.431666665772597,
+    "p50": 0.40000009536743164,
+    "p95": 0.5999999046325684,
+    "p99": 0.6000000238418579,
+    "max": 0.6000000238418579
+   },
+   "interval": {
+    "n": 240,
+    "mean": 16.66583333333333,
+    "p50": 16.69999999999891,
+    "p95": 16.700000000000728,
+    "p99": 16.80000000000109,
+    "max": 16.80000000000109
+   },
+   "over25": 0,
+   "gpuFlush": {
+    "n": 120,
+    "mean": 0.4425000011920929,
+    "p50": 0.40000009536743164,
+    "p95": 0.5999999046325684,
+    "p99": 0.6000000238418579,
+    "max": 0.6000000238418579
+   },
+   "gc": {
+    "minor": 31,
+    "major": 1,
+    "minorMs": 3.867,
+    "majorMs": 0.85
+   },
+   "allocKiBPerFrame": 191.3,
+   "heapAfterGC": {
+    "before": 6826720,
+    "after": 6950384,
+    "delta": 123664
+   }
+  },
+  {
+   "mode": "webgl",
+   "width": 1440,
+   "height": 1000,
+   "round": 2,
+   "build": "A",
+   "scenario": "air12",
+   "env": {
+    "renderer": "WebGL",
+    "gl": "ANGLE (Google, Vulkan 1.3.0 (SwiftShader Device (LLVM 10.0.0) (0x0000C0DE)), SwiftShader driver)",
+    "dpr": 1,
+    "canvasPx": [
+     450,
+     800
+    ]
+   },
+   "state": {
+    "bubbles": 12,
+    "drawn": 12,
+    "timeout": 0,
+    "slots": 912
+   },
+   "cpuDraw": {
+    "n": 240,
+    "mean": 0.33125000447034836,
+    "p50": 0.30000007152557373,
+    "p95": 0.40000009536743164,
+    "p99": 0.6000000238418579,
+    "max": 0.6000000238418579
+   },
+   "cpuTotal": {
+    "n": 240,
+    "mean": 0.45041666775941847,
+    "p50": 0.40000009536743164,
+    "p95": 0.5999999046325684,
+    "p99": 0.7000000476837158,
+    "max": 0.7000000476837158
+   },
+   "interval": {
+    "n": 240,
+    "mean": 16.66624999999998,
+    "p50": 16.699999999999818,
+    "p95": 16.799999999999727,
+    "p99": 16.800000000000182,
+    "max": 16.800000000000182
+   },
+   "over25": 0,
+   "gpuFlush": {
+    "n": 120,
+    "mean": 0.41416666805744173,
+    "p50": 0.3999999761581421,
+    "p95": 0.5,
+    "p99": 0.5,
+    "max": 0.5
+   },
+   "gc": {
+    "minor": 22,
+    "major": 1,
+    "minorMs": 3.196,
+    "majorMs": 0.95
+   },
+   "allocKiBPerFrame": 150.2,
+   "heapAfterGC": {
+    "before": 6470024,
+    "after": 6846916,
+    "delta": 376892
+   }
+  },
+  {
+   "mode": "webgl",
+   "width": 1440,
+   "height": 1000,
+   "round": 2,
+   "build": "A",
+   "scenario": "timeoutAir",
+   "env": {
+    "renderer": "WebGL",
+    "gl": "ANGLE (Google, Vulkan 1.3.0 (SwiftShader Device (LLVM 10.0.0) (0x0000C0DE)), SwiftShader driver)",
+    "dpr": 1,
+    "canvasPx": [
+     450,
+     800
+    ]
+   },
+   "state": {
+    "bubbles": 4,
+    "drawn": 4,
+    "timeout": 1,
+    "slots": 304
+   },
+   "cpuDraw": {
+    "n": 240,
+    "mean": 0.30416666517655055,
+    "p50": 0.2999999523162842,
+    "p95": 0.40000009536743164,
+    "p99": 0.5,
+    "max": 0.8000000715255737
+   },
+   "cpuTotal": {
+    "n": 240,
+    "mean": 0.40583333869775134,
+    "p50": 0.3999999761581421,
+    "p95": 0.5,
+    "p99": 0.6000000238418579,
+    "max": 1.100000023841858
+   },
+   "interval": {
+    "n": 240,
+    "mean": 16.666249999999998,
+    "p50": 16.69999999999891,
+    "p95": 16.700000000000728,
+    "p99": 16.80000000000109,
+    "max": 16.80000000000109
+   },
+   "over25": 0,
+   "gpuFlush": {
+    "n": 120,
+    "mean": 0.400833335518837,
+    "p50": 0.3999999761581421,
+    "p95": 0.5,
+    "p99": 0.5,
+    "max": 0.5
+   },
+   "gc": {
+    "minor": 24,
+    "major": 1,
+    "minorMs": 3.325,
+    "majorMs": 0.91
+   },
+   "allocKiBPerFrame": 158.2,
+   "heapAfterGC": {
+    "before": 6819740,
+    "after": 6939868,
+    "delta": 120128
+   }
+  },
+  {
+   "mode": "canvas-accel",
+   "width": 360,
+   "height": 640,
+   "round": 0,
+   "build": "Current",
+   "scenario": "air0",
+   "env": {
+    "renderer": "Canvas",
+    "gl": null,
+    "dpr": 1,
+    "canvasPx": [
+     450,
+     800
+    ]
+   },
+   "state": {
+    "bubbles": 0,
+    "drawn": 0,
+    "timeout": 0,
+    "slots": 0
+   },
+   "cpuDraw": {
+    "n": 240,
+    "mean": 0.43708333671092986,
+    "p50": 0.40000009536743164,
+    "p95": 0.5999999046325684,
+    "p99": 0.6000000238418579,
+    "max": 0.6999999284744263
+   },
+   "cpuTotal": {
+    "n": 240,
+    "mean": 0.6324999978144964,
+    "p50": 0.6000000238418579,
+    "p95": 0.7999999523162842,
+    "p99": 0.8000000715255737,
+    "max": 1.0999999046325684
+   },
+   "interval": {
+    "n": 240,
+    "mean": 16.666249999999973,
+    "p50": 16.699999999999818,
+    "p95": 16.799999999999727,
+    "p99": 16.800000000000182,
+    "max": 16.800000000000182
+   },
+   "over25": 0,
+   "gpuFlush": {
+    "n": 120,
+    "mean": 4.644166661302249,
+    "p50": 4.5,
+    "p95": 5.399999976158142,
+    "p99": 10.299999952316284,
+    "max": 12.399999976158142
+   },
+   "gc": {
+    "minor": 20,
+    "major": 2,
+    "minorMs": 3.329,
+    "majorMs": 1.89
+   },
+   "allocKiBPerFrame": 140.9,
+   "heapAfterGC": {
+    "before": 5981240,
+    "after": 6340304,
+    "delta": 359064
+   }
+  },
+  {
+   "mode": "canvas-accel",
+   "width": 360,
+   "height": 640,
+   "round": 0,
+   "build": "Current",
+   "scenario": "air4",
+   "env": {
+    "renderer": "Canvas",
+    "gl": null,
+    "dpr": 1,
+    "canvasPx": [
+     450,
+     800
+    ]
+   },
+   "state": {
+    "bubbles": 4,
+    "drawn": 4,
+    "timeout": 0,
+    "slots": 88
+   },
+   "cpuDraw": {
+    "n": 240,
+    "mean": 0.43833333601554236,
+    "p50": 0.40000009536743164,
+    "p95": 0.6000000238418579,
+    "p99": 0.7000000476837158,
+    "max": 0.7999999523162842
+   },
+   "cpuTotal": {
+    "n": 240,
+    "mean": 0.6404166688521703,
+    "p50": 0.6000000238418579,
+    "p95": 0.8000000715255737,
+    "p99": 1,
+    "max": 1.2000000476837158
+   },
+   "interval": {
+    "n": 240,
+    "mean": 16.666249999999998,
+    "p50": 16.69999999999891,
+    "p95": 16.799999999999272,
+    "p99": 16.80000000000109,
+    "max": 16.80000000000109
+   },
+   "over25": 0,
+   "gpuFlush": {
+    "n": 120,
+    "mean": 4.594999999801318,
+    "p50": 4.399999976158142,
+    "p95": 5.300000071525574,
+    "p99": 7.399999976158142,
+    "max": 9.300000071525574
+   },
+   "gc": {
+    "minor": 39,
+    "major": 2,
+    "minorMs": 5.648,
+    "majorMs": 2.403
+   },
+   "allocKiBPerFrame": 139.4,
+   "heapAfterGC": {
+    "before": 6295344,
+    "after": 6418636,
+    "delta": 123292
+   }
+  },
+  {
+   "mode": "canvas-accel",
+   "width": 360,
+   "height": 640,
+   "round": 0,
+   "build": "Current",
+   "scenario": "air12",
+   "env": {
+    "renderer": "Canvas",
+    "gl": null,
+    "dpr": 1,
+    "canvasPx": [
+     450,
+     800
+    ]
+   },
+   "state": {
+    "bubbles": 12,
+    "drawn": 12,
+    "timeout": 0,
+    "slots": 264
+   },
+   "cpuDraw": {
+    "n": 240,
+    "mean": 0.4162500018874804,
+    "p50": 0.3999999761581421,
+    "p95": 0.5,
+    "p99": 0.6000000238418579,
+    "max": 0.6000000238418579
+   },
+   "cpuTotal": {
+    "n": 240,
+    "mean": 0.5929166669646899,
+    "p50": 0.6000000238418579,
+    "p95": 0.7000000476837158,
+    "p99": 0.7999999523162842,
+    "max": 0.8999999761581421
+   },
+   "interval": {
+    "n": 240,
+    "mean": 16.66624999999999,
+    "p50": 16.700000000000728,
+    "p95": 16.700000000000728,
+    "p99": 16.799999999999272,
+    "max": 16.799999999999272
+   },
+   "over25": 0,
+   "gpuFlush": {
+    "n": 120,
+    "mean": 4.220833344260852,
+    "p50": 4.200000047683716,
+    "p95": 4.600000023841858,
+    "p99": 5.300000071525574,
+    "max": 8.700000047683716
+   },
+   "gc": {
+    "minor": 23,
+    "major": 2,
+    "minorMs": 3.478,
+    "majorMs": 2.037
+   },
+   "allocKiBPerFrame": 145.3,
+   "heapAfterGC": {
+    "before": 6447968,
+    "after": 6471492,
+    "delta": 23524
+   }
+  },
+  {
+   "mode": "canvas-accel",
+   "width": 360,
+   "height": 640,
+   "round": 0,
+   "build": "Current",
+   "scenario": "timeoutAir",
+   "env": {
+    "renderer": "Canvas",
+    "gl": null,
+    "dpr": 1,
+    "canvasPx": [
+     450,
+     800
+    ]
+   },
+   "state": {
+    "bubbles": 4,
+    "drawn": 4,
+    "timeout": 1,
+    "slots": 88
+   },
+   "cpuDraw": {
+    "n": 240,
+    "mean": 0.4575000022848447,
+    "p50": 0.5,
+    "p95": 0.6000000238418579,
+    "p99": 0.7000000476837158,
+    "max": 1.100000023841858
+   },
+   "cpuTotal": {
+    "n": 240,
+    "mean": 0.66875,
+    "p50": 0.6999999284744263,
+    "p95": 0.8000000715255737,
+    "p99": 0.9000000953674316,
+    "max": 1.7999999523162842
+   },
+   "interval": {
+    "n": 240,
+    "mean": 16.66624999999999,
+    "p50": 16.69999999999709,
+    "p95": 16.799999999999272,
+    "p99": 16.80000000000291,
+    "max": 16.80000000000291
+   },
+   "over25": 0,
+   "gpuFlush": {
+    "n": 120,
+    "mean": 4.589166663090388,
+    "p50": 4.399999976158142,
+    "p95": 5.900000095367432,
+    "p99": 7.099999904632568,
+    "max": 14.700000047683716
+   },
+   "gc": {
+    "minor": 36,
+    "major": 2,
+    "minorMs": 5.567,
+    "majorMs": 2.267
+   },
+   "allocKiBPerFrame": 150.2,
+   "heapAfterGC": {
+    "before": 6409512,
+    "after": 6536388,
+    "delta": 126876
+   }
+  },
+  {
+   "mode": "canvas-accel",
+   "width": 360,
+   "height": 640,
+   "round": 0,
+   "build": "Current",
+   "scenario": "cycle",
+   "env": {
+    "renderer": "Canvas",
+    "gl": null,
+    "dpr": 1,
+    "canvasPx": [
+     450,
+     800
+    ]
+   },
+   "state": {
+    "bubbles": 4,
+    "drawn": 4,
+    "timeout": 0,
+    "slots": 88
+   },
+   "cpuDraw": {
+    "n": 239,
+    "mean": 0,
+    "p50": 0,
+    "p95": 0,
+    "p99": 0,
+    "max": 0
+   },
+   "cpuTotal": {
+    "n": 239,
+    "mean": 0.6782426764276736,
+    "p50": 0.6999999284744263,
+    "p95": 0.8000000715255737,
+    "p99": 1.100000023841858,
+    "max": 1.4000000953674316
+   },
+   "interval": {
+    "n": 239,
+    "mean": 16.66569037656903,
+    "p50": 16.69999999999709,
+    "p95": 16.799999999995634,
+    "p99": 16.80000000000291,
+    "max": 16.80000000000291
+   },
+   "over25": 0,
+   "gpuFlush": {
+    "n": 120,
+    "mean": 4.483333335320155,
+    "p50": 4.399999976158142,
+    "p95": 5.199999928474426,
+    "p99": 5.200000047683716,
+    "max": 12.5
+   },
+   "gc": {
+    "minor": 39,
+    "major": 2,
+    "minorMs": 5.552,
+    "majorMs": 1.958
+   },
+   "allocKiBPerFrame": 145.9,
+   "heapAfterGC": {
+    "before": 6444204,
+    "after": 6572128,
+    "delta": 127924
+   }
+  },
+  {
+   "mode": "canvas-accel",
+   "width": 360,
+   "height": 640,
+   "round": 0,
+   "build": "A",
+   "scenario": "air0",
+   "env": {
+    "renderer": "Canvas",
+    "gl": null,
+    "dpr": 1,
+    "canvasPx": [
+     450,
+     800
+    ]
+   },
+   "state": {
+    "bubbles": 0,
+    "drawn": 0,
+    "timeout": 0,
+    "slots": 0
+   },
+   "cpuDraw": {
+    "n": 240,
+    "mean": 0.47750000258286796,
+    "p50": 0.5,
+    "p95": 0.6000000238418579,
+    "p99": 0.8000000715255737,
+    "max": 0.8999999761581421
+   },
+   "cpuTotal": {
+    "n": 240,
+    "mean": 0.6800000016887983,
+    "p50": 0.6999999284744263,
+    "p95": 0.8000000715255737,
+    "p99": 1.2000000476837158,
+    "max": 1.399999976158142
+   },
+   "interval": {
+    "n": 240,
+    "mean": 16.66583333333331,
+    "p50": 16.699999999999818,
+    "p95": 16.799999999999727,
+    "p99": 16.800000000000182,
+    "max": 16.800000000000182
+   },
+   "over25": 0,
+   "gpuFlush": {
+    "n": 120,
+    "mean": 4.506666668256124,
+    "p50": 4.299999952316284,
+    "p95": 6.399999976158142,
+    "p99": 7.799999952316284,
+    "max": 9.700000047683716
+   },
+   "gc": {
+    "minor": 40,
+    "major": 2,
+    "minorMs": 5.815,
+    "majorMs": 2.125
+   },
+   "allocKiBPerFrame": 188.9,
+   "heapAfterGC": {
+    "before": 5990704,
+    "after": 6326024,
+    "delta": 335320
+   }
+  },
+  {
+   "mode": "canvas-accel",
+   "width": 360,
+   "height": 640,
+   "round": 0,
+   "build": "A",
+   "scenario": "air4",
+   "env": {
+    "renderer": "Canvas",
+    "gl": null,
+    "dpr": 1,
+    "canvasPx": [
+     450,
+     800
+    ]
+   },
+   "state": {
+    "bubbles": 4,
+    "drawn": 4,
+    "timeout": 0,
+    "slots": 304
+   },
+   "cpuDraw": {
+    "n": 240,
+    "mean": 0.43583333243926364,
+    "p50": 0.3999999761581421,
+    "p95": 0.5,
+    "p99": 0.6000000238418579,
+    "max": 0.6999999284744263
+   },
+   "cpuTotal": {
+    "n": 240,
+    "mean": 0.6233333279689153,
+    "p50": 0.6000000238418579,
+    "p95": 0.7000000476837158,
+    "p99": 0.8999999761581421,
+    "max": 0.9000000953674316
+   },
+   "interval": {
+    "n": 240,
+    "mean": 16.66583333333334,
+    "p50": 16.69999999999891,
+    "p95": 16.700000000000728,
+    "p99": 16.80000000000109,
+    "max": 16.80000000000109
+   },
+   "over25": 0,
+   "gpuFlush": {
+    "n": 120,
+    "mean": 4.550000003973643,
+    "p50": 4.399999976158142,
+    "p95": 5.800000071525574,
+    "p99": 8,
+    "max": 8.100000023841858
+   },
+   "gc": {
+    "minor": 29,
+    "major": 2,
+    "minorMs": 4.773,
+    "majorMs": 1.959
+   },
+   "allocKiBPerFrame": 196.8,
+   "heapAfterGC": {
+    "before": 6285280,
+    "after": 6405492,
+    "delta": 120212
+   }
+  },
+  {
+   "mode": "canvas-accel",
+   "width": 360,
+   "height": 640,
+   "round": 0,
+   "build": "A",
+   "scenario": "air12",
+   "env": {
+    "renderer": "Canvas",
+    "gl": null,
+    "dpr": 1,
+    "canvasPx": [
+     450,
+     800
+    ]
+   },
+   "state": {
+    "bubbles": 12,
+    "drawn": 12,
+    "timeout": 0,
+    "slots": 912
+   },
+   "cpuDraw": {
+    "n": 240,
+    "mean": 0.42625000029802323,
+    "p50": 0.3999999761581421,
+    "p95": 0.5,
+    "p99": 0.6000000238418579,
+    "max": 0.6000000238418579
+   },
+   "cpuTotal": {
+    "n": 240,
+    "mean": 0.620416671037674,
+    "p50": 0.6000000238418579,
+    "p95": 0.7000000476837158,
+    "p99": 0.8000000715255737,
+    "max": 0.8000000715255737
+   },
+   "interval": {
+    "n": 240,
+    "mean": 16.66583333333333,
+    "p50": 16.69999999999709,
+    "p95": 16.799999999999272,
+    "p99": 16.80000000000291,
+    "max": 16.80000000000291
+   },
+   "over25": 0,
+   "gpuFlush": {
+    "n": 120,
+    "mean": 4.395000004768372,
+    "p50": 4.300000071525574,
+    "p95": 5.100000023841858,
+    "p99": 6.699999928474426,
+    "max": 10.5
+   },
+   "gc": {
+    "minor": 29,
+    "major": 2,
+    "minorMs": 4.523,
+    "majorMs": 2.098
+   },
+   "allocKiBPerFrame": 211.1,
+   "heapAfterGC": {
+    "before": 6438280,
+    "after": 6461784,
+    "delta": 23504
+   }
+  },
+  {
+   "mode": "canvas-accel",
+   "width": 360,
+   "height": 640,
+   "round": 0,
+   "build": "A",
+   "scenario": "timeoutAir",
+   "env": {
+    "renderer": "Canvas",
+    "gl": null,
+    "dpr": 1,
+    "canvasPx": [
+     450,
+     800
+    ]
+   },
+   "state": {
+    "bubbles": 4,
+    "drawn": 4,
+    "timeout": 1,
+    "slots": 304
+   },
+   "cpuDraw": {
+    "n": 240,
+    "mean": 0.4508333335320155,
+    "p50": 0.40000009536743164,
+    "p95": 0.6000000238418579,
+    "p99": 0.6000000238418579,
+    "max": 0.8000000715255737
+   },
+   "cpuTotal": {
+    "n": 240,
+    "mean": 0.6525000030795733,
+    "p50": 0.6000000238418579,
+    "p95": 0.8000000715255737,
+    "p99": 0.8999999761581421,
+    "max": 0.9000000953674316
+   },
+   "interval": {
+    "n": 240,
+    "mean": 16.666250000000005,
+    "p50": 16.69999999999709,
+    "p95": 16.700000000000728,
+    "p99": 16.80000000000291,
+    "max": 16.80000000000291
+   },
+   "over25": 0,
+   "gpuFlush": {
+    "n": 120,
+    "mean": 4.376666663090388,
+    "p50": 4.300000071525574,
+    "p95": 4.700000047683716,
+    "p99": 5,
+    "max": 10.5
+   },
+   "gc": {
+    "minor": 40,
+    "major": 2,
+    "minorMs": 5.703,
+    "majorMs": 2.174
+   },
+   "allocKiBPerFrame": 216.5,
+   "heapAfterGC": {
+    "before": 6399448,
+    "after": 6521300,
+    "delta": 121852
+   }
+  },
+  {
+   "mode": "canvas-accel",
+   "width": 360,
+   "height": 640,
+   "round": 0,
+   "build": "A",
+   "scenario": "cycle",
+   "env": {
+    "renderer": "Canvas",
+    "gl": null,
+    "dpr": 1,
+    "canvasPx": [
+     450,
+     800
+    ]
+   },
+   "state": {
+    "bubbles": 4,
+    "drawn": 4,
+    "timeout": 0,
+    "slots": 304
+   },
+   "cpuDraw": {
+    "n": 239,
+    "mean": 0,
+    "p50": 0,
+    "p95": 0,
+    "p99": 0,
+    "max": 0
+   },
+   "cpuTotal": {
+    "n": 239,
+    "mean": 0.6305439327551231,
+    "p50": 0.6000000238418579,
+    "p95": 0.7999999523162842,
+    "p99": 0.8999999761581421,
+    "max": 0.9000000953674316
+   },
+   "interval": {
+    "n": 239,
+    "mean": 16.66569037656903,
+    "p50": 16.69999999999709,
+    "p95": 16.799999999995634,
+    "p99": 16.80000000000291,
+    "max": 16.80000000000291
+   },
+   "over25": 0,
+   "gpuFlush": {
+    "n": 120,
+    "mean": 4.170000004768371,
+    "p50": 4.200000047683716,
+    "p95": 4.599999904632568,
+    "p99": 4.700000047683716,
+    "max": 8.100000023841858
+   },
+   "gc": {
+    "minor": 40,
+    "major": 2,
+    "minorMs": 5.563,
+    "majorMs": 1.972
+   },
+   "allocKiBPerFrame": 199.4,
+   "heapAfterGC": {
+    "before": 6424420,
+    "after": 6545988,
+    "delta": 121568
+   }
+  },
+  {
+   "mode": "canvas-accel",
+   "width": 360,
+   "height": 640,
+   "round": 1,
+   "build": "A",
+   "scenario": "air0",
+   "env": {
+    "renderer": "Canvas",
+    "gl": null,
+    "dpr": 1,
+    "canvasPx": [
+     450,
+     800
+    ]
+   },
+   "state": {
+    "bubbles": 0,
+    "drawn": 0,
+    "timeout": 0,
+    "slots": 0
+   },
+   "cpuDraw": {
+    "n": 240,
+    "mean": 0.4575000022848447,
+    "p50": 0.40000009536743164,
+    "p95": 0.6000000238418579,
+    "p99": 0.7000000476837158,
+    "max": 1.2000000476837158
+   },
+   "cpuTotal": {
+    "n": 240,
+    "mean": 0.6687500009934108,
+    "p50": 0.6999999284744263,
+    "p95": 0.8999999761581421,
+    "p99": 1.2000000476837158,
+    "max": 1.7000000476837158
+   },
+   "interval": {
+    "n": 240,
+    "mean": 16.66624999999998,
+    "p50": 16.699999999999818,
+    "p95": 16.700000000000728,
+    "p99": 16.800000000000182,
+    "max": 16.800000000000182
+   },
+   "over25": 0,
+   "gpuFlush": {
+    "n": 120,
+    "mean": 4.676666662096977,
+    "p50": 4.599999904632568,
+    "p95": 5.600000023841858,
+    "p99": 9.5,
+    "max": 9.699999928474426
+   },
+   "gc": {
+    "minor": 39,
+    "major": 2,
+    "minorMs": 5.854,
+    "majorMs": 1.699
+   },
+   "allocKiBPerFrame": 188.9,
+   "heapAfterGC": {
+    "before": 6013928,
+    "after": 6357108,
+    "delta": 343180
+   }
+  },
+  {
+   "mode": "canvas-accel",
+   "width": 360,
+   "height": 640,
+   "round": 1,
+   "build": "A",
+   "scenario": "air4",
+   "env": {
+    "renderer": "Canvas",
+    "gl": null,
+    "dpr": 1,
+    "canvasPx": [
+     450,
+     800
+    ]
+   },
+   "state": {
+    "bubbles": 4,
+    "drawn": 4,
+    "timeout": 0,
+    "slots": 304
+   },
+   "cpuDraw": {
+    "n": 240,
+    "mean": 0.44208333442608516,
+    "p50": 0.40000009536743164,
+    "p95": 0.5,
+    "p99": 0.6000000238418579,
+    "max": 0.6000000238418579
+   },
+   "cpuTotal": {
+    "n": 240,
+    "mean": 0.6358333299557368,
+    "p50": 0.6000000238418579,
+    "p95": 0.7999999523162842,
+    "p99": 0.8000000715255737,
+    "max": 0.8999999761581421
+   },
+   "interval": {
+    "n": 240,
+    "mean": 16.66583333333334,
+    "p50": 16.69999999999891,
+    "p95": 16.700000000000728,
+    "p99": 16.799999999999272,
+    "max": 16.80000000000109
+   },
+   "over25": 0,
+   "gpuFlush": {
+    "n": 120,
+    "mean": 4.430000004172325,
+    "p50": 4.400000095367432,
+    "p95": 4.799999952316284,
+    "p99": 4.899999976158142,
+    "max": 8.899999976158142
+   },
+   "gc": {
+    "minor": 29,
+    "major": 2,
+    "minorMs": 5.155,
+    "majorMs": 1.829
+   },
+   "allocKiBPerFrame": 198.6,
+   "heapAfterGC": {
+    "before": 6313236,
+    "after": 6432348,
+    "delta": 119112
+   }
+  },
+  {
+   "mode": "canvas-accel",
+   "width": 360,
+   "height": 640,
+   "round": 1,
+   "build": "A",
+   "scenario": "air12",
+   "env": {
+    "renderer": "Canvas",
+    "gl": null,
+    "dpr": 1,
+    "canvasPx": [
+     450,
+     800
+    ]
+   },
+   "state": {
+    "bubbles": 12,
+    "drawn": 12,
+    "timeout": 0,
+    "slots": 912
+   },
+   "cpuDraw": {
+    "n": 240,
+    "mean": 0.42874999990065893,
+    "p50": 0.3999999761581421,
+    "p95": 0.5,
+    "p99": 0.6000000238418579,
+    "max": 0.6000000238418579
+   },
+   "cpuTotal": {
+    "n": 240,
+    "mean": 0.6216666648785273,
+    "p50": 0.6000000238418579,
+    "p95": 0.7000000476837158,
+    "p99": 0.8000000715255737,
+    "max": 0.8000000715255737
+   },
+   "interval": {
+    "n": 240,
+    "mean": 16.66583333333333,
+    "p50": 16.700000000000728,
+    "p95": 16.700000000000728,
+    "p99": 16.799999999999272,
+    "max": 16.80000000000291
+   },
+   "over25": 0,
+   "gpuFlush": {
+    "n": 120,
+    "mean": 4.480833339691162,
+    "p50": 4.400000095367432,
+    "p95": 5.100000023841858,
+    "p99": 6,
+    "max": 10.300000071525574
+   },
+   "gc": {
+    "minor": 41,
+    "major": 2,
+    "minorMs": 5.41,
+    "majorMs": 1.795
+   },
+   "allocKiBPerFrame": 210.4,
+   "heapAfterGC": {
+    "before": 6468276,
+    "after": 6491488,
+    "delta": 23212
+   }
+  },
+  {
+   "mode": "canvas-accel",
+   "width": 360,
+   "height": 640,
+   "round": 1,
+   "build": "A",
+   "scenario": "timeoutAir",
+   "env": {
+    "renderer": "Canvas",
+    "gl": null,
+    "dpr": 1,
+    "canvasPx": [
+     450,
+     800
+    ]
+   },
+   "state": {
+    "bubbles": 4,
+    "drawn": 4,
+    "timeout": 1,
+    "slots": 304
+   },
+   "cpuDraw": {
+    "n": 240,
+    "mean": 0.44624999910593033,
+    "p50": 0.40000009536743164,
+    "p95": 0.5999999046325684,
+    "p99": 0.6000000238418579,
+    "max": 0.6000000238418579
+   },
+   "cpuTotal": {
+    "n": 240,
+    "mean": 0.6558333337306976,
+    "p50": 0.6999999284744263,
+    "p95": 0.7999999523162842,
+    "p99": 0.8000000715255737,
+    "max": 0.8999999761581421
+   },
+   "interval": {
+    "n": 240,
+    "mean": 16.665833333333346,
+    "p50": 16.69999999999709,
+    "p95": 16.700000000000728,
+    "p99": 16.80000000000291,
+    "max": 16.80000000000291
+   },
+   "over25": 0,
+   "gpuFlush": {
+    "n": 120,
+    "mean": 4.700833333532016,
+    "p50": 4.600000023841858,
+    "p95": 5.299999952316284,
+    "p99": 6.200000047683716,
+    "max": 9.699999928474426
+   },
+   "gc": {
+    "minor": 40,
+    "major": 2,
+    "minorMs": 5.787,
+    "majorMs": 1.722
+   },
+   "allocKiBPerFrame": 216.4,
+   "heapAfterGC": {
+    "before": 6436292,
+    "after": 6558448,
+    "delta": 122156
+   }
+  },
+  {
+   "mode": "canvas-accel",
+   "width": 360,
+   "height": 640,
+   "round": 1,
+   "build": "A",
+   "scenario": "cycle",
+   "env": {
+    "renderer": "Canvas",
+    "gl": null,
+    "dpr": 1,
+    "canvasPx": [
+     450,
+     800
+    ]
+   },
+   "state": {
+    "bubbles": 4,
+    "drawn": 4,
+    "timeout": 0,
+    "slots": 304
+   },
+   "cpuDraw": {
+    "n": 239,
+    "mean": 0,
+    "p50": 0,
+    "p95": 0,
+    "p99": 0,
+    "max": 0
+   },
+   "cpuTotal": {
+    "n": 239,
+    "mean": 0.6652719685223312,
+    "p50": 0.6999999284744263,
+    "p95": 0.8000000715255737,
+    "p99": 0.8999999761581421,
+    "max": 1.3000000715255737
+   },
+   "interval": {
+    "n": 239,
+    "mean": 16.666527196652734,
+    "p50": 16.69999999999709,
+    "p95": 16.799999999995634,
+    "p99": 16.80000000000291,
+    "max": 16.80000000000291
+   },
+   "over25": 0,
+   "gpuFlush": {
+    "n": 120,
+    "mean": 4.631666665275891,
+    "p50": 4.5,
+    "p95": 5.599999904632568,
+    "p99": 6.299999952316284,
+    "max": 9.799999952316284
+   },
+   "gc": {
+    "minor": 40,
+    "major": 2,
+    "minorMs": 5.559,
+    "majorMs": 2.087
+   },
+   "allocKiBPerFrame": 198.7,
+   "heapAfterGC": {
+    "before": 6461756,
+    "after": 6590632,
+    "delta": 128876
+   }
+  },
+  {
+   "mode": "canvas-accel",
+   "width": 360,
+   "height": 640,
+   "round": 1,
+   "build": "Current",
+   "scenario": "air0",
+   "env": {
+    "renderer": "Canvas",
+    "gl": null,
+    "dpr": 1,
+    "canvasPx": [
+     450,
+     800
+    ]
+   },
+   "state": {
+    "bubbles": 0,
+    "drawn": 0,
+    "timeout": 0,
+    "slots": 0
+   },
+   "cpuDraw": {
+    "n": 240,
+    "mean": 0.4679166649778684,
+    "p50": 0.5,
+    "p95": 0.6000000238418579,
+    "p99": 0.6000000238418579,
+    "max": 0.9000000953674316
+   },
+   "cpuTotal": {
+    "n": 240,
+    "mean": 0.6641666650772095,
+    "p50": 0.6999999284744263,
+    "p95": 0.8000000715255737,
+    "p99": 0.8000000715255737,
+    "max": 1.2000000476837158
+   },
+   "interval": {
+    "n": 240,
+    "mean": 16.66583333333331,
+    "p50": 16.699999999999818,
+    "p95": 16.799999999999272,
+    "p99": 16.800000000000182,
+    "max": 16.800000000000182
+   },
+   "over25": 0,
+   "gpuFlush": {
+    "n": 120,
+    "mean": 4.479999998211861,
+    "p50": 4.399999976158142,
+    "p95": 4.900000095367432,
+    "p99": 6.800000071525574,
+    "max": 10.700000047683716
+   },
+   "gc": {
+    "minor": 39,
+    "major": 2,
+    "minorMs": 5.371,
+    "majorMs": 1.772
+   },
+   "allocKiBPerFrame": 140.5,
+   "heapAfterGC": {
+    "before": 5979476,
+    "after": 6318400,
+    "delta": 338924
+   }
+  },
+  {
+   "mode": "canvas-accel",
+   "width": 360,
+   "height": 640,
+   "round": 1,
+   "build": "Current",
+   "scenario": "air4",
+   "env": {
+    "renderer": "Canvas",
+    "gl": null,
+    "dpr": 1,
+    "canvasPx": [
+     450,
+     800
+    ]
+   },
+   "state": {
+    "bubbles": 4,
+    "drawn": 4,
+    "timeout": 0,
+    "slots": 88
+   },
+   "cpuDraw": {
+    "n": 240,
+    "mean": 0.43833333253860474,
+    "p50": 0.40000009536743164,
+    "p95": 0.6000000238418579,
+    "p99": 0.6000000238418579,
+    "max": 0.6999999284744263
+   },
+   "cpuTotal": {
+    "n": 240,
+    "mean": 0.6320833325386047,
+    "p50": 0.6000000238418579,
+    "p95": 0.7999999523162842,
+    "p99": 0.8000000715255737,
+    "max": 1
+   },
+   "interval": {
+    "n": 240,
+    "mean": 16.66583333333334,
+    "p50": 16.69999999999891,
+    "p95": 16.700000000000728,
+    "p99": 16.80000000000109,
+    "max": 16.80000000000109
+   },
+   "over25": 0,
+   "gpuFlush": {
+    "n": 120,
+    "mean": 4.807499996821085,
+    "p50": 4.699999928474426,
+    "p95": 6.800000071525574,
+    "p99": 7.199999928474426,
+    "max": 10.399999976158142
+   },
+   "gc": {
+    "minor": 27,
+    "major": 2,
+    "minorMs": 4.712,
+    "majorMs": 1.837
+   },
+   "allocKiBPerFrame": 140.7,
+   "heapAfterGC": {
+    "before": 6270924,
+    "after": 6402820,
+    "delta": 131896
+   }
+  },
+  {
+   "mode": "canvas-accel",
+   "width": 360,
+   "height": 640,
+   "round": 1,
+   "build": "Current",
+   "scenario": "air12",
+   "env": {
+    "renderer": "Canvas",
+    "gl": null,
+    "dpr": 1,
+    "canvasPx": [
+     450,
+     800
+    ]
+   },
+   "state": {
+    "bubbles": 12,
+    "drawn": 12,
+    "timeout": 0,
+    "slots": 264
+   },
+   "cpuDraw": {
+    "n": 240,
+    "mean": 0.41749999672174454,
+    "p50": 0.3999999761581421,
+    "p95": 0.5,
+    "p99": 0.6000000238418579,
+    "max": 0.6000000238418579
+   },
+   "cpuTotal": {
+    "n": 240,
+    "mean": 0.612500003973643,
+    "p50": 0.6000000238418579,
+    "p95": 0.7000000476837158,
+    "p99": 0.8000000715255737,
+    "max": 1
+   },
+   "interval": {
+    "n": 240,
+    "mean": 16.665833333333346,
+    "p50": 16.69999999999709,
+    "p95": 16.799999999999272,
+    "p99": 16.80000000000291,
+    "max": 16.80000000000291
+   },
+   "over25": 0,
+   "gpuFlush": {
+    "n": 120,
+    "mean": 5.385000005364418,
+    "p50": 5.5,
+    "p95": 7.200000047683716,
+    "p99": 7.399999976158142,
+    "max": 9
+   },
+   "gc": {
+    "minor": 38,
+    "major": 2,
+    "minorMs": 5.027,
+    "majorMs": 1.928
+   },
+   "allocKiBPerFrame": 144.3,
+   "heapAfterGC": {
+    "before": 6433956,
+    "after": 6457616,
+    "delta": 23660
+   }
+  },
+  {
+   "mode": "canvas-accel",
+   "width": 360,
+   "height": 640,
+   "round": 1,
+   "build": "Current",
+   "scenario": "timeoutAir",
+   "env": {
+    "renderer": "Canvas",
+    "gl": null,
+    "dpr": 1,
+    "canvasPx": [
+     450,
+     800
+    ]
+   },
+   "state": {
+    "bubbles": 4,
+    "drawn": 4,
+    "timeout": 1,
+    "slots": 88
+   },
+   "cpuDraw": {
+    "n": 240,
+    "mean": 0.42458333174387614,
+    "p50": 0.3999999761581421,
+    "p95": 0.5,
+    "p99": 0.6000000238418579,
+    "max": 0.6000000238418579
+   },
+   "cpuTotal": {
+    "n": 240,
+    "mean": 0.622500001390775,
+    "p50": 0.6000000238418579,
+    "p95": 0.7999999523162842,
+    "p99": 0.8000000715255737,
+    "max": 0.8000000715255737
+   },
+   "interval": {
+    "n": 240,
+    "mean": 16.665833333333314,
+    "p50": 16.69999999999709,
+    "p95": 16.700000000000728,
+    "p99": 16.80000000000291,
+    "max": 16.80000000000291
+   },
+   "over25": 0,
+   "gpuFlush": {
+    "n": 120,
+    "mean": 4.139166668057442,
+    "p50": 4.200000047683716,
+    "p95": 4.600000023841858,
+    "p99": 4.799999952316284,
+    "max": 8.600000023841858
+   },
+   "gc": {
+    "minor": 24,
+    "major": 2,
+    "minorMs": 3.726,
+    "majorMs": 1.92
+   },
+   "allocKiBPerFrame": 149.1,
+   "heapAfterGC": {
+    "before": 6394204,
+    "after": 6517276,
+    "delta": 123072
+   }
+  },
+  {
+   "mode": "canvas-accel",
+   "width": 360,
+   "height": 640,
+   "round": 1,
+   "build": "Current",
+   "scenario": "cycle",
+   "env": {
+    "renderer": "Canvas",
+    "gl": null,
+    "dpr": 1,
+    "canvasPx": [
+     450,
+     800
+    ]
+   },
+   "state": {
+    "bubbles": 4,
+    "drawn": 4,
+    "timeout": 0,
+    "slots": 88
+   },
+   "cpuDraw": {
+    "n": 239,
+    "mean": 0,
+    "p50": 0,
+    "p95": 0,
+    "p99": 0,
+    "max": 0
+   },
+   "cpuTotal": {
+    "n": 239,
+    "mean": 0.6284518860374035,
+    "p50": 0.6000000238418579,
+    "p95": 0.7999999523162842,
+    "p99": 0.8999999761581421,
+    "max": 1.100000023841858
+   },
+   "interval": {
+    "n": 239,
+    "mean": 16.665690376569064,
+    "p50": 16.69999999999709,
+    "p95": 16.80000000000291,
+    "p99": 16.80000000000291,
+    "max": 16.80000000000291
+   },
+   "over25": 0,
+   "gpuFlush": {
+    "n": 120,
+    "mean": 4.5408333331346515,
+    "p50": 4.299999952316284,
+    "p95": 7.099999904632568,
+    "p99": 7.299999952316284,
+    "max": 8.700000047683716
+   },
+   "gc": {
+    "minor": 35,
+    "major": 2,
+    "minorMs": 5.273,
+    "majorMs": 1.837
+   },
+   "allocKiBPerFrame": 146.8,
+   "heapAfterGC": {
+    "before": 6423668,
+    "after": 6548480,
+    "delta": 124812
+   }
+  },
+  {
+   "mode": "canvas-accel",
+   "width": 360,
+   "height": 640,
+   "round": 2,
+   "build": "Current",
+   "scenario": "air0",
+   "env": {
+    "renderer": "Canvas",
+    "gl": null,
+    "dpr": 1,
+    "canvasPx": [
+     450,
+     800
+    ]
+   },
+   "state": {
+    "bubbles": 0,
+    "drawn": 0,
+    "timeout": 0,
+    "slots": 0
+   },
+   "cpuDraw": {
+    "n": 240,
+    "mean": 0.45291666835546496,
+    "p50": 0.5,
+    "p95": 0.6000000238418579,
+    "p99": 0.6000000238418579,
+    "max": 0.9000000953674316
+   },
+   "cpuTotal": {
+    "n": 240,
+    "mean": 0.647916667163372,
+    "p50": 0.6000000238418579,
+    "p95": 0.8000000715255737,
+    "p99": 0.8000000715255737,
+    "max": 1.100000023841858
+   },
+   "interval": {
+    "n": 240,
+    "mean": 16.665833333333314,
+    "p50": 16.699999999999818,
+    "p95": 16.700000000000728,
+    "p99": 16.800000000000182,
+    "max": 16.800000000000182
+   },
+   "over25": 0,
+   "gpuFlush": {
+    "n": 120,
+    "mean": 4.5641666680574415,
+    "p50": 4.299999952316284,
+    "p95": 7.399999976158142,
+    "p99": 7.599999904632568,
+    "max": 9.900000095367432
+   },
+   "gc": {
+    "minor": 39,
+    "major": 2,
+    "minorMs": 5.928,
+    "majorMs": 2.166
+   },
+   "allocKiBPerFrame": 139.3,
+   "heapAfterGC": {
+    "before": 5991720,
+    "after": 6332384,
+    "delta": 340664
+   }
+  },
+  {
+   "mode": "canvas-accel",
+   "width": 360,
+   "height": 640,
+   "round": 2,
+   "build": "Current",
+   "scenario": "air4",
+   "env": {
+    "renderer": "Canvas",
+    "gl": null,
+    "dpr": 1,
+    "canvasPx": [
+     450,
+     800
+    ]
+   },
+   "state": {
+    "bubbles": 4,
+    "drawn": 4,
+    "timeout": 0,
+    "slots": 88
+   },
+   "cpuDraw": {
+    "n": 240,
+    "mean": 0.43083333571751914,
+    "p50": 0.3999999761581421,
+    "p95": 0.5,
+    "p99": 0.6000000238418579,
+    "max": 0.6999999284744263
+   },
+   "cpuTotal": {
+    "n": 240,
+    "mean": 0.6183333292603492,
+    "p50": 0.6000000238418579,
+    "p95": 0.7000000476837158,
+    "p99": 0.8000000715255737,
+    "max": 0.8999999761581421
+   },
+   "interval": {
+    "n": 240,
+    "mean": 16.66583333333333,
+    "p50": 16.69999999999891,
+    "p95": 16.700000000000728,
+    "p99": 16.80000000000109,
+    "max": 16.80000000000109
+   },
+   "over25": 0,
+   "gpuFlush": {
+    "n": 120,
+    "mean": 4.511666671435038,
+    "p50": 4.399999976158142,
+    "p95": 7.699999928474426,
+    "p99": 8,
+    "max": 10.5
+   },
+   "gc": {
+    "minor": 27,
+    "major": 2,
+    "minorMs": 4.093,
+    "majorMs": 2.003
+   },
+   "allocKiBPerFrame": 139.8,
+   "heapAfterGC": {
+    "before": 6274208,
+    "after": 6411296,
+    "delta": 137088
+   }
+  },
+  {
+   "mode": "canvas-accel",
+   "width": 360,
+   "height": 640,
+   "round": 2,
+   "build": "Current",
+   "scenario": "air12",
+   "env": {
+    "renderer": "Canvas",
+    "gl": null,
+    "dpr": 1,
+    "canvasPx": [
+     450,
+     800
+    ]
+   },
+   "state": {
+    "bubbles": 12,
+    "drawn": 12,
+    "timeout": 0,
+    "slots": 264
+   },
+   "cpuDraw": {
+    "n": 240,
+    "mean": 0.4158333326379458,
+    "p50": 0.3999999761581421,
+    "p95": 0.5,
+    "p99": 0.6000000238418579,
+    "max": 0.6000000238418579
+   },
+   "cpuTotal": {
+    "n": 240,
+    "mean": 0.6074999998013179,
+    "p50": 0.6000000238418579,
+    "p95": 0.7000000476837158,
+    "p99": 0.8000000715255737,
+    "max": 1
+   },
+   "interval": {
+    "n": 240,
+    "mean": 16.666250000000005,
+    "p50": 16.69999999999709,
+    "p95": 16.799999999999272,
+    "p99": 16.799999999999272,
+    "max": 16.80000000000291
+   },
+   "over25": 0,
+   "gpuFlush": {
+    "n": 120,
+    "mean": 4.300833332538605,
+    "p50": 4.200000047683716,
+    "p95": 4.699999928474426,
+    "p99": 4.799999952316284,
+    "max": 9.800000071525574
+   },
+   "gc": {
+    "minor": 39,
+    "major": 2,
+    "minorMs": 5.439,
+    "majorMs": 1.97
+   },
+   "allocKiBPerFrame": 145,
+   "heapAfterGC": {
+    "before": 6442456,
+    "after": 6466020,
+    "delta": 23564
+   }
+  },
+  {
+   "mode": "canvas-accel",
+   "width": 360,
+   "height": 640,
+   "round": 2,
+   "build": "Current",
+   "scenario": "timeoutAir",
+   "env": {
+    "renderer": "Canvas",
+    "gl": null,
+    "dpr": 1,
+    "canvasPx": [
+     450,
+     800
+    ]
+   },
+   "state": {
+    "bubbles": 4,
+    "drawn": 4,
+    "timeout": 1,
+    "slots": 88
+   },
+   "cpuDraw": {
+    "n": 240,
+    "mean": 0.41791666448116305,
+    "p50": 0.3999999761581421,
+    "p95": 0.5,
+    "p99": 0.5,
+    "max": 0.6000000238418579
+   },
+   "cpuTotal": {
+    "n": 240,
+    "mean": 0.6154166653752327,
+    "p50": 0.6000000238418579,
+    "p95": 0.7000000476837158,
+    "p99": 0.7999999523162842,
+    "max": 0.8999999761581421
+   },
+   "interval": {
+    "n": 240,
+    "mean": 16.666250000000005,
+    "p50": 16.69999999999709,
+    "p95": 16.799999999999272,
+    "p99": 16.799999999999272,
+    "max": 16.80000000000291
+   },
+   "over25": 0,
+   "gpuFlush": {
+    "n": 120,
+    "mean": 4.325833333532016,
+    "p50": 4.299999952316284,
+    "p95": 4.600000023841858,
+    "p99": 4.700000047683716,
+    "max": 11.799999952316284
+   },
+   "gc": {
+    "minor": 23,
+    "major": 2,
+    "minorMs": 3.679,
+    "majorMs": 1.894
+   },
+   "allocKiBPerFrame": 149,
+   "heapAfterGC": {
+    "before": 6400732,
+    "after": 6525780,
+    "delta": 125048
+   }
+  },
+  {
+   "mode": "canvas-accel",
+   "width": 360,
+   "height": 640,
+   "round": 2,
+   "build": "Current",
+   "scenario": "cycle",
+   "env": {
+    "renderer": "Canvas",
+    "gl": null,
+    "dpr": 1,
+    "canvasPx": [
+     450,
+     800
+    ]
+   },
+   "state": {
+    "bubbles": 4,
+    "drawn": 4,
+    "timeout": 0,
+    "slots": 88
+   },
+   "cpuDraw": {
+    "n": 239,
+    "mean": 0,
+    "p50": 0,
+    "p95": 0,
+    "p99": 0,
+    "max": 0
+   },
+   "cpuTotal": {
+    "n": 239,
+    "mean": 0.6401673650143037,
+    "p50": 0.6000000238418579,
+    "p95": 0.7999999523162842,
+    "p99": 0.8999999761581421,
+    "max": 1
+   },
+   "interval": {
+    "n": 239,
+    "mean": 16.666108786610867,
+    "p50": 16.69999999999709,
+    "p95": 16.799999999995634,
+    "p99": 16.80000000000291,
+    "max": 16.80000000000291
+   },
+   "over25": 0,
+   "gpuFlush": {
+    "n": 120,
+    "mean": 4.238333333532015,
+    "p50": 4.299999952316284,
+    "p95": 4.700000047683716,
+    "p99": 4.900000095367432,
+    "max": 6.299999952316284
+   },
+   "gc": {
+    "minor": 36,
+    "major": 2,
+    "minorMs": 4.759,
+    "majorMs": 1.931
+   },
+   "allocKiBPerFrame": 146.8,
+   "heapAfterGC": {
+    "before": 6430360,
+    "after": 6561336,
+    "delta": 130976
+   }
+  },
+  {
+   "mode": "canvas-accel",
+   "width": 360,
+   "height": 640,
+   "round": 2,
+   "build": "A",
+   "scenario": "air0",
+   "env": {
+    "renderer": "Canvas",
+    "gl": null,
+    "dpr": 1,
+    "canvasPx": [
+     450,
+     800
+    ]
+   },
+   "state": {
+    "bubbles": 0,
+    "drawn": 0,
+    "timeout": 0,
+    "slots": 0
+   },
+   "cpuDraw": {
+    "n": 240,
+    "mean": 0.43708333323399223,
+    "p50": 0.40000009536743164,
+    "p95": 0.5999999046325684,
+    "p99": 0.6000000238418579,
+    "max": 0.7000000476837158
+   },
+   "cpuTotal": {
+    "n": 240,
+    "mean": 0.6287499949336052,
+    "p50": 0.6000000238418579,
+    "p95": 0.7999999523162842,
+    "p99": 0.8000000715255737,
+    "max": 1
+   },
+   "interval": {
+    "n": 240,
+    "mean": 16.665833333333307,
+    "p50": 16.699999999999818,
+    "p95": 16.700000000000273,
+    "p99": 16.800000000000182,
+    "max": 16.800000000000182
+   },
+   "over25": 0,
+   "gpuFlush": {
+    "n": 120,
+    "mean": 4.175833336512247,
+    "p50": 4.200000047683716,
+    "p95": 4.600000023841858,
+    "p99": 4.699999928474426,
+    "max": 8.799999952316284
+   },
+   "gc": {
+    "minor": 40,
+    "major": 2,
+    "minorMs": 5.79,
+    "majorMs": 1.924
+   },
+   "allocKiBPerFrame": 188.6,
+   "heapAfterGC": {
+    "before": 5990588,
+    "after": 6319752,
+    "delta": 329164
+   }
+  },
+  {
+   "mode": "canvas-accel",
+   "width": 360,
+   "height": 640,
+   "round": 2,
+   "build": "A",
+   "scenario": "air4",
+   "env": {
+    "renderer": "Canvas",
+    "gl": null,
+    "dpr": 1,
+    "canvasPx": [
+     450,
+     800
+    ]
+   },
+   "state": {
+    "bubbles": 4,
+    "drawn": 4,
+    "timeout": 0,
+    "slots": 304
+   },
+   "cpuDraw": {
+    "n": 240,
+    "mean": 0.42166666835546496,
+    "p50": 0.3999999761581421,
+    "p95": 0.5,
+    "p99": 0.6000000238418579,
+    "max": 0.6000000238418579
+   },
+   "cpuTotal": {
+    "n": 240,
+    "mean": 0.6083333368102709,
+    "p50": 0.6000000238418579,
+    "p95": 0.7000000476837158,
+    "p99": 0.8000000715255737,
+    "max": 0.8000000715255737
+   },
+   "interval": {
+    "n": 240,
+    "mean": 16.66583333333334,
+    "p50": 16.69999999999891,
+    "p95": 16.700000000000728,
+    "p99": 16.80000000000109,
+    "max": 16.80000000000109
+   },
+   "over25": 0,
+   "gpuFlush": {
+    "n": 120,
+    "mean": 4.190833335121472,
+    "p50": 4.200000047683716,
+    "p95": 4.600000023841858,
+    "p99": 4.700000047683716,
+    "max": 8.399999976158142
+   },
+   "gc": {
+    "minor": 28,
+    "major": 2,
+    "minorMs": 4.161,
+    "majorMs": 1.839
+   },
+   "allocKiBPerFrame": 196.8,
+   "heapAfterGC": {
+    "before": 6279828,
+    "after": 6396960,
+    "delta": 117132
+   }
+  },
+  {
+   "mode": "canvas-accel",
+   "width": 360,
+   "height": 640,
+   "round": 2,
+   "build": "A",
+   "scenario": "air12",
+   "env": {
+    "renderer": "Canvas",
+    "gl": null,
+    "dpr": 1,
+    "canvasPx": [
+     450,
+     800
+    ]
+   },
+   "state": {
+    "bubbles": 12,
+    "drawn": 12,
+    "timeout": 0,
+    "slots": 912
+   },
+   "cpuDraw": {
+    "n": 240,
+    "mean": 0.43291666358709335,
+    "p50": 0.3999999761581421,
+    "p95": 0.5,
+    "p99": 0.6000000238418579,
+    "max": 0.7000000476837158
+   },
+   "cpuTotal": {
+    "n": 240,
+    "mean": 0.6199999968210856,
+    "p50": 0.6000000238418579,
+    "p95": 0.7000000476837158,
+    "p99": 0.7999999523162842,
+    "max": 1
+   },
+   "interval": {
+    "n": 240,
+    "mean": 16.66624999999999,
+    "p50": 16.700000000000728,
+    "p95": 16.700000000000728,
+    "p99": 16.799999999999272,
+    "max": 16.799999999999272
+   },
+   "over25": 0,
+   "gpuFlush": {
+    "n": 120,
+    "mean": 4.223333328962326,
+    "p50": 4.200000047683716,
+    "p95": 4.600000023841858,
+    "p99": 4.799999952316284,
+    "max": 9.899999976158142
+   },
+   "gc": {
+    "minor": 29,
+    "major": 2,
+    "minorMs": 4.334,
+    "majorMs": 1.905
+   },
+   "allocKiBPerFrame": 208.8,
+   "heapAfterGC": {
+    "before": 6431568,
+    "after": 6454768,
+    "delta": 23200
+   }
+  },
+  {
+   "mode": "canvas-accel",
+   "width": 360,
+   "height": 640,
+   "round": 2,
+   "build": "A",
+   "scenario": "timeoutAir",
+   "env": {
+    "renderer": "Canvas",
+    "gl": null,
+    "dpr": 1,
+    "canvasPx": [
+     450,
+     800
+    ]
+   },
+   "state": {
+    "bubbles": 4,
+    "drawn": 4,
+    "timeout": 1,
+    "slots": 304
+   },
+   "cpuDraw": {
+    "n": 240,
+    "mean": 0.4370833287636439,
+    "p50": 0.3999999761581421,
+    "p95": 0.5999999046325684,
+    "p99": 0.6000000238418579,
+    "max": 0.7999999523162842
+   },
+   "cpuTotal": {
+    "n": 240,
+    "mean": 0.6391666670640309,
+    "p50": 0.6000000238418579,
+    "p95": 0.7999999523162842,
+    "p99": 0.8000000715255737,
+    "max": 1
+   },
+   "interval": {
+    "n": 240,
+    "mean": 16.666250000000005,
+    "p50": 16.700000000000728,
+    "p95": 16.700000000000728,
+    "p99": 16.799999999999272,
+    "max": 16.80000000000291
+   },
+   "over25": 0,
+   "gpuFlush": {
+    "n": 120,
+    "mean": 4.262500002980232,
+    "p50": 4.200000047683716,
+    "p95": 4.700000047683716,
+    "p99": 4.799999952316284,
+    "max": 7.100000023841858
+   },
+   "gc": {
+    "minor": 40,
+    "major": 2,
+    "minorMs": 5.882,
+    "majorMs": 1.86
+   },
+   "allocKiBPerFrame": 216,
+   "heapAfterGC": {
+    "before": 6391780,
+    "after": 6511480,
+    "delta": 119700
+   }
+  },
+  {
+   "mode": "canvas-accel",
+   "width": 360,
+   "height": 640,
+   "round": 2,
+   "build": "A",
+   "scenario": "cycle",
+   "env": {
+    "renderer": "Canvas",
+    "gl": null,
+    "dpr": 1,
+    "canvasPx": [
+     450,
+     800
+    ]
+   },
+   "state": {
+    "bubbles": 4,
+    "drawn": 4,
+    "timeout": 0,
+    "slots": 304
+   },
+   "cpuDraw": {
+    "n": 239,
+    "mean": 0,
+    "p50": 0,
+    "p95": 0,
+    "p99": 0,
+    "max": 0
+   },
+   "cpuTotal": {
+    "n": 239,
+    "mean": 0.6246861922691058,
+    "p50": 0.6000000238418579,
+    "p95": 0.7999999523162842,
+    "p99": 0.8000000715255737,
+    "max": 0.8999999761581421
+   },
+   "interval": {
+    "n": 239,
+    "mean": 16.66569037656903,
+    "p50": 16.69999999999709,
+    "p95": 16.799999999995634,
+    "p99": 16.80000000000291,
+    "max": 16.80000000000291
+   },
+   "over25": 0,
+   "gpuFlush": {
+    "n": 120,
+    "mean": 4.390833342075348,
+    "p50": 4.399999976158142,
+    "p95": 4.800000071525574,
+    "p99": 5.100000023841858,
+    "max": 9.399999976158142
+   },
+   "gc": {
+    "minor": 39,
+    "major": 2,
+    "minorMs": 5.711,
+    "majorMs": 1.875
+   },
+   "allocKiBPerFrame": 199.9,
+   "heapAfterGC": {
+    "before": 6416320,
+    "after": 6533536,
+    "delta": 117216
+   }
+  },
+  {
+   "mode": "canvas-accel",
+   "width": 1440,
+   "height": 1000,
+   "round": 0,
+   "build": "Current",
+   "scenario": "air12",
+   "env": {
+    "renderer": "Canvas",
+    "gl": null,
+    "dpr": 1,
+    "canvasPx": [
+     450,
+     800
+    ]
+   },
+   "state": {
+    "bubbles": 12,
+    "drawn": 12,
+    "timeout": 0,
+    "slots": 264
+   },
+   "cpuDraw": {
+    "n": 240,
+    "mean": 0.4658333366115888,
+    "p50": 0.5,
+    "p95": 0.6000000238418579,
+    "p99": 0.6999999284744263,
+    "max": 0.8000000715255737
+   },
+   "cpuTotal": {
+    "n": 240,
+    "mean": 0.676249997317791,
+    "p50": 0.6999999284744263,
+    "p95": 0.8000000715255737,
+    "p99": 0.8999999761581421,
+    "max": 1.100000023841858
+   },
+   "interval": {
+    "n": 240,
+    "mean": 16.665833333333307,
+    "p50": 16.699999999999818,
+    "p95": 16.799999999999955,
+    "p99": 16.800000000000182,
+    "max": 16.800000000000182
+   },
+   "over25": 0,
+   "gpuFlush": {
+    "n": 120,
+    "mean": 4.500833333532015,
+    "p50": 4.5,
+    "p95": 4.800000071525574,
+    "p99": 5.5,
+    "max": 8.399999976158142
+   },
+   "gc": {
+    "minor": 40,
+    "major": 2,
+    "minorMs": 6.117,
+    "majorMs": 1.864
+   },
+   "allocKiBPerFrame": 149.9,
+   "heapAfterGC": {
+    "before": 6001068,
+    "after": 6336672,
+    "delta": 335604
+   }
+  },
+  {
+   "mode": "canvas-accel",
+   "width": 1440,
+   "height": 1000,
+   "round": 0,
+   "build": "Current",
+   "scenario": "timeoutAir",
+   "env": {
+    "renderer": "Canvas",
+    "gl": null,
+    "dpr": 1,
+    "canvasPx": [
+     450,
+     800
+    ]
+   },
+   "state": {
+    "bubbles": 4,
+    "drawn": 4,
+    "timeout": 1,
+    "slots": 88
+   },
+   "cpuDraw": {
+    "n": 240,
+    "mean": 0.4549999997019768,
+    "p50": 0.5,
+    "p95": 0.6000000238418579,
+    "p99": 0.6000000238418579,
+    "max": 0.6000000238418579
+   },
+   "cpuTotal": {
+    "n": 240,
+    "mean": 0.6641666680574417,
+    "p50": 0.6999999284744263,
+    "p95": 0.8000000715255737,
+    "p99": 0.8000000715255737,
+    "max": 0.9000000953674316
+   },
+   "interval": {
+    "n": 240,
+    "mean": 16.666249999999998,
+    "p50": 16.69999999999891,
+    "p95": 16.799999999999272,
+    "p99": 16.80000000000109,
+    "max": 16.80000000000109
+   },
+   "over25": 0,
+   "gpuFlush": {
+    "n": 120,
+    "mean": 4.472499997417132,
+    "p50": 4.399999976158142,
+    "p95": 5,
+    "p99": 5.399999976158142,
+    "max": 9.399999976158142
+   },
+   "gc": {
+    "minor": 23,
+    "major": 2,
+    "minorMs": 3.642,
+    "majorMs": 2.017
+   },
+   "allocKiBPerFrame": 153,
+   "heapAfterGC": {
+    "before": 6310104,
+    "after": 6447568,
+    "delta": 137464
+   }
+  },
+  {
+   "mode": "canvas-accel",
+   "width": 1440,
+   "height": 1000,
+   "round": 0,
+   "build": "A",
+   "scenario": "air12",
+   "env": {
+    "renderer": "Canvas",
+    "gl": null,
+    "dpr": 1,
+    "canvasPx": [
+     450,
+     800
+    ]
+   },
+   "state": {
+    "bubbles": 12,
+    "drawn": 12,
+    "timeout": 0,
+    "slots": 912
+   },
+   "cpuDraw": {
+    "n": 240,
+    "mean": 0.4875000024835269,
+    "p50": 0.5,
+    "p95": 0.6000000238418579,
+    "p99": 0.7000000476837158,
+    "max": 0.7999999523162842
+   },
+   "cpuTotal": {
+    "n": 240,
+    "mean": 0.7100000033775965,
+    "p50": 0.7000000476837158,
+    "p95": 0.8999999761581421,
+    "p99": 1,
+    "max": 1
+   },
+   "interval": {
+    "n": 240,
+    "mean": 16.66583333333331,
+    "p50": 16.699999999999818,
+    "p95": 16.799999999999727,
+    "p99": 16.800000000000182,
+    "max": 16.800000000000182
+   },
+   "over25": 0,
+   "gpuFlush": {
+    "n": 120,
+    "mean": 4.587500004967054,
+    "p50": 4.399999976158142,
+    "p95": 5.5,
+    "p99": 6.400000095367432,
+    "max": 9.699999928474426
+   },
+   "gc": {
+    "minor": 30,
+    "major": 2,
+    "minorMs": 5.046,
+    "majorMs": 2.193
+   },
+   "allocKiBPerFrame": 214.5,
+   "heapAfterGC": {
+    "before": 5997608,
+    "after": 6325412,
+    "delta": 327804
+   }
+  },
+  {
+   "mode": "canvas-accel",
+   "width": 1440,
+   "height": 1000,
+   "round": 0,
+   "build": "A",
+   "scenario": "timeoutAir",
+   "env": {
+    "renderer": "Canvas",
+    "gl": null,
+    "dpr": 1,
+    "canvasPx": [
+     450,
+     800
+    ]
+   },
+   "state": {
+    "bubbles": 4,
+    "drawn": 4,
+    "timeout": 1,
+    "slots": 304
+   },
+   "cpuDraw": {
+    "n": 240,
+    "mean": 0.4612500006953875,
+    "p50": 0.5,
+    "p95": 0.6000000238418579,
+    "p99": 0.6000000238418579,
+    "max": 0.7999999523162842
+   },
+   "cpuTotal": {
+    "n": 240,
+    "mean": 0.6691666667660078,
+    "p50": 0.6999999284744263,
+    "p95": 0.8000000715255737,
+    "p99": 0.8000000715255737,
+    "max": 1
+   },
+   "interval": {
+    "n": 240,
+    "mean": 16.66583333333334,
+    "p50": 16.69999999999891,
+    "p95": 16.799999999999272,
+    "p99": 16.80000000000109,
+    "max": 16.80000000000109
+   },
+   "over25": 0,
+   "gpuFlush": {
+    "n": 120,
+    "mean": 4.794999996821086,
+    "p50": 4.5,
+    "p95": 6.399999976158142,
+    "p99": 7.399999976158142,
+    "max": 8.299999952316284
+   },
+   "gc": {
+    "minor": 32,
+    "major": 2,
+    "minorMs": 4.986,
+    "majorMs": 2.161
+   },
+   "allocKiBPerFrame": 214,
+   "heapAfterGC": {
+    "before": 6300716,
+    "after": 6421132,
+    "delta": 120416
+   }
+  },
+  {
+   "mode": "canvas-accel",
+   "width": 1440,
+   "height": 1000,
+   "round": 1,
+   "build": "A",
+   "scenario": "air12",
+   "env": {
+    "renderer": "Canvas",
+    "gl": null,
+    "dpr": 1,
+    "canvasPx": [
+     450,
+     800
+    ]
+   },
+   "state": {
+    "bubbles": 12,
+    "drawn": 12,
+    "timeout": 0,
+    "slots": 912
+   },
+   "cpuDraw": {
+    "n": 240,
+    "mean": 0.48958333432674406,
+    "p50": 0.5,
+    "p95": 0.6000000238418579,
+    "p99": 0.7000000476837158,
+    "max": 0.7999999523162842
+   },
+   "cpuTotal": {
+    "n": 240,
+    "mean": 0.7024999976158142,
+    "p50": 0.7000000476837158,
+    "p95": 0.8999999761581421,
+    "p99": 0.9000000953674316,
+    "max": 1.0999999046325684
+   },
+   "interval": {
+    "n": 240,
+    "mean": 16.66624999999997,
+    "p50": 16.699999999999818,
+    "p95": 16.700000000000728,
+    "p99": 16.800000000000182,
+    "max": 16.800000000000182
+   },
+   "over25": 0,
+   "gpuFlush": {
+    "n": 120,
+    "mean": 5.527499987681707,
+    "p50": 5.599999904632568,
+    "p95": 6.899999976158142,
+    "p99": 7.100000023841858,
+    "max": 11.899999976158142
+   },
+   "gc": {
+    "minor": 30,
+    "major": 2,
+    "minorMs": 5.029,
+    "majorMs": 2.368
+   },
+   "allocKiBPerFrame": 215.3,
+   "heapAfterGC": {
+    "before": 5995676,
+    "after": 6322244,
+    "delta": 326568
+   }
+  },
+  {
+   "mode": "canvas-accel",
+   "width": 1440,
+   "height": 1000,
+   "round": 1,
+   "build": "A",
+   "scenario": "timeoutAir",
+   "env": {
+    "renderer": "Canvas",
+    "gl": null,
+    "dpr": 1,
+    "canvasPx": [
+     450,
+     800
+    ]
+   },
+   "state": {
+    "bubbles": 4,
+    "drawn": 4,
+    "timeout": 1,
+    "slots": 304
+   },
+   "cpuDraw": {
+    "n": 240,
+    "mean": 0.4479166676600774,
+    "p50": 0.40000009536743164,
+    "p95": 0.6000000238418579,
+    "p99": 0.6000000238418579,
+    "max": 0.6000000238418579
+   },
+   "cpuTotal": {
+    "n": 240,
+    "mean": 0.6645833378036817,
+    "p50": 0.6999999284744263,
+    "p95": 0.8000000715255737,
+    "p99": 0.8999999761581421,
+    "max": 0.9000000953674316
+   },
+   "interval": {
+    "n": 240,
+    "mean": 16.666249999999998,
+    "p50": 16.69999999999891,
+    "p95": 16.799999999999272,
+    "p99": 16.80000000000109,
+    "max": 16.80000000000109
+   },
+   "over25": 0,
+   "gpuFlush": {
+    "n": 120,
+    "mean": 5.6691666632890705,
+    "p50": 5.300000071525574,
+    "p95": 7.100000023841858,
+    "p99": 8,
+    "max": 11.5
+   },
+   "gc": {
+    "minor": 33,
+    "major": 2,
+    "minorMs": 5.081,
+    "majorMs": 2.1
+   },
+   "allocKiBPerFrame": 217.7,
+   "heapAfterGC": {
+    "before": 6297068,
+    "after": 6421144,
+    "delta": 124076
+   }
+  },
+  {
+   "mode": "canvas-accel",
+   "width": 1440,
+   "height": 1000,
+   "round": 1,
+   "build": "Current",
+   "scenario": "air12",
+   "env": {
+    "renderer": "Canvas",
+    "gl": null,
+    "dpr": 1,
+    "canvasPx": [
+     450,
+     800
+    ]
+   },
+   "state": {
+    "bubbles": 12,
+    "drawn": 12,
+    "timeout": 0,
+    "slots": 264
+   },
+   "cpuDraw": {
+    "n": 240,
+    "mean": 0.4566666652758916,
+    "p50": 0.5,
+    "p95": 0.6000000238418579,
+    "p99": 0.6000000238418579,
+    "max": 0.7000000476837158
+   },
+   "cpuTotal": {
+    "n": 240,
+    "mean": 0.6691666637857755,
+    "p50": 0.6999999284744263,
+    "p95": 0.8000000715255737,
+    "p99": 0.8999999761581421,
+    "max": 0.9000000953674316
+   },
+   "interval": {
+    "n": 240,
+    "mean": 16.666249999999977,
+    "p50": 16.699999999999818,
+    "p95": 16.700000000000728,
+    "p99": 16.799999999999955,
+    "max": 16.800000000000182
+   },
+   "over25": 0,
+   "gpuFlush": {
+    "n": 120,
+    "mean": 5.808333334326744,
+    "p50": 6.199999928474426,
+    "p95": 7.299999952316284,
+    "p99": 7.399999976158142,
+    "max": 11.799999952316284
+   },
+   "gc": {
+    "minor": 22,
+    "major": 2,
+    "minorMs": 3.849,
+    "majorMs": 2.169
+   },
+   "allocKiBPerFrame": 147.5,
+   "heapAfterGC": {
+    "before": 5974024,
+    "after": 6308496,
+    "delta": 334472
+   }
+  },
+  {
+   "mode": "canvas-accel",
+   "width": 1440,
+   "height": 1000,
+   "round": 1,
+   "build": "Current",
+   "scenario": "timeoutAir",
+   "env": {
+    "renderer": "Canvas",
+    "gl": null,
+    "dpr": 1,
+    "canvasPx": [
+     450,
+     800
+    ]
+   },
+   "state": {
+    "bubbles": 4,
+    "drawn": 4,
+    "timeout": 1,
+    "slots": 88
+   },
+   "cpuDraw": {
+    "n": 240,
+    "mean": 0.4325000007947286,
+    "p50": 0.40000009536743164,
+    "p95": 0.5,
+    "p99": 0.6000000238418579,
+    "max": 0.6000000238418579
+   },
+   "cpuTotal": {
+    "n": 240,
+    "mean": 0.6375,
+    "p50": 0.6000000238418579,
+    "p95": 0.7000000476837158,
+    "p99": 0.8000000715255737,
+    "max": 0.9000000953674316
+   },
+   "interval": {
+    "n": 240,
+    "mean": 16.66583333333334,
+    "p50": 16.69999999999891,
+    "p95": 16.700000000000728,
+    "p99": 16.799999999999272,
+    "max": 16.80000000000109
+   },
+   "over25": 0,
+   "gpuFlush": {
+    "n": 120,
+    "mean": 5.305833327770233,
+    "p50": 4.399999976158142,
+    "p95": 7,
+    "p99": 7.300000071525574,
+    "max": 12.199999928474426
+   },
+   "gc": {
+    "minor": 35,
+    "major": 2,
+    "minorMs": 5.102,
+    "majorMs": 1.873
+   },
+   "allocKiBPerFrame": 152,
+   "heapAfterGC": {
+    "before": 6285804,
+    "after": 6414772,
+    "delta": 128968
+   }
+  },
+  {
+   "mode": "canvas-accel",
+   "width": 1440,
+   "height": 1000,
+   "round": 2,
+   "build": "Current",
+   "scenario": "air12",
+   "env": {
+    "renderer": "Canvas",
+    "gl": null,
+    "dpr": 1,
+    "canvasPx": [
+     450,
+     800
+    ]
+   },
+   "state": {
+    "bubbles": 12,
+    "drawn": 12,
+    "timeout": 0,
+    "slots": 264
+   },
+   "cpuDraw": {
+    "n": 240,
+    "mean": 0.45791666954755783,
+    "p50": 0.5,
+    "p95": 0.6000000238418579,
+    "p99": 0.6000000238418579,
+    "max": 0.6000000238418579
+   },
+   "cpuTotal": {
+    "n": 240,
+    "mean": 0.6658333336313565,
+    "p50": 0.6999999284744263,
+    "p95": 0.8000000715255737,
+    "p99": 0.8999999761581421,
+    "max": 0.9000000953674316
+   },
+   "interval": {
+    "n": 240,
+    "mean": 16.66624999999997,
+    "p50": 16.699999999999818,
+    "p95": 16.799999999999727,
+    "p99": 16.800000000000182,
+    "max": 16.800000000000182
+   },
+   "over25": 0,
+   "gpuFlush": {
+    "n": 120,
+    "mean": 4.214999996622404,
+    "p50": 4.199999928474426,
+    "p95": 4.5,
+    "p99": 4.799999952316284,
+    "max": 8.5
+   },
+   "gc": {
+    "minor": 21,
+    "major": 2,
+    "minorMs": 3.539,
+    "majorMs": 1.96
+   },
+   "allocKiBPerFrame": 149.6,
+   "heapAfterGC": {
+    "before": 5991408,
+    "after": 6323292,
+    "delta": 331884
+   }
+  },
+  {
+   "mode": "canvas-accel",
+   "width": 1440,
+   "height": 1000,
+   "round": 2,
+   "build": "Current",
+   "scenario": "timeoutAir",
+   "env": {
+    "renderer": "Canvas",
+    "gl": null,
+    "dpr": 1,
+    "canvasPx": [
+     450,
+     800
+    ]
+   },
+   "state": {
+    "bubbles": 4,
+    "drawn": 4,
+    "timeout": 1,
+    "slots": 88
+   },
+   "cpuDraw": {
+    "n": 240,
+    "mean": 0.4383333310484886,
+    "p50": 0.3999999761581421,
+    "p95": 0.5999999046325684,
+    "p99": 0.6000000238418579,
+    "max": 0.7000000476837158
+   },
+   "cpuTotal": {
+    "n": 240,
+    "mean": 0.6420833324392636,
+    "p50": 0.6000000238418579,
+    "p95": 0.7999999523162842,
+    "p99": 0.8000000715255737,
+    "max": 1
+   },
+   "interval": {
+    "n": 240,
+    "mean": 16.666250000000005,
+    "p50": 16.69999999999891,
+    "p95": 16.799999999999272,
+    "p99": 16.80000000000109,
+    "max": 16.80000000000109
+   },
+   "over25": 0,
+   "gpuFlush": {
+    "n": 120,
+    "mean": 4.724166667461395,
+    "p50": 4.299999952316284,
+    "p95": 7.700000047683716,
+    "p99": 7.899999976158142,
+    "max": 8.200000047683716
+   },
+   "gc": {
+    "minor": 36,
+    "major": 2,
+    "minorMs": 5.535,
+    "majorMs": 2.049
+   },
+   "allocKiBPerFrame": 151.7,
+   "heapAfterGC": {
+    "before": 6297504,
+    "after": 6427072,
+    "delta": 129568
+   }
+  },
+  {
+   "mode": "canvas-accel",
+   "width": 1440,
+   "height": 1000,
+   "round": 2,
+   "build": "A",
+   "scenario": "air12",
+   "env": {
+    "renderer": "Canvas",
+    "gl": null,
+    "dpr": 1,
+    "canvasPx": [
+     450,
+     800
+    ]
+   },
+   "state": {
+    "bubbles": 12,
+    "drawn": 12,
+    "timeout": 0,
+    "slots": 912
+   },
+   "cpuDraw": {
+    "n": 240,
+    "mean": 0.4616666674613953,
+    "p50": 0.5,
+    "p95": 0.6000000238418579,
+    "p99": 0.6000000238418579,
+    "max": 0.6999999284744263
+   },
+   "cpuTotal": {
+    "n": 240,
+    "mean": 0.6749999990065892,
+    "p50": 0.6999999284744263,
+    "p95": 0.8000000715255737,
+    "p99": 0.8999999761581421,
+    "max": 1
+   },
+   "interval": {
+    "n": 240,
+    "mean": 16.665833333333314,
+    "p50": 16.699999999999818,
+    "p95": 16.799999999999272,
+    "p99": 16.800000000000182,
+    "max": 16.800000000000182
+   },
+   "over25": 0,
+   "gpuFlush": {
+    "n": 120,
+    "mean": 4.385833336909612,
+    "p50": 4.300000071525574,
+    "p95": 4.600000023841858,
+    "p99": 8,
+    "max": 10.900000095367432
+   },
+   "gc": {
+    "minor": 29,
+    "major": 2,
+    "minorMs": 4.394,
+    "majorMs": 2.281
+   },
+   "allocKiBPerFrame": 213.8,
+   "heapAfterGC": {
+    "before": 6009600,
+    "after": 6340684,
+    "delta": 331084
+   }
+  },
+  {
+   "mode": "canvas-accel",
+   "width": 1440,
+   "height": 1000,
+   "round": 2,
+   "build": "A",
+   "scenario": "timeoutAir",
+   "env": {
+    "renderer": "Canvas",
+    "gl": null,
+    "dpr": 1,
+    "canvasPx": [
+     450,
+     800
+    ]
+   },
+   "state": {
+    "bubbles": 4,
+    "drawn": 4,
+    "timeout": 1,
+    "slots": 304
+   },
+   "cpuDraw": {
+    "n": 240,
+    "mean": 0.4449999968210856,
+    "p50": 0.40000009536743164,
+    "p95": 0.5999999046325684,
+    "p99": 0.6000000238418579,
+    "max": 0.7000000476837158
+   },
+   "cpuTotal": {
+    "n": 240,
+    "mean": 0.6495833337306977,
+    "p50": 0.6000000238418579,
+    "p95": 0.7999999523162842,
+    "p99": 0.8999999761581421,
+    "max": 1
+   },
+   "interval": {
+    "n": 240,
+    "mean": 16.66583333333334,
+    "p50": 16.69999999999891,
+    "p95": 16.700000000000728,
+    "p99": 16.80000000000109,
+    "max": 16.80000000000109
+   },
+   "over25": 0,
+   "gpuFlush": {
+    "n": 120,
+    "mean": 4.27416666050752,
+    "p50": 4.200000047683716,
+    "p95": 4.699999928474426,
+    "p99": 5,
+    "max": 11.300000071525574
+   },
+   "gc": {
+    "minor": 39,
+    "major": 2,
+    "minorMs": 5.392,
+    "majorMs": 2.18
+   },
+   "allocKiBPerFrame": 217.1,
+   "heapAfterGC": {
+    "before": 6316044,
+    "after": 6443040,
+    "delta": 126996
+   }
+  },
+  {
+   "mode": "canvas-soft",
+   "width": 360,
+   "height": 640,
+   "round": 0,
+   "build": "Current",
+   "scenario": "air0",
+   "env": {
+    "renderer": "Canvas",
+    "gl": null,
+    "dpr": 1,
+    "canvasPx": [
+     450,
+     800
+    ]
+   },
+   "state": {
+    "bubbles": 0,
+    "drawn": 0,
+    "timeout": 0,
+    "slots": 0
+   },
+   "cpuDraw": {
+    "n": 240,
+    "mean": 0.40708333949247993,
+    "p50": 0.3999999761581421,
+    "p95": 0.5,
+    "p99": 0.6000000238418579,
+    "max": 0.8999999761581421
+   },
+   "cpuTotal": {
+    "n": 240,
+    "mean": 0.6700000027815501,
+    "p50": 0.6999999284744263,
+    "p95": 0.8000000715255737,
+    "p99": 1,
+    "max": 1.2000000476837158
+   },
+   "interval": {
+    "n": 240,
+    "mean": 16.666249999999973,
+    "p50": 16.699999999999818,
+    "p95": 16.799999999999272,
+    "p99": 16.800000000000182,
+    "max": 16.800000000000182
+   },
+   "over25": 0,
+   "gpuFlush": {
+    "n": 120,
+    "mean": 1.4399999966224035,
+    "p50": 1.4000000953674316,
+    "p95": 1.600000023841858,
+    "p99": 1.600000023841858,
+    "max": 1.600000023841858
+   },
+   "gc": {
+    "minor": 20,
+    "major": 2,
+    "minorMs": 3.187,
+    "majorMs": 1.731
+   },
+   "allocKiBPerFrame": 139.3,
+   "heapAfterGC": {
+    "before": 6025572,
+    "after": 6380060,
+    "delta": 354488
+   }
+  },
+  {
+   "mode": "canvas-soft",
+   "width": 360,
+   "height": 640,
+   "round": 0,
+   "build": "Current",
+   "scenario": "air4",
+   "env": {
+    "renderer": "Canvas",
+    "gl": null,
+    "dpr": 1,
+    "canvasPx": [
+     450,
+     800
+    ]
+   },
+   "state": {
+    "bubbles": 4,
+    "drawn": 4,
+    "timeout": 0,
+    "slots": 88
+   },
+   "cpuDraw": {
+    "n": 240,
+    "mean": 0.3854166691501935,
+    "p50": 0.3999999761581421,
+    "p95": 0.5,
+    "p99": 0.5999999046325684,
+    "max": 0.7000000476837158
+   },
+   "cpuTotal": {
+    "n": 240,
+    "mean": 0.6437499965230624,
+    "p50": 0.6000000238418579,
+    "p95": 0.7999999523162842,
+    "p99": 0.8999999761581421,
+    "max": 1
+   },
+   "interval": {
+    "n": 240,
+    "mean": 16.66583333333334,
+    "p50": 16.69999999999891,
+    "p95": 16.799999999999272,
+    "p99": 16.80000000000109,
+    "max": 16.80000000000109
+   },
+   "over25": 0,
+   "gpuFlush": {
+    "n": 120,
+    "mean": 1.4525000035762787,
+    "p50": 1.5,
+    "p95": 1.600000023841858,
+    "p99": 1.600000023841858,
+    "max": 1.6999999284744263
+   },
+   "gc": {
+    "minor": 39,
+    "major": 2,
+    "minorMs": 4.868,
+    "majorMs": 1.645
+   },
+   "allocKiBPerFrame": 142.3,
+   "heapAfterGC": {
+    "before": 6333024,
+    "after": 6465708,
+    "delta": 132684
+   }
+  },
+  {
+   "mode": "canvas-soft",
+   "width": 360,
+   "height": 640,
+   "round": 0,
+   "build": "Current",
+   "scenario": "air12",
+   "env": {
+    "renderer": "Canvas",
+    "gl": null,
+    "dpr": 1,
+    "canvasPx": [
+     450,
+     800
+    ]
+   },
+   "state": {
+    "bubbles": 12,
+    "drawn": 12,
+    "timeout": 0,
+    "slots": 264
+   },
+   "cpuDraw": {
+    "n": 240,
+    "mean": 0.38625000218550365,
+    "p50": 0.3999999761581421,
+    "p95": 0.5,
+    "p99": 0.5999999046325684,
+    "max": 0.7999999523162842
+   },
+   "cpuTotal": {
+    "n": 240,
+    "mean": 0.6462500005960464,
+    "p50": 0.6000000238418579,
+    "p95": 0.7999999523162842,
+    "p99": 0.8000000715255737,
+    "max": 1
+   },
+   "interval": {
+    "n": 240,
+    "mean": 16.66624999999999,
+    "p50": 16.700000000000728,
+    "p95": 16.700000000000728,
+    "p99": 16.799999999999272,
+    "max": 16.80000000000291
+   },
+   "over25": 0,
+   "gpuFlush": {
+    "n": 120,
+    "mean": 1.4841666618982952,
+    "p50": 1.5,
+    "p95": 1.600000023841858,
+    "p99": 1.6999999284744263,
+    "max": 1.7000000476837158
+   },
+   "gc": {
+    "minor": 22,
+    "major": 2,
+    "minorMs": 3.15,
+    "majorMs": 1.515
+   },
+   "allocKiBPerFrame": 142.7,
+   "heapAfterGC": {
+    "before": 6495052,
+    "after": 6518576,
+    "delta": 23524
+   }
+  },
+  {
+   "mode": "canvas-soft",
+   "width": 360,
+   "height": 640,
+   "round": 0,
+   "build": "Current",
+   "scenario": "timeoutAir",
+   "env": {
+    "renderer": "Canvas",
+    "gl": null,
+    "dpr": 1,
+    "canvasPx": [
+     450,
+     800
+    ]
+   },
+   "state": {
+    "bubbles": 4,
+    "drawn": 4,
+    "timeout": 1,
+    "slots": 88
+   },
+   "cpuDraw": {
+    "n": 240,
+    "mean": 0.3958333263794581,
+    "p50": 0.3999999761581421,
+    "p95": 0.5,
+    "p99": 0.6000000238418579,
+    "max": 0.6999999284744263
+   },
+   "cpuTotal": {
+    "n": 240,
+    "mean": 0.6566666687528292,
+    "p50": 0.6999999284744263,
+    "p95": 0.7999999523162842,
+    "p99": 0.8999999761581421,
+    "max": 0.9000000953674316
+   },
+   "interval": {
+    "n": 240,
+    "mean": 16.66624999999999,
+    "p50": 16.69999999999709,
+    "p95": 16.799999999999272,
+    "p99": 16.799999999999272,
+    "max": 16.80000000000291
+   },
+   "over25": 0,
+   "gpuFlush": {
+    "n": 120,
+    "mean": 1.5125,
+    "p50": 1.5,
+    "p95": 1.6999999284744263,
+    "p99": 1.7000000476837158,
+    "max": 1.7000000476837158
+   },
+   "gc": {
+    "minor": 36,
+    "major": 2,
+    "minorMs": 4.851,
+    "majorMs": 1.677
+   },
+   "allocKiBPerFrame": 149.2,
+   "heapAfterGC": {
+    "before": 6454396,
+    "after": 6583404,
+    "delta": 129008
+   }
+  },
+  {
+   "mode": "canvas-soft",
+   "width": 360,
+   "height": 640,
+   "round": 0,
+   "build": "Current",
+   "scenario": "cycle",
+   "env": {
+    "renderer": "Canvas",
+    "gl": null,
+    "dpr": 1,
+    "canvasPx": [
+     450,
+     800
+    ]
+   },
+   "state": {
+    "bubbles": 4,
+    "drawn": 4,
+    "timeout": 0,
+    "slots": 88
+   },
+   "cpuDraw": {
+    "n": 239,
+    "mean": 0,
+    "p50": 0,
+    "p95": 0,
+    "p99": 0,
+    "max": 0
+   },
+   "cpuTotal": {
+    "n": 239,
+    "mean": 0.6615062732576825,
+    "p50": 0.6999999284744263,
+    "p95": 0.8000000715255737,
+    "p99": 0.8999999761581421,
+    "max": 0.9000000953674316
+   },
+   "interval": {
+    "n": 239,
+    "mean": 16.666108786610867,
+    "p50": 16.69999999999709,
+    "p95": 16.799999999995634,
+    "p99": 16.80000000000291,
+    "max": 16.80000000000291
+   },
+   "over25": 0,
+   "gpuFlush": {
+    "n": 120,
+    "mean": 1.5074999998013179,
+    "p50": 1.5,
+    "p95": 1.6999999284744263,
+    "p99": 1.7000000476837158,
+    "max": 1.7000000476837158
+   },
+   "gc": {
+    "minor": 39,
+    "major": 2,
+    "minorMs": 5.196,
+    "majorMs": 1.536
+   },
+   "allocKiBPerFrame": 146.5,
+   "heapAfterGC": {
+    "before": 6489088,
+    "after": 6613660,
+    "delta": 124572
+   }
+  },
+  {
+   "mode": "canvas-soft",
+   "width": 360,
+   "height": 640,
+   "round": 0,
+   "build": "A",
+   "scenario": "air0",
+   "env": {
+    "renderer": "Canvas",
+    "gl": null,
+    "dpr": 1,
+    "canvasPx": [
+     450,
+     800
+    ]
+   },
+   "state": {
+    "bubbles": 0,
+    "drawn": 0,
+    "timeout": 0,
+    "slots": 0
+   },
+   "cpuDraw": {
+    "n": 240,
+    "mean": 0.4287499964237213,
+    "p50": 0.3999999761581421,
+    "p95": 0.5,
+    "p99": 0.7000000476837158,
+    "max": 1
+   },
+   "cpuTotal": {
+    "n": 240,
+    "mean": 0.6883333325386047,
+    "p50": 0.6999999284744263,
+    "p95": 0.8000000715255737,
+    "p99": 0.8999999761581421,
+    "max": 1.3000000715255737
+   },
+   "interval": {
+    "n": 240,
+    "mean": 16.66624999999998,
+    "p50": 16.699999999999818,
+    "p95": 16.700000000000273,
+    "p99": 16.800000000000182,
+    "max": 16.800000000000182
+   },
+   "over25": 0,
+   "gpuFlush": {
+    "n": 120,
+    "mean": 1.4208333353201548,
+    "p50": 1.399999976158142,
+    "p95": 1.600000023841858,
+    "p99": 1.600000023841858,
+    "max": 1.600000023841858
+   },
+   "gc": {
+    "minor": 39,
+    "major": 2,
+    "minorMs": 5.456,
+    "majorMs": 1.709
+   },
+   "allocKiBPerFrame": 189.4,
+   "heapAfterGC": {
+    "before": 5997964,
+    "after": 6332212,
+    "delta": 334248
+   }
+  },
+  {
+   "mode": "canvas-soft",
+   "width": 360,
+   "height": 640,
+   "round": 0,
+   "build": "A",
+   "scenario": "air4",
+   "env": {
+    "renderer": "Canvas",
+    "gl": null,
+    "dpr": 1,
+    "canvasPx": [
+     450,
+     800
+    ]
+   },
+   "state": {
+    "bubbles": 4,
+    "drawn": 4,
+    "timeout": 0,
+    "slots": 304
+   },
+   "cpuDraw": {
+    "n": 240,
+    "mean": 0.41041666467984517,
+    "p50": 0.3999999761581421,
+    "p95": 0.5,
+    "p99": 0.6000000238418579,
+    "max": 0.8000000715255737
+   },
+   "cpuTotal": {
+    "n": 240,
+    "mean": 0.6741666669646899,
+    "p50": 0.6999999284744263,
+    "p95": 0.8000000715255737,
+    "p99": 0.8999999761581421,
+    "max": 1.100000023841858
+   },
+   "interval": {
+    "n": 240,
+    "mean": 16.66583333333334,
+    "p50": 16.69999999999891,
+    "p95": 16.700000000000728,
+    "p99": 16.80000000000109,
+    "max": 16.80000000000109
+   },
+   "over25": 0,
+   "gpuFlush": {
+    "n": 120,
+    "mean": 1.4816666702429453,
+    "p50": 1.5,
+    "p95": 1.600000023841858,
+    "p99": 1.7000000476837158,
+    "max": 1.899999976158142
+   },
+   "gc": {
+    "minor": 28,
+    "major": 2,
+    "minorMs": 4.318,
+    "majorMs": 1.636
+   },
+   "allocKiBPerFrame": 196.3,
+   "heapAfterGC": {
+    "before": 6288472,
+    "after": 6411776,
+    "delta": 123304
+   }
+  },
+  {
+   "mode": "canvas-soft",
+   "width": 360,
+   "height": 640,
+   "round": 0,
+   "build": "A",
+   "scenario": "air12",
+   "env": {
+    "renderer": "Canvas",
+    "gl": null,
+    "dpr": 1,
+    "canvasPx": [
+     450,
+     800
+    ]
+   },
+   "state": {
+    "bubbles": 12,
+    "drawn": 12,
+    "timeout": 0,
+    "slots": 912
+   },
+   "cpuDraw": {
+    "n": 240,
+    "mean": 0.4075000042716662,
+    "p50": 0.3999999761581421,
+    "p95": 0.5,
+    "p99": 0.5,
+    "max": 0.6000000238418579
+   },
+   "cpuTotal": {
+    "n": 240,
+    "mean": 0.6737500036756198,
+    "p50": 0.6999999284744263,
+    "p95": 0.8000000715255737,
+    "p99": 0.8000000715255737,
+    "max": 0.8000000715255737
+   },
+   "interval": {
+    "n": 240,
+    "mean": 16.666250000000005,
+    "p50": 16.69999999999709,
+    "p95": 16.799999999999272,
+    "p99": 16.799999999999272,
+    "max": 16.80000000000291
+   },
+   "over25": 0,
+   "gpuFlush": {
+    "n": 120,
+    "mean": 1.4800000031789144,
+    "p50": 1.5,
+    "p95": 1.600000023841858,
+    "p99": 1.6999999284744263,
+    "max": 1.7000000476837158
+   },
+   "gc": {
+    "minor": 29,
+    "major": 2,
+    "minorMs": 4.529,
+    "majorMs": 1.903
+   },
+   "allocKiBPerFrame": 209.1,
+   "heapAfterGC": {
+    "before": 6446252,
+    "after": 6469756,
+    "delta": 23504
+   }
+  },
+  {
+   "mode": "canvas-soft",
+   "width": 360,
+   "height": 640,
+   "round": 0,
+   "build": "A",
+   "scenario": "timeoutAir",
+   "env": {
+    "renderer": "Canvas",
+    "gl": null,
+    "dpr": 1,
+    "canvasPx": [
+     450,
+     800
+    ]
+   },
+   "state": {
+    "bubbles": 4,
+    "drawn": 4,
+    "timeout": 1,
+    "slots": 304
+   },
+   "cpuDraw": {
+    "n": 240,
+    "mean": 0.38041666249434153,
+    "p50": 0.3999999761581421,
+    "p95": 0.5,
+    "p99": 0.5999999046325684,
+    "max": 0.6000000238418579
+   },
+   "cpuTotal": {
+    "n": 240,
+    "mean": 0.6408333291610082,
+    "p50": 0.6000000238418579,
+    "p95": 0.7999999523162842,
+    "p99": 0.8000000715255737,
+    "max": 0.8999999761581421
+   },
+   "interval": {
+    "n": 240,
+    "mean": 16.665833333333314,
+    "p50": 16.69999999999709,
+    "p95": 16.799999999999272,
+    "p99": 16.80000000000291,
+    "max": 16.80000000000291
+   },
+   "over25": 0,
+   "gpuFlush": {
+    "n": 120,
+    "mean": 1.527499994635582,
+    "p50": 1.5,
+    "p95": 1.7000000476837158,
+    "p99": 1.7000000476837158,
+    "max": 1.8000000715255737
+   },
+   "gc": {
+    "minor": 39,
+    "major": 2,
+    "minorMs": 5.44,
+    "majorMs": 1.74
+   },
+   "allocKiBPerFrame": 213.7,
+   "heapAfterGC": {
+    "before": 6406016,
+    "after": 6527488,
+    "delta": 121472
+   }
+  },
+  {
+   "mode": "canvas-soft",
+   "width": 360,
+   "height": 640,
+   "round": 0,
+   "build": "A",
+   "scenario": "cycle",
+   "env": {
+    "renderer": "Canvas",
+    "gl": null,
+    "dpr": 1,
+    "canvasPx": [
+     450,
+     800
+    ]
+   },
+   "state": {
+    "bubbles": 4,
+    "drawn": 4,
+    "timeout": 0,
+    "slots": 304
+   },
+   "cpuDraw": {
+    "n": 239,
+    "mean": 0,
+    "p50": 0,
+    "p95": 0,
+    "p99": 0,
+    "max": 0
+   },
+   "cpuTotal": {
+    "n": 239,
+    "mean": 0.6861924606387086,
+    "p50": 0.6999999284744263,
+    "p95": 0.8000000715255737,
+    "p99": 0.8999999761581421,
+    "max": 1
+   },
+   "interval": {
+    "n": 239,
+    "mean": 16.665690376569064,
+    "p50": 16.69999999999709,
+    "p95": 16.700000000004366,
+    "p99": 16.80000000000291,
+    "max": 16.80000000000291
+   },
+   "over25": 0,
+   "gpuFlush": {
+    "n": 120,
+    "mean": 1.4974999964237212,
+    "p50": 1.5,
+    "p95": 1.6999999284744263,
+    "p99": 1.7000000476837158,
+    "max": 1.7000000476837158
+   },
+   "gc": {
+    "minor": 39,
+    "major": 2,
+    "minorMs": 5.262,
+    "majorMs": 1.689
+   },
+   "allocKiBPerFrame": 198.9,
+   "heapAfterGC": {
+    "before": 6430724,
+    "after": 6558752,
+    "delta": 128028
+   }
+  },
+  {
+   "mode": "canvas-soft",
+   "width": 360,
+   "height": 640,
+   "round": 1,
+   "build": "A",
+   "scenario": "air0",
+   "env": {
+    "renderer": "Canvas",
+    "gl": null,
+    "dpr": 1,
+    "canvasPx": [
+     450,
+     800
+    ]
+   },
+   "state": {
+    "bubbles": 0,
+    "drawn": 0,
+    "timeout": 0,
+    "slots": 0
+   },
+   "cpuDraw": {
+    "n": 240,
+    "mean": 0.4241666634877523,
+    "p50": 0.3999999761581421,
+    "p95": 0.5,
+    "p99": 0.6000000238418579,
+    "max": 0.6999999284744263
+   },
+   "cpuTotal": {
+    "n": 240,
+    "mean": 0.6829166680574417,
+    "p50": 0.6999999284744263,
+    "p95": 0.8000000715255737,
+    "p99": 0.9000000953674316,
+    "max": 1.100000023841858
+   },
+   "interval": {
+    "n": 240,
+    "mean": 16.66624999999998,
+    "p50": 16.699999999999818,
+    "p95": 16.799999999999727,
+    "p99": 16.800000000000182,
+    "max": 16.800000000000182
+   },
+   "over25": 0,
+   "gpuFlush": {
+    "n": 120,
+    "mean": 1.4791666597127915,
+    "p50": 1.5,
+    "p95": 1.600000023841858,
+    "p99": 1.7000000476837158,
+    "max": 1.7000000476837158
+   },
+   "gc": {
+    "minor": 41,
+    "major": 2,
+    "minorMs": 5.879,
+    "majorMs": 1.94
+   },
+   "allocKiBPerFrame": 186.8,
+   "heapAfterGC": {
+    "before": 5998076,
+    "after": 6324816,
+    "delta": 326740
+   }
+  },
+  {
+   "mode": "canvas-soft",
+   "width": 360,
+   "height": 640,
+   "round": 1,
+   "build": "A",
+   "scenario": "air4",
+   "env": {
+    "renderer": "Canvas",
+    "gl": null,
+    "dpr": 1,
+    "canvasPx": [
+     450,
+     800
+    ]
+   },
+   "state": {
+    "bubbles": 4,
+    "drawn": 4,
+    "timeout": 0,
+    "slots": 304
+   },
+   "cpuDraw": {
+    "n": 240,
+    "mean": 0.40958333263794583,
+    "p50": 0.3999999761581421,
+    "p95": 0.5,
+    "p99": 0.6000000238418579,
+    "max": 0.7999999523162842
+   },
+   "cpuTotal": {
+    "n": 240,
+    "mean": 0.6720833296577136,
+    "p50": 0.6999999284744263,
+    "p95": 0.8000000715255737,
+    "p99": 0.9000000953674316,
+    "max": 1.100000023841858
+   },
+   "interval": {
+    "n": 240,
+    "mean": 16.66583333333333,
+    "p50": 16.69999999999891,
+    "p95": 16.799999999999272,
+    "p99": 16.80000000000109,
+    "max": 16.80000000000109
+   },
+   "over25": 0,
+   "gpuFlush": {
+    "n": 120,
+    "mean": 1.4883333305517832,
+    "p50": 1.5,
+    "p95": 1.600000023841858,
+    "p99": 1.899999976158142,
+    "max": 2.200000047683716
+   },
+   "gc": {
+    "minor": 30,
+    "major": 2,
+    "minorMs": 4.63,
+    "majorMs": 1.515
+   },
+   "allocKiBPerFrame": 197.1,
+   "heapAfterGC": {
+    "before": 6284532,
+    "after": 6401172,
+    "delta": 116640
+   }
+  },
+  {
+   "mode": "canvas-soft",
+   "width": 360,
+   "height": 640,
+   "round": 1,
+   "build": "A",
+   "scenario": "air12",
+   "env": {
+    "renderer": "Canvas",
+    "gl": null,
+    "dpr": 1,
+    "canvasPx": [
+     450,
+     800
+    ]
+   },
+   "state": {
+    "bubbles": 12,
+    "drawn": 12,
+    "timeout": 0,
+    "slots": 912
+   },
+   "cpuDraw": {
+    "n": 240,
+    "mean": 0.39833333442608515,
+    "p50": 0.3999999761581421,
+    "p95": 0.5,
+    "p99": 0.5999999046325684,
+    "max": 0.6000000238418579
+   },
+   "cpuTotal": {
+    "n": 240,
+    "mean": 0.667500002682209,
+    "p50": 0.6999999284744263,
+    "p95": 0.8000000715255737,
+    "p99": 0.8000000715255737,
+    "max": 1
+   },
+   "interval": {
+    "n": 240,
+    "mean": 16.66541666666667,
+    "p50": 16.700000000000728,
+    "p95": 16.700000000000728,
+    "p99": 16.799999999999272,
+    "max": 16.80000000000291
+   },
+   "over25": 0,
+   "gpuFlush": {
+    "n": 120,
+    "mean": 1.53166666328907,
+    "p50": 1.5,
+    "p95": 1.7000000476837158,
+    "p99": 1.7999999523162842,
+    "max": 1.8000000715255737
+   },
+   "gc": {
+    "minor": 41,
+    "major": 2,
+    "minorMs": 6.033,
+    "majorMs": 1.68
+   },
+   "allocKiBPerFrame": 209.3,
+   "heapAfterGC": {
+    "before": 6435588,
+    "after": 6457556,
+    "delta": 21968
+   }
+  },
+  {
+   "mode": "canvas-soft",
+   "width": 360,
+   "height": 640,
+   "round": 1,
+   "build": "A",
+   "scenario": "timeoutAir",
+   "env": {
+    "renderer": "Canvas",
+    "gl": null,
+    "dpr": 1,
+    "canvasPx": [
+     450,
+     800
+    ]
+   },
+   "state": {
+    "bubbles": 4,
+    "drawn": 4,
+    "timeout": 1,
+    "slots": 304
+   },
+   "cpuDraw": {
+    "n": 240,
+    "mean": 0.4133333295583725,
+    "p50": 0.3999999761581421,
+    "p95": 0.5,
+    "p99": 0.6000000238418579,
+    "max": 0.7000000476837158
+   },
+   "cpuTotal": {
+    "n": 240,
+    "mean": 0.6824999943375587,
+    "p50": 0.6999999284744263,
+    "p95": 0.8000000715255737,
+    "p99": 1,
+    "max": 1
+   },
+   "interval": {
+    "n": 240,
+    "mean": 16.66624999999999,
+    "p50": 16.700000000000728,
+    "p95": 16.700000000000728,
+    "p99": 16.799999999999272,
+    "max": 16.80000000000291
+   },
+   "over25": 0,
+   "gpuFlush": {
+    "n": 120,
+    "mean": 1.5683333377043407,
+    "p50": 1.5999999046325684,
+    "p95": 1.7000000476837158,
+    "p99": 1.8000000715255737,
+    "max": 2.8000000715255737
+   },
+   "gc": {
+    "minor": 39,
+    "major": 2,
+    "minorMs": 5.357,
+    "majorMs": 1.676
+   },
+   "allocKiBPerFrame": 214.9,
+   "heapAfterGC": {
+    "before": 6407936,
+    "after": 6525936,
+    "delta": 118000
+   }
+  },
+  {
+   "mode": "canvas-soft",
+   "width": 360,
+   "height": 640,
+   "round": 1,
+   "build": "A",
+   "scenario": "cycle",
+   "env": {
+    "renderer": "Canvas",
+    "gl": null,
+    "dpr": 1,
+    "canvasPx": [
+     450,
+     800
+    ]
+   },
+   "state": {
+    "bubbles": 4,
+    "drawn": 4,
+    "timeout": 0,
+    "slots": 304
+   },
+   "cpuDraw": {
+    "n": 239,
+    "mean": 0,
+    "p50": 0,
+    "p95": 0,
+    "p99": 0,
+    "max": 0
+   },
+   "cpuTotal": {
+    "n": 239,
+    "mean": 0.687029289401226,
+    "p50": 0.7000000476837158,
+    "p95": 0.8000000715255737,
+    "p99": 0.8999999761581421,
+    "max": 1.100000023841858
+   },
+   "interval": {
+    "n": 239,
+    "mean": 16.66569037656903,
+    "p50": 16.69999999999709,
+    "p95": 16.799999999995634,
+    "p99": 16.80000000000291,
+    "max": 16.80000000000291
+   },
+   "over25": 0,
+   "gpuFlush": {
+    "n": 120,
+    "mean": 1.43250000278155,
+    "p50": 1.4000000953674316,
+    "p95": 1.600000023841858,
+    "p99": 1.600000023841858,
+    "max": 1.600000023841858
+   },
+   "gc": {
+    "minor": 40,
+    "major": 2,
+    "minorMs": 5.526,
+    "majorMs": 1.966
+   },
+   "allocKiBPerFrame": 200.9,
+   "heapAfterGC": {
+    "before": 6430744,
+    "after": 6558784,
+    "delta": 128040
+   }
+  },
+  {
+   "mode": "canvas-soft",
+   "width": 360,
+   "height": 640,
+   "round": 1,
+   "build": "Current",
+   "scenario": "air0",
+   "env": {
+    "renderer": "Canvas",
+    "gl": null,
+    "dpr": 1,
+    "canvasPx": [
+     450,
+     800
+    ]
+   },
+   "state": {
+    "bubbles": 0,
+    "drawn": 0,
+    "timeout": 0,
+    "slots": 0
+   },
+   "cpuDraw": {
+    "n": 240,
+    "mean": 0.44458333055178323,
+    "p50": 0.40000009536743164,
+    "p95": 0.6000000238418579,
+    "p99": 0.6000000238418579,
+    "max": 1
+   },
+   "cpuTotal": {
+    "n": 240,
+    "mean": 0.701250001291434,
+    "p50": 0.7000000476837158,
+    "p95": 0.8000000715255737,
+    "p99": 0.8999999761581421,
+    "max": 1.2999999523162842
+   },
+   "interval": {
+    "n": 240,
+    "mean": 16.66583333333331,
+    "p50": 16.699999999999818,
+    "p95": 16.700000000000728,
+    "p99": 16.800000000000182,
+    "max": 16.800000000000182
+   },
+   "over25": 0,
+   "gpuFlush": {
+    "n": 120,
+    "mean": 1.4750000029802321,
+    "p50": 1.5,
+    "p95": 1.600000023841858,
+    "p99": 1.600000023841858,
+    "max": 1.7000000476837158
+   },
+   "gc": {
+    "minor": 38,
+    "major": 2,
+    "minorMs": 5.486,
+    "majorMs": 1.896
+   },
+   "allocKiBPerFrame": 139,
+   "heapAfterGC": {
+    "before": 5976416,
+    "after": 6314540,
+    "delta": 338124
+   }
+  },
+  {
+   "mode": "canvas-soft",
+   "width": 360,
+   "height": 640,
+   "round": 1,
+   "build": "Current",
+   "scenario": "air4",
+   "env": {
+    "renderer": "Canvas",
+    "gl": null,
+    "dpr": 1,
+    "canvasPx": [
+     450,
+     800
+    ]
+   },
+   "state": {
+    "bubbles": 4,
+    "drawn": 4,
+    "timeout": 0,
+    "slots": 88
+   },
+   "cpuDraw": {
+    "n": 240,
+    "mean": 0.40666666626930237,
+    "p50": 0.3999999761581421,
+    "p95": 0.5,
+    "p99": 0.6000000238418579,
+    "max": 0.7999999523162842
+   },
+   "cpuTotal": {
+    "n": 240,
+    "mean": 0.6654166638851166,
+    "p50": 0.6999999284744263,
+    "p95": 0.8000000715255737,
+    "p99": 0.8999999761581421,
+    "max": 1
+   },
+   "interval": {
+    "n": 240,
+    "mean": 16.66583333333334,
+    "p50": 16.69999999999891,
+    "p95": 16.700000000000728,
+    "p99": 16.80000000000109,
+    "max": 16.80000000000109
+   },
+   "over25": 0,
+   "gpuFlush": {
+    "n": 120,
+    "mean": 1.4708333353201548,
+    "p50": 1.5,
+    "p95": 1.600000023841858,
+    "p99": 1.6999999284744263,
+    "max": 1.7000000476837158
+   },
+   "gc": {
+    "minor": 27,
+    "major": 2,
+    "minorMs": 4.234,
+    "majorMs": 1.739
+   },
+   "allocKiBPerFrame": 140.5,
+   "heapAfterGC": {
+    "before": 6262112,
+    "after": 6391164,
+    "delta": 129052
+   }
+  },
+  {
+   "mode": "canvas-soft",
+   "width": 360,
+   "height": 640,
+   "round": 1,
+   "build": "Current",
+   "scenario": "air12",
+   "env": {
+    "renderer": "Canvas",
+    "gl": null,
+    "dpr": 1,
+    "canvasPx": [
+     450,
+     800
+    ]
+   },
+   "state": {
+    "bubbles": 12,
+    "drawn": 12,
+    "timeout": 0,
+    "slots": 264
+   },
+   "cpuDraw": {
+    "n": 240,
+    "mean": 0.36833332826693854,
+    "p50": 0.3999999761581421,
+    "p95": 0.5,
+    "p99": 0.5,
+    "max": 0.5
+   },
+   "cpuTotal": {
+    "n": 240,
+    "mean": 0.6212499971191089,
+    "p50": 0.6000000238418579,
+    "p95": 0.7000000476837158,
+    "p99": 0.8000000715255737,
+    "max": 0.8000000715255737
+   },
+   "interval": {
+    "n": 240,
+    "mean": 16.66583333333333,
+    "p50": 16.69999999999709,
+    "p95": 16.799999999999272,
+    "p99": 16.799999999999272,
+    "max": 16.80000000000291
+   },
+   "over25": 0,
+   "gpuFlush": {
+    "n": 120,
+    "mean": 1.463333331545194,
+    "p50": 1.5,
+    "p95": 1.600000023841858,
+    "p99": 1.600000023841858,
+    "max": 1.7000000476837158
+   },
+   "gc": {
+    "minor": 38,
+    "major": 2,
+    "minorMs": 5.367,
+    "majorMs": 1.789
+   },
+   "allocKiBPerFrame": 144.5,
+   "heapAfterGC": {
+    "before": 6420496,
+    "after": 6443636,
+    "delta": 23140
+   }
+  },
+  {
+   "mode": "canvas-soft",
+   "width": 360,
+   "height": 640,
+   "round": 1,
+   "build": "Current",
+   "scenario": "timeoutAir",
+   "env": {
+    "renderer": "Canvas",
+    "gl": null,
+    "dpr": 1,
+    "canvasPx": [
+     450,
+     800
+    ]
+   },
+   "state": {
+    "bubbles": 4,
+    "drawn": 4,
+    "timeout": 1,
+    "slots": 88
+   },
+   "cpuDraw": {
+    "n": 240,
+    "mean": 0.40583333373069763,
+    "p50": 0.3999999761581421,
+    "p95": 0.5,
+    "p99": 0.6000000238418579,
+    "max": 0.6999999284744263
+   },
+   "cpuTotal": {
+    "n": 240,
+    "mean": 0.6729166656732559,
+    "p50": 0.6999999284744263,
+    "p95": 0.8000000715255737,
+    "p99": 0.8999999761581421,
+    "max": 1
+   },
+   "interval": {
+    "n": 240,
+    "mean": 16.665833333333346,
+    "p50": 16.700000000000728,
+    "p95": 16.700000000000728,
+    "p99": 16.799999999999272,
+    "max": 16.80000000000291
+   },
+   "over25": 0,
+   "gpuFlush": {
+    "n": 120,
+    "mean": 1.5024999956289926,
+    "p50": 1.5,
+    "p95": 1.6999999284744263,
+    "p99": 1.7000000476837158,
+    "max": 1.7999999523162842
+   },
+   "gc": {
+    "minor": 23,
+    "major": 2,
+    "minorMs": 3.613,
+    "majorMs": 1.867
+   },
+   "allocKiBPerFrame": 148.9,
+   "heapAfterGC": {
+    "before": 6383628,
+    "after": 6505228,
+    "delta": 121600
+   }
+  },
+  {
+   "mode": "canvas-soft",
+   "width": 360,
+   "height": 640,
+   "round": 1,
+   "build": "Current",
+   "scenario": "cycle",
+   "env": {
+    "renderer": "Canvas",
+    "gl": null,
+    "dpr": 1,
+    "canvasPx": [
+     450,
+     800
+    ]
+   },
+   "state": {
+    "bubbles": 4,
+    "drawn": 4,
+    "timeout": 0,
+    "slots": 88
+   },
+   "cpuDraw": {
+    "n": 239,
+    "mean": 0,
+    "p50": 0,
+    "p95": 0,
+    "p99": 0,
+    "max": 0
+   },
+   "cpuTotal": {
+    "n": 239,
+    "mean": 0.6744769936326158,
+    "p50": 0.6999999284744263,
+    "p95": 0.8000000715255737,
+    "p99": 0.9000000953674316,
+    "max": 1
+   },
+   "interval": {
+    "n": 239,
+    "mean": 16.666108786610867,
+    "p50": 16.69999999999709,
+    "p95": 16.799999999995634,
+    "p99": 16.80000000000291,
+    "max": 16.80000000000291
+   },
+   "over25": 0,
+   "gpuFlush": {
+    "n": 120,
+    "mean": 1.4849999994039536,
+    "p50": 1.5,
+    "p95": 1.600000023841858,
+    "p99": 1.7000000476837158,
+    "max": 1.7000000476837158
+   },
+   "gc": {
+    "minor": 37,
+    "major": 2,
+    "minorMs": 5.064,
+    "majorMs": 1.912
+   },
+   "allocKiBPerFrame": 146.4,
+   "heapAfterGC": {
+    "before": 6413136,
+    "after": 6540788,
+    "delta": 127652
+   }
+  },
+  {
+   "mode": "canvas-soft",
+   "width": 360,
+   "height": 640,
+   "round": 2,
+   "build": "Current",
+   "scenario": "air0",
+   "env": {
+    "renderer": "Canvas",
+    "gl": null,
+    "dpr": 1,
+    "canvasPx": [
+     450,
+     800
+    ]
+   },
+   "state": {
+    "bubbles": 0,
+    "drawn": 0,
+    "timeout": 0,
+    "slots": 0
+   },
+   "cpuDraw": {
+    "n": 240,
+    "mean": 0.4154166648785273,
+    "p50": 0.3999999761581421,
+    "p95": 0.5,
+    "p99": 0.6000000238418579,
+    "max": 1
+   },
+   "cpuTotal": {
+    "n": 240,
+    "mean": 0.6695833380023638,
+    "p50": 0.6999999284744263,
+    "p95": 0.8000000715255737,
+    "p99": 0.8000000715255737,
+    "max": 1.2999999523162842
+   },
+   "interval": {
+    "n": 240,
+    "mean": 16.666249999999973,
+    "p50": 16.699999999999818,
+    "p95": 16.799999999999272,
+    "p99": 16.800000000000182,
+    "max": 16.800000000000182
+   },
+   "over25": 0,
+   "gpuFlush": {
+    "n": 120,
+    "mean": 1.4608333349227904,
+    "p50": 1.5,
+    "p95": 1.600000023841858,
+    "p99": 1.7000000476837158,
+    "max": 1.7999999523162842
+   },
+   "gc": {
+    "minor": 39,
+    "major": 2,
+    "minorMs": 5.42,
+    "majorMs": 1.76
+   },
+   "allocKiBPerFrame": 140.1,
+   "heapAfterGC": {
+    "before": 5979392,
+    "after": 6317348,
+    "delta": 337956
+   }
+  },
+  {
+   "mode": "canvas-soft",
+   "width": 360,
+   "height": 640,
+   "round": 2,
+   "build": "Current",
+   "scenario": "air4",
+   "env": {
+    "renderer": "Canvas",
+    "gl": null,
+    "dpr": 1,
+    "canvasPx": [
+     450,
+     800
+    ]
+   },
+   "state": {
+    "bubbles": 4,
+    "drawn": 4,
+    "timeout": 0,
+    "slots": 88
+   },
+   "cpuDraw": {
+    "n": 240,
+    "mean": 0.4016666665673256,
+    "p50": 0.3999999761581421,
+    "p95": 0.5,
+    "p99": 0.6000000238418579,
+    "max": 0.7000000476837158
+   },
+   "cpuTotal": {
+    "n": 240,
+    "mean": 0.6583333308498065,
+    "p50": 0.6999999284744263,
+    "p95": 0.8000000715255737,
+    "p99": 0.8999999761581421,
+    "max": 1
+   },
+   "interval": {
+    "n": 240,
+    "mean": 16.66583333333334,
+    "p50": 16.69999999999891,
+    "p95": 16.700000000000728,
+    "p99": 16.80000000000109,
+    "max": 16.80000000000109
+   },
+   "over25": 0,
+   "gpuFlush": {
+    "n": 120,
+    "mean": 1.4924999942382178,
+    "p50": 1.5,
+    "p95": 1.600000023841858,
+    "p99": 1.7000000476837158,
+    "max": 1.7999999523162842
+   },
+   "gc": {
+    "minor": 27,
+    "major": 2,
+    "minorMs": 3.574,
+    "majorMs": 1.836
+   },
+   "allocKiBPerFrame": 140.6,
+   "heapAfterGC": {
+    "before": 6264060,
+    "after": 6393136,
+    "delta": 129076
+   }
+  },
+  {
+   "mode": "canvas-soft",
+   "width": 360,
+   "height": 640,
+   "round": 2,
+   "build": "Current",
+   "scenario": "air12",
+   "env": {
+    "renderer": "Canvas",
+    "gl": null,
+    "dpr": 1,
+    "canvasPx": [
+     450,
+     800
+    ]
+   },
+   "state": {
+    "bubbles": 12,
+    "drawn": 12,
+    "timeout": 0,
+    "slots": 264
+   },
+   "cpuDraw": {
+    "n": 240,
+    "mean": 0.3908333361148834,
+    "p50": 0.3999999761581421,
+    "p95": 0.5,
+    "p99": 0.5,
+    "max": 0.6000000238418579
+   },
+   "cpuTotal": {
+    "n": 240,
+    "mean": 0.6529166688521703,
+    "p50": 0.6999999284744263,
+    "p95": 0.7999999523162842,
+    "p99": 0.8000000715255737,
+    "max": 0.8000000715255737
+   },
+   "interval": {
+    "n": 240,
+    "mean": 16.66583333333333,
+    "p50": 16.69999999999709,
+    "p95": 16.700000000000728,
+    "p99": 16.80000000000291,
+    "max": 16.80000000000291
+   },
+   "over25": 0,
+   "gpuFlush": {
+    "n": 120,
+    "mean": 1.5225000003973643,
+    "p50": 1.5,
+    "p95": 1.7000000476837158,
+    "p99": 1.8000000715255737,
+    "max": 1.8000000715255737
+   },
+   "gc": {
+    "minor": 38,
+    "major": 2,
+    "minorMs": 5.213,
+    "majorMs": 1.848
+   },
+   "allocKiBPerFrame": 143.5,
+   "heapAfterGC": {
+    "before": 6422792,
+    "after": 6446244,
+    "delta": 23452
+   }
+  },
+  {
+   "mode": "canvas-soft",
+   "width": 360,
+   "height": 640,
+   "round": 2,
+   "build": "Current",
+   "scenario": "timeoutAir",
+   "env": {
+    "renderer": "Canvas",
+    "gl": null,
+    "dpr": 1,
+    "canvasPx": [
+     450,
+     800
+    ]
+   },
+   "state": {
+    "bubbles": 4,
+    "drawn": 4,
+    "timeout": 1,
+    "slots": 88
+   },
+   "cpuDraw": {
+    "n": 240,
+    "mean": 0.40916666984558103,
+    "p50": 0.3999999761581421,
+    "p95": 0.6000000238418579,
+    "p99": 0.7000000476837158,
+    "max": 0.8000000715255737
+   },
+   "cpuTotal": {
+    "n": 240,
+    "mean": 0.6745833362142245,
+    "p50": 0.6999999284744263,
+    "p95": 0.8000000715255737,
+    "p99": 0.9000000953674316,
+    "max": 1.100000023841858
+   },
+   "interval": {
+    "n": 240,
+    "mean": 16.66583333333333,
+    "p50": 16.700000000000728,
+    "p95": 16.700000000000728,
+    "p99": 16.799999999999272,
+    "max": 16.80000000000291
+   },
+   "over25": 0,
+   "gpuFlush": {
+    "n": 120,
+    "mean": 1.5408333281675974,
+    "p50": 1.5,
+    "p95": 1.7000000476837158,
+    "p99": 1.7999999523162842,
+    "max": 1.7999999523162842
+   },
+   "gc": {
+    "minor": 24,
+    "major": 2,
+    "minorMs": 3.457,
+    "majorMs": 1.697
+   },
+   "allocKiBPerFrame": 151.5,
+   "heapAfterGC": {
+    "before": 6386200,
+    "after": 6507656,
+    "delta": 121456
+   }
+  },
+  {
+   "mode": "canvas-soft",
+   "width": 360,
+   "height": 640,
+   "round": 2,
+   "build": "Current",
+   "scenario": "cycle",
+   "env": {
+    "renderer": "Canvas",
+    "gl": null,
+    "dpr": 1,
+    "canvasPx": [
+     450,
+     800
+    ]
+   },
+   "state": {
+    "bubbles": 4,
+    "drawn": 4,
+    "timeout": 0,
+    "slots": 88
+   },
+   "cpuDraw": {
+    "n": 239,
+    "mean": 0,
+    "p50": 0,
+    "p95": 0,
+    "p99": 0,
+    "max": 0
+   },
+   "cpuTotal": {
+    "n": 239,
+    "mean": 0.6895397522459469,
+    "p50": 0.6999999284744263,
+    "p95": 0.8000000715255737,
+    "p99": 1.100000023841858,
+    "max": 1.2000000476837158
+   },
+   "interval": {
+    "n": 239,
+    "mean": 16.666108786610867,
+    "p50": 16.69999999999709,
+    "p95": 16.700000000004366,
+    "p99": 16.80000000000291,
+    "max": 16.80000000000291
+   },
+   "over25": 0,
+   "gpuFlush": {
+    "n": 120,
+    "mean": 1.4766666680574416,
+    "p50": 1.5,
+    "p95": 1.6999999284744263,
+    "p99": 1.7000000476837158,
+    "max": 1.7999999523162842
+   },
+   "gc": {
+    "minor": 35,
+    "major": 2,
+    "minorMs": 4.77,
+    "majorMs": 1.796
+   },
+   "allocKiBPerFrame": 145.6,
+   "heapAfterGC": {
+    "before": 6415520,
+    "after": 6543188,
+    "delta": 127668
+   }
+  },
+  {
+   "mode": "canvas-soft",
+   "width": 360,
+   "height": 640,
+   "round": 2,
+   "build": "A",
+   "scenario": "air0",
+   "env": {
+    "renderer": "Canvas",
+    "gl": null,
+    "dpr": 1,
+    "canvasPx": [
+     450,
+     800
+    ]
+   },
+   "state": {
+    "bubbles": 0,
+    "drawn": 0,
+    "timeout": 0,
+    "slots": 0
+   },
+   "cpuDraw": {
+    "n": 240,
+    "mean": 0.4487499992052714,
+    "p50": 0.40000009536743164,
+    "p95": 0.6000000238418579,
+    "p99": 0.7000000476837158,
+    "max": 0.8999999761581421
+   },
+   "cpuTotal": {
+    "n": 240,
+    "mean": 0.7066666642824809,
+    "p50": 0.7000000476837158,
+    "p95": 0.8999999761581421,
+    "p99": 0.9000000953674316,
+    "max": 1.1999999284744263
+   },
+   "interval": {
+    "n": 240,
+    "mean": 16.665833333333314,
+    "p50": 16.699999999999818,
+    "p95": 16.700000000000728,
+    "p99": 16.800000000000182,
+    "max": 16.800000000000182
+   },
+   "over25": 0,
+   "gpuFlush": {
+    "n": 120,
+    "mean": 1.4749999980131785,
+    "p50": 1.5,
+    "p95": 1.600000023841858,
+    "p99": 1.7000000476837158,
+    "max": 1.7000000476837158
+   },
+   "gc": {
+    "minor": 40,
+    "major": 2,
+    "minorMs": 5.649,
+    "majorMs": 1.877
+   },
+   "allocKiBPerFrame": 188.3,
+   "heapAfterGC": {
+    "before": 6006252,
+    "after": 6340340,
+    "delta": 334088
+   }
+  },
+  {
+   "mode": "canvas-soft",
+   "width": 360,
+   "height": 640,
+   "round": 2,
+   "build": "A",
+   "scenario": "air4",
+   "env": {
+    "renderer": "Canvas",
+    "gl": null,
+    "dpr": 1,
+    "canvasPx": [
+     450,
+     800
+    ]
+   },
+   "state": {
+    "bubbles": 4,
+    "drawn": 4,
+    "timeout": 0,
+    "slots": 304
+   },
+   "cpuDraw": {
+    "n": 240,
+    "mean": 0.4204166680574417,
+    "p50": 0.3999999761581421,
+    "p95": 0.5,
+    "p99": 0.6000000238418579,
+    "max": 0.8000000715255737
+   },
+   "cpuTotal": {
+    "n": 240,
+    "mean": 0.679166667163372,
+    "p50": 0.6999999284744263,
+    "p95": 0.8000000715255737,
+    "p99": 0.9000000953674316,
+    "max": 1
+   },
+   "interval": {
+    "n": 240,
+    "mean": 16.666249999999998,
+    "p50": 16.69999999999891,
+    "p95": 16.799999999999272,
+    "p99": 16.80000000000109,
+    "max": 16.80000000000109
+   },
+   "over25": 0,
+   "gpuFlush": {
+    "n": 120,
+    "mean": 1.4441666702429454,
+    "p50": 1.4000000953674316,
+    "p95": 1.600000023841858,
+    "p99": 1.600000023841858,
+    "max": 1.7000000476837158
+   },
+   "gc": {
+    "minor": 29,
+    "major": 2,
+    "minorMs": 4.27,
+    "majorMs": 1.725
+   },
+   "allocKiBPerFrame": 196.4,
+   "heapAfterGC": {
+    "before": 6290556,
+    "after": 6412512,
+    "delta": 121956
+   }
+  },
+  {
+   "mode": "canvas-soft",
+   "width": 360,
+   "height": 640,
+   "round": 2,
+   "build": "A",
+   "scenario": "air12",
+   "env": {
+    "renderer": "Canvas",
+    "gl": null,
+    "dpr": 1,
+    "canvasPx": [
+     450,
+     800
+    ]
+   },
+   "state": {
+    "bubbles": 12,
+    "drawn": 12,
+    "timeout": 0,
+    "slots": 912
+   },
+   "cpuDraw": {
+    "n": 240,
+    "mean": 0.4095833346247673,
+    "p50": 0.3999999761581421,
+    "p95": 0.5,
+    "p99": 0.6000000238418579,
+    "max": 0.6999999284744263
+   },
+   "cpuTotal": {
+    "n": 240,
+    "mean": 0.6662500008940697,
+    "p50": 0.6999999284744263,
+    "p95": 0.8000000715255737,
+    "p99": 0.8000000715255737,
+    "max": 1
+   },
+   "interval": {
+    "n": 240,
+    "mean": 16.66583333333333,
+    "p50": 16.700000000000728,
+    "p95": 16.799999999999272,
+    "p99": 16.80000000000291,
+    "max": 16.80000000000291
+   },
+   "over25": 0,
+   "gpuFlush": {
+    "n": 120,
+    "mean": 1.505000001192093,
+    "p50": 1.5,
+    "p95": 1.6999999284744263,
+    "p99": 1.7000000476837158,
+    "max": 1.7999999523162842
+   },
+   "gc": {
+    "minor": 41,
+    "major": 2,
+    "minorMs": 5.698,
+    "majorMs": 1.761
+   },
+   "allocKiBPerFrame": 210.5,
+   "heapAfterGC": {
+    "before": 6446664,
+    "after": 6469744,
+    "delta": 23080
+   }
+  },
+  {
+   "mode": "canvas-soft",
+   "width": 360,
+   "height": 640,
+   "round": 2,
+   "build": "A",
+   "scenario": "timeoutAir",
+   "env": {
+    "renderer": "Canvas",
+    "gl": null,
+    "dpr": 1,
+    "canvasPx": [
+     450,
+     800
+    ]
+   },
+   "state": {
+    "bubbles": 4,
+    "drawn": 4,
+    "timeout": 1,
+    "slots": 304
+   },
+   "cpuDraw": {
+    "n": 240,
+    "mean": 0.41791666597127913,
+    "p50": 0.3999999761581421,
+    "p95": 0.5,
+    "p99": 0.6000000238418579,
+    "max": 0.6999999284744263
+   },
+   "cpuTotal": {
+    "n": 240,
+    "mean": 0.6875000004967053,
+    "p50": 0.6999999284744263,
+    "p95": 0.8000000715255737,
+    "p99": 0.9000000953674316,
+    "max": 1
+   },
+   "interval": {
+    "n": 240,
+    "mean": 16.666250000000005,
+    "p50": 16.69999999999709,
+    "p95": 16.799999999999272,
+    "p99": 16.80000000000291,
+    "max": 16.80000000000291
+   },
+   "over25": 0,
+   "gpuFlush": {
+    "n": 120,
+    "mean": 1.5516666700442632,
+    "p50": 1.5999999046325684,
+    "p95": 1.7000000476837158,
+    "p99": 1.7999999523162842,
+    "max": 1.8000000715255737
+   },
+   "gc": {
+    "minor": 40,
+    "major": 2,
+    "minorMs": 5.516,
+    "majorMs": 1.404
+   },
+   "allocKiBPerFrame": 215.6,
+   "heapAfterGC": {
+    "before": 6407332,
+    "after": 6528372,
+    "delta": 121040
+   }
+  },
+  {
+   "mode": "canvas-soft",
+   "width": 360,
+   "height": 640,
+   "round": 2,
+   "build": "A",
+   "scenario": "cycle",
+   "env": {
+    "renderer": "Canvas",
+    "gl": null,
+    "dpr": 1,
+    "canvasPx": [
+     450,
+     800
+    ]
+   },
+   "state": {
+    "bubbles": 4,
+    "drawn": 4,
+    "timeout": 0,
+    "slots": 304
+   },
+   "cpuDraw": {
+    "n": 239,
+    "mean": 0,
+    "p50": 0,
+    "p95": 0,
+    "p99": 0,
+    "max": 0
+   },
+   "cpuTotal": {
+    "n": 239,
+    "mean": 0.666108789803094,
+    "p50": 0.6999999284744263,
+    "p95": 0.8000000715255737,
+    "p99": 0.8999999761581421,
+    "max": 0.9000000953674316
+   },
+   "interval": {
+    "n": 239,
+    "mean": 16.666108786610867,
+    "p50": 16.69999999999709,
+    "p95": 16.799999999995634,
+    "p99": 16.80000000000291,
+    "max": 16.80000000000291
+   },
+   "over25": 0,
+   "gpuFlush": {
+    "n": 120,
+    "mean": 1.5258333414793015,
+    "p50": 1.5,
+    "p95": 1.600000023841858,
+    "p99": 1.7000000476837158,
+    "max": 1.7999999523162842
+   },
+   "gc": {
+    "minor": 40,
+    "major": 2,
+    "minorMs": 5.304,
+    "majorMs": 1.897
+   },
+   "allocKiBPerFrame": 199.4,
+   "heapAfterGC": {
+    "before": 6431608,
+    "after": 6559704,
+    "delta": 128096
+   }
+  },
+  {
+   "mode": "canvas-soft",
+   "width": 1440,
+   "height": 1000,
+   "round": 0,
+   "build": "Current",
+   "scenario": "air12",
+   "env": {
+    "renderer": "Canvas",
+    "gl": null,
+    "dpr": 1,
+    "canvasPx": [
+     450,
+     800
+    ]
+   },
+   "state": {
+    "bubbles": 12,
+    "drawn": 12,
+    "timeout": 0,
+    "slots": 264
+   },
+   "cpuDraw": {
+    "n": 240,
+    "mean": 0.45083333253860475,
+    "p50": 0.40000009536743164,
+    "p95": 0.6000000238418579,
+    "p99": 0.7000000476837158,
+    "max": 0.8999999761581421
+   },
+   "cpuTotal": {
+    "n": 240,
+    "mean": 0.7270833308498065,
+    "p50": 0.7000000476837158,
+    "p95": 0.8999999761581421,
+    "p99": 1,
+    "max": 1.2999999523162842
+   },
+   "interval": {
+    "n": 240,
+    "mean": 16.66583333333331,
+    "p50": 16.699999999999818,
+    "p95": 16.799999999999727,
+    "p99": 16.800000000000182,
+    "max": 16.800000000000182
+   },
+   "over25": 0,
+   "gpuFlush": {
+    "n": 120,
+    "mean": 1.6074999978144964,
+    "p50": 1.600000023841858,
+    "p95": 1.8000000715255737,
+    "p99": 1.899999976158142,
+    "max": 1.899999976158142
+   },
+   "gc": {
+    "minor": 41,
+    "major": 2,
+    "minorMs": 5.698,
+    "majorMs": 1.969
+   },
+   "allocKiBPerFrame": 148.9,
+   "heapAfterGC": {
+    "before": 5972428,
+    "after": 6306436,
+    "delta": 334008
+   }
+  },
+  {
+   "mode": "canvas-soft",
+   "width": 1440,
+   "height": 1000,
+   "round": 0,
+   "build": "Current",
+   "scenario": "timeoutAir",
+   "env": {
+    "renderer": "Canvas",
+    "gl": null,
+    "dpr": 1,
+    "canvasPx": [
+     450,
+     800
+    ]
+   },
+   "state": {
+    "bubbles": 4,
+    "drawn": 4,
+    "timeout": 1,
+    "slots": 88
+   },
+   "cpuDraw": {
+    "n": 240,
+    "mean": 0.4208333353201548,
+    "p50": 0.3999999761581421,
+    "p95": 0.6000000238418579,
+    "p99": 0.6999999284744263,
+    "max": 0.9000000953674316
+   },
+   "cpuTotal": {
+    "n": 240,
+    "mean": 0.6954166625936826,
+    "p50": 0.7000000476837158,
+    "p95": 0.8999999761581421,
+    "p99": 1,
+    "max": 1.2000000476837158
+   },
+   "interval": {
+    "n": 240,
+    "mean": 16.66583333333333,
+    "p50": 16.69999999999891,
+    "p95": 16.799999999999272,
+    "p99": 16.80000000000109,
+    "max": 16.80000000000109
+   },
+   "over25": 0,
+   "gpuFlush": {
+    "n": 120,
+    "mean": 1.5808333377043406,
+    "p50": 1.600000023841858,
+    "p95": 1.7999999523162842,
+    "p99": 1.899999976158142,
+    "max": 1.899999976158142
+   },
+   "gc": {
+    "minor": 24,
+    "major": 2,
+    "minorMs": 3.704,
+    "majorMs": 1.888
+   },
+   "allocKiBPerFrame": 151.3,
+   "heapAfterGC": {
+    "before": 6283060,
+    "after": 6412004,
+    "delta": 128944
+   }
+  },
+  {
+   "mode": "canvas-soft",
+   "width": 1440,
+   "height": 1000,
+   "round": 0,
+   "build": "A",
+   "scenario": "air12",
+   "env": {
+    "renderer": "Canvas",
+    "gl": null,
+    "dpr": 1,
+    "canvasPx": [
+     450,
+     800
+    ]
+   },
+   "state": {
+    "bubbles": 12,
+    "drawn": 12,
+    "timeout": 0,
+    "slots": 912
+   },
+   "cpuDraw": {
+    "n": 240,
+    "mean": 0.45083333402872083,
+    "p50": 0.40000009536743164,
+    "p95": 0.6000000238418579,
+    "p99": 0.6999999284744263,
+    "max": 0.7999999523162842
+   },
+   "cpuTotal": {
+    "n": 240,
+    "mean": 0.7295833304524422,
+    "p50": 0.7000000476837158,
+    "p95": 0.8999999761581421,
+    "p99": 1,
+    "max": 1.100000023841858
+   },
+   "interval": {
+    "n": 240,
+    "mean": 16.665833333333296,
+    "p50": 16.699999999999818,
+    "p95": 16.700000000000273,
+    "p99": 16.800000000000182,
+    "max": 16.800000000000182
+   },
+   "over25": 0,
+   "gpuFlush": {
+    "n": 120,
+    "mean": 1.5058333297570548,
+    "p50": 1.5,
+    "p95": 1.7000000476837158,
+    "p99": 1.8000000715255737,
+    "max": 1.8000000715255737
+   },
+   "gc": {
+    "minor": 30,
+    "major": 2,
+    "minorMs": 4.615,
+    "majorMs": 1.688
+   },
+   "allocKiBPerFrame": 215.9,
+   "heapAfterGC": {
+    "before": 5996052,
+    "after": 6323068,
+    "delta": 327016
+   }
+  },
+  {
+   "mode": "canvas-soft",
+   "width": 1440,
+   "height": 1000,
+   "round": 0,
+   "build": "A",
+   "scenario": "timeoutAir",
+   "env": {
+    "renderer": "Canvas",
+    "gl": null,
+    "dpr": 1,
+    "canvasPx": [
+     450,
+     800
+    ]
+   },
+   "state": {
+    "bubbles": 4,
+    "drawn": 4,
+    "timeout": 1,
+    "slots": 304
+   },
+   "cpuDraw": {
+    "n": 240,
+    "mean": 0.4037500003973643,
+    "p50": 0.3999999761581421,
+    "p95": 0.5,
+    "p99": 0.6000000238418579,
+    "max": 0.7999999523162842
+   },
+   "cpuTotal": {
+    "n": 240,
+    "mean": 0.6641666675607364,
+    "p50": 0.6999999284744263,
+    "p95": 0.8000000715255737,
+    "p99": 0.8999999761581421,
+    "max": 1
+   },
+   "interval": {
+    "n": 240,
+    "mean": 16.66583333333334,
+    "p50": 16.69999999999891,
+    "p95": 16.799999999999272,
+    "p99": 16.80000000000109,
+    "max": 16.80000000000109
+   },
+   "over25": 0,
+   "gpuFlush": {
+    "n": 120,
+    "mean": 1.495833330353101,
+    "p50": 1.5,
+    "p95": 1.6999999284744263,
+    "p99": 1.8000000715255737,
+    "max": 1.899999976158142
+   },
+   "gc": {
+    "minor": 33,
+    "major": 2,
+    "minorMs": 4.649,
+    "majorMs": 1.66
+   },
+   "allocKiBPerFrame": 217.1,
+   "heapAfterGC": {
+    "before": 6299552,
+    "after": 6425028,
+    "delta": 125476
+   }
+  },
+  {
+   "mode": "canvas-soft",
+   "width": 1440,
+   "height": 1000,
+   "round": 1,
+   "build": "A",
+   "scenario": "air12",
+   "env": {
+    "renderer": "Canvas",
+    "gl": null,
+    "dpr": 1,
+    "canvasPx": [
+     450,
+     800
+    ]
+   },
+   "state": {
+    "bubbles": 12,
+    "drawn": 12,
+    "timeout": 0,
+    "slots": 912
+   },
+   "cpuDraw": {
+    "n": 240,
+    "mean": 0.4345833346247673,
+    "p50": 0.3999999761581421,
+    "p95": 0.6000000238418579,
+    "p99": 0.6000000238418579,
+    "max": 0.7000000476837158
+   },
+   "cpuTotal": {
+    "n": 240,
+    "mean": 0.703333335618178,
+    "p50": 0.7000000476837158,
+    "p95": 0.8000000715255737,
+    "p99": 0.9000000953674316,
+    "max": 1.100000023841858
+   },
+   "interval": {
+    "n": 240,
+    "mean": 16.665416666666633,
+    "p50": 16.699999999999818,
+    "p95": 16.799999999999727,
+    "p99": 16.800000000000182,
+    "max": 16.800000000000182
+   },
+   "over25": 0,
+   "gpuFlush": {
+    "n": 120,
+    "mean": 1.515000006556511,
+    "p50": 1.5,
+    "p95": 1.7000000476837158,
+    "p99": 1.7000000476837158,
+    "max": 1.7000000476837158
+   },
+   "gc": {
+    "minor": 30,
+    "major": 2,
+    "minorMs": 4.626,
+    "majorMs": 1.852
+   },
+   "allocKiBPerFrame": 214.5,
+   "heapAfterGC": {
+    "before": 6004164,
+    "after": 6332768,
+    "delta": 328604
+   }
+  },
+  {
+   "mode": "canvas-soft",
+   "width": 1440,
+   "height": 1000,
+   "round": 1,
+   "build": "A",
+   "scenario": "timeoutAir",
+   "env": {
+    "renderer": "Canvas",
+    "gl": null,
+    "dpr": 1,
+    "canvasPx": [
+     450,
+     800
+    ]
+   },
+   "state": {
+    "bubbles": 4,
+    "drawn": 4,
+    "timeout": 1,
+    "slots": 304
+   },
+   "cpuDraw": {
+    "n": 240,
+    "mean": 0.40041666676600773,
+    "p50": 0.3999999761581421,
+    "p95": 0.5999999046325684,
+    "p99": 0.6000000238418579,
+    "max": 0.8000000715255737
+   },
+   "cpuTotal": {
+    "n": 240,
+    "mean": 0.6562499985098839,
+    "p50": 0.6999999284744263,
+    "p95": 0.8000000715255737,
+    "p99": 0.8999999761581421,
+    "max": 1.100000023841858
+   },
+   "interval": {
+    "n": 240,
+    "mean": 16.666250000000005,
+    "p50": 16.69999999999891,
+    "p95": 16.700000000000728,
+    "p99": 16.80000000000109,
+    "max": 16.80000000000109
+   },
+   "over25": 0,
+   "gpuFlush": {
+    "n": 120,
+    "mean": 1.4708333343267441,
+    "p50": 1.5,
+    "p95": 1.600000023841858,
+    "p99": 1.600000023841858,
+    "max": 1.7999999523162842
+   },
+   "gc": {
+    "minor": 33,
+    "major": 2,
+    "minorMs": 5.233,
+    "majorMs": 1.794
+   },
+   "allocKiBPerFrame": 219.3,
+   "heapAfterGC": {
+    "before": 6305644,
+    "after": 6432636,
+    "delta": 126992
+   }
+  },
+  {
+   "mode": "canvas-soft",
+   "width": 1440,
+   "height": 1000,
+   "round": 1,
+   "build": "Current",
+   "scenario": "air12",
+   "env": {
+    "renderer": "Canvas",
+    "gl": null,
+    "dpr": 1,
+    "canvasPx": [
+     450,
+     800
+    ]
+   },
+   "state": {
+    "bubbles": 12,
+    "drawn": 12,
+    "timeout": 0,
+    "slots": 264
+   },
+   "cpuDraw": {
+    "n": 240,
+    "mean": 0.4074999988079071,
+    "p50": 0.3999999761581421,
+    "p95": 0.5,
+    "p99": 0.6000000238418579,
+    "max": 0.8000000715255737
+   },
+   "cpuTotal": {
+    "n": 240,
+    "mean": 0.681666665772597,
+    "p50": 0.6999999284744263,
+    "p95": 0.8000000715255737,
+    "p99": 0.8999999761581421,
+    "max": 1
+   },
+   "interval": {
+    "n": 240,
+    "mean": 16.665833333333307,
+    "p50": 16.699999999999818,
+    "p95": 16.800000000000182,
+    "p99": 16.800000000000182,
+    "max": 16.800000000000182
+   },
+   "over25": 0,
+   "gpuFlush": {
+    "n": 120,
+    "mean": 1.5516666650772095,
+    "p50": 1.5999999046325684,
+    "p95": 1.7000000476837158,
+    "p99": 1.7000000476837158,
+    "max": 1.7999999523162842
+   },
+   "gc": {
+    "minor": 22,
+    "major": 2,
+    "minorMs": 3.951,
+    "majorMs": 2.343
+   },
+   "allocKiBPerFrame": 149,
+   "heapAfterGC": {
+    "before": 5974936,
+    "after": 6308372,
+    "delta": 333436
+   }
+  },
+  {
+   "mode": "canvas-soft",
+   "width": 1440,
+   "height": 1000,
+   "round": 1,
+   "build": "Current",
+   "scenario": "timeoutAir",
+   "env": {
+    "renderer": "Canvas",
+    "gl": null,
+    "dpr": 1,
+    "canvasPx": [
+     450,
+     800
+    ]
+   },
+   "state": {
+    "bubbles": 4,
+    "drawn": 4,
+    "timeout": 1,
+    "slots": 88
+   },
+   "cpuDraw": {
+    "n": 240,
+    "mean": 0.4145833363135656,
+    "p50": 0.3999999761581421,
+    "p95": 0.5,
+    "p99": 0.6000000238418579,
+    "max": 0.7999999523162842
+   },
+   "cpuTotal": {
+    "n": 240,
+    "mean": 0.6800000001986821,
+    "p50": 0.6999999284744263,
+    "p95": 0.8000000715255737,
+    "p99": 0.9000000953674316,
+    "max": 1.100000023841858
+   },
+   "interval": {
+    "n": 240,
+    "mean": 16.66583333333333,
+    "p50": 16.69999999999891,
+    "p95": 16.700000000000728,
+    "p99": 16.80000000000109,
+    "max": 16.80000000000109
+   },
+   "over25": 0,
+   "gpuFlush": {
+    "n": 120,
+    "mean": 1.5158333381017048,
+    "p50": 1.5,
+    "p95": 1.7000000476837158,
+    "p99": 1.7000000476837158,
+    "max": 1.7000000476837158
+   },
+   "gc": {
+    "minor": 36,
+    "major": 2,
+    "minorMs": 5.23,
+    "majorMs": 1.729
+   },
+   "allocKiBPerFrame": 150.6,
+   "heapAfterGC": {
+    "before": 6284512,
+    "after": 6413132,
+    "delta": 128620
+   }
+  },
+  {
+   "mode": "canvas-soft",
+   "width": 1440,
+   "height": 1000,
+   "round": 2,
+   "build": "Current",
+   "scenario": "air12",
+   "env": {
+    "renderer": "Canvas",
+    "gl": null,
+    "dpr": 1,
+    "canvasPx": [
+     450,
+     800
+    ]
+   },
+   "state": {
+    "bubbles": 12,
+    "drawn": 12,
+    "timeout": 0,
+    "slots": 264
+   },
+   "cpuDraw": {
+    "n": 240,
+    "mean": 0.4129166637857755,
+    "p50": 0.3999999761581421,
+    "p95": 0.5,
+    "p99": 0.6000000238418579,
+    "max": 0.7000000476837158
+   },
+   "cpuTotal": {
+    "n": 240,
+    "mean": 0.6858333314458529,
+    "p50": 0.6999999284744263,
+    "p95": 0.8000000715255737,
+    "p99": 0.9000000953674316,
+    "max": 1
+   },
+   "interval": {
+    "n": 240,
+    "mean": 16.66583333333331,
+    "p50": 16.699999999999818,
+    "p95": 16.700000000000728,
+    "p99": 16.799999999999955,
+    "max": 16.800000000000182
+   },
+   "over25": 0,
+   "gpuFlush": {
+    "n": 120,
+    "mean": 1.5233333388964334,
+    "p50": 1.5,
+    "p95": 1.7000000476837158,
+    "p99": 1.8000000715255737,
+    "max": 1.899999976158142
+   },
+   "gc": {
+    "minor": 22,
+    "major": 2,
+    "minorMs": 3.616,
+    "majorMs": 1.933
+   },
+   "allocKiBPerFrame": 150.5,
+   "heapAfterGC": {
+    "before": 5989644,
+    "after": 6324740,
+    "delta": 335096
+   }
+  },
+  {
+   "mode": "canvas-soft",
+   "width": 1440,
+   "height": 1000,
+   "round": 2,
+   "build": "Current",
+   "scenario": "timeoutAir",
+   "env": {
+    "renderer": "Canvas",
+    "gl": null,
+    "dpr": 1,
+    "canvasPx": [
+     450,
+     800
+    ]
+   },
+   "state": {
+    "bubbles": 4,
+    "drawn": 4,
+    "timeout": 1,
+    "slots": 88
+   },
+   "cpuDraw": {
+    "n": 240,
+    "mean": 0.40958333263794583,
+    "p50": 0.3999999761581421,
+    "p95": 0.5,
+    "p99": 0.6000000238418579,
+    "max": 0.8999999761581421
+   },
+   "cpuTotal": {
+    "n": 240,
+    "mean": 0.6754166682561239,
+    "p50": 0.6999999284744263,
+    "p95": 0.8000000715255737,
+    "p99": 0.9000000953674316,
+    "max": 1.100000023841858
+   },
+   "interval": {
+    "n": 240,
+    "mean": 16.66583333333333,
+    "p50": 16.69999999999891,
+    "p95": 16.799999999999272,
+    "p99": 16.80000000000109,
+    "max": 16.80000000000109
+   },
+   "over25": 0,
+   "gpuFlush": {
+    "n": 120,
+    "mean": 1.509166665871938,
+    "p50": 1.5,
+    "p95": 1.6999999284744263,
+    "p99": 1.7999999523162842,
+    "max": 1.8000000715255737
+   },
+   "gc": {
+    "minor": 35,
+    "major": 2,
+    "minorMs": 4.975,
+    "majorMs": 1.724
+   },
+   "allocKiBPerFrame": 153.1,
+   "heapAfterGC": {
+    "before": 6297164,
+    "after": 6430760,
+    "delta": 133596
+   }
+  },
+  {
+   "mode": "canvas-soft",
+   "width": 1440,
+   "height": 1000,
+   "round": 2,
+   "build": "A",
+   "scenario": "air12",
+   "env": {
+    "renderer": "Canvas",
+    "gl": null,
+    "dpr": 1,
+    "canvasPx": [
+     450,
+     800
+    ]
+   },
+   "state": {
+    "bubbles": 12,
+    "drawn": 12,
+    "timeout": 0,
+    "slots": 912
+   },
+   "cpuDraw": {
+    "n": 240,
+    "mean": 0.4420833319425583,
+    "p50": 0.40000009536743164,
+    "p95": 0.6000000238418579,
+    "p99": 0.6000000238418579,
+    "max": 0.8999999761581421
+   },
+   "cpuTotal": {
+    "n": 240,
+    "mean": 0.722916667163372,
+    "p50": 0.7000000476837158,
+    "p95": 0.8999999761581421,
+    "p99": 1,
+    "max": 1.100000023841858
+   },
+   "interval": {
+    "n": 240,
+    "mean": 16.666249999999973,
+    "p50": 16.699999999999818,
+    "p95": 16.700000000000728,
+    "p99": 16.800000000000182,
+    "max": 16.800000000000182
+   },
+   "over25": 0,
+   "gpuFlush": {
+    "n": 120,
+    "mean": 1.5166666636864343,
+    "p50": 1.5,
+    "p95": 1.600000023841858,
+    "p99": 1.7000000476837158,
+    "max": 1.7000000476837158
+   },
+   "gc": {
+    "minor": 29,
+    "major": 2,
+    "minorMs": 4.401,
+    "majorMs": 1.894
+   },
+   "allocKiBPerFrame": 215.4,
+   "heapAfterGC": {
+    "before": 6010664,
+    "after": 6357044,
+    "delta": 346380
+   }
+  },
+  {
+   "mode": "canvas-soft",
+   "width": 1440,
+   "height": 1000,
+   "round": 2,
+   "build": "A",
+   "scenario": "timeoutAir",
+   "env": {
+    "renderer": "Canvas",
+    "gl": null,
+    "dpr": 1,
+    "canvasPx": [
+     450,
+     800
+    ]
+   },
+   "state": {
+    "bubbles": 4,
+    "drawn": 4,
+    "timeout": 1,
+    "slots": 304
+   },
+   "cpuDraw": {
+    "n": 240,
+    "mean": 0.42250000139077504,
+    "p50": 0.3999999761581421,
+    "p95": 0.6000000238418579,
+    "p99": 0.6000000238418579,
+    "max": 0.7999999523162842
+   },
+   "cpuTotal": {
+    "n": 240,
+    "mean": 0.6937500029802323,
+    "p50": 0.6999999284744263,
+    "p95": 0.8000000715255737,
+    "p99": 0.9000000953674316,
+    "max": 1.100000023841858
+   },
+   "interval": {
+    "n": 240,
+    "mean": 16.66583333333333,
+    "p50": 16.69999999999891,
+    "p95": 16.799999999999272,
+    "p99": 16.80000000000109,
+    "max": 16.80000000000109
+   },
+   "over25": 0,
+   "gpuFlush": {
+    "n": 120,
+    "mean": 1.5500000089406967,
+    "p50": 1.5,
+    "p95": 1.7000000476837158,
+    "p99": 1.7000000476837158,
+    "max": 1.7999999523162842
+   },
+   "gc": {
+    "minor": 39,
+    "major": 2,
+    "minorMs": 5.351,
+    "majorMs": 1.671
+   },
+   "allocKiBPerFrame": 218.6,
+   "heapAfterGC": {
+    "before": 6340976,
+    "after": 6469604,
+    "delta": 128628
+   }
+  }
+ ]
+}

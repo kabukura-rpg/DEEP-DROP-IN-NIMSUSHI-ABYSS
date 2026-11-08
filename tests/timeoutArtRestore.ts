@@ -4,9 +4,13 @@
  * here as [the text now, the text at e9b0e2a]; reversing them gives e9b0e2a's GameScene.ts byte for byte
  * (tests/timeoutArt.test.ts).
  *
+ * `withoutAirBubbleArt` (tests/airBubbleArtRestore.ts) is reversed before these.
+ *
  * `withoutTapiocaProjectileArt` (tests/tapiocaProjectileArtRestore.ts) reverses these first, so every older "nothing
  * else changed" pin keeps its own digest and still proves the earlier changes touched nothing they cover.
  */
+import { withoutAirBubbleArt } from './airBubbleArtRestore';
+
 export const TIMEOUT_ART_NEW_FILES = ['render/timeoutArt.ts'] as const;
 
 export const TIMEOUT_ART_HUNKS: Record<string, [string, string][]> = {
@@ -25,6 +29,7 @@ import { drawTimeoutArt } from '../render/timeoutArt';
 
 /** `path` as any test spells it: '../src/scenes/GameScene.ts', 'src/scenes/GameScene.ts' or 'scenes/GameScene.ts'. */
 export function withoutTimeoutArt(path: string, source: string) {
+  source = withoutAirBubbleArt(path, source);
   const pairs = TIMEOUT_ART_HUNKS[path.replace(/^(\.\.\/)?(src\/)?/, '')];
   if (!pairs) return source;
   let restored = source;
