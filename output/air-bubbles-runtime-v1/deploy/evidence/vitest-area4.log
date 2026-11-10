@@ -1,0 +1,42 @@
+
+ RUN  v3.2.7 /Users/shun/Worktrees/deep-drop-air-bubbles-runtime
+
+ ✓ tests/area4.test.ts (48 tests) 45089ms
+   ✓ COLLAPSED REALM is broken rubble to land on > lays small rubble to land on every band, from its own builder, with barbed rubble all around it  767ms
+   ✓ COLLAPSED REALM is broken rubble to land on > costs a heart rather than a run, and lays nothing lethal  1273ms
+   ✓ COLLAPSED REALM is broken rubble to land on > lays no spike trap  1472ms
+   ✓ LIMBO enemies cannot be stood on > generates nothing stompable, on any seed  1377ms
+   ✓ LIMBO reloads through doodads and a chamber, and nothing else > never leaves a long stretch without a reload, doodads and rubble together  1225ms
+   ✓ LIMBO reloads through doodads and a chamber, and nothing else > offers a source in every SECTION even when the ground is discounted entirely  1191ms
+   ✓ LIMBO keeps the rest of the run intact > guarantees a side room whose floor is the one place to stand  1124ms
+   ✓ LIMBO can be descended on doodads alone > reaches the way out on every seed, bouncing and landing  2515ms
+   ✓ LIMBO can be descended on doodads alone > never strands a descent with an empty magazine  2479ms
+   ✓ COLLAPSED REALM: STAGE GENERATION v2 guarantees > keeps every barb off every line it promises, and off the walk along each ledge to its way off  732ms
+   ✓ COLLAPSED REALM: STAGE GENERATION v2 guarantees > reaches every route ledge from every surface the band above can be left from, by steering alone  656ms
+   ✓ COLLAPSED REALM: STAGE GENERATION v2 guarantees > builds up from 4-1 to 4-3: smaller rubble, barbs closer down every column, more bodies, more of them on the line  1307ms
+   ✓ COLLAPSED REALM: STAGE GENERATION v2 guarantees > makes 4-1, 4-2 and 4-3 three SECTIONs, not one with different numbers  420ms
+   ✓ COLLAPSED REALM: STAGE GENERATION v2 guarantees > leaves no column of the shaft to fall down: the longest straight drop clear of barbs is a few screens at most  444ms
+   ✓ COLLAPSED REALM: STAGE GENERATION v2 guarantees > never hurts on a landing: a turning ledge warns for longer than the walk off it  1184ms
+   ✓ COLLAPSED REALM: every ledge gives way > 4-1: every landable ledge collapses on every seed, and no stable one is left on the route  555ms
+   ✓ COLLAPSED REALM: every ledge gives way > 4-2: every landable ledge collapses on every seed, and no stable one is left on the route  469ms
+   ✓ COLLAPSED REALM: every ledge gives way > 4-3: every landable ledge collapses on every seed, and no stable one is left on the route  570ms
+   ✓ COLLAPSED REALM: every ledge gives way > moves nothing: the shaft is the one the same seed lays with no collapse, position for position  1596ms
+   ✓ COLLAPSED REALM: every ledge gives way > keeps stable only the surfaces the SECTION stands on: the opening slab, cave and chamber floors, the exit floor  1204ms
+   ✓ COLLAPSED REALM: every ledge gives way > never asks for more than the ledge allows: the whole width walks off well inside the delay  1094ms
+   ✓ COLLAPSED REALM: every ledge gives way > ends every SECTION for a player who never walks off a ledge, and holds nobody past the delay  1162ms
+   ✓ COLLAPSED REALM: every ledge gives way > lets a cave be left the way it was entered: its floor holds, and the collapsing shaft below still ends  481ms
+   ✓ COLLAPSED REALM is played, not fallen > ends a fall that neither steers, shoots nor means to land, in every SECTION, from every column  627ms
+   ✓ COLLAPSED REALM is played, not fallen > ends a fall that shoots everything under it but never steers  769ms
+   ✓ COLLAPSED REALM is played, not fallen > 4-1: is cleared on ordinary HP by a human-like player who steers, shoots and lands  3337ms
+   ✓ COLLAPSED REALM is played, not fallen > 4-2: is cleared on ordinary HP by a human-like player who steers, shoots and lands  3020ms
+   ✓ COLLAPSED REALM is played, not fallen > 4-3: is cleared on ordinary HP by a human-like player who steers, shoots and lands  2644ms
+   ✓ COLLAPSED REALM is played, not fallen > gets harder from 4-1 to 4-3 for the same player  8127ms
+   ✓ COLLAPSED REALM is played, not fallen > lets the promised line itself be fallen, without one barb, to the way out, on every seed  493ms
+   ✓ COLLAPSED REALM is played, not fallen > replays exactly: the same seed is the same run  496ms
+
+ Test Files  1 passed (1)
+      Tests  48 passed (48)
+   Start at  10:40:53
+   Duration  45.93s (transform 308ms, setup 0ms, collect 408ms, tests 45.09s, environment 0ms, prepare 49ms)
+
+exit 0

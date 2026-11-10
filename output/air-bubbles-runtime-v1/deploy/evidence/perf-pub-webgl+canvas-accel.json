@@ -1,0 +1,2566 @@
+[
+ {
+  "mode": "webgl",
+  "width": 1440,
+  "height": 1000,
+  "round": 0,
+  "build": "pub",
+  "scenario": "air0",
+  "setup": {
+   "n": 0,
+   "t": 0
+  },
+  "check": {
+   "bubbles": 0,
+   "timeout": 0,
+   "frozen": false,
+   "state": "playing",
+   "stage": "3-1",
+   "slots": 0
+  },
+  "interval": {
+   "n": 240,
+   "mean": 19.304999999999996,
+   "p50": 16.699999999999818,
+   "p95": 33.399999999999636,
+   "p99": 33.5,
+   "max": 50
+  },
+  "over25": 36,
+  "minor": 22,
+  "major": 4,
+  "gcPauseMs": 8.27,
+  "allocPerFrame": 138161,
+  "heapBefore": 7033376,
+  "heapAfter": 7115800,
+  "renderer": "WebGL",
+  "gl": "ANGLE (Google, Vulkan 1.3.0 (SwiftShader Device (LLVM 10.0.0) (0x0000C0DE)), SwiftShader driver)"
+ },
+ {
+  "mode": "webgl",
+  "width": 1440,
+  "height": 1000,
+  "round": 0,
+  "build": "pub",
+  "scenario": "air4",
+  "setup": {
+   "n": 4,
+   "t": 0
+  },
+  "check": {
+   "bubbles": 4,
+   "timeout": 0,
+   "frozen": false,
+   "state": "playing",
+   "stage": "3-1",
+   "slots": 304
+  },
+  "interval": {
+   "n": 240,
+   "mean": 17.498750000000005,
+   "p50": 16.69999999999891,
+   "p95": 33.20000000000073,
+   "p99": 33.399999999999636,
+   "max": 33.399999999999636
+  },
+  "over25": 12,
+  "minor": 29,
+  "major": 3,
+  "gcPauseMs": 6.78,
+  "allocPerFrame": 136263,
+  "heapBefore": 7251032,
+  "heapAfter": 7683016,
+  "renderer": "WebGL",
+  "gl": "ANGLE (Google, Vulkan 1.3.0 (SwiftShader Device (LLVM 10.0.0) (0x0000C0DE)), SwiftShader driver)"
+ },
+ {
+  "mode": "webgl",
+  "width": 1440,
+  "height": 1000,
+  "round": 0,
+  "build": "pub",
+  "scenario": "air12",
+  "setup": {
+   "n": 12,
+   "t": 0
+  },
+  "check": {
+   "bubbles": 12,
+   "timeout": 0,
+   "frozen": false,
+   "state": "playing",
+   "stage": "3-1",
+   "slots": 912
+  },
+  "interval": {
+   "n": 240,
+   "mean": 16.66583333333333,
+   "p50": 16.700000000000728,
+   "p95": 16.799999999999272,
+   "p99": 16.799999999999272,
+   "max": 16.80000000000291
+  },
+  "over25": 0,
+  "minor": 30,
+  "major": 3,
+  "gcPauseMs": 7.34,
+  "allocPerFrame": 154617,
+  "heapBefore": 7710684,
+  "heapAfter": 7717432,
+  "renderer": "WebGL",
+  "gl": "ANGLE (Google, Vulkan 1.3.0 (SwiftShader Device (LLVM 10.0.0) (0x0000C0DE)), SwiftShader driver)"
+ },
+ {
+  "mode": "webgl",
+  "width": 1440,
+  "height": 1000,
+  "round": 0,
+  "build": "pub",
+  "scenario": "timeoutAir",
+  "setup": {
+   "n": 12,
+   "t": 1
+  },
+  "check": {
+   "bubbles": 12,
+   "timeout": 1,
+   "frozen": false,
+   "state": "playing",
+   "stage": "3-1",
+   "slots": 912
+  },
+  "interval": {
+   "n": 240,
+   "mean": 16.66583333333333,
+   "p50": 16.69999999999709,
+   "p95": 16.700000000000728,
+   "p99": 16.80000000000291,
+   "max": 16.80000000000291
+  },
+  "over25": 0,
+  "minor": 30,
+  "major": 3,
+  "gcPauseMs": 7.06,
+  "allocPerFrame": 154556,
+  "heapBefore": 7460580,
+  "heapAfter": 7662176,
+  "renderer": "WebGL",
+  "gl": "ANGLE (Google, Vulkan 1.3.0 (SwiftShader Device (LLVM 10.0.0) (0x0000C0DE)), SwiftShader driver)",
+  "errors": {
+   "exceptions": [],
+   "console": []
+  }
+ },
+ {
+  "mode": "webgl",
+  "width": 1440,
+  "height": 1000,
+  "round": 0,
+  "build": "prod-base",
+  "scenario": "air0",
+  "setup": {
+   "n": 0,
+   "t": 0
+  },
+  "check": {
+   "bubbles": 0,
+   "timeout": 0,
+   "frozen": false,
+   "state": "playing",
+   "stage": "3-1",
+   "slots": 0
+  },
+  "interval": {
+   "n": 240,
+   "mean": 18.262916666666666,
+   "p50": 16.699999999999818,
+   "p95": 33.30000000000018,
+   "p99": 33.400000000000546,
+   "max": 50
+  },
+  "over25": 22,
+  "minor": 32,
+  "major": 4,
+  "gcPauseMs": 8.79,
+  "allocPerFrame": 91884,
+  "heapBefore": 6751400,
+  "heapAfter": 7176388,
+  "renderer": "WebGL",
+  "gl": "ANGLE (Google, Vulkan 1.3.0 (SwiftShader Device (LLVM 10.0.0) (0x0000C0DE)), SwiftShader driver)"
+ },
+ {
+  "mode": "webgl",
+  "width": 1440,
+  "height": 1000,
+  "round": 0,
+  "build": "prod-base",
+  "scenario": "air4",
+  "setup": {
+   "n": 4,
+   "t": 0
+  },
+  "check": {
+   "bubbles": 4,
+   "timeout": 0,
+   "frozen": false,
+   "state": "playing",
+   "stage": "3-1",
+   "slots": 88
+  },
+  "interval": {
+   "n": 240,
+   "mean": 16.66583333333333,
+   "p50": 16.69999999999891,
+   "p95": 16.799999999999272,
+   "p99": 16.80000000000109,
+   "max": 16.80000000000109
+  },
+  "over25": 0,
+  "minor": 35,
+  "major": 3,
+  "gcPauseMs": 8.49,
+  "allocPerFrame": 182868,
+  "heapBefore": 7289400,
+  "heapAfter": 7563040,
+  "renderer": "WebGL",
+  "gl": "ANGLE (Google, Vulkan 1.3.0 (SwiftShader Device (LLVM 10.0.0) (0x0000C0DE)), SwiftShader driver)"
+ },
+ {
+  "mode": "webgl",
+  "width": 1440,
+  "height": 1000,
+  "round": 0,
+  "build": "prod-base",
+  "scenario": "air12",
+  "setup": {
+   "n": 12,
+   "t": 0
+  },
+  "check": {
+   "bubbles": 12,
+   "timeout": 0,
+   "frozen": false,
+   "state": "playing",
+   "stage": "3-1",
+   "slots": 264
+  },
+  "interval": {
+   "n": 240,
+   "mean": 16.66624999999999,
+   "p50": 16.700000000000728,
+   "p95": 16.799999999999272,
+   "p99": 16.80000000000291,
+   "max": 16.80000000000291
+  },
+  "over25": 0,
+  "minor": 48,
+  "major": 3,
+  "gcPauseMs": 10.13,
+  "allocPerFrame": 389933,
+  "heapBefore": 7567044,
+  "heapAfter": 7567220,
+  "renderer": "WebGL",
+  "gl": "ANGLE (Google, Vulkan 1.3.0 (SwiftShader Device (LLVM 10.0.0) (0x0000C0DE)), SwiftShader driver)"
+ },
+ {
+  "mode": "webgl",
+  "width": 1440,
+  "height": 1000,
+  "round": 0,
+  "build": "prod-base",
+  "scenario": "timeoutAir",
+  "setup": {
+   "n": 12,
+   "t": 1
+  },
+  "check": {
+   "bubbles": 12,
+   "timeout": 1,
+   "frozen": false,
+   "state": "playing",
+   "stage": "3-1",
+   "slots": 264
+  },
+  "interval": {
+   "n": 240,
+   "mean": 16.94375,
+   "p50": 16.700000000000728,
+   "p95": 16.700000000000728,
+   "p99": 33.29999999999927,
+   "max": 33.400000000001455
+  },
+  "over25": 4,
+  "minor": 64,
+  "major": 3,
+  "gcPauseMs": 10.97,
+  "allocPerFrame": 392196,
+  "heapBefore": 7474004,
+  "heapAfter": 7584696,
+  "renderer": "WebGL",
+  "gl": "ANGLE (Google, Vulkan 1.3.0 (SwiftShader Device (LLVM 10.0.0) (0x0000C0DE)), SwiftShader driver)",
+  "errors": {
+   "exceptions": [],
+   "console": []
+  }
+ },
+ {
+  "mode": "webgl",
+  "width": 1440,
+  "height": 1000,
+  "round": 1,
+  "build": "prod-base",
+  "scenario": "air0",
+  "setup": {
+   "n": 0,
+   "t": 0
+  },
+  "check": {
+   "bubbles": 0,
+   "timeout": 0,
+   "frozen": false,
+   "state": "playing",
+   "stage": "3-1",
+   "slots": 0
+  },
+  "interval": {
+   "n": 240,
+   "mean": 17.777083333333334,
+   "p50": 16.699999999999818,
+   "p95": 33.30000000000018,
+   "p99": 33.399999999999636,
+   "max": 33.400000000000546
+  },
+  "over25": 16,
+  "minor": 31,
+  "major": 4,
+  "gcPauseMs": 9.59,
+  "allocPerFrame": 91681,
+  "heapBefore": 6759220,
+  "heapAfter": 7269836,
+  "renderer": "WebGL",
+  "gl": "ANGLE (Google, Vulkan 1.3.0 (SwiftShader Device (LLVM 10.0.0) (0x0000C0DE)), SwiftShader driver)"
+ },
+ {
+  "mode": "webgl",
+  "width": 1440,
+  "height": 1000,
+  "round": 1,
+  "build": "prod-base",
+  "scenario": "air4",
+  "setup": {
+   "n": 4,
+   "t": 0
+  },
+  "check": {
+   "bubbles": 4,
+   "timeout": 0,
+   "frozen": false,
+   "state": "playing",
+   "stage": "3-1",
+   "slots": 88
+  },
+  "interval": {
+   "n": 240,
+   "mean": 16.874166666666664,
+   "p50": 16.69999999999891,
+   "p95": 16.799999999999272,
+   "p99": 33.29999999999927,
+   "max": 33.400000000001455
+  },
+  "over25": 3,
+  "minor": 34,
+  "major": 3,
+  "gcPauseMs": 9.01,
+  "allocPerFrame": 182197,
+  "heapBefore": 7424048,
+  "heapAfter": 7527528,
+  "renderer": "WebGL",
+  "gl": "ANGLE (Google, Vulkan 1.3.0 (SwiftShader Device (LLVM 10.0.0) (0x0000C0DE)), SwiftShader driver)"
+ },
+ {
+  "mode": "webgl",
+  "width": 1440,
+  "height": 1000,
+  "round": 1,
+  "build": "prod-base",
+  "scenario": "air12",
+  "setup": {
+   "n": 12,
+   "t": 0
+  },
+  "check": {
+   "bubbles": 12,
+   "timeout": 0,
+   "frozen": false,
+   "state": "playing",
+   "stage": "3-1",
+   "slots": 264
+  },
+  "interval": {
+   "n": 240,
+   "mean": 16.666250000000005,
+   "p50": 16.69999999999709,
+   "p95": 16.799999999999272,
+   "p99": 16.80000000000291,
+   "max": 16.80000000000291
+  },
+  "over25": 0,
+  "minor": 47,
+  "major": 3,
+  "gcPauseMs": 9.08,
+  "allocPerFrame": 388235,
+  "heapBefore": 7534060,
+  "heapAfter": 7750608,
+  "renderer": "WebGL",
+  "gl": "ANGLE (Google, Vulkan 1.3.0 (SwiftShader Device (LLVM 10.0.0) (0x0000C0DE)), SwiftShader driver)"
+ },
+ {
+  "mode": "webgl",
+  "width": 1440,
+  "height": 1000,
+  "round": 1,
+  "build": "prod-base",
+  "scenario": "timeoutAir",
+  "setup": {
+   "n": 12,
+   "t": 1
+  },
+  "check": {
+   "bubbles": 12,
+   "timeout": 1,
+   "frozen": false,
+   "state": "playing",
+   "stage": "3-1",
+   "slots": 264
+  },
+  "interval": {
+   "n": 240,
+   "mean": 16.735000000000007,
+   "p50": 16.700000000000728,
+   "p95": 16.799999999999272,
+   "p99": 16.80000000000291,
+   "max": 33.29999999999927
+  },
+  "over25": 1,
+  "minor": 65,
+  "major": 3,
+  "gcPauseMs": 12.19,
+  "allocPerFrame": 387662,
+  "heapBefore": 7444836,
+  "heapAfter": 8091256,
+  "renderer": "WebGL",
+  "gl": "ANGLE (Google, Vulkan 1.3.0 (SwiftShader Device (LLVM 10.0.0) (0x0000C0DE)), SwiftShader driver)",
+  "errors": {
+   "exceptions": [],
+   "console": []
+  }
+ },
+ {
+  "mode": "webgl",
+  "width": 1440,
+  "height": 1000,
+  "round": 1,
+  "build": "pub",
+  "scenario": "air0",
+  "setup": {
+   "n": 0,
+   "t": 0
+  },
+  "check": {
+   "bubbles": 0,
+   "timeout": 0,
+   "frozen": false,
+   "state": "playing",
+   "stage": "3-1",
+   "slots": 0
+  },
+  "interval": {
+   "n": 240,
+   "mean": 17.638333333333332,
+   "p50": 16.699999999999818,
+   "p95": 33.30000000000018,
+   "p99": 33.40000000000009,
+   "max": 33.400000000000546
+  },
+  "over25": 14,
+  "minor": 29,
+  "major": 4,
+  "gcPauseMs": 9.04,
+  "allocPerFrame": 140645,
+  "heapBefore": 6934280,
+  "heapAfter": 7321452,
+  "renderer": "WebGL",
+  "gl": "ANGLE (Google, Vulkan 1.3.0 (SwiftShader Device (LLVM 10.0.0) (0x0000C0DE)), SwiftShader driver)"
+ },
+ {
+  "mode": "webgl",
+  "width": 1440,
+  "height": 1000,
+  "round": 1,
+  "build": "pub",
+  "scenario": "air4",
+  "setup": {
+   "n": 4,
+   "t": 0
+  },
+  "check": {
+   "bubbles": 4,
+   "timeout": 0,
+   "frozen": false,
+   "state": "upgrade",
+   "stage": "3-1",
+   "slots": 304
+  },
+  "interval": {
+   "n": 240,
+   "mean": 16.666249999999998,
+   "p50": 16.69999999999891,
+   "p95": 16.799999999999272,
+   "p99": 16.80000000000109,
+   "max": 16.80000000000109
+  },
+  "over25": 0,
+  "minor": 31,
+  "major": 0,
+  "gcPauseMs": 4.1,
+  "allocPerFrame": 137287,
+  "heapBefore": 7390692,
+  "heapAfter": 7454324,
+  "renderer": "WebGL",
+  "gl": "ANGLE (Google, Vulkan 1.3.0 (SwiftShader Device (LLVM 10.0.0) (0x0000C0DE)), SwiftShader driver)"
+ },
+ {
+  "mode": "webgl",
+  "width": 1440,
+  "height": 1000,
+  "round": 1,
+  "build": "pub",
+  "scenario": "air12",
+  "setup": {
+   "n": 12,
+   "t": 0
+  },
+  "check": {
+   "bubbles": 12,
+   "timeout": 0,
+   "frozen": false,
+   "state": "upgrade",
+   "stage": "3-1",
+   "slots": 912
+  },
+  "interval": {
+   "n": 240,
+   "mean": 16.66583333333333,
+   "p50": 16.700000000000728,
+   "p95": 16.799999999999272,
+   "p99": 16.799999999999272,
+   "max": 16.80000000000291
+  },
+  "over25": 0,
+  "minor": 31,
+  "major": 0,
+  "gcPauseMs": 3.94,
+  "allocPerFrame": 156399,
+  "heapBefore": 7314648,
+  "heapAfter": 7481760,
+  "renderer": "WebGL",
+  "gl": "ANGLE (Google, Vulkan 1.3.0 (SwiftShader Device (LLVM 10.0.0) (0x0000C0DE)), SwiftShader driver)"
+ },
+ {
+  "mode": "webgl",
+  "width": 1440,
+  "height": 1000,
+  "round": 1,
+  "build": "pub",
+  "scenario": "timeoutAir",
+  "setup": {
+   "n": 12,
+   "t": 1
+  },
+  "check": {
+   "bubbles": 12,
+   "timeout": 1,
+   "frozen": false,
+   "state": "upgrade",
+   "stage": "3-1",
+   "slots": 912
+  },
+  "interval": {
+   "n": 240,
+   "mean": 16.66583333333333,
+   "p50": 16.69999999999709,
+   "p95": 16.799999999999272,
+   "p99": 16.799999999999272,
+   "max": 16.80000000000291
+  },
+  "over25": 0,
+  "minor": 33,
+  "major": 0,
+  "gcPauseMs": 4.16,
+  "allocPerFrame": 183292,
+  "heapBefore": 7331272,
+  "heapAfter": 7523224,
+  "renderer": "WebGL",
+  "gl": "ANGLE (Google, Vulkan 1.3.0 (SwiftShader Device (LLVM 10.0.0) (0x0000C0DE)), SwiftShader driver)",
+  "errors": {
+   "exceptions": [],
+   "console": []
+  }
+ },
+ {
+  "mode": "webgl",
+  "width": 360,
+  "height": 640,
+  "round": 0,
+  "build": "pub",
+  "scenario": "air0",
+  "setup": {
+   "n": 0,
+   "t": 0
+  },
+  "check": {
+   "bubbles": 0,
+   "timeout": 0,
+   "frozen": false,
+   "state": "playing",
+   "stage": "3-1",
+   "slots": 0
+  },
+  "interval": {
+   "n": 240,
+   "mean": 16.66625,
+   "p50": 16.699999999999818,
+   "p95": 16.700000000000728,
+   "p99": 16.800000000000182,
+   "max": 16.800000000000182
+  },
+  "over25": 0,
+  "minor": 29,
+  "major": 4,
+  "gcPauseMs": 10.42,
+  "allocPerFrame": 138506,
+  "heapBefore": 6998280,
+  "heapAfter": 7356836,
+  "renderer": "WebGL",
+  "gl": "ANGLE (Google, Vulkan 1.3.0 (SwiftShader Device (LLVM 10.0.0) (0x0000C0DE)), SwiftShader driver)"
+ },
+ {
+  "mode": "webgl",
+  "width": 360,
+  "height": 640,
+  "round": 0,
+  "build": "pub",
+  "scenario": "air4",
+  "setup": {
+   "n": 4,
+   "t": 0
+  },
+  "check": {
+   "bubbles": 4,
+   "timeout": 0,
+   "frozen": false,
+   "state": "playing",
+   "stage": "3-1",
+   "slots": 304
+  },
+  "interval": {
+   "n": 240,
+   "mean": 16.804999999999996,
+   "p50": 16.69999999999891,
+   "p95": 16.799999999999272,
+   "p99": 16.80000000000109,
+   "max": 33.399999999999636
+  },
+  "over25": 2,
+  "minor": 28,
+  "major": 3,
+  "gcPauseMs": 6.69,
+  "allocPerFrame": 136308,
+  "heapBefore": 7482996,
+  "heapAfter": 7771552,
+  "renderer": "WebGL",
+  "gl": "ANGLE (Google, Vulkan 1.3.0 (SwiftShader Device (LLVM 10.0.0) (0x0000C0DE)), SwiftShader driver)"
+ },
+ {
+  "mode": "webgl",
+  "width": 360,
+  "height": 640,
+  "round": 0,
+  "build": "pub",
+  "scenario": "air12",
+  "setup": {
+   "n": 12,
+   "t": 0
+  },
+  "check": {
+   "bubbles": 12,
+   "timeout": 0,
+   "frozen": false,
+   "state": "playing",
+   "stage": "3-1",
+   "slots": 912
+  },
+  "interval": {
+   "n": 240,
+   "mean": 16.66624999999999,
+   "p50": 16.700000000000728,
+   "p95": 16.799999999999272,
+   "p99": 16.80000000000291,
+   "max": 16.80000000000291
+  },
+  "over25": 0,
+  "minor": 30,
+  "major": 3,
+  "gcPauseMs": 7.42,
+  "allocPerFrame": 155184,
+  "heapBefore": 7685024,
+  "heapAfter": 7634456,
+  "renderer": "WebGL",
+  "gl": "ANGLE (Google, Vulkan 1.3.0 (SwiftShader Device (LLVM 10.0.0) (0x0000C0DE)), SwiftShader driver)"
+ },
+ {
+  "mode": "webgl",
+  "width": 360,
+  "height": 640,
+  "round": 0,
+  "build": "pub",
+  "scenario": "timeoutAir",
+  "setup": {
+   "n": 12,
+   "t": 1
+  },
+  "check": {
+   "bubbles": 12,
+   "timeout": 1,
+   "frozen": false,
+   "state": "playing",
+   "stage": "3-1",
+   "slots": 912
+  },
+  "interval": {
+   "n": 240,
+   "mean": 16.66583333333333,
+   "p50": 16.700000000000728,
+   "p95": 16.700000000000728,
+   "p99": 16.799999999999272,
+   "max": 16.799999999999272
+  },
+  "over25": 0,
+  "minor": 30,
+  "major": 3,
+  "gcPauseMs": 7.07,
+  "allocPerFrame": 154536,
+  "heapBefore": 7537436,
+  "heapAfter": 7803616,
+  "renderer": "WebGL",
+  "gl": "ANGLE (Google, Vulkan 1.3.0 (SwiftShader Device (LLVM 10.0.0) (0x0000C0DE)), SwiftShader driver)"
+ },
+ {
+  "mode": "webgl",
+  "width": 360,
+  "build": "pub",
+  "scenario": "sustained-air12",
+  "seconds": 90,
+  "heapGcStart": 7550372,
+  "heapGcEnd": 7751888,
+  "sawtooth": [
+   8370728,
+   8076084,
+   10981428,
+   8604824,
+   9466836,
+   9462396,
+   10110748,
+   10482884,
+   8439100,
+   9007032,
+   9366836,
+   9953768,
+   10623064,
+   11531008,
+   11881572,
+   13102988,
+   13356816,
+   14521228
+  ],
+  "minor": 151,
+  "major": 64,
+  "gcPauseMs": 110.69,
+  "bubbles": 12,
+  "errors": {
+   "exceptions": [],
+   "console": []
+  }
+ },
+ {
+  "mode": "webgl",
+  "width": 360,
+  "height": 640,
+  "round": 0,
+  "build": "prod-base",
+  "scenario": "air0",
+  "setup": {
+   "n": 0,
+   "t": 0
+  },
+  "check": {
+   "bubbles": 0,
+   "timeout": 0,
+   "frozen": false,
+   "state": "playing",
+   "stage": "3-1",
+   "slots": 0
+  },
+  "interval": {
+   "n": 240,
+   "mean": 16.665833333333335,
+   "p50": 16.699999999999818,
+   "p95": 16.700000000000728,
+   "p99": 16.800000000000182,
+   "max": 16.800000000000182
+  },
+  "over25": 0,
+  "minor": 28,
+  "major": 4,
+  "gcPauseMs": 9.1,
+  "allocPerFrame": 138969,
+  "heapBefore": 7015012,
+  "heapAfter": 7165512,
+  "renderer": "WebGL",
+  "gl": "ANGLE (Google, Vulkan 1.3.0 (SwiftShader Device (LLVM 10.0.0) (0x0000C0DE)), SwiftShader driver)"
+ },
+ {
+  "mode": "webgl",
+  "width": 360,
+  "height": 640,
+  "round": 0,
+  "build": "prod-base",
+  "scenario": "air4",
+  "setup": {
+   "n": 4,
+   "t": 0
+  },
+  "check": {
+   "bubbles": 4,
+   "timeout": 0,
+   "frozen": false,
+   "state": "playing",
+   "stage": "3-1",
+   "slots": 88
+  },
+  "interval": {
+   "n": 240,
+   "mean": 16.666250000000005,
+   "p50": 16.69999999999891,
+   "p95": 16.700000000000728,
+   "p99": 16.80000000000109,
+   "max": 16.80000000000109
+  },
+  "over25": 0,
+  "minor": 44,
+  "major": 3,
+  "gcPauseMs": 9.46,
+  "allocPerFrame": 183962,
+  "heapBefore": 7278980,
+  "heapAfter": 7556500,
+  "renderer": "WebGL",
+  "gl": "ANGLE (Google, Vulkan 1.3.0 (SwiftShader Device (LLVM 10.0.0) (0x0000C0DE)), SwiftShader driver)"
+ },
+ {
+  "mode": "webgl",
+  "width": 360,
+  "height": 640,
+  "round": 0,
+  "build": "prod-base",
+  "scenario": "air12",
+  "setup": {
+   "n": 12,
+   "t": 0
+  },
+  "check": {
+   "bubbles": 12,
+   "timeout": 0,
+   "frozen": false,
+   "state": "playing",
+   "stage": "3-1",
+   "slots": 264
+  },
+  "interval": {
+   "n": 240,
+   "mean": 16.66583333333333,
+   "p50": 16.700000000000728,
+   "p95": 16.799999999999272,
+   "p99": 16.80000000000291,
+   "max": 16.80000000000291
+  },
+  "over25": 0,
+  "minor": 51,
+  "major": 3,
+  "gcPauseMs": 12.66,
+  "allocPerFrame": 390897,
+  "heapBefore": 7561200,
+  "heapAfter": 7566936,
+  "renderer": "WebGL",
+  "gl": "ANGLE (Google, Vulkan 1.3.0 (SwiftShader Device (LLVM 10.0.0) (0x0000C0DE)), SwiftShader driver)"
+ },
+ {
+  "mode": "webgl",
+  "width": 360,
+  "height": 640,
+  "round": 0,
+  "build": "prod-base",
+  "scenario": "timeoutAir",
+  "setup": {
+   "n": 12,
+   "t": 1
+  },
+  "check": {
+   "bubbles": 12,
+   "timeout": 1,
+   "frozen": false,
+   "state": "playing",
+   "stage": "3-1",
+   "slots": 264
+  },
+  "interval": {
+   "n": 240,
+   "mean": 16.804583333333344,
+   "p50": 16.700000000000728,
+   "p95": 16.700000000000728,
+   "p99": 16.80000000000291,
+   "max": 33.29999999999927
+  },
+  "over25": 2,
+  "minor": 63,
+  "major": 3,
+  "gcPauseMs": 11.62,
+  "allocPerFrame": 391502,
+  "heapBefore": 7477672,
+  "heapAfter": 7583164,
+  "renderer": "WebGL",
+  "gl": "ANGLE (Google, Vulkan 1.3.0 (SwiftShader Device (LLVM 10.0.0) (0x0000C0DE)), SwiftShader driver)"
+ },
+ {
+  "mode": "webgl",
+  "width": 360,
+  "build": "prod-base",
+  "scenario": "sustained-air12",
+  "seconds": 90,
+  "heapGcStart": 7486328,
+  "heapGcEnd": 8103828,
+  "sawtooth": [
+   9209200,
+   8472292,
+   8019320,
+   8056044,
+   10360180,
+   10774612,
+   9237888,
+   9255592,
+   9289808,
+   8091780,
+   11634360,
+   9641180,
+   12377560,
+   10803892,
+   13536992,
+   11582644,
+   8121800,
+   13948796
+  ],
+  "minor": 442,
+  "major": 64,
+  "gcPauseMs": 156.38,
+  "bubbles": 12,
+  "errors": {
+   "exceptions": [],
+   "console": []
+  }
+ },
+ {
+  "mode": "webgl",
+  "width": 360,
+  "height": 640,
+  "round": 1,
+  "build": "prod-base",
+  "scenario": "air0",
+  "setup": {
+   "n": 0,
+   "t": 0
+  },
+  "check": {
+   "bubbles": 0,
+   "timeout": 0,
+   "frozen": false,
+   "state": "playing",
+   "stage": "3-1",
+   "slots": 0
+  },
+  "interval": {
+   "n": 240,
+   "mean": 16.66625,
+   "p50": 16.699999999999818,
+   "p95": 16.800000000000182,
+   "p99": 16.800000000000182,
+   "max": 16.800000000000182
+  },
+  "over25": 0,
+  "minor": 23,
+  "major": 4,
+  "gcPauseMs": 9.58,
+  "allocPerFrame": 92548,
+  "heapBefore": 7006796,
+  "heapAfter": 7175856,
+  "renderer": "WebGL",
+  "gl": "ANGLE (Google, Vulkan 1.3.0 (SwiftShader Device (LLVM 10.0.0) (0x0000C0DE)), SwiftShader driver)"
+ },
+ {
+  "mode": "webgl",
+  "width": 360,
+  "height": 640,
+  "round": 1,
+  "build": "prod-base",
+  "scenario": "air4",
+  "setup": {
+   "n": 4,
+   "t": 0
+  },
+  "check": {
+   "bubbles": 4,
+   "timeout": 0,
+   "frozen": false,
+   "state": "playing",
+   "stage": "3-1",
+   "slots": 88
+  },
+  "interval": {
+   "n": 240,
+   "mean": 16.66583333333334,
+   "p50": 16.69999999999891,
+   "p95": 16.700000000000728,
+   "p99": 16.80000000000109,
+   "max": 16.80000000000109
+  },
+  "over25": 0,
+  "minor": 26,
+  "major": 3,
+  "gcPauseMs": 7.44,
+  "allocPerFrame": 182112,
+  "heapBefore": 7290512,
+  "heapAfter": 7825804,
+  "renderer": "WebGL",
+  "gl": "ANGLE (Google, Vulkan 1.3.0 (SwiftShader Device (LLVM 10.0.0) (0x0000C0DE)), SwiftShader driver)"
+ },
+ {
+  "mode": "webgl",
+  "width": 360,
+  "height": 640,
+  "round": 1,
+  "build": "prod-base",
+  "scenario": "air12",
+  "setup": {
+   "n": 12,
+   "t": 0
+  },
+  "check": {
+   "bubbles": 12,
+   "timeout": 0,
+   "frozen": false,
+   "state": "playing",
+   "stage": "3-1",
+   "slots": 264
+  },
+  "interval": {
+   "n": 240,
+   "mean": 16.66583333333333,
+   "p50": 16.69999999999709,
+   "p95": 16.799999999999272,
+   "p99": 16.799999999999272,
+   "max": 16.80000000000291
+  },
+  "over25": 0,
+  "minor": 66,
+  "major": 3,
+  "gcPauseMs": 10.81,
+  "allocPerFrame": 390761,
+  "heapBefore": 7581220,
+  "heapAfter": 7577504,
+  "renderer": "WebGL",
+  "gl": "ANGLE (Google, Vulkan 1.3.0 (SwiftShader Device (LLVM 10.0.0) (0x0000C0DE)), SwiftShader driver)"
+ },
+ {
+  "mode": "webgl",
+  "width": 360,
+  "height": 640,
+  "round": 1,
+  "build": "prod-base",
+  "scenario": "timeoutAir",
+  "setup": {
+   "n": 12,
+   "t": 1
+  },
+  "check": {
+   "bubbles": 12,
+   "timeout": 1,
+   "frozen": false,
+   "state": "playing",
+   "stage": "3-1",
+   "slots": 264
+  },
+  "interval": {
+   "n": 240,
+   "mean": 16.666250000000005,
+   "p50": 16.700000000000728,
+   "p95": 16.799999999999272,
+   "p99": 16.799999999999272,
+   "max": 16.80000000000291
+  },
+  "over25": 0,
+  "minor": 64,
+  "major": 3,
+  "gcPauseMs": 10.92,
+  "allocPerFrame": 389368,
+  "heapBefore": 7481060,
+  "heapAfter": 7991976,
+  "renderer": "WebGL",
+  "gl": "ANGLE (Google, Vulkan 1.3.0 (SwiftShader Device (LLVM 10.0.0) (0x0000C0DE)), SwiftShader driver)",
+  "errors": {
+   "exceptions": [],
+   "console": []
+  }
+ },
+ {
+  "mode": "webgl",
+  "width": 360,
+  "height": 640,
+  "round": 1,
+  "build": "pub",
+  "scenario": "air0",
+  "setup": {
+   "n": 0,
+   "t": 0
+  },
+  "check": {
+   "bubbles": 0,
+   "timeout": 0,
+   "frozen": false,
+   "state": "playing",
+   "stage": "3-1",
+   "slots": 0
+  },
+  "interval": {
+   "n": 240,
+   "mean": 16.66625,
+   "p50": 16.699999999999818,
+   "p95": 16.799999999999272,
+   "p99": 16.800000000000182,
+   "max": 16.800000000000182
+  },
+  "over25": 0,
+  "minor": 29,
+  "major": 4,
+  "gcPauseMs": 9.06,
+  "allocPerFrame": 137553,
+  "heapBefore": 6938208,
+  "heapAfter": 7199244,
+  "renderer": "WebGL",
+  "gl": "ANGLE (Google, Vulkan 1.3.0 (SwiftShader Device (LLVM 10.0.0) (0x0000C0DE)), SwiftShader driver)"
+ },
+ {
+  "mode": "webgl",
+  "width": 360,
+  "height": 640,
+  "round": 1,
+  "build": "pub",
+  "scenario": "air4",
+  "setup": {
+   "n": 4,
+   "t": 0
+  },
+  "check": {
+   "bubbles": 4,
+   "timeout": 0,
+   "frozen": false,
+   "state": "playing",
+   "stage": "3-1",
+   "slots": 304
+  },
+  "interval": {
+   "n": 240,
+   "mean": 16.66583333333333,
+   "p50": 16.69999999999891,
+   "p95": 16.799999999999272,
+   "p99": 16.80000000000109,
+   "max": 16.80000000000109
+  },
+  "over25": 0,
+  "minor": 29,
+  "major": 3,
+  "gcPauseMs": 7.05,
+  "allocPerFrame": 135520,
+  "heapBefore": 7332612,
+  "heapAfter": 7552712,
+  "renderer": "WebGL",
+  "gl": "ANGLE (Google, Vulkan 1.3.0 (SwiftShader Device (LLVM 10.0.0) (0x0000C0DE)), SwiftShader driver)"
+ },
+ {
+  "mode": "webgl",
+  "width": 360,
+  "height": 640,
+  "round": 1,
+  "build": "pub",
+  "scenario": "air12",
+  "setup": {
+   "n": 12,
+   "t": 0
+  },
+  "check": {
+   "bubbles": 12,
+   "timeout": 0,
+   "frozen": false,
+   "state": "playing",
+   "stage": "3-1",
+   "slots": 912
+  },
+  "interval": {
+   "n": 240,
+   "mean": 16.66583333333333,
+   "p50": 16.69999999999709,
+   "p95": 16.799999999999272,
+   "p99": 16.799999999999272,
+   "max": 16.80000000000291
+  },
+  "over25": 0,
+  "minor": 29,
+  "major": 3,
+  "gcPauseMs": 6.7,
+  "allocPerFrame": 154727,
+  "heapBefore": 7558888,
+  "heapAfter": 7562892,
+  "renderer": "WebGL",
+  "gl": "ANGLE (Google, Vulkan 1.3.0 (SwiftShader Device (LLVM 10.0.0) (0x0000C0DE)), SwiftShader driver)"
+ },
+ {
+  "mode": "webgl",
+  "width": 360,
+  "height": 640,
+  "round": 1,
+  "build": "pub",
+  "scenario": "timeoutAir",
+  "setup": {
+   "n": 12,
+   "t": 1
+  },
+  "check": {
+   "bubbles": 12,
+   "timeout": 1,
+   "frozen": false,
+   "state": "playing",
+   "stage": "3-1",
+   "slots": 912
+  },
+  "interval": {
+   "n": 240,
+   "mean": 16.66583333333333,
+   "p50": 16.700000000000728,
+   "p95": 16.799999999999272,
+   "p99": 16.799999999999272,
+   "max": 16.80000000000291
+  },
+  "over25": 0,
+  "minor": 30,
+  "major": 3,
+  "gcPauseMs": 7.23,
+  "allocPerFrame": 155115,
+  "heapBefore": 7476140,
+  "heapAfter": 7740220,
+  "renderer": "WebGL",
+  "gl": "ANGLE (Google, Vulkan 1.3.0 (SwiftShader Device (LLVM 10.0.0) (0x0000C0DE)), SwiftShader driver)",
+  "errors": {
+   "exceptions": [],
+   "console": []
+  }
+ },
+ {
+  "mode": "canvas-accel",
+  "width": 1440,
+  "height": 1000,
+  "round": 0,
+  "build": "pub",
+  "scenario": "air0",
+  "setup": {
+   "n": 0,
+   "t": 0
+  },
+  "check": {
+   "bubbles": 0,
+   "timeout": 0,
+   "frozen": false,
+   "state": "playing",
+   "stage": "3-1",
+   "slots": 0
+  },
+  "interval": {
+   "n": 240,
+   "mean": 16.66583333333333,
+   "p50": 16.699999999999818,
+   "p95": 16.700000000000728,
+   "p99": 16.800000000000182,
+   "max": 16.800000000000182
+  },
+  "over25": 0,
+  "minor": 38,
+  "major": 5,
+  "gcPauseMs": 11.89,
+  "allocPerFrame": 206739,
+  "heapBefore": 6559344,
+  "heapAfter": 6680624,
+  "renderer": "Canvas",
+  "gl": null
+ },
+ {
+  "mode": "canvas-accel",
+  "width": 1440,
+  "height": 1000,
+  "round": 0,
+  "build": "pub",
+  "scenario": "air4",
+  "setup": {
+   "n": 4,
+   "t": 0
+  },
+  "check": {
+   "bubbles": 4,
+   "timeout": 0,
+   "frozen": false,
+   "state": "playing",
+   "stage": "3-1",
+   "slots": 304
+  },
+  "interval": {
+   "n": 240,
+   "mean": 16.66541666666667,
+   "p50": 16.69999999999891,
+   "p95": 16.799999999999272,
+   "p99": 16.80000000000109,
+   "max": 16.80000000000109
+  },
+  "over25": 0,
+  "minor": 38,
+  "major": 3,
+  "gcPauseMs": 8.72,
+  "allocPerFrame": 204812,
+  "heapBefore": 6735876,
+  "heapAfter": 7222596,
+  "renderer": "Canvas",
+  "gl": null
+ },
+ {
+  "mode": "canvas-accel",
+  "width": 1440,
+  "height": 1000,
+  "round": 0,
+  "build": "pub",
+  "scenario": "air12",
+  "setup": {
+   "n": 12,
+   "t": 0
+  },
+  "check": {
+   "bubbles": 12,
+   "timeout": 0,
+   "frozen": false,
+   "state": "playing",
+   "stage": "3-1",
+   "slots": 912
+  },
+  "interval": {
+   "n": 240,
+   "mean": 16.66583333333333,
+   "p50": 16.69999999999709,
+   "p95": 16.700000000000728,
+   "p99": 16.799999999999272,
+   "max": 16.80000000000291
+  },
+  "over25": 0,
+  "minor": 37,
+  "major": 3,
+  "gcPauseMs": 8.23,
+  "allocPerFrame": 221164,
+  "heapBefore": 7107360,
+  "heapAfter": 7018096,
+  "renderer": "Canvas",
+  "gl": null
+ },
+ {
+  "mode": "canvas-accel",
+  "width": 1440,
+  "height": 1000,
+  "round": 0,
+  "build": "pub",
+  "scenario": "timeoutAir",
+  "setup": {
+   "n": 12,
+   "t": 1
+  },
+  "check": {
+   "bubbles": 12,
+   "timeout": 1,
+   "frozen": false,
+   "state": "playing",
+   "stage": "3-1",
+   "slots": 912
+  },
+  "interval": {
+   "n": 240,
+   "mean": 16.66583333333333,
+   "p50": 16.700000000000728,
+   "p95": 16.799999999999272,
+   "p99": 16.80000000000291,
+   "max": 16.80000000000291
+  },
+  "over25": 0,
+  "minor": 37,
+  "major": 3,
+  "gcPauseMs": 8.62,
+  "allocPerFrame": 222559,
+  "heapBefore": 6978056,
+  "heapAfter": 7031684,
+  "renderer": "Canvas",
+  "gl": null,
+  "errors": {
+   "exceptions": [],
+   "console": []
+  }
+ },
+ {
+  "mode": "canvas-accel",
+  "width": 1440,
+  "height": 1000,
+  "round": 0,
+  "build": "prod-base",
+  "scenario": "air0",
+  "setup": {
+   "n": 0,
+   "t": 0
+  },
+  "check": {
+   "bubbles": 0,
+   "timeout": 0,
+   "frozen": false,
+   "state": "playing",
+   "stage": "3-1",
+   "slots": 0
+  },
+  "interval": {
+   "n": 240,
+   "mean": 16.665416666666665,
+   "p50": 16.699999999999818,
+   "p95": 16.800000000000182,
+   "p99": 16.800000000000182,
+   "max": 16.800000000000182
+  },
+  "over25": 0,
+  "minor": 34,
+  "major": 5,
+  "gcPauseMs": 11.16,
+  "allocPerFrame": 156997,
+  "heapBefore": 6352448,
+  "heapAfter": 6642780,
+  "renderer": "Canvas",
+  "gl": null
+ },
+ {
+  "mode": "canvas-accel",
+  "width": 1440,
+  "height": 1000,
+  "round": 0,
+  "build": "prod-base",
+  "scenario": "air4",
+  "setup": {
+   "n": 4,
+   "t": 0
+  },
+  "check": {
+   "bubbles": 4,
+   "timeout": 0,
+   "frozen": false,
+   "state": "playing",
+   "stage": "3-1",
+   "slots": 88
+  },
+  "interval": {
+   "n": 240,
+   "mean": 16.66583333333333,
+   "p50": 16.69999999999891,
+   "p95": 16.799999999999272,
+   "p99": 16.80000000000109,
+   "max": 16.80000000000109
+  },
+  "over25": 0,
+  "minor": 39,
+  "major": 3,
+  "gcPauseMs": 8.29,
+  "allocPerFrame": 148226,
+  "heapBefore": 6734040,
+  "heapAfter": 7063436,
+  "renderer": "Canvas",
+  "gl": null
+ },
+ {
+  "mode": "canvas-accel",
+  "width": 1440,
+  "height": 1000,
+  "round": 0,
+  "build": "prod-base",
+  "scenario": "air12",
+  "setup": {
+   "n": 12,
+   "t": 0
+  },
+  "check": {
+   "bubbles": 12,
+   "timeout": 0,
+   "frozen": false,
+   "state": "playing",
+   "stage": "3-1",
+   "slots": 264
+  },
+  "interval": {
+   "n": 240,
+   "mean": 16.66583333333333,
+   "p50": 16.700000000000728,
+   "p95": 16.700000000000728,
+   "p99": 16.799999999999272,
+   "max": 16.80000000000291
+  },
+  "over25": 0,
+  "minor": 35,
+  "major": 3,
+  "gcPauseMs": 7.73,
+  "allocPerFrame": 154295,
+  "heapBefore": 7016220,
+  "heapAfter": 7119176,
+  "renderer": "Canvas",
+  "gl": null
+ },
+ {
+  "mode": "canvas-accel",
+  "width": 1440,
+  "height": 1000,
+  "round": 0,
+  "build": "prod-base",
+  "scenario": "timeoutAir",
+  "setup": {
+   "n": 12,
+   "t": 1
+  },
+  "check": {
+   "bubbles": 12,
+   "timeout": 1,
+   "frozen": false,
+   "state": "playing",
+   "stage": "3-1",
+   "slots": 264
+  },
+  "interval": {
+   "n": 240,
+   "mean": 16.666250000000005,
+   "p50": 16.700000000000728,
+   "p95": 16.799999999999272,
+   "p99": 16.799999999999272,
+   "max": 16.80000000000291
+  },
+  "over25": 0,
+  "minor": 30,
+  "major": 3,
+  "gcPauseMs": 7.57,
+  "allocPerFrame": 153996,
+  "heapBefore": 7011636,
+  "heapAfter": 7160800,
+  "renderer": "Canvas",
+  "gl": null,
+  "errors": {
+   "exceptions": [],
+   "console": []
+  }
+ },
+ {
+  "mode": "canvas-accel",
+  "width": 1440,
+  "height": 1000,
+  "round": 1,
+  "build": "prod-base",
+  "scenario": "air0",
+  "setup": {
+   "n": 0,
+   "t": 0
+  },
+  "check": {
+   "bubbles": 0,
+   "timeout": 0,
+   "frozen": false,
+   "state": "playing",
+   "stage": "3-1",
+   "slots": 0
+  },
+  "interval": {
+   "n": 240,
+   "mean": 16.665833333333335,
+   "p50": 16.699999999999818,
+   "p95": 16.700000000000728,
+   "p99": 16.800000000000182,
+   "max": 16.800000000000182
+  },
+  "over25": 0,
+  "minor": 33,
+  "major": 5,
+  "gcPauseMs": 11.13,
+  "allocPerFrame": 156054,
+  "heapBefore": 6395388,
+  "heapAfter": 6685704,
+  "renderer": "Canvas",
+  "gl": null
+ },
+ {
+  "mode": "canvas-accel",
+  "width": 1440,
+  "height": 1000,
+  "round": 1,
+  "build": "prod-base",
+  "scenario": "air4",
+  "setup": {
+   "n": 4,
+   "t": 0
+  },
+  "check": {
+   "bubbles": 4,
+   "timeout": 0,
+   "frozen": false,
+   "state": "playing",
+   "stage": "3-1",
+   "slots": 88
+  },
+  "interval": {
+   "n": 240,
+   "mean": 16.66583333333334,
+   "p50": 16.69999999999891,
+   "p95": 16.700000000000728,
+   "p99": 16.799999999999272,
+   "max": 16.80000000000109
+  },
+  "over25": 0,
+  "minor": 23,
+  "major": 3,
+  "gcPauseMs": 6.61,
+  "allocPerFrame": 147868,
+  "heapBefore": 7008100,
+  "heapAfter": 7132976,
+  "renderer": "Canvas",
+  "gl": null
+ },
+ {
+  "mode": "canvas-accel",
+  "width": 1440,
+  "height": 1000,
+  "round": 1,
+  "build": "prod-base",
+  "scenario": "air12",
+  "setup": {
+   "n": 12,
+   "t": 0
+  },
+  "check": {
+   "bubbles": 12,
+   "timeout": 0,
+   "frozen": false,
+   "state": "playing",
+   "stage": "3-1",
+   "slots": 264
+  },
+  "interval": {
+   "n": 240,
+   "mean": 16.66583333333333,
+   "p50": 16.700000000000728,
+   "p95": 16.799999999999272,
+   "p99": 16.799999999999272,
+   "max": 16.799999999999272
+  },
+  "over25": 0,
+  "minor": 26,
+  "major": 3,
+  "gcPauseMs": 6.99,
+  "allocPerFrame": 154168,
+  "heapBefore": 7157732,
+  "heapAfter": 7100528,
+  "renderer": "Canvas",
+  "gl": null
+ },
+ {
+  "mode": "canvas-accel",
+  "width": 1440,
+  "height": 1000,
+  "round": 1,
+  "build": "prod-base",
+  "scenario": "timeoutAir",
+  "setup": {
+   "n": 12,
+   "t": 1
+  },
+  "check": {
+   "bubbles": 12,
+   "timeout": 1,
+   "frozen": false,
+   "state": "playing",
+   "stage": "3-1",
+   "slots": 264
+  },
+  "interval": {
+   "n": 240,
+   "mean": 16.665833333333346,
+   "p50": 16.700000000000728,
+   "p95": 16.700000000000728,
+   "p99": 16.799999999999272,
+   "max": 16.80000000000291
+  },
+  "over25": 0,
+  "minor": 25,
+  "major": 3,
+  "gcPauseMs": 6.79,
+  "allocPerFrame": 153374,
+  "heapBefore": 6963888,
+  "heapAfter": 7076672,
+  "renderer": "Canvas",
+  "gl": null,
+  "errors": {
+   "exceptions": [],
+   "console": []
+  }
+ },
+ {
+  "mode": "canvas-accel",
+  "width": 1440,
+  "height": 1000,
+  "round": 1,
+  "build": "pub",
+  "scenario": "air0",
+  "setup": {
+   "n": 0,
+   "t": 0
+  },
+  "check": {
+   "bubbles": 0,
+   "timeout": 0,
+   "frozen": false,
+   "state": "playing",
+   "stage": "3-1",
+   "slots": 0
+  },
+  "interval": {
+   "n": 240,
+   "mean": 16.666249999999998,
+   "p50": 16.699999999999818,
+   "p95": 16.800000000000182,
+   "p99": 16.800000000000182,
+   "max": 16.800000000000182
+  },
+  "over25": 0,
+  "minor": 35,
+  "major": 6,
+  "gcPauseMs": 11.92,
+  "allocPerFrame": 206538,
+  "heapBefore": 6414588,
+  "heapAfter": 6656232,
+  "renderer": "Canvas",
+  "gl": null
+ },
+ {
+  "mode": "canvas-accel",
+  "width": 1440,
+  "height": 1000,
+  "round": 1,
+  "build": "pub",
+  "scenario": "air4",
+  "setup": {
+   "n": 4,
+   "t": 0
+  },
+  "check": {
+   "bubbles": 4,
+   "timeout": 0,
+   "frozen": false,
+   "state": "playing",
+   "stage": "3-1",
+   "slots": 304
+  },
+  "interval": {
+   "n": 240,
+   "mean": 16.66583333333333,
+   "p50": 16.69999999999891,
+   "p95": 16.799999999999272,
+   "p99": 16.80000000000109,
+   "max": 16.80000000000109
+  },
+  "over25": 0,
+  "minor": 37,
+  "major": 3,
+  "gcPauseMs": 8.05,
+  "allocPerFrame": 204526,
+  "heapBefore": 6989692,
+  "heapAfter": 7165520,
+  "renderer": "Canvas",
+  "gl": null
+ },
+ {
+  "mode": "canvas-accel",
+  "width": 1440,
+  "height": 1000,
+  "round": 1,
+  "build": "pub",
+  "scenario": "air12",
+  "setup": {
+   "n": 12,
+   "t": 0
+  },
+  "check": {
+   "bubbles": 12,
+   "timeout": 0,
+   "frozen": false,
+   "state": "playing",
+   "stage": "3-1",
+   "slots": 912
+  },
+  "interval": {
+   "n": 240,
+   "mean": 16.66624999999999,
+   "p50": 16.69999999999709,
+   "p95": 16.700000000000728,
+   "p99": 16.80000000000291,
+   "max": 16.80000000000291
+  },
+  "over25": 0,
+  "minor": 37,
+  "major": 3,
+  "gcPauseMs": 8.04,
+  "allocPerFrame": 222530,
+  "heapBefore": 7069016,
+  "heapAfter": 7019116,
+  "renderer": "Canvas",
+  "gl": null
+ },
+ {
+  "mode": "canvas-accel",
+  "width": 1440,
+  "height": 1000,
+  "round": 1,
+  "build": "pub",
+  "scenario": "timeoutAir",
+  "setup": {
+   "n": 12,
+   "t": 1
+  },
+  "check": {
+   "bubbles": 12,
+   "timeout": 1,
+   "frozen": false,
+   "state": "playing",
+   "stage": "3-1",
+   "slots": 912
+  },
+  "interval": {
+   "n": 240,
+   "mean": 16.666250000000005,
+   "p50": 16.700000000000728,
+   "p95": 16.799999999999272,
+   "p99": 16.799999999999272,
+   "max": 16.80000000000291
+  },
+  "over25": 0,
+  "minor": 37,
+  "major": 3,
+  "gcPauseMs": 8.65,
+  "allocPerFrame": 222350,
+  "heapBefore": 6930200,
+  "heapAfter": 7032652,
+  "renderer": "Canvas",
+  "gl": null,
+  "errors": {
+   "exceptions": [],
+   "console": []
+  }
+ },
+ {
+  "mode": "canvas-accel",
+  "width": 360,
+  "height": 640,
+  "round": 0,
+  "build": "pub",
+  "scenario": "air0",
+  "setup": {
+   "n": 0,
+   "t": 0
+  },
+  "check": {
+   "bubbles": 0,
+   "timeout": 0,
+   "frozen": false,
+   "state": "playing",
+   "stage": "3-1",
+   "slots": 0
+  },
+  "interval": {
+   "n": 240,
+   "mean": 16.665833333333335,
+   "p50": 16.699999999999818,
+   "p95": 16.700000000000728,
+   "p99": 16.800000000000182,
+   "max": 16.800000000000182
+  },
+  "over25": 0,
+  "minor": 34,
+  "major": 5,
+  "gcPauseMs": 11.06,
+  "allocPerFrame": 206202,
+  "heapBefore": 6439920,
+  "heapAfter": 6703308,
+  "renderer": "Canvas",
+  "gl": null
+ },
+ {
+  "mode": "canvas-accel",
+  "width": 360,
+  "height": 640,
+  "round": 0,
+  "build": "pub",
+  "scenario": "air4",
+  "setup": {
+   "n": 4,
+   "t": 0
+  },
+  "check": {
+   "bubbles": 4,
+   "timeout": 0,
+   "frozen": false,
+   "state": "playing",
+   "stage": "3-1",
+   "slots": 304
+  },
+  "interval": {
+   "n": 240,
+   "mean": 16.666250000000005,
+   "p50": 16.69999999999891,
+   "p95": 16.799999999999272,
+   "p99": 16.80000000000109,
+   "max": 16.80000000000109
+  },
+  "over25": 0,
+  "minor": 37,
+  "major": 3,
+  "gcPauseMs": 8.25,
+  "allocPerFrame": 204579,
+  "heapBefore": 7032928,
+  "heapAfter": 7052656,
+  "renderer": "Canvas",
+  "gl": null
+ },
+ {
+  "mode": "canvas-accel",
+  "width": 360,
+  "height": 640,
+  "round": 0,
+  "build": "pub",
+  "scenario": "air12",
+  "setup": {
+   "n": 12,
+   "t": 0
+  },
+  "check": {
+   "bubbles": 12,
+   "timeout": 0,
+   "frozen": false,
+   "state": "playing",
+   "stage": "3-1",
+   "slots": 912
+  },
+  "interval": {
+   "n": 240,
+   "mean": 16.66541666666667,
+   "p50": 16.700000000000728,
+   "p95": 16.700000000000728,
+   "p99": 16.799999999999272,
+   "max": 16.80000000000291
+  },
+  "over25": 0,
+  "minor": 37,
+  "major": 3,
+  "gcPauseMs": 8.24,
+  "allocPerFrame": 221704,
+  "heapBefore": 7226512,
+  "heapAfter": 7062792,
+  "renderer": "Canvas",
+  "gl": null
+ },
+ {
+  "mode": "canvas-accel",
+  "width": 360,
+  "height": 640,
+  "round": 0,
+  "build": "pub",
+  "scenario": "timeoutAir",
+  "setup": {
+   "n": 12,
+   "t": 1
+  },
+  "check": {
+   "bubbles": 12,
+   "timeout": 1,
+   "frozen": false,
+   "state": "playing",
+   "stage": "3-1",
+   "slots": 912
+  },
+  "interval": {
+   "n": 240,
+   "mean": 16.66624999999999,
+   "p50": 16.700000000000728,
+   "p95": 16.799999999999272,
+   "p99": 16.799999999999272,
+   "max": 16.80000000000291
+  },
+  "over25": 0,
+  "minor": 38,
+  "major": 3,
+  "gcPauseMs": 8.18,
+  "allocPerFrame": 222220,
+  "heapBefore": 7204324,
+  "heapAfter": 7077036,
+  "renderer": "Canvas",
+  "gl": null
+ },
+ {
+  "mode": "canvas-accel",
+  "width": 360,
+  "build": "pub",
+  "scenario": "sustained-air12",
+  "seconds": 90,
+  "heapGcStart": 7216948,
+  "heapGcEnd": 7321364,
+  "sawtooth": [
+   8274184,
+   7860440,
+   7608156,
+   7181624,
+   10175612,
+   9601648,
+   13608140,
+   10995332,
+   8157004,
+   9845604,
+   13406412,
+   9890644,
+   13233456,
+   7607104,
+   10733832,
+   7215404,
+   10781796,
+   7664136
+  ],
+  "minor": 227,
+  "major": 76,
+  "gcPauseMs": 126.44,
+  "bubbles": 12,
+  "errors": {
+   "exceptions": [],
+   "console": []
+  }
+ },
+ {
+  "mode": "canvas-accel",
+  "width": 360,
+  "height": 640,
+  "round": 0,
+  "build": "prod-base",
+  "scenario": "air0",
+  "setup": {
+   "n": 0,
+   "t": 0
+  },
+  "check": {
+   "bubbles": 0,
+   "timeout": 0,
+   "frozen": false,
+   "state": "playing",
+   "stage": "3-1",
+   "slots": 0
+  },
+  "interval": {
+   "n": 240,
+   "mean": 16.665833333333335,
+   "p50": 16.699999999999818,
+   "p95": 16.799999999999727,
+   "p99": 16.800000000000182,
+   "max": 16.800000000000182
+  },
+  "over25": 0,
+  "minor": 29,
+  "major": 5,
+  "gcPauseMs": 10.62,
+  "allocPerFrame": 156231,
+  "heapBefore": 6391952,
+  "heapAfter": 6790284,
+  "renderer": "Canvas",
+  "gl": null
+ },
+ {
+  "mode": "canvas-accel",
+  "width": 360,
+  "height": 640,
+  "round": 0,
+  "build": "prod-base",
+  "scenario": "air4",
+  "setup": {
+   "n": 4,
+   "t": 0
+  },
+  "check": {
+   "bubbles": 4,
+   "timeout": 0,
+   "frozen": false,
+   "state": "playing",
+   "stage": "3-1",
+   "slots": 88
+  },
+  "interval": {
+   "n": 240,
+   "mean": 16.66583333333333,
+   "p50": 16.69999999999891,
+   "p95": 16.799999999999272,
+   "p99": 16.80000000000109,
+   "max": 16.80000000000109
+  },
+  "over25": 0,
+  "minor": 24,
+  "major": 3,
+  "gcPauseMs": 6.88,
+  "allocPerFrame": 145823,
+  "heapBefore": 6902580,
+  "heapAfter": 7149876,
+  "renderer": "Canvas",
+  "gl": null
+ },
+ {
+  "mode": "canvas-accel",
+  "width": 360,
+  "height": 640,
+  "round": 0,
+  "build": "prod-base",
+  "scenario": "air12",
+  "setup": {
+   "n": 12,
+   "t": 0
+  },
+  "check": {
+   "bubbles": 12,
+   "timeout": 0,
+   "frozen": false,
+   "state": "playing",
+   "stage": "3-1",
+   "slots": 264
+  },
+  "interval": {
+   "n": 240,
+   "mean": 16.66624999999999,
+   "p50": 16.69999999999709,
+   "p95": 16.700000000000728,
+   "p99": 16.799999999999272,
+   "max": 16.80000000000291
+  },
+  "over25": 0,
+  "minor": 23,
+  "major": 3,
+  "gcPauseMs": 6.52,
+  "allocPerFrame": 154184,
+  "heapBefore": 7071968,
+  "heapAfter": 7200128,
+  "renderer": "Canvas",
+  "gl": null
+ },
+ {
+  "mode": "canvas-accel",
+  "width": 360,
+  "height": 640,
+  "round": 0,
+  "build": "prod-base",
+  "scenario": "timeoutAir",
+  "setup": {
+   "n": 12,
+   "t": 1
+  },
+  "check": {
+   "bubbles": 12,
+   "timeout": 1,
+   "frozen": false,
+   "state": "playing",
+   "stage": "3-1",
+   "slots": 264
+  },
+  "interval": {
+   "n": 240,
+   "mean": 16.66583333333333,
+   "p50": 16.700000000000728,
+   "p95": 16.700000000000728,
+   "p99": 16.799999999999272,
+   "max": 16.799999999999272
+  },
+  "over25": 0,
+  "minor": 24,
+  "major": 3,
+  "gcPauseMs": 6.78,
+  "allocPerFrame": 151608,
+  "heapBefore": 7115504,
+  "heapAfter": 7207240,
+  "renderer": "Canvas",
+  "gl": null
+ },
+ {
+  "mode": "canvas-accel",
+  "width": 360,
+  "build": "prod-base",
+  "scenario": "sustained-air12",
+  "seconds": 90,
+  "heapGcStart": 7005316,
+  "heapGcEnd": 7177132,
+  "sawtooth": [
+   7390064,
+   7612356,
+   8132036,
+   8666156,
+   7685384,
+   10041140,
+   8575240,
+   7327172,
+   10087140,
+   9052492,
+   8123252,
+   10424392,
+   8859228,
+   7662192,
+   9797696,
+   8886508,
+   12825932,
+   8429860
+  ],
+  "minor": 273,
+  "major": 76,
+  "gcPauseMs": 132.47,
+  "bubbles": 12,
+  "errors": {
+   "exceptions": [],
+   "console": []
+  }
+ },
+ {
+  "mode": "canvas-accel",
+  "width": 360,
+  "height": 640,
+  "round": 1,
+  "build": "prod-base",
+  "scenario": "air0",
+  "setup": {
+   "n": 0,
+   "t": 0
+  },
+  "check": {
+   "bubbles": 0,
+   "timeout": 0,
+   "frozen": false,
+   "state": "playing",
+   "stage": "3-1",
+   "slots": 0
+  },
+  "interval": {
+   "n": 240,
+   "mean": 16.66625,
+   "p50": 16.699999999999818,
+   "p95": 16.700000000000728,
+   "p99": 16.800000000000182,
+   "max": 16.800000000000182
+  },
+  "over25": 0,
+  "minor": 31,
+  "major": 5,
+  "gcPauseMs": 11.09,
+  "allocPerFrame": 156527,
+  "heapBefore": 6413004,
+  "heapAfter": 6871208,
+  "renderer": "Canvas",
+  "gl": null
+ },
+ {
+  "mode": "canvas-accel",
+  "width": 360,
+  "height": 640,
+  "round": 1,
+  "build": "prod-base",
+  "scenario": "air4",
+  "setup": {
+   "n": 4,
+   "t": 0
+  },
+  "check": {
+   "bubbles": 4,
+   "timeout": 0,
+   "frozen": false,
+   "state": "playing",
+   "stage": "3-1",
+   "slots": 88
+  },
+  "interval": {
+   "n": 240,
+   "mean": 16.66583333333333,
+   "p50": 16.69999999999891,
+   "p95": 16.700000000000728,
+   "p99": 16.80000000000109,
+   "max": 16.80000000000109
+  },
+  "over25": 0,
+  "minor": 41,
+  "major": 3,
+  "gcPauseMs": 8.64,
+  "allocPerFrame": 147618,
+  "heapBefore": 6893692,
+  "heapAfter": 7223912,
+  "renderer": "Canvas",
+  "gl": null
+ },
+ {
+  "mode": "canvas-accel",
+  "width": 360,
+  "height": 640,
+  "round": 1,
+  "build": "prod-base",
+  "scenario": "air12",
+  "setup": {
+   "n": 12,
+   "t": 0
+  },
+  "check": {
+   "bubbles": 12,
+   "timeout": 0,
+   "frozen": false,
+   "state": "playing",
+   "stage": "3-1",
+   "slots": 264
+  },
+  "interval": {
+   "n": 240,
+   "mean": 16.66624999999999,
+   "p50": 16.700000000000728,
+   "p95": 16.799999999999272,
+   "p99": 16.799999999999272,
+   "max": 16.80000000000291
+  },
+  "over25": 0,
+  "minor": 35,
+  "major": 3,
+  "gcPauseMs": 7.59,
+  "allocPerFrame": 154027,
+  "heapBefore": 7151156,
+  "heapAfter": 7233596,
+  "renderer": "Canvas",
+  "gl": null
+ },
+ {
+  "mode": "canvas-accel",
+  "width": 360,
+  "height": 640,
+  "round": 1,
+  "build": "prod-base",
+  "scenario": "timeoutAir",
+  "setup": {
+   "n": 12,
+   "t": 1
+  },
+  "check": {
+   "bubbles": 12,
+   "timeout": 1,
+   "frozen": false,
+   "state": "playing",
+   "stage": "3-1",
+   "slots": 264
+  },
+  "interval": {
+   "n": 240,
+   "mean": 16.66583333333333,
+   "p50": 16.69999999999709,
+   "p95": 16.799999999999272,
+   "p99": 16.799999999999272,
+   "max": 16.80000000000291
+  },
+  "over25": 0,
+  "minor": 31,
+  "major": 3,
+  "gcPauseMs": 7.59,
+  "allocPerFrame": 155779,
+  "heapBefore": 7081084,
+  "heapAfter": 7187556,
+  "renderer": "Canvas",
+  "gl": null,
+  "errors": {
+   "exceptions": [],
+   "console": []
+  }
+ },
+ {
+  "mode": "canvas-accel",
+  "width": 360,
+  "height": 640,
+  "round": 1,
+  "build": "pub",
+  "scenario": "air0",
+  "setup": {
+   "n": 0,
+   "t": 0
+  },
+  "check": {
+   "bubbles": 0,
+   "timeout": 0,
+   "frozen": false,
+   "state": "playing",
+   "stage": "3-1",
+   "slots": 0
+  },
+  "interval": {
+   "n": 240,
+   "mean": 16.66583333333333,
+   "p50": 16.699999999999818,
+   "p95": 16.700000000000728,
+   "p99": 16.800000000000182,
+   "max": 16.800000000000182
+  },
+  "over25": 0,
+  "minor": 37,
+  "major": 5,
+  "gcPauseMs": 11.17,
+  "allocPerFrame": 208021,
+  "heapBefore": 6401264,
+  "heapAfter": 6732112,
+  "renderer": "Canvas",
+  "gl": null
+ },
+ {
+  "mode": "canvas-accel",
+  "width": 360,
+  "height": 640,
+  "round": 1,
+  "build": "pub",
+  "scenario": "air4",
+  "setup": {
+   "n": 4,
+   "t": 0
+  },
+  "check": {
+   "bubbles": 4,
+   "timeout": 0,
+   "frozen": false,
+   "state": "upgrade",
+   "stage": "3-1",
+   "slots": 304
+  },
+  "interval": {
+   "n": 240,
+   "mean": 16.66583333333334,
+   "p50": 16.69999999999891,
+   "p95": 16.700000000000728,
+   "p99": 16.80000000000109,
+   "max": 16.80000000000109
+  },
+  "over25": 0,
+  "minor": 38,
+  "major": 1,
+  "gcPauseMs": 5.97,
+  "allocPerFrame": 198774,
+  "heapBefore": 7023292,
+  "heapAfter": 7173168,
+  "renderer": "Canvas",
+  "gl": null
+ },
+ {
+  "mode": "canvas-accel",
+  "width": 360,
+  "height": 640,
+  "round": 1,
+  "build": "pub",
+  "scenario": "air12",
+  "setup": {
+   "n": 12,
+   "t": 0
+  },
+  "check": {
+   "bubbles": 12,
+   "timeout": 0,
+   "frozen": false,
+   "state": "upgrade",
+   "stage": "3-1",
+   "slots": 912
+  },
+  "interval": {
+   "n": 240,
+   "mean": 16.66583333333333,
+   "p50": 16.700000000000728,
+   "p95": 16.799999999999272,
+   "p99": 16.799999999999272,
+   "max": 16.80000000000291
+  },
+  "over25": 0,
+  "minor": 38,
+  "major": 1,
+  "gcPauseMs": 5.58,
+  "allocPerFrame": 216783,
+  "heapBefore": 7209748,
+  "heapAfter": 7163132,
+  "renderer": "Canvas",
+  "gl": null
+ },
+ {
+  "mode": "canvas-accel",
+  "width": 360,
+  "height": 640,
+  "round": 1,
+  "build": "pub",
+  "scenario": "timeoutAir",
+  "setup": {
+   "n": 12,
+   "t": 1
+  },
+  "check": {
+   "bubbles": 12,
+   "timeout": 1,
+   "frozen": false,
+   "state": "upgrade",
+   "stage": "3-1",
+   "slots": 912
+  },
+  "interval": {
+   "n": 240,
+   "mean": 16.66583333333333,
+   "p50": 16.700000000000728,
+   "p95": 16.700000000000728,
+   "p99": 16.799999999999272,
+   "max": 16.80000000000291
+  },
+  "over25": 0,
+  "minor": 40,
+  "major": 1,
+  "gcPauseMs": 6.27,
+  "allocPerFrame": 236288,
+  "heapBefore": 6900060,
+  "heapAfter": 7196612,
+  "renderer": "Canvas",
+  "gl": null,
+  "errors": {
+   "exceptions": [],
+   "console": []
+  }
+ }
+]

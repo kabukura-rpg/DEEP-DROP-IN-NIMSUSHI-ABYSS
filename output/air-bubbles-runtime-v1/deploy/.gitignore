@@ -1,0 +1,6 @@
+# Regenerable build copies, the downloaded public files (their SHA-256 is in public-check.txt) and capture images
+# stay on disk only; every such file is listed with its SHA-256 in evidence/untracked-artifacts.sha256.
+builds/
+pub/
+smoke/
+perf/

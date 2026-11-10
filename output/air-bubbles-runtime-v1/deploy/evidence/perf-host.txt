@@ -1,0 +1,11 @@
+Tue Nov 10 11:36:01 JST 2026
+Apple M3 Pro
+11
+38654705664
+11:36  up 13 days, 13:10, 2 users, load averages: 8.74 8.23 7.14
+  PID  %CPU COMM
+90492 370.8 node
+21781  91.0 /System/Library/PrivateFrameworks/Stickers.framework/Support/stickersd
+  424  46.2 /System/Library/PrivateFrameworks/SkyLight.framework/Resources/WindowServer
+19140  37.1 /System/Library/PrivateFrameworks/ModelCatalogRuntime.framework/Versions/A/modelcatalogd
+21787  25.7 /System/Library/Frameworks/VideoToolbox.framework/Versions/A/XPCServices/VTDecoderXPCService.xpc/Contents/MacOS/VTDecoderXPCService

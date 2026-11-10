@@ -1,0 +1,658 @@
+[
+ {
+  "build": "pub",
+  "mode": "webgl",
+  "width": 1440,
+  "height": 1000,
+  "case": "area1",
+  "native": [
+   450,
+   800
+  ],
+  "placed": {
+   "cam": 0,
+   "gx": 0,
+   "gy": 0,
+   "stage": "1-1",
+   "n": 6,
+   "timeout": 0
+  },
+  "renderer": "WebGL",
+  "gl": "ANGLE (Google, Vulkan 1.3.0 (SwiftShader Device (LLVM 10.0.0) (0x0000C0DE)), SwiftShader driver)",
+  "expectedPx": 624,
+  "extra": 0,
+  "missing": 0,
+  "colourBad": 156,
+  "colourBadByBubbleY": {
+   "200": 52,
+   "260": 26,
+   "520": 52,
+   "640": 26
+  },
+  "maxErr": [
+   25.76000000000002,
+   27.560000000000002,
+   28.599999999999994
+  ],
+  "noise": 0,
+  "nativeSha": "cfc66246df31d7ca680f770c3242911610e045ce9da401b535229aa9aaf1ce87",
+  "clearSha": "403ea7a9170768b76a3f33a7b3dcbaed2f1c0be344b79528dda76f6336a68450",
+  "pass": true
+ },
+ {
+  "build": "pub",
+  "mode": "webgl",
+  "width": 1440,
+  "height": 1000,
+  "case": "area3",
+  "native": [
+   450,
+   800
+  ],
+  "placed": {
+   "cam": 0,
+   "gx": 0,
+   "gy": 0,
+   "stage": "3-1",
+   "n": 6,
+   "timeout": 0
+  },
+  "renderer": "WebGL",
+  "gl": "ANGLE (Google, Vulkan 1.3.0 (SwiftShader Device (LLVM 10.0.0) (0x0000C0DE)), SwiftShader driver)",
+  "expectedPx": 624,
+  "extra": 0,
+  "missing": 0,
+  "colourBad": 156,
+  "colourBadByBubbleY": {
+   "200": 52,
+   "260": 26,
+   "520": 52,
+   "640": 26
+  },
+  "maxErr": [
+   25.676000000000016,
+   27.560000000000002,
+   28.400000000000006
+  ],
+  "noise": 0,
+  "nativeSha": "083a9b82dd46bf2c9268d12f55341d28938c7e9768527da32e162641baeb1558",
+  "clearSha": "13c728a76f8969e7c11643a1d7318872a54c31daaf7306f2a9c226cce70e1787",
+  "pass": true
+ },
+ {
+  "build": "pub",
+  "mode": "webgl",
+  "width": 1440,
+  "height": 1000,
+  "case": "area4",
+  "native": [
+   450,
+   800
+  ],
+  "placed": {
+   "cam": 0,
+   "gx": 0,
+   "gy": 0,
+   "stage": "4-1",
+   "n": 6,
+   "timeout": 0
+  },
+  "renderer": "WebGL",
+  "gl": "ANGLE (Google, Vulkan 1.3.0 (SwiftShader Device (LLVM 10.0.0) (0x0000C0DE)), SwiftShader driver)",
+  "expectedPx": 624,
+  "extra": 0,
+  "missing": 0,
+  "colourBad": 156,
+  "colourBadByBubbleY": {
+   "200": 52,
+   "260": 26,
+   "520": 52,
+   "640": 26
+  },
+  "maxErr": [
+   25.76000000000002,
+   27.560000000000002,
+   28.80000000000001
+  ],
+  "noise": 0,
+  "nativeSha": "010d77d439eeb29f5f8d314fa5dd335da4e87af2d8c5db6552b7a6b90586dd8f",
+  "clearSha": "264e7d70c9e501c987ad06f86c8adf079513151217d1ea6f9e28d43250e2bb60",
+  "pass": true
+ },
+ {
+  "build": "pub",
+  "mode": "webgl",
+  "width": 1440,
+  "height": 1000,
+  "case": "timeout",
+  "native": [
+   450,
+   800
+  ],
+  "placed": {
+   "cam": 0,
+   "gx": 0,
+   "gy": 0,
+   "stage": "3-1",
+   "n": 6,
+   "timeout": 1
+  },
+  "renderer": "WebGL",
+  "gl": "ANGLE (Google, Vulkan 1.3.0 (SwiftShader Device (LLVM 10.0.0) (0x0000C0DE)), SwiftShader driver)",
+  "expectedPx": 624,
+  "extra": 0,
+  "missing": 0,
+  "colourBad": 162,
+  "colourBadByBubbleY": {
+   "200": 52,
+   "260": 32,
+   "520": 52,
+   "640": 26
+  },
+  "maxErr": [
+   33.58800000000002,
+   28.888000000000005,
+   28.400000000000006
+  ],
+  "noise": 0,
+  "nativeSha": "865274c629e050f977b04fc22325d7b86b14656d7edbecc018908d981d770230",
+  "clearSha": "4e290e5c80b6813b8474751b807dac00a9cdb592ee87f8dd181cce0ec760c995",
+  "pass": true,
+  "errors": {
+   "exceptions": [],
+   "console": []
+  }
+ },
+ {
+  "build": "pub",
+  "mode": "webgl",
+  "width": 390,
+  "height": 844,
+  "case": "area1",
+  "native": [
+   450,
+   800
+  ],
+  "placed": {
+   "cam": 0,
+   "gx": 0,
+   "gy": 0,
+   "stage": "1-1",
+   "n": 6,
+   "timeout": 0
+  },
+  "renderer": "WebGL",
+  "gl": "ANGLE (Google, Vulkan 1.3.0 (SwiftShader Device (LLVM 10.0.0) (0x0000C0DE)), SwiftShader driver)",
+  "expectedPx": 624,
+  "extra": 0,
+  "missing": 0,
+  "colourBad": 156,
+  "colourBadByBubbleY": {
+   "200": 52,
+   "260": 26,
+   "520": 52,
+   "640": 26
+  },
+  "maxErr": [
+   25.76000000000002,
+   27.560000000000002,
+   28.599999999999994
+  ],
+  "noise": 0,
+  "nativeSha": "f0b672c36c58f9a10a402370c7107a2cbc9e53e14e5b7e1349f7473f66617b30",
+  "clearSha": "d2442bba2bc60136cd0a2cf1cd8c2ad332c897368e652def2ee288b3d0c16fd0",
+  "pass": true
+ },
+ {
+  "build": "pub",
+  "mode": "webgl",
+  "width": 390,
+  "height": 844,
+  "case": "area3",
+  "native": [
+   450,
+   800
+  ],
+  "placed": {
+   "cam": 0,
+   "gx": 0,
+   "gy": 0,
+   "stage": "3-1",
+   "n": 6,
+   "timeout": 0
+  },
+  "renderer": "WebGL",
+  "gl": "ANGLE (Google, Vulkan 1.3.0 (SwiftShader Device (LLVM 10.0.0) (0x0000C0DE)), SwiftShader driver)",
+  "expectedPx": 624,
+  "extra": 0,
+  "missing": 0,
+  "colourBad": 156,
+  "colourBadByBubbleY": {
+   "200": 52,
+   "260": 26,
+   "520": 52,
+   "640": 26
+  },
+  "maxErr": [
+   25.676000000000016,
+   27.560000000000002,
+   28.400000000000006
+  ],
+  "noise": 0,
+  "nativeSha": "a6421d1d859a1df6b066ee4c0c95b5803ff09003b174fd1627f907021323d6fb",
+  "clearSha": "f733cb69ef5559a0cdc5b26cf1007bfdda30b545099c818131c2a35deedfca40",
+  "pass": true
+ },
+ {
+  "build": "pub",
+  "mode": "webgl",
+  "width": 390,
+  "height": 844,
+  "case": "area4",
+  "native": [
+   450,
+   800
+  ],
+  "placed": {
+   "cam": 0,
+   "gx": 0,
+   "gy": 0,
+   "stage": "4-1",
+   "n": 6,
+   "timeout": 0
+  },
+  "renderer": "WebGL",
+  "gl": "ANGLE (Google, Vulkan 1.3.0 (SwiftShader Device (LLVM 10.0.0) (0x0000C0DE)), SwiftShader driver)",
+  "expectedPx": 624,
+  "extra": 0,
+  "missing": 0,
+  "colourBad": 156,
+  "colourBadByBubbleY": {
+   "200": 52,
+   "260": 26,
+   "520": 52,
+   "640": 26
+  },
+  "maxErr": [
+   25.76000000000002,
+   27.560000000000002,
+   28.80000000000001
+  ],
+  "noise": 0,
+  "nativeSha": "d71f936298878d769c0f0f1dcb586bc9a4c646ffe65db69b8fe5049254b419a8",
+  "clearSha": "ddc796d42651cd9d0fb00310293954f33fb5ef2880dfb75dce42ca27138dfe83",
+  "pass": true
+ },
+ {
+  "build": "pub",
+  "mode": "webgl",
+  "width": 390,
+  "height": 844,
+  "case": "timeout",
+  "native": [
+   450,
+   800
+  ],
+  "placed": {
+   "cam": 0,
+   "gx": 0,
+   "gy": 0,
+   "stage": "3-1",
+   "n": 6,
+   "timeout": 1
+  },
+  "renderer": "WebGL",
+  "gl": "ANGLE (Google, Vulkan 1.3.0 (SwiftShader Device (LLVM 10.0.0) (0x0000C0DE)), SwiftShader driver)",
+  "expectedPx": 624,
+  "extra": 0,
+  "missing": 0,
+  "colourBad": 162,
+  "colourBadByBubbleY": {
+   "200": 52,
+   "260": 32,
+   "520": 52,
+   "640": 26
+  },
+  "maxErr": [
+   33.58800000000002,
+   28.888000000000005,
+   28.400000000000006
+  ],
+  "noise": 0,
+  "nativeSha": "d8002f3d0d1db17febc5056d2c534df51a7b99eef78c08a688271ef2221183f2",
+  "clearSha": "49e0140140c1156e72382e4e201f08db3617c08e53aec6d820f21687e604d176",
+  "pass": true,
+  "errors": {
+   "exceptions": [],
+   "console": []
+  }
+ },
+ {
+  "build": "pub",
+  "mode": "canvas-accel",
+  "width": 1440,
+  "height": 1000,
+  "case": "area1",
+  "native": [
+   450,
+   800
+  ],
+  "placed": {
+   "cam": 0,
+   "gx": 0,
+   "gy": 0,
+   "stage": "1-1",
+   "n": 6,
+   "timeout": 0
+  },
+  "renderer": "Canvas",
+  "gl": null,
+  "expectedPx": 624,
+  "extra": 0,
+  "missing": 0,
+  "colourBad": 156,
+  "colourBadByBubbleY": {
+   "200": 52,
+   "260": 26,
+   "520": 52,
+   "640": 26
+  },
+  "maxErr": [
+   25.868000000000023,
+   26.988,
+   27.879999999999995
+  ],
+  "noise": 0,
+  "nativeSha": "4f41dd6bd37b5249de25ac9b37b58d31416b8c6bdb0a55b6daf00feaa10b8ae1",
+  "clearSha": "726fb1da7c8dcee89ad9d19bacbbc6ea8137c2684a7ec132ea0a035b9c2f51d2",
+  "pass": true
+ },
+ {
+  "build": "pub",
+  "mode": "canvas-accel",
+  "width": 1440,
+  "height": 1000,
+  "case": "area3",
+  "native": [
+   450,
+   800
+  ],
+  "placed": {
+   "cam": 0,
+   "gx": 0,
+   "gy": 0,
+   "stage": "3-1",
+   "n": 6,
+   "timeout": 0
+  },
+  "renderer": "Canvas",
+  "gl": null,
+  "expectedPx": 624,
+  "extra": 0,
+  "missing": 0,
+  "colourBad": 156,
+  "colourBadByBubbleY": {
+   "200": 52,
+   "260": 26,
+   "520": 52,
+   "640": 26
+  },
+  "maxErr": [
+   26.212000000000018,
+   26.799999999999983,
+   28.080000000000013
+  ],
+  "noise": 0,
+  "nativeSha": "34ba08f4f6f5df62de2abd6b3cd96302285a0a08057472312896da3f3325d87d",
+  "clearSha": "f417e755085433bc5d2b6d6a5db26a53d539c81f0d77f0b66e133b51ed6112d5",
+  "pass": true
+ },
+ {
+  "build": "pub",
+  "mode": "canvas-accel",
+  "width": 1440,
+  "height": 1000,
+  "case": "area4",
+  "native": [
+   450,
+   800
+  ],
+  "placed": {
+   "cam": 0,
+   "gx": 0,
+   "gy": 0,
+   "stage": "4-1",
+   "n": 6,
+   "timeout": 0
+  },
+  "renderer": "Canvas",
+  "gl": null,
+  "expectedPx": 624,
+  "extra": 0,
+  "missing": 0,
+  "colourBad": 156,
+  "colourBadByBubbleY": {
+   "200": 52,
+   "260": 26,
+   "520": 52,
+   "640": 26
+  },
+  "maxErr": [
+   25.76000000000002,
+   26.956000000000017,
+   28.120000000000005
+  ],
+  "noise": 0,
+  "nativeSha": "24ab039ce87a8131bfca9b20bb8c44ee5c51c7d43812b850af5f137cfa653afb",
+  "clearSha": "d00549a852ce2ee404d6e9781db087804bf5f539bfe2414c839fba2f329a9719",
+  "pass": true
+ },
+ {
+  "build": "pub",
+  "mode": "canvas-accel",
+  "width": 1440,
+  "height": 1000,
+  "case": "timeout",
+  "native": [
+   450,
+   800
+  ],
+  "placed": {
+   "cam": 0,
+   "gx": 0,
+   "gy": 0,
+   "stage": "3-1",
+   "n": 6,
+   "timeout": 1
+  },
+  "renderer": "Canvas",
+  "gl": null,
+  "expectedPx": 624,
+  "extra": 0,
+  "missing": 0,
+  "colourBad": 162,
+  "colourBadByBubbleY": {
+   "200": 52,
+   "260": 32,
+   "520": 52,
+   "640": 26
+  },
+  "maxErr": [
+   34.27600000000001,
+   28.576000000000022,
+   27.72
+  ],
+  "noise": 0,
+  "nativeSha": "e76aef68fd5031cab320ac559c952d8fe9cd3b6f0dc23e61b1e2411b54bb8758",
+  "clearSha": "12c51861f7e0c1d2269367eee1279a2c7f928216ae2850ad6ad9176a6c5c64d0",
+  "pass": true,
+  "errors": {
+   "exceptions": [],
+   "console": []
+  }
+ },
+ {
+  "build": "pub",
+  "mode": "canvas-accel",
+  "width": 360,
+  "height": 640,
+  "case": "area1",
+  "native": [
+   450,
+   800
+  ],
+  "placed": {
+   "cam": 0,
+   "gx": 0,
+   "gy": 0,
+   "stage": "1-1",
+   "n": 6,
+   "timeout": 0
+  },
+  "renderer": "Canvas",
+  "gl": null,
+  "expectedPx": 624,
+  "extra": 0,
+  "missing": 0,
+  "colourBad": 156,
+  "colourBadByBubbleY": {
+   "200": 52,
+   "260": 26,
+   "520": 52,
+   "640": 26
+  },
+  "maxErr": [
+   25.868000000000023,
+   26.988,
+   27.879999999999995
+  ],
+  "noise": 0,
+  "nativeSha": "0398f64ea9a94004a89953b57c87df58ecdef756bd8d142809dbfaf8e340be3d",
+  "clearSha": "52b0ec42e7bdad488faab25e9e991d77057626bdc4e404dfd5dbb7a28a591bab",
+  "pass": true
+ },
+ {
+  "build": "pub",
+  "mode": "canvas-accel",
+  "width": 360,
+  "height": 640,
+  "case": "area3",
+  "native": [
+   450,
+   800
+  ],
+  "placed": {
+   "cam": 0,
+   "gx": 0,
+   "gy": 0,
+   "stage": "3-1",
+   "n": 6,
+   "timeout": 0
+  },
+  "renderer": "Canvas",
+  "gl": null,
+  "expectedPx": 624,
+  "extra": 0,
+  "missing": 0,
+  "colourBad": 156,
+  "colourBadByBubbleY": {
+   "200": 52,
+   "260": 26,
+   "520": 52,
+   "640": 26
+  },
+  "maxErr": [
+   26.212000000000018,
+   26.799999999999983,
+   28.080000000000013
+  ],
+  "noise": 0,
+  "nativeSha": "9b17fc43957768c2fa80c8f593d2a765f5788dd5928783f538aa25d7ad555db3",
+  "clearSha": "f202b01ce9d735e1c05b2f564d2eef001dd4e5945bfa3ef0bbfe7d36f399d9c3",
+  "pass": true
+ },
+ {
+  "build": "pub",
+  "mode": "canvas-accel",
+  "width": 360,
+  "height": 640,
+  "case": "area4",
+  "native": [
+   450,
+   800
+  ],
+  "placed": {
+   "cam": 0,
+   "gx": 0,
+   "gy": 0,
+   "stage": "4-1",
+   "n": 6,
+   "timeout": 0
+  },
+  "renderer": "Canvas",
+  "gl": null,
+  "expectedPx": 624,
+  "extra": 0,
+  "missing": 0,
+  "colourBad": 156,
+  "colourBadByBubbleY": {
+   "200": 52,
+   "260": 26,
+   "520": 52,
+   "640": 26
+  },
+  "maxErr": [
+   25.76000000000002,
+   26.956000000000017,
+   28.120000000000005
+  ],
+  "noise": 0,
+  "nativeSha": "a5cee035a52695da10a65fbb634c02bd04758c10c1c06dd19a6739d2d1e0e64a",
+  "clearSha": "a638d60296aadbeafcae29abbb617e2f719a5561e3ee6252dbeb65255fe87829",
+  "pass": true
+ },
+ {
+  "build": "pub",
+  "mode": "canvas-accel",
+  "width": 360,
+  "height": 640,
+  "case": "timeout",
+  "native": [
+   450,
+   800
+  ],
+  "placed": {
+   "cam": 0,
+   "gx": 0,
+   "gy": 0,
+   "stage": "3-1",
+   "n": 6,
+   "timeout": 1
+  },
+  "renderer": "Canvas",
+  "gl": null,
+  "expectedPx": 624,
+  "extra": 0,
+  "missing": 0,
+  "colourBad": 162,
+  "colourBadByBubbleY": {
+   "200": 52,
+   "260": 32,
+   "520": 52,
+   "640": 26
+  },
+  "maxErr": [
+   34.27600000000001,
+   28.576000000000022,
+   27.72
+  ],
+  "noise": 0,
+  "nativeSha": "05eb410a5dbd0544290f8770eedefe68bceccc4bb2e035fd6822420843161431",
+  "clearSha": "b4f4016ea5e27df0b4ae6ed9db5fb9da31560c9401ee05dd8c88fa4e1ff10140",
+  "pass": true,
+  "errors": {
+   "exceptions": [],
+   "console": []
+  }
+ }
+]

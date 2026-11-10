@@ -1,0 +1,60 @@
+
+> deep-drop@0.1.0 build
+> tsc --noEmit && vite build
+
+vite v7.3.6 building client environment for production...
+transforming...
+✓ 279 modules transformed.
+rendering chunks...
+computing gzip size...
+dist/index.html                                         0.86 kB │ gzip:   0.52 kB
+dist/assets/gem-powered-Bkt5B3WA.png                    4.18 kB
+dist/assets/rest-in-pieces-p0QkHDUO.png                 4.58 kB
+dist/assets/hot-casing-DBlnJEyl.png                     4.85 kB
+dist/assets/gem-attractor-Khxj63P-.png                  4.93 kB
+dist/assets/rocket-jump-CWFbOy6t.png                    4.98 kB
+dist/assets/drone-DVFuvvb4.png                          5.12 kB
+dist/assets/shop-cave-door-C20oDWtI.png                 5.13 kB
+dist/assets/safety-jetpack-Be2f1GfR.png                 5.30 kB
+dist/assets/knife-and-fork-D5PFQU08.png                 5.47 kB
+dist/assets/gunpowder-blocks-hIZdFH4F.png               5.70 kB
+dist/assets/members-card-D6HAlyNH.png                   5.90 kB
+dist/assets/reverse-engineering-BdifL1Q9.png            6.47 kB
+dist/assets/blast-module-HtDDgKwT.png                   7.25 kB
+dist/assets/gem-sick-zo5sjtDa.png                       7.77 kB
+dist/assets/timeout-DWbzGu4Q.png                        8.00 kB
+dist/assets/player_shared_v1-D68OOLPq.png               9.36 kB
+dist/assets/player_boss_v1-BZfqBXCQ.png                 9.78 kB
+dist/assets/area2-cave-backwall-OA7jNONo.png           11.88 kB
+dist/assets/area3-cave-backwall-CIJWunMo.png           11.95 kB
+dist/assets/area4-cave-backwall-CAcBL4hG.png           12.22 kB
+dist/assets/area1-cave-backwall-B9HwIv2I.png           12.36 kB
+dist/assets/animation-map-BtkjLbAt.json                13.87 kB │ gzip:   1.59 kB
+dist/assets/player_normal_v1-DG8D5NGK.png              20.69 kB
+dist/assets/ruin-pier-native-144x230-BFSCNMRv.png      24.97 kB
+dist/assets/boss-abyss-collapsed-seal-CXAXVDeM.png     31.25 kB
+dist/assets/nimushi_idle_256-DqecfT9S.png              81.89 kB
+dist/assets/boss-a-C5ozfl4J.png                       412.50 kB
+dist/assets/area4-b-DELAB8Jj.png                      504.94 kB
+dist/assets/area1-surface-a-DHSknEAv.png              534.65 kB
+dist/assets/title-background-DNSkgpCh.png             554.94 kB
+dist/assets/area3-b-DWRMtVL6.png                      592.20 kB
+dist/assets/area1-a-B4OOQtTT.png                      607.20 kB
+dist/assets/area2-b-BBjXTBPr.png                      619.15 kB
+dist/assets/Cavernous_Drift-DacSzhyo.mp3            2,805.66 kB
+dist/assets/Beneath_the_Stone_Vault-CyUD-olt.mp3    2,850.17 kB
+dist/assets/Beneath_the_Mossy_Stone-DpxJboql.mp3    3,868.41 kB
+dist/assets/Sunken_Meridian-CjpXxf8u.mp3            4,300.91 kB
+dist/assets/pressure_in_the_deep-BYd_8gaT.mp3       4,322.85 kB
+dist/assets/The_Mossy_Monolith-DmE9OPhx.mp3         4,346.67 kB
+dist/assets/index-BpKeBb6f.css                         53.45 kB │ gzip:  11.91 kB
+dist/assets/index-DfUgEkD_.js                         527.11 kB │ gzip: 260.56 kB
+dist/assets/phaser-DFK5Ua9d.js                      1,208.06 kB │ gzip: 330.08 kB
+
+(!) Some chunks are larger than 500 kB after minification. Consider:
+- Using dynamic import() to code-split the application
+- Use build.rollupOptions.output.manualChunks to improve chunking: https://rollupjs.org/configuration-options/#output-manualchunks
+- Adjust chunk size limit for this warning via build.chunkSizeWarningLimit.
+✓ built in 3.16s
+build exit 0
+JS_SAME_MODULO_TAG

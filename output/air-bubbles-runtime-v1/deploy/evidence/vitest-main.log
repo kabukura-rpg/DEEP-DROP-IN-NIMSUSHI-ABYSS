@@ -1,0 +1,252 @@
+
+ RUN  v3.2.7 /Users/shun/Worktrees/deep-drop-air-bubbles-runtime
+
+ ✓ tests/titleAudioGate.test.ts (46 tests) 97ms
+ ✓ tests/inputCancel.test.ts (34 tests) 1664ms
+ ✓ tests/airBubbleArt.test.ts (21 tests) 2377ms
+   ✓ AIR A changes nothing else > plays exactly as 5969f37: release, climb, catch, expiry and SECTIONs in every fixture run  2315ms
+ ✓ tests/jetpackBehavior.test.ts (21 tests) 2691ms
+   ✓ ISSUE 2: the hover ends when the hover ends > every step of every trace run obeys the contract: lit exactly when the fuel branch ran and still applies  2496ms
+ ✓ tests/timeoutArt.test.ts (22 tests) 3303ms
+   ✓ TIMEOUT A on the screen pixel grid > snaps only the centre: every final screen edge is a whole pixel at any translation, within .5px of the model  334ms
+   ✓ TIMEOUT A changes nothing else > plays exactly as e9b0e2a: natural REST pick -> 1-2 caveBat hit (seed 813), and every fixture run  2671ms
+ ✓ tests/balloonArt.test.ts (17 tests) 4065ms
+   ✓ HEART BALLOON A in the scene: same place, same tether, same layer > sits on the model centre at every position: inside the old circle, the box rounded from the centre  877ms
+   ✓ HEART BALLOON A changes nothing else > plays exactly as 6d83590: the same balloon, pops, blasts, kills, fall, SECTION returns and reversal  3012ms
+ ✓ tests/corpseArt.test.ts (25 tests) 5275ms
+   ✓ where bodies come from (unchanged) > AREA 4 lays none: no kind it can field leaves one, in any SECTION or seed  2160ms
+   ✓ gameplay invariance > plays every body exactly as e948ece did: spawn, motion, life, eating, blasts, OMNOM, HP, score, chain, coins  2753ms
+ ✓ tests/jetpackArt.test.ts (17 tests) 6796ms
+   ✓ JETPACK A in the scene: same gate, same place, same layer > sits on the rounded player at every position, the same offset as dc51d0b, mirrored above it under the BOSS reversal  1657ms
+   ✓ JETPACK A changes nothing else > plays exactly as dc51d0b: the same hover, fuel, refills, CHARGE, fall, hits, SECTION returns and reversal; the flag as fixed  4861ms
+ ✓ tests/area2Chase.test.ts (28 tests) 9964ms
+   ✓ CATACOMB terrain is walked, not fallen through > still falls less than the old ladder did, even with its shelves further apart  2695ms
+   ✓ CATACOMB terrain is walked, not fallen through > never asks for a single step longer than a gate drop  311ms
+   ✓ CATACOMB terrain is walked, not fallen through > lays a shelf under every exit of a baffle run, and walks the player to its far end  871ms
+   ✓ CATACOMB terrain is walked, not fallen through > gets harder by SECTION through its shape and its chasers, not its roster  1330ms
+   ✓ CATACOMB generation safety across 1,500 SECTIONs > 2-1: 500 seeds with no dead end, no forced spike hit, no blocked landing and no chaser misplaced  1066ms
+   ✓ CATACOMB generation safety across 1,500 SECTIONs > 2-2: 500 seeds with no dead end, no forced spike hit, no blocked landing and no chaser misplaced  1033ms
+   ✓ CATACOMB generation safety across 1,500 SECTIONs > 2-3: 500 seeds with no dead end, no forced spike hit, no blocked landing and no chaser misplaced  1162ms
+   ✓ Human Review v2: every ledge turns, and none of them is a trap > never puts spikes on a BREAK BLOCK: a gate is broken, not stood on  444ms
+   ✓ Human Review v2: every ledge turns, and none of them is a trap > lets a player who lands on the worst spot of the widest ledge walk off it untouched  364ms
+ ✓ tests/sideRooms.test.ts (11 tests) 7706ms
+   ✓ AREA 1 side rooms > offers more than one chance to step off the fall line, where it used to offer one  878ms
+   ✓ AREA 1 side rooms > puts every chamber where the fall the player is already making can reach it  399ms
+   ✓ AREA 1 side rooms > leaves thinking time between seeing the mouth and having to be in it  353ms
+   ✓ AREA 1 side rooms > keeps both chambers inside the SECTION and apart from each other  335ms
+   ✓ AREA 1 side rooms > is cut into a band roomy enough to hold it, whatever the terrain grammar is doing  1350ms
+   ✓ AREA 1 side rooms > raises how much side content a SECTION holds, without touching the split  1668ms
+   ✓ AREA 1 side rooms > cuts two side rooms in every AREA 2, 3 and 4 SECTION, in either mode  1912ms
+   ✓ AREA 1 side rooms > does not change how many enemies a SECTION holds  592ms
+ ✓ tests/terrain.test.ts (32 tests) 9201ms
+   ✓ instant-death SPIKE is legacy: no normal AREA lays any > generates none of it, on any seed, in any SECTION  5733ms
+   ✓ instant-death SPIKE is legacy: no normal AREA lays any > leaves the CATACOMBS and LIMBO ground non-lethal instead  1441ms
+   ✓ instant-death SPIKE is legacy: no normal AREA lays any > never reaches THE ABYSS, in the staging room or in the arena  313ms
+   ✓ REWARD BLOCK pays on sight, not on a coin flip > is decided when the row is built, so it can be seen before a round is spent  324ms
+   ✓ BREAK BLOCK placement > lays the number of rows the SECTION plan asks for, at the configured durability  678ms
+ ✓ tests/environmentArt.test.ts (71 tests) 13736ms
+   ✓ AREA 2 gameplay > generates exactly what it did before the images: every ledge, width, BREAK BLOCK, spike warning and belt  474ms
+   ✓ AREA 2 gameplay > plays exactly as it did before the images  683ms
+   ✓ AREA 3 gameplay > generates and plays exactly as it did before the images (golden values from d5883a6)  1266ms
+   ✓ outside AREA 3 > AREA 4 carries no reef, the BOSS arena draws its walls only, and both play as they did  2014ms
+   ✓ AREA 4 LIMBO barbs > covers every generated AREA 4 LIMBO row edge to edge, inside its collision rectangle and never past it  1549ms
+   ✓ AREA 4 gameplay > generates and plays the rebuilt COLLAPSED REALM, on the same images, with its ledges collapsing  2179ms
+   ✓ AREA 4 gameplay > leaves AREA 3 generating and playing as it did  822ms
+   ✓ AREA 4 collapsing ledge images > draws every collapsing ledge of a real AREA 4 run from it, and every permanent surface from the ordinary ledge  525ms
+   ✓ AREA 4 collapsing ledge images > lays every width from 16 to 160 -- the generated 26-66 included -- inside its collision, landing row 3 solid end to end  1014ms
+   ✓ AREA 4 collapsing ledge images > changes no geometry, collision, timing or generation: AREA 4 is c1495be's, bit for bit  2564ms
+ ✓ tests/exitGateArt.test.ts (11 tests) 5861ms
+   ✓ gameplay is cc578bf's > generates and plays AREA 1-4, THE ABYSS staging room and NIMUSHI exactly as before  5494ms
+ ✓ tests/caveShellArt.test.ts (13 tests) 6501ms
+   ✓ backwall > tiles seamlessly: opaque, and each edge matches the opposite one  593ms
+   ✓ nothing but the drawing changes > generates and plays AREA 1-4, THE ABYSS staging room and NIMUSHI exactly as ea3de3a did  5615ms
+ ✓ tests/airContainerArt.test.ts (14 tests) 7395ms
+   ✓ AREA mapping > every container AREA 3 lays is drawn from the image; AREA 1, 2 and 4 lay none  390ms
+   ✓ gameplay is 842d4c6's > lays, breaks and releases air, and drains and refills the tank, exactly as before  1507ms
+   ✓ gameplay is 842d4c6's > generates and plays AREA 1-4, THE ABYSS staging room and NIMUSHI exactly as before  5267ms
+ ✓ tests/doodadArt.test.ts (12 tests) 5938ms
+   ✓ nothing but the DOODAD drawing changes > generates and plays AREA 1-4 and THE ABYSS exactly as cb5912d did  5684ms
+ ✓ tests/tapiocaProjectileArt.test.ts (20 tests) 26360ms
+   ✓ TAPIOCA A in the scene: same pearls, same cull, same place in the draw > stays inside the old rim's raster square on every frame: floor(c - 11) .. ceil(c + 11), both axes  546ms
+   ✓ TAPIOCA A under a fractional Graphics translation (Canvas subpixel fix) > puts every rect edge on a whole screen pixel: no fractional edge for Canvas 2D to antialias  563ms
+   ✓ TAPIOCA A under a fractional Graphics translation (Canvas subpixel fix) > keeps WebGL's pixels: the screen square is exactly the one 2ffc1b0's rects filled by pixel centre  496ms
+   ✓ TAPIOCA A under a fractional Graphics translation (Canvas subpixel fix) > stays inside the old rim circle's raster square floor(c - 11 + t)..ceil(c + 11 + t) at every translation  2071ms
+   ✓ TAPIOCA A changes nothing else > plays exactly as 959a5f4: the same pearls, flights, shoot-downs, hits and phases, seed for seed  22413ms
+ ✓ tests/caveCeilingArt.test.ts (10 tests) 7244ms
+   ✓ nothing but the drawing changes > generates and plays AREA 1-4, THE ABYSS staging room and NIMUSHI exactly as ea3de3a did  7140ms
+ ✓ tests/contentArt.test.ts (18 tests) 7355ms
+   ✓ nothing but the drawing changes > generates and plays AREA 1-4, THE ABYSS and NIMUSHI exactly as 4e5535c did  7269ms
+ ✓ tests/pieces.test.ts (14 tests) 7252ms
+   ✓ AREA 1 terrain pieces > never generates a band that cannot be landed on from the one above it  2166ms
+   ✓ AREA 1 terrain pieces > puts every one of the five pieces into an ordinary run  383ms
+   ✓ AREA 1 terrain pieces > lays a platform-free span that no row grammar ever produced  1295ms
+   ✓ AREA 1 terrain pieces > lays bands holding more than one ledge, which no row grammar could  937ms
+   ✓ AREA 1 terrain pieces > gives a BREAK BLOCK row somewhere to fall to, without adding or removing one  544ms
+   ✓ AREA 1 terrain pieces > keeps the guaranteed SAFE ZONE that a tight piece could have squeezed out  923ms
+   ✓ AREA 1 terrain pieces > lays the original's enemy density, rising through the AREA, whatever the terrain  403ms
+ ✓ tests/rhythm.test.ts (11 tests) 6810ms
+   ✓ AREA 1 vertical rhythm > every row stays reachable, in both modes and on every seed  1346ms
+   ✓ AREA 1 vertical rhythm > never asks for a step outside a declared band  794ms
+   ✓ AREA 1 vertical rhythm > breaks the single-gap ladder the AREA used to be  611ms
+   ✓ AREA 1 vertical rhythm > keeps the SECTION the same size, so density is not changed by the back door  672ms
+   ✓ AREA 1 vertical rhythm > stops asking for the same horizontal answer row after row  604ms
+   ✓ AREA 1 vertical rhythm > produces tight runs and open falls, neither of which the AREA had  894ms
+   ✓ AREA 1 vertical rhythm > never puts AREA 4 on the rhythm, and lays the same LIMBO shaft whatever the AREA 1 terrain mode  1634ms
+ ✓ tests/refinement.test.ts (38 tests) 5370ms
+   ✓ safe generation across chunk seams > guarantees reachable exits, clear landing lanes and enemy spacing across 10,000m and many seeds  3999ms
+   ✓ safe generation across chunk seams > interrupts both wall lanes repeatedly instead of leaving an endless safe bypass  1087ms
+ ✓ tests/bossParity.test.ts (22 tests) 6840ms
+   ✓ the approach > cannot hurt anyone before the fight begins, and shows it before it begins  354ms
+   ✓ the barrier cycle > can still be defeated, through the cycle, on every seed tried  360ms
+   ✓ isolation > plays all twelve SECTIONs exactly as 5de724e did  5449ms
+ ✓ tests/boss.test.ts (91 tests) 7355ms
+   ✓ the rising deep > never overtakes NIMUSHI, and always leaves a playable band  973ms
+   ✓ the four ABYSS environments > never puts a floor ahead of the player, in any stretch  350ms
+   ✓ the fight can be won, and won honestly > can be taken down by every one of the seven weapons, with no upgrades  1422ms
+   ✓ the camera and the view > settles the recoil back, and does not accumulate it over a whole fight  307ms
+   ✓ the camera and the view > keeps the weak point on screen through a real fight, on every seed  890ms
+   ✓ what NIMUSHI shows and says > has a distinct pose for every state the fight can be in  328ms
+   ✓ what NIMUSHI shows and says > speaks when it wakes, when it rages and when it is dying, and can be talked over  404ms
+ ✓ tests/droneArt.test.ts (13 tests) 6669ms
+   ✓ DRONE A in the scene: same spot, same bob, same envelope > stays inside the old 18x12 footprint on every frame: the same box, minus the top row corners  1771ms
+   ✓ DRONE A changes nothing else > plays exactly as 7e4c59d: the same rounds, kills, hits, chain and positions, with and without DRONE  4807ms
+ ✓ tests/area1.test.ts (19 tests) 7141ms
+   ✓ AREA 1 enemy roster > sees every Caverns role across the three sections  424ms
+   ✓ AREA 1 section pacing > puts the air enemy on the ground enemy side often enough to chain, without lining enemies up  727ms
+   ✓ AREA 1 generation safety across seeds > never runs out of reachable platforms and keeps enemies clear of the safe lane  1517ms
+   ✓ AREA 1 presentation data > lays nothing that can end a run on contact  2260ms
+   ✓ AREA 1 presentation data > is the most breakable-rich AREA of the four, with reward blocks in it  1086ms
+ ✓ tests/area2.test.ts (21 tests) 6581ms
+   ✓ AREA 2 generation carries the CATACOMBS role > makes a share of the ordinary ledges spike platforms, and nothing else  781ms
+   ✓ AREA 2 generation carries the CATACOMBS role > starts every spike platform unarmed and safe  2328ms
+   ✓ AREA 2 generation carries the CATACOMBS role > lays no instant-death terrain anywhere  1001ms
+   ✓ AREA 2 generation carries the CATACOMBS role > has no water left in it at all  631ms
+   ✓ AREA 2 generation carries the CATACOMBS role > hangs candles on the walls to bounce from  602ms
+   ✓ AREA 2 generation carries the CATACOMBS role > guarantees a side room and leaves the route intact  911ms
+ ✓ tests/magmaLegacy.test.ts (26 tests) 2139ms
+   ✓ AREA 3 generation safety > never lets lava block the route, bury ice or sit on a landing  991ms
+   ✓ AREA 3 generation safety > leaves a lane wide enough to fall through on every row  334ms
+   ✓ MAGMA WRATH still lays its own terrain > generates all three across many seeds  396ms
+ ✓ tests/bossPattern.test.ts (21 tests) 2383ms
+   ✓ the shower is fought through, not waited out > reaches every attack in its rotation over a whole fight  1341ms
+ ✓ tests/fixes.test.ts (29 tests) 1822ms
+   ✓ C1: audio never crashes the run > survives every AREA and the FINAL BOSS  371ms
+   ✓ H2: a won fight can never become a loss > seals the victory the moment NIMUSHI falls  306ms
+ ✓ tests/bossCoreLoop.test.ts (31 tests) 2015ms
+   ✓ doing nothing carries the player into NIMUSHI > can be held for thirty seconds by stomping, bouncing and braking  1388ms
+ ✓ tests/bossDialogue.test.ts (18 tests) 927ms
+ ✓ tests/externalAssets.test.ts (12 tests) 4436ms
+   ✓ isolation from 7e958e7 > plays all twelve SECTIONs exactly as 7e958e7 did  4266ms
+ ✓ tests/dwellers.test.ts (14 tests) 1013ms
+   ✓ AREA 1 swarm > starts every extra enemy clear of the others, and none in a SECTION's quiet opening  624ms
+ ✓ tests/stage.test.ts (23 tests) 687ms
+   ✓ stage data and progression bookkeeping > generates every section offset without running out of reachable platforms  411ms
+ ✓ tests/bossAbyssArt.test.ts (17 tests) 617ms
+   ✓ nothing but the drawing changes > plays THE ABYSS and NIMUSHI exactly as before (the replay goldens tests/contentArt.test.ts holds)  330ms
+ ✓ tests/upgrades.test.ts (35 tests) 481ms
+ ✓ tests/playerFeedbackVfx.test.ts (17 tests) 463ms
+   ✓ player feedback VFX: state mapping > keeps the legacy blink phase exactly, at every boundary the audit listed  304ms
+ ✓ tests/stageV2Isolation.test.ts (3 tests) 442ms
+   ✓ STAGE GENERATION v2 leaves every AREA it has not rebuilt, and the boss, exactly as c9a0a63 > plays the FINAL BOSS identically to the BOSS PARITY PASS  440ms
+ ✓ tests/doodadSafeZone.test.ts (58 tests) 41304ms
+   ✓ GUN MODULE, SHOP and COIN VEIN are SAFE ZONE content and nothing else > lays no weapon crate and no shop doorway anywhere in the shaft  1898ms
+   ✓ GUN MODULE, SHOP and COIN VEIN are SAFE ZONE content and nothing else > is the only place a run finds a module, a shop or a vein  1042ms
+   ✓ SAFE ZONE generation stays out of everything else > cuts the planned number of side rooms in AREA 2-4, with the room body in the wall  2982ms
+   ✓ SAFE ZONE generation stays out of everything else > never puts a chamber mouth on SPIKE, a BREAK BLOCK, an air container or a ledge  409ms
+   ✓ SAFE ZONE supply reaches all twelve SECTIONs > cuts at least one in every SECTION, on every seed  4367ms
+   ✓ SAFE ZONE supply reaches all twelve SECTIONs > uses both walls in every AREA, so a side room is never always on one side  4952ms
+   ✓ SAFE ZONE supply reaches all twelve SECTIONs > can offer a module, a shop and a vein in every AREA  4754ms
+   ✓ SAFE ZONE supply reaches all twelve SECTIONs > never cuts a mouth into terrain, in any AREA  5511ms
+   ✓ SAFE ZONE supply reaches all twelve SECTIONs > stays clear of the opening and the exit depth in every SECTION  8437ms
+   ✓ SAFE ZONE supply reaches all twelve SECTIONs > brings its own floor, so AREA 4 needs no solid ledge to host one  5583ms
+   ✓ SAFE ZONE supply reaches all twelve SECTIONs > keeps AREA 3 able to reach air past every chamber  658ms
+ ✓ tests/gunModules.test.ts (80 tests) 554ms
+ ✓ tests/movement.test.ts (20 tests) 464ms
+ ✓ tests/bossPhysics.test.ts (29 tests) 534ms
+ ✓ tests/bossArena.test.ts (6 tests) 397ms
+ ✓ tests/projectileVelocity.test.ts (7 tests) 452ms
+ ✓ tests/economy.test.ts (43 tests) 388ms
+ ✓ tests/game.test.ts (19 tests) 352ms
+ ✓ tests/rest.test.ts (38 tests) 342ms
+ ✓ tests/stagingShopMusic.test.ts (14 tests) 329ms
+ ✓ tests/visualStateMapping.test.ts (8 tests) 159ms
+ ✓ tests/bossReset.test.ts (12 tests) 249ms
+ ✓ tests/bossMovement.test.ts (6 tests) 339ms
+ ✓ tests/shopFocus.test.ts (25 tests) 168ms
+ ✓ tests/areaMusic.test.ts (17 tests) 105ms
+ ✓ tests/upgradeParity.test.ts (6 tests) 117ms
+ ✓ tests/downwellCore.test.ts (28 tests) 212ms
+ ✓ tests/shopUi.test.ts (16 tests) 103ms
+ ✓ tests/area3.test.ts (65 tests) 44608ms
+   ✓ AREA 3 bubbles > has no shelter anywhere: nothing in the shaft stops the drain by being stood in  366ms
+   ✓ AREA 3 enemies > sees all four roles across the area, and no BITER in 3-1  638ms
+   ✓ AREA 3 section pacing > moves from plentiful, close air to sparse, off-route air  2413ms
+   ✓ AREA 3 section pacing > keeps air sparse enough late in the area that the gauge still decides routes  1466ms
+   ✓ AREA 3 section pacing > raises enemy pressure and the share that cannot be stomped  1348ms
+   ✓ AREA 3 generation safety > never leaves a stretch longer than the plan allows without air, across many seeds  550ms
+   ✓ AREA 3 generation safety > never builds a SECTION with no air in it at all  1298ms
+   ✓ AREA 3 generation safety > keeps every air source inside the shaft and within reach of the fall that leads to it  428ms
+   ✓ AREA 3 generation safety > still guarantees a reachable route with submerged travel maths  363ms
+   ✓ AREA 3 terrain reads as water before anything moves > lays fewer ledges than the catacombs, clearly further apart, in every SECTION  1303ms
+   ✓ AREA 3 terrain reads as water before anything moves > opens real lanes where the catacombs have none at all  1030ms
+   ✓ AREA 3 terrain reads as water before anything moves > crosses the shaft from wall to wall, and leaves water in the middle to cross  731ms
+   ✓ AREA 3 water enemies stay clear of everything, across their whole movement > never lets any water enemy reach a doodad's bounce, a slab, a chamber, air, or the walls  28247ms
+   ✓ AREA 3 water enemies stay clear of everything, across their whole movement > keeps the envelope exact: no sampled position ever leaves it  3766ms
+ ✓ tests/restUi.test.ts (25 tests) 99ms
+ ✓ tests/gunbootsWallJump.test.ts (29 tests) 82ms
+ ✓ tests/coinHigh.test.ts (21 tests) 157ms
+ ✓ tests/bossStompArt.test.ts (8 tests) 20ms
+ ✓ tests/stagingVisual.test.ts (6 tests) 63ms
+ ✓ tests/tomatoReveal.test.ts (12 tests) 171ms
+ ✓ tests/playerArt.test.ts (7 tests) 20ms
+ ✓ tests/enemyArt.test.ts (43 tests) 75ms
+ ✓ tests/stagingShopMode.test.ts (6 tests) 109ms
+ ✓ tests/runPanelUi.test.ts (21 tests) 14ms
+ ✓ tests/floatingText.test.ts (13 tests) 23ms
+ ✓ tests/bossVisualFix.test.ts (7 tests) 21ms
+ ✓ tests/assistWatch.test.ts (7 tests) 27ms
+ ✓ tests/playerAnimation.test.ts (7 tests) 15ms
+ ✓ tests/surfaceBlend.test.ts (4 tests) 55ms
+ ✓ tests/touchGuards.test.ts (8 tests) 3ms
+ ✓ tests/sideCave.test.ts (31 tests) 47011ms
+   ✓ SIDE CAVE in a run > is where every AREA puts all three of its side contents  6540ms
+   ✓ SIDE CAVE frequency > gives each mode the count it asks for, and never more  1339ms
+   ✓ SIDE CAVE frequency > averages 1.5 caves a SECTION on VARIABLE, which is what 50/50 means  3648ms
+   ✓ SIDE CAVE frequency > changes ONLY the number of caves: the shaft itself is identical in all three  1079ms
+   ✓ SIDE CAVE frequency > keeps the same cave in the same place when a mode adds another  810ms
+   ✓ SIDE CAVE frequency > leaves the type split alone, whichever frequency is running  12919ms
+   ✓ SIDE CAVE frequency > never leaves a SECTION without one, in any AREA  1818ms
+   ✓ SIDE CAVE entry contract > places no cave the fall cannot physically cross to, on either wall  7204ms
+   ✓ SIDE CAVE entry contract > leaves the reaction reserve intact on every cave it places  5400ms
+   ✓ SIDE CAVE entry contract > still guarantees every SECTION its caves, at every frequency  4414ms
+   ✓ two SHOP caves in one SECTION > opens whichever one is reached first, and then the other  763ms
+ ✓ tests/desktopShell.test.ts (9 tests) 14ms
+ ✓ tests/terrainWatch.test.ts (6 tests) 2ms
+ ✓ tests/titleScreen.test.ts (16 tests) 6ms
+ ✓ tests/menuKeys.test.ts (11 tests) 4ms
+ ✓ tests/externalBuild.test.ts (4 tests) 4ms
+ ✓ tests/touchGesture.test.ts (4 tests) 3ms
+ ✓ tests/stageFlow.test.ts (4 tests) 50685ms
+   ✓ STAGE GENERATION v2: enemies placed into the fall > never stands a guard on, or patrolling over, the spot a fall lands on  11045ms
+   ✓ STAGE GENERATION v2: enemies placed into the fall > only lays a flyer across a fall that can still go round all of it and make the landing  1782ms
+   ✓ STAGE GENERATION v2: enemies placed into the fall > moves enemies without adding any: the rolls for whether a row has one are untouched  37358ms
+   ✓ STAGE GENERATION v2: enemies placed into the fall > puts enemies across the fall that a plain route-following descent will meet  497ms
+ ✓ tests/postClonePass1.test.ts (23 tests) 53150ms
+   ✓ AREA 2: every floor bites, and some carry you to the wall > makes every ordinary floor past the opening grace a spike floor, on the 0.5s warning  1248ms
+   ✓ AREA 2: every floor bites, and some carry you to the wall > runs every belt toward the nearer wall, and only where the floor can still be left in time  3797ms
+   ✓ AREA 2: every floor bites, and some carry you to the wall > lets a player who moves at once get off every generated belt without a scratch, from anywhere on it  6972ms
+   ✓ AREA 3: the route itself is dangerous > never touches the guaranteed fall line, a landing, a way off, the way to air, or a room  6794ms
+   ✓ AREA 3: the route itself is dangerous > keeps shelf-end barbs out from under any patrol, so enemy and barb never share a footing  1653ms
+   ✓ AREA 3: the route itself is dangerous > raises the pressure through the AREA by structure: more barbs, and more of the air behind them  1372ms
+   ✓ SIDE ROOMS in AREA 2-4: in the wall, like AREA 1 > cuts two rooms a SECTION, every one of them a cave in the rock with only its entrance on the shaft  9192ms
+   ✓ SIDE ROOMS in AREA 2-4: in the wall, like AREA 1 > puts every entrance where the fall already being made can reach it, with time left to decide  11673ms
+   ✓ SIDE ROOMS in AREA 2-4: in the wall, like AREA 1 > walks in, stops the world inside, walks out the same entrance, and puts the view and the player back  1267ms
+   ✓ isolation > generates AREA 1 bit for bit as 518af88 did  3352ms
+   ✓ isolation > hands AREA 4 none of AREA 2-3's furniture: no reef, no belt, no spike floor, side rooms in the wall  5575ms
+
+ Test Files  83 passed (83)
+      Tests  1747 passed (1747)
+   Start at  10:39:58
+   Duration  54.20s (transform 3.20s, setup 0ms, collect 20.51s, tests 447.98s, environment 33ms, prepare 8.48s)
+
+exit 0
